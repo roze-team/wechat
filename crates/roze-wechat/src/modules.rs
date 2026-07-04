@@ -1,0 +1,90 @@
+#[path = "modules_impl/basic_service.rs"]
+pub mod basic_service;
+#[path = "modules_impl/channels.rs"]
+pub mod channels;
+#[path = "modules_impl/mini_program.rs"]
+pub mod mini_program;
+#[path = "modules_impl/official_account.rs"]
+pub mod official_account;
+#[path = "modules_impl/open_platform.rs"]
+pub mod open_platform;
+#[path = "modules_impl/open_work.rs"]
+pub mod open_work;
+#[path = "modules_impl/payment.rs"]
+pub mod payment;
+#[path = "modules_impl/platform_client.rs"]
+mod platform_client;
+#[path = "modules_impl/work.rs"]
+pub mod work;
+
+pub use platform_client::{DomainModule, PlatformClient};
+
+use crate::{config::Platform, Client};
+
+#[derive(Debug, Clone)]
+pub struct Wechat {
+    client: Client,
+}
+
+impl Wechat {
+    pub fn new(client: Client) -> Self {
+        Self { client }
+    }
+
+    pub fn basic_service(&self) -> basic_service::BasicService {
+        basic_service::BasicService::new(self.client.clone(), Platform::BasicService)
+    }
+
+    pub fn channels(&self) -> channels::Channels {
+        channels::Channels::new(self.client.clone(), Platform::Channels)
+    }
+
+    pub fn mini_program(&self) -> mini_program::MiniProgram {
+        mini_program::MiniProgram::new(self.client.clone(), Platform::MiniProgram)
+    }
+
+    pub fn official_account(&self) -> official_account::OfficialAccount {
+        official_account::OfficialAccount::new(self.client.clone(), Platform::OfficialAccount)
+    }
+
+    pub fn open_platform(&self) -> open_platform::OpenPlatform {
+        open_platform::OpenPlatform::new(self.client.clone(), Platform::OpenPlatform)
+    }
+
+    pub fn open_work(&self) -> open_work::OpenWork {
+        open_work::OpenWork::new(self.client.clone(), Platform::OpenWork)
+    }
+
+    pub fn payment(&self) -> payment::Payment {
+        payment::Payment::new(self.client.clone(), Platform::Payment)
+    }
+
+    pub fn work(&self) -> work::Work {
+        work::Work::new(self.client.clone(), Platform::Work)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Client, WechatConfig};
+
+    use super::Wechat;
+
+    #[test]
+    fn exposes_product_module_entries() {
+        let client = Client::new(WechatConfig::default()).unwrap();
+        let wechat = Wechat::new(client);
+
+        assert_eq!(
+            wechat.official_account().menu().name(),
+            "official_account.menu"
+        );
+        assert_eq!(wechat.mini_program().auth().name(), "mini_program.auth");
+        assert_eq!(wechat.payment().notify().name(), "payment.notify");
+        assert_eq!(wechat.work().message().name(), "work.message");
+        assert_eq!(
+            wechat.open_platform().component().name(),
+            "open_platform.component"
+        );
+    }
+}
