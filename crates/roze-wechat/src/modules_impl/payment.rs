@@ -178,6 +178,19 @@ impl Payment {
         .await
     }
 
+    pub async fn reverse_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ReverseOrderRequest,
+    ) -> Result<PaymentStatusResponse> {
+        let path = format!(
+            "/v3/pay/transactions/out-trade-no/{}/close",
+            request.out_trade_no
+        );
+        let body = request.into_body(&credentials.mch_id);
+        self.post_v3(credentials, &path, body).await
+    }
+
     pub fn partner(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.partner")
     }
@@ -264,6 +277,14 @@ impl Payment {
             }),
         )
         .await
+    }
+
+    pub async fn reverse_partner_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerCloseOrderRequest,
+    ) -> Result<PaymentStatusResponse> {
+        self.partner_close_order(credentials, request).await
     }
 
     pub fn profit_sharing(&self) -> DomainModule {
@@ -682,6 +703,21 @@ pub struct PartnerCloseOrderRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReverseOrderRequest {
+    pub out_trade_no: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mchid: Option<String>,
+}
+
+impl ReverseOrderRequest {
+    fn into_body(self, default_mch_id: &str) -> Value {
+        serde_json::json!({
+            "mchid": self.mchid.unwrap_or_else(|| default_mch_id.to_string()),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Amount {
     pub total: i64,
     #[serde(default = "default_cny")]
@@ -960,7 +996,8 @@ mod tests {
         PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
         PartnerOrderQuery, PartnerPayer, PaymentNotification, PaymentResource,
         ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        RefundAmount, RefundRequest, TransferBatchQuery, TransferBatchRequest, TransferDetailInput,
+        RefundAmount, RefundRequest, ReverseOrderRequest, TransferBatchQuery, TransferBatchRequest,
+        TransferDetailInput,
     };
 
     #[test]
@@ -1141,6 +1178,29 @@ mod tests {
         assert_eq!(value["out_trade_no"], "out");
         assert_eq!(value["sp_mchid"], "sp_mchid");
         assert_eq!(value["sub_mchid"], "sub_mchid");
+    }
+
+    #[test]
+    fn serializes_reverse_order_request() {
+        let value = serde_json::to_value(ReverseOrderRequest {
+            out_trade_no: "out".to_string(),
+            mchid: Some("mchid".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(value["out_trade_no"], "out");
+        assert_eq!(value["mchid"], "mchid");
+    }
+
+    #[test]
+    fn builds_reverse_order_body_with_default_mchid() {
+        let body = ReverseOrderRequest {
+            out_trade_no: "out".to_string(),
+            mchid: None,
+        }
+        .into_body("default_mchid");
+
+        assert_eq!(body, json!({ "mchid": "default_mchid" }));
     }
 
     #[test]

@@ -51,7 +51,7 @@ Status values:
 | Payment | partner | `payment::partner` | tested |
 | Payment | profitSharing | `payment::profit_sharing` | tested |
 | Payment | refund | `payment::refund` | tested |
-| Payment | reverse | `payment::reverse` | module |
+| Payment | reverse | `payment::reverse` | tested |
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
 | Work | auth/oauth | `work::oauth` | tested |
