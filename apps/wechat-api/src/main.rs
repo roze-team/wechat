@@ -1,5 +1,8 @@
 use axum::{
-    extract::{rejection::JsonRejection, State},
+    extract::{rejection::JsonRejection, MatchedPath, Request, State},
+    http::StatusCode,
+    middleware::{self, Next},
+    response::Response,
     routing::{get, post},
     Json, Router,
 };
@@ -9,7 +12,11 @@ use roze_http::rest::RestServer;
 use roze_result::ApiResponse;
 use roze_wechat::{crypto, types::CallbackQuery};
 use serde::Serialize;
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 #[derive(Debug, Clone)]
@@ -37,6 +44,7 @@ async fn main() -> anyhow::Result<()> {
         service_name: Arc::from(config.name.as_str()),
         health,
     };
+    let metrics_state = state.clone();
 
     let app = Router::new()
         .route("/healthz", get(healthz))
@@ -45,6 +53,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/metrics", get(metrics))
         .route("/wechat/callback/verify", post(verify_callback))
         .with_state(state)
+        .layer(middleware::from_fn(move |req: Request, next: Next| {
+            let state = metrics_state.clone();
+            async move { record_metrics(state, req, next).await }
+        }))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive());
 
@@ -95,6 +107,43 @@ async fn metrics() -> String {
     roze_metrics::http_metrics()
 }
 
+async fn record_metrics(state: AppState, req: Request, next: Next) -> Response {
+    let started = Instant::now();
+    let method = req.method().to_string();
+    let route = req
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|path| path.as_str().to_string())
+        .unwrap_or_else(|| req.uri().path().to_string());
+
+    let response = next.run(req).await;
+    record_request_metrics(
+        &state.service_name,
+        &route,
+        &method,
+        response.status(),
+        started.elapsed(),
+    );
+    response
+}
+
+fn record_request_metrics(
+    service_name: &str,
+    route: &str,
+    method: &str,
+    status: StatusCode,
+    elapsed: Duration,
+) {
+    roze_metrics::record_http_request(status.is_success(), elapsed);
+    roze_metrics::record_http_route(
+        service_name.to_string(),
+        route.to_string(),
+        method.to_string(),
+        status.as_u16().to_string(),
+        elapsed,
+    );
+}
+
 async fn verify_callback(
     input: Result<Json<VerifyCallbackRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<VerifyCallbackResponse>>, RozeError> {
@@ -128,9 +177,11 @@ struct HealthProbeResponse {
 #[cfg(test)]
 mod tests {
     use super::{metrics, verify_callback, VerifyCallbackRequest};
+    use axum::http::StatusCode;
     use axum::response::{IntoResponse, Response};
     use axum::Json;
     use roze_wechat::{crypto, types::CallbackQuery};
+    use std::time::Duration;
 
     #[test]
     fn loads_roze_service_config() {
@@ -181,5 +232,24 @@ mod tests {
 
         assert!(body.contains("roze_http_requests_total"));
         assert!(body.contains("roze_http_requests_failed_total"));
+    }
+
+    #[test]
+    fn records_roze_http_route_metrics() {
+        super::record_request_metrics(
+            "wechat-api",
+            "/wechat/callback/verify",
+            "POST",
+            StatusCode::OK,
+            Duration::from_millis(5),
+        );
+
+        let body = roze_metrics::http_metrics();
+
+        assert!(body.contains("roze_http_route_requests_total"));
+        assert!(body.contains(r#"service="wechat-api""#));
+        assert!(body.contains(r#"route="/wechat/callback/verify""#));
+        assert!(body.contains(r#"method="POST""#));
+        assert!(body.contains(r#"status="200""#));
     }
 }

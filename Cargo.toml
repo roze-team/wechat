@@ -16,7 +16,7 @@ anyhow = "1"
 async-trait = "0.1"
 aes = "0.8"
 aes-gcm = "0.10"
-axum = { version = "0.8.9", default-features = false, features = ["http1", "http2", "json", "query", "tokio", "tracing"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "http2", "json", "matched-path", "query", "tokio", "tracing"] }
 base64 = "0.22"
 bytes = "1"
 cbc = "0.1"

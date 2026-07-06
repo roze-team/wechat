@@ -1,7 +1,7 @@
 # Production Checklist
 
 - All applications expose `/healthz`, `/readyz`, and `/startupz`.
-- All HTTP services expose `/metrics` through `roze-metrics`.
+- All HTTP services expose `/metrics` and record route/status/duration metrics through `roze-metrics`.
 - HTTP services load `roze-config::ServiceConfig` from `config.yaml`.
 - HTTP services run through `roze-http::rest::RestServer`.
 - HTTP responses use `roze-result::ApiResponse`.
