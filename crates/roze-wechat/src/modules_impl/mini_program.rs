@@ -7,6 +7,7 @@ use crate::{
     crypto,
     error::Result,
     modules::{DomainModule, PlatformClient},
+    types::{StableAccessTokenRequest, StableAccessTokenResponse},
     Client,
 };
 
@@ -88,6 +89,13 @@ impl MiniProgram {
 
     pub fn base(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.base")
+    }
+
+    pub async fn stable_access_token(
+        &self,
+        request: StableAccessTokenRequest,
+    ) -> Result<StableAccessTokenResponse> {
+        self.inner.post("cgi-bin/stable_token", None, request).await
     }
 
     pub fn customer_service_message(&self) -> DomainModule {

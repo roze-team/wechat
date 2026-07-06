@@ -18,7 +18,7 @@ Status values:
 | Basic Service | url | `basic_service::url` | tested |
 | Channels | eCommerce | `channels::e_commerce` | tested |
 | Mini Program | auth | `mini_program::auth` | tested |
-| Mini Program | base | `mini_program::base` | module |
+| Mini Program | base | `mini_program::base` | tested |
 | Mini Program | customerServiceMessage | `mini_program::customer_service_message` | tested |
 | Mini Program | dataCube | `mini_program::data_cube` | tested |
 | Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
@@ -28,7 +28,7 @@ Status values:
 | Mini Program | urlScheme/urlLink/shortLink | `mini_program::url` | tested |
 | Mini Program | wxaCode | `mini_program::wxa_code` | tested |
 | Official Account | auth/oauth | `official_account::oauth` | tested |
-| Official Account | base | `official_account::base` | module |
+| Official Account | base | `official_account::base` | tested |
 | Official Account | broadcasting | `official_account::broadcasting` | tested |
 | Official Account | card | `official_account::card` | module |
 | Official Account | customerService | `official_account::customer_service` | tested |

@@ -6,6 +6,7 @@ use crate::{
     crypto,
     error::Result,
     modules::{DomainModule, PlatformClient},
+    types::{StableAccessTokenRequest, StableAccessTokenResponse},
     Client,
 };
 
@@ -98,6 +99,13 @@ impl OfficialAccount {
 
     pub fn base(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.base")
+    }
+
+    pub async fn stable_access_token(
+        &self,
+        request: StableAccessTokenRequest,
+    ) -> Result<StableAccessTokenResponse> {
+        self.inner.post("cgi-bin/stable_token", None, request).await
     }
 
     pub fn broadcasting(&self) -> DomainModule {
