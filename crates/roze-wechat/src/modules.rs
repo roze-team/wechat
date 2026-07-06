@@ -81,6 +81,12 @@ mod tests {
         );
         assert_eq!(wechat.mini_program().auth().name(), "mini_program.auth");
         assert_eq!(wechat.payment().notify().name(), "payment.notify");
+        assert_eq!(
+            wechat.payment().merchant_service().name(),
+            "payment.merchant_service"
+        );
+        assert_eq!(wechat.payment().pay_score().name(), "payment.pay_score");
+        assert_eq!(wechat.payment().security().name(), "payment.security");
         assert_eq!(wechat.work().message().name(), "work.message");
         assert_eq!(
             wechat.open_platform().component().name(),

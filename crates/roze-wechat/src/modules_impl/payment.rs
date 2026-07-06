@@ -29,6 +29,10 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.jssdk")
     }
 
+    pub fn base(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.base")
+    }
+
     pub fn build_jsapi_pay_params(
         credentials: &PaymentCredentials,
         app_id: impl Into<String>,
@@ -375,6 +379,73 @@ impl Payment {
 
     pub fn transfer(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.transfer")
+    }
+
+    pub fn merchant_service(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.merchant_service")
+    }
+
+    pub async fn query_complaints(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ComplaintListRequest,
+    ) -> Result<ComplaintListResponse> {
+        self.get_v3(
+            credentials,
+            "/v3/merchant-service/complaints-v2",
+            request.into_query(),
+        )
+        .await
+    }
+
+    pub async fn query_complaint_detail(
+        &self,
+        credentials: &PaymentCredentials,
+        complaint_id: impl AsRef<str>,
+    ) -> Result<ComplaintDetailResponse> {
+        let path = format!(
+            "/v3/merchant-service/complaints-v2/{}",
+            complaint_id.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
+    pub fn pay_score(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.pay_score")
+    }
+
+    pub async fn create_pay_score_service_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PayScoreServiceOrderRequest,
+    ) -> Result<PayScoreServiceOrderResponse> {
+        self.post_v3(credentials, "/v3/payscore/serviceorder", to_value(request)?)
+            .await
+    }
+
+    pub async fn query_pay_score_service_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PayScoreServiceOrderQuery,
+    ) -> Result<PayScoreServiceOrderResponse> {
+        self.get_v3(
+            credentials,
+            "/v3/payscore/serviceorder",
+            request.into_query(),
+        )
+        .await
+    }
+
+    pub fn security(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.security")
+    }
+
+    pub async fn get_certificates(
+        &self,
+        credentials: &PaymentCredentials,
+    ) -> Result<CertificateListResponse> {
+        self.get_v3(credentials, "/v3/certificates", Vec::new())
+            .await
     }
 
     pub async fn create_transfer_batch(
@@ -952,6 +1023,148 @@ pub struct BillResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintListRequest {
+    pub begin_date: String,
+    pub end_date: String,
+    pub limit: i64,
+    pub offset: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub complainted_mchid: Option<String>,
+}
+
+impl ComplaintListRequest {
+    fn into_query(self) -> Vec<(String, String)> {
+        let mut query = vec![
+            ("begin_date".to_string(), self.begin_date),
+            ("end_date".to_string(), self.end_date),
+            ("limit".to_string(), self.limit.to_string()),
+            ("offset".to_string(), self.offset.to_string()),
+        ];
+        if let Some(complainted_mchid) = self.complainted_mchid {
+            query.push(("complainted_mchid".to_string(), complainted_mchid));
+        }
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintListResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintDetailResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScoreServiceOrderRequest {
+    pub appid: String,
+    pub service_id: String,
+    pub out_order_no: String,
+    pub service_introduction: String,
+    pub time_range: PayScoreTimeRange,
+    pub risk_fund: PayScoreRiskFund,
+    pub notify_url: String,
+    pub openid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub need_user_confirm: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_payments: Option<Vec<PayScorePostPayment>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_discounts: Option<Vec<PayScorePostDiscount>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScoreTimeRange {
+    pub start_time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time_remark: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time_remark: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScoreRiskFund {
+    pub name: String,
+    pub amount: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScorePostPayment {
+    pub name: String,
+    pub amount: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScorePostDiscount {
+    pub name: String,
+    pub amount: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScoreServiceOrderQuery {
+    pub out_order_no: String,
+    pub appid: String,
+    pub service_id: String,
+}
+
+impl PayScoreServiceOrderQuery {
+    fn into_query(self) -> Vec<(String, String)> {
+        vec![
+            ("out_order_no".to_string(), self.out_order_no),
+            ("appid".to_string(), self.appid),
+            ("service_id".to_string(), self.service_id),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScoreServiceOrderResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CertificateListResponse {
+    pub data: Vec<WechatPayCertificate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WechatPayCertificate {
+    pub serial_no: String,
+    pub effective_time: String,
+    pub expire_time: String,
+    pub encrypt_certificate: WechatPayEncryptedCertificate,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WechatPayEncryptedCertificate {
+    pub algorithm: String,
+    pub nonce: String,
+    pub associated_data: String,
+    pub ciphertext: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentNotification {
     pub id: String,
     pub create_time: String,
@@ -992,12 +1205,13 @@ mod tests {
     use crate::crypto;
 
     use super::{
-        Amount, AppPayParams, BillRequest, JsapiPayParams, NativePrepayRequest,
-        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
-        PartnerOrderQuery, PartnerPayer, PaymentNotification, PaymentResource,
-        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        RefundAmount, RefundRequest, ReverseOrderRequest, TransferBatchQuery, TransferBatchRequest,
-        TransferDetailInput,
+        Amount, AppPayParams, BillRequest, CertificateListResponse, ComplaintListRequest,
+        JsapiPayParams, NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
+        PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PayScoreRiskFund,
+        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreTimeRange,
+        PaymentNotification, PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, RefundAmount, RefundRequest, ReverseOrderRequest,
+        TransferBatchQuery, TransferBatchRequest, TransferDetailInput,
     };
 
     #[test]
@@ -1333,6 +1547,109 @@ mod tests {
                 ("limit".to_string(), "20".to_string()),
                 ("detail_status".to_string(), "SUCCESS".to_string())
             ]
+        );
+    }
+
+    #[test]
+    fn builds_complaint_list_query() {
+        let query = ComplaintListRequest {
+            begin_date: "2026-07-01".to_string(),
+            end_date: "2026-07-06".to_string(),
+            limit: 20,
+            offset: 0,
+            complainted_mchid: Some("mchid".to_string()),
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![
+                ("begin_date".to_string(), "2026-07-01".to_string()),
+                ("end_date".to_string(), "2026-07-06".to_string()),
+                ("limit".to_string(), "20".to_string()),
+                ("offset".to_string(), "0".to_string()),
+                ("complainted_mchid".to_string(), "mchid".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn serializes_pay_score_service_order_request() {
+        let value = serde_json::to_value(PayScoreServiceOrderRequest {
+            appid: "wxappid".to_string(),
+            service_id: "service-id".to_string(),
+            out_order_no: "score-order-1".to_string(),
+            service_introduction: "rental".to_string(),
+            time_range: PayScoreTimeRange {
+                start_time: "2026-07-06T00:00:00+08:00".to_string(),
+                end_time: None,
+                start_time_remark: Some("start".to_string()),
+                end_time_remark: None,
+            },
+            risk_fund: PayScoreRiskFund {
+                name: "DEPOSIT".to_string(),
+                amount: 100,
+                description: None,
+            },
+            notify_url: "https://example.com/pay-score".to_string(),
+            openid: "openid".to_string(),
+            need_user_confirm: Some(true),
+            post_payments: None,
+            post_discounts: None,
+            location: None,
+            attach: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["appid"], "wxappid");
+        assert_eq!(value["service_id"], "service-id");
+        assert_eq!(value["out_order_no"], "score-order-1");
+        assert_eq!(value["time_range"]["start_time_remark"], "start");
+        assert_eq!(value["risk_fund"]["amount"], 100);
+        assert_eq!(value["need_user_confirm"], true);
+        assert!(value.get("attach").is_none());
+    }
+
+    #[test]
+    fn builds_pay_score_service_order_query() {
+        let query = PayScoreServiceOrderQuery {
+            out_order_no: "score-order-1".to_string(),
+            appid: "wxappid".to_string(),
+            service_id: "service-id".to_string(),
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![
+                ("out_order_no".to_string(), "score-order-1".to_string()),
+                ("appid".to_string(), "wxappid".to_string()),
+                ("service_id".to_string(), "service-id".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn deserializes_certificate_list_response() {
+        let response: CertificateListResponse = serde_json::from_value(json!({
+            "data": [{
+                "serial_no": "serial",
+                "effective_time": "2026-07-06T00:00:00+08:00",
+                "expire_time": "2027-07-06T00:00:00+08:00",
+                "encrypt_certificate": {
+                    "algorithm": "AEAD_AES_256_GCM",
+                    "nonce": "nonce",
+                    "associated_data": "certificate",
+                    "ciphertext": "ciphertext"
+                }
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(response.data[0].serial_no, "serial");
+        assert_eq!(
+            response.data[0].encrypt_certificate.algorithm,
+            "AEAD_AES_256_GCM"
         );
     }
 }

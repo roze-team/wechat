@@ -45,13 +45,17 @@ Status values:
 | Open Platform | server | `open_platform::server` | tested |
 | Open Work | provider/suitAuth/corp | `open_work` | tested |
 | Payment | bill | `payment::bill` | tested |
+| Payment | base | `payment::base` | module |
 | Payment | jssdk | `payment::jssdk` | tested |
+| Payment | merchantService | `payment::merchant_service` | tested |
 | Payment | notify | `payment::notify` | tested |
 | Payment | order | `payment::order` | tested |
 | Payment | partner | `payment::partner` | tested |
+| Payment | payScore | `payment::pay_score` | tested |
 | Payment | profitSharing | `payment::profit_sharing` | tested |
 | Payment | refund | `payment::refund` | tested |
 | Payment | reverse | `payment::reverse` | tested |
+| Payment | security | `payment::security` | tested |
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
 | Work | auth/oauth | `work::oauth` | tested |
