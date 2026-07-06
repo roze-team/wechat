@@ -3180,6 +3180,7 @@ dependencies = [
  "anyhow",
  "axum",
  "roze-config",
+ "roze-error",
  "roze-health",
  "roze-http",
  "roze-result",

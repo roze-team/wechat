@@ -4,6 +4,7 @@
 - HTTP services load `roze-config::ServiceConfig` from `config.yaml`.
 - HTTP services run through `roze-http::rest::RestServer`.
 - HTTP responses use `roze-result::ApiResponse`.
+- HTTP request parsing errors are mapped to `roze-error::RozeError`.
 - Health probes use `roze-health::HealthRegistry` and dependency checks.
 - WeChat API calls use explicit timeout and structured error mapping.
 - Access tokens and tickets are cached with early refresh.

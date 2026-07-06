@@ -1,8 +1,9 @@
 use axum::{
-    extract::State,
+    extract::{rejection::JsonRejection, State},
     routing::{get, post},
     Json, Router,
 };
+use roze_error::RozeError;
 use roze_health::{HealthRegistry, ProbeKind};
 use roze_http::rest::RestServer;
 use roze_result::ApiResponse;
@@ -90,15 +91,16 @@ async fn startupz(State(state): State<AppState>) -> Json<ApiResponse<HealthProbe
 }
 
 async fn verify_callback(
-    Json(input): Json<VerifyCallbackRequest>,
-) -> Json<ApiResponse<VerifyCallbackResponse>> {
+    input: Result<Json<VerifyCallbackRequest>, JsonRejection>,
+) -> Result<Json<ApiResponse<VerifyCallbackResponse>>, RozeError> {
+    let Json(input) = input.map_err(|err| RozeError::BadRequest(err.to_string()))?;
     let ok = crypto::verify_callback_signature(
         &input.token,
         &input.query.timestamp,
         &input.query.nonce,
         input.query.signature.as_deref().unwrap_or_default(),
     );
-    Json(ApiResponse::ok(VerifyCallbackResponse { ok }))
+    Ok(Json(ApiResponse::ok(VerifyCallbackResponse { ok })))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -120,6 +122,11 @@ struct HealthProbeResponse {
 
 #[cfg(test)]
 mod tests {
+    use super::{verify_callback, VerifyCallbackRequest};
+    use axum::response::{IntoResponse, Response};
+    use axum::Json;
+    use roze_wechat::{crypto, types::CallbackQuery};
+
     #[test]
     fn loads_roze_service_config() {
         let config = super::load_config().expect("config should parse");
@@ -129,5 +136,37 @@ mod tests {
             config.rest.expect("rest config").addr.to_string(),
             "0.0.0.0:8080"
         );
+    }
+
+    #[tokio::test]
+    async fn verify_callback_returns_roze_api_response() {
+        let timestamp = "1700000000";
+        let nonce = "nonce";
+        let token = "token";
+        let signature = crypto::sha1_signature(&[token, timestamp, nonce]);
+        let response = verify_callback(Ok(Json(VerifyCallbackRequest {
+            token: token.to_string(),
+            query: CallbackQuery {
+                signature: Some(signature),
+                msg_signature: None,
+                timestamp: timestamp.to_string(),
+                nonce: nonce.to_string(),
+                echostr: None,
+            },
+        })))
+        .await
+        .expect("handler should succeed")
+        .0;
+
+        assert_eq!(response.code, 0);
+        assert!(response.data.expect("data").ok);
+    }
+
+    #[test]
+    fn roze_error_uses_http_status_and_json_body() {
+        let response: Response =
+            roze_error::RozeError::BadRequest("invalid json".to_string()).into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
     }
 }

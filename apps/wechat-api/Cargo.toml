@@ -9,6 +9,7 @@ repository.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 roze-config.workspace = true
+roze-error.workspace = true
 roze-health.workspace = true
 roze-http.workspace = true
 roze-result.workspace = true
