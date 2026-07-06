@@ -17,11 +17,11 @@ Status values:
 | Basic Service | subscribeMessage | `basic_service::subscribe_message` | tested |
 | Basic Service | url | `basic_service::url` | tested |
 | Channels | eCommerce | `channels::e_commerce` | tested |
-| Mini Program | auth | `mini_program::auth` | typed |
+| Mini Program | auth | `mini_program::auth` | tested |
 | Mini Program | base | `mini_program::base` | module |
 | Mini Program | customerServiceMessage | `mini_program::customer_service_message` | tested |
 | Mini Program | dataCube | `mini_program::data_cube` | tested |
-| Mini Program | liveBroadcast | `mini_program::live_broadcast` | typed |
+| Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
 | Mini Program | phoneNumber | `mini_program::phone_number` | tested |
 | Mini Program | security | `mini_program::security` | tested |
 | Mini Program | subscribe/uniform/updatable messages | `mini_program::messages` | tested |

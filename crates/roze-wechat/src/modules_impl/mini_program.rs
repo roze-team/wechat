@@ -732,8 +732,9 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange, JumpWxa,
-        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
+        Code2SessionResponse, CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange,
+        JumpWxa, LiveInfoRequest, LiveRoomRequest, PhoneNumberResponse, SecurityMsgSecCheckRequest,
+        SubscribeMessageRequest, UrlSchemeGenerateRequest,
     };
 
     #[test]
@@ -818,5 +819,77 @@ mod tests {
         assert_eq!(value["scene"], 1);
         assert_eq!(value["version"], 2);
         assert_eq!(value["openid"], "openid");
+    }
+
+    #[test]
+    fn deserializes_code2_session_response() {
+        let response: Code2SessionResponse = serde_json::from_value(json!({
+            "openid": "openid",
+            "session_key": "session-key",
+            "unionid": "unionid"
+        }))
+        .unwrap();
+
+        assert_eq!(response.openid.as_deref(), Some("openid"));
+        assert_eq!(response.session_key.as_deref(), Some("session-key"));
+        assert_eq!(response.unionid.as_deref(), Some("unionid"));
+    }
+
+    #[test]
+    fn deserializes_phone_number_response() {
+        let response: PhoneNumberResponse = serde_json::from_value(json!({
+            "phone_info": {
+                "phone_number": "+8613800000000",
+                "pure_phone_number": "13800000000",
+                "country_code": "86",
+                "watermark": { "appid": "wxappid" }
+            }
+        }))
+        .unwrap();
+        let phone_info = response.phone_info.expect("phone_info");
+
+        assert_eq!(phone_info.phone_number, "+8613800000000");
+        assert_eq!(phone_info.pure_phone_number, "13800000000");
+        assert_eq!(phone_info.country_code, "86");
+        assert_eq!(phone_info.watermark.expect("watermark")["appid"], "wxappid");
+    }
+
+    #[test]
+    fn serializes_live_room_request() {
+        let value = serde_json::to_value(LiveRoomRequest {
+            name: "launch".to_string(),
+            cover_img: "media-cover".to_string(),
+            start_time: 1_800_000_000,
+            end_time: 1_800_003_600,
+            anchor_name: "host".to_string(),
+            anchor_wechat: "host-wechat".to_string(),
+            share_img: "media-share".to_string(),
+            type_id: 1,
+            screen_type: 0,
+            close_like: 0,
+            close_goods: 0,
+            close_comment: 0,
+            feeds_img: None,
+            close_replay: Some(1),
+            close_share: None,
+            close_kf: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["name"], "launch");
+        assert_eq!(value["cover_img"], "media-cover");
+        assert_eq!(value["close_replay"], 1);
+        assert!(value.get("feeds_img").is_none());
+    }
+
+    #[test]
+    fn serializes_live_info_request() {
+        let value = serde_json::to_value(LiveInfoRequest {
+            start: 0,
+            limit: 20,
+        })
+        .unwrap();
+
+        assert_eq!(value, json!({ "start": 0, "limit": 20 }));
     }
 }
