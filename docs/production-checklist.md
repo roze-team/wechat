@@ -15,6 +15,8 @@
 - Callback XML parsing is exposed behind signature verification before payloads
   are returned to business callers.
 - WeChat Pay v3 signing and verification are tested with fixed fixtures.
+- Legacy WeChat Pay certificate endpoints configure `client_identity_pem` and
+  use the WeChat Pay merchant API base URL.
 - Payment notification decryption is exposed behind WeChat Pay v3 RSA
   signature verification before plaintext is returned to business callers.
 - Notification decryption is tested before accepting payment callbacks.

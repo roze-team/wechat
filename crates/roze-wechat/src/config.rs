@@ -33,6 +33,8 @@ pub struct WechatConfig {
     pub timeout_ms: u64,
     pub retry_attempts: usize,
     pub token_refresh_skew_seconds: i64,
+    #[serde(default)]
+    pub client_identity_pem: Option<String>,
     pub apps: Vec<AppConfig>,
 }
 
@@ -43,6 +45,7 @@ impl Default for WechatConfig {
             timeout_ms: 10_000,
             retry_attempts: 2,
             token_refresh_skew_seconds: 300,
+            client_identity_pem: None,
             apps: Vec::new(),
         }
     }

@@ -480,6 +480,55 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.refund")
     }
 
+    pub fn redpack(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.redpack")
+    }
+
+    pub async fn send_redpack(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: SendRedpackRequest,
+    ) -> Result<RedpackResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/sendredpack",
+            request.into_params(),
+        )
+        .await
+    }
+
+    pub async fn send_group_redpack(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: SendGroupRedpackRequest,
+    ) -> Result<RedpackResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/sendgroupredpack",
+            request.into_params(),
+        )
+        .await
+    }
+
+    pub async fn query_redpack(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: QueryRedpackRequest,
+    ) -> Result<RedpackInfoResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/gethbinfo",
+            request.into_params(),
+        )
+        .await
+    }
+
     pub async fn create_refund(
         &self,
         credentials: &PaymentCredentials,
@@ -701,6 +750,25 @@ impl Payment {
             credentials.authorization("GET", &path_query, "")?,
         )];
         self.inner.get_with_headers(path, query, headers).await
+    }
+
+    async fn post_legacy_xml<R>(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: &str,
+        path: &str,
+        mut params: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        params.push(("mch_id".to_string(), credentials.mch_id.clone()));
+        params.push(("nonce_str".to_string(), crypto::nonce_string(32)));
+        let sign = crypto::payment_legacy_sign(&params, api_key);
+        params.push(("sign".to_string(), sign));
+        self.inner
+            .post_xml(path, crypto::payment_legacy_xml(&params))
+            .await
     }
 }
 
@@ -975,6 +1043,16 @@ fn default_cny() -> String {
     "CNY".to_string()
 }
 
+fn default_one_i64() -> i64 {
+    1
+}
+
+fn push_optional_param(params: &mut Vec<(String, String)>, key: &str, value: Option<String>) {
+    if let Some(value) = value {
+        params.push((key.to_string(), value));
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payer {
     pub openid: String,
@@ -1103,6 +1181,191 @@ pub struct RefundAmount {
 pub struct RefundResponse {
     #[serde(flatten)]
     pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendRedpackRequest {
+    pub mch_billno: String,
+    pub wxappid: String,
+    pub send_name: String,
+    pub re_openid: String,
+    pub total_amount: i64,
+    #[serde(default = "default_one_i64")]
+    pub total_num: i64,
+    pub wishing: String,
+    pub client_ip: String,
+    pub act_name: String,
+    pub remark: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub risk_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consume_mch_id: Option<String>,
+}
+
+impl SendRedpackRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        let mut params = vec![
+            ("mch_billno".to_string(), self.mch_billno),
+            ("wxappid".to_string(), self.wxappid),
+            ("send_name".to_string(), self.send_name),
+            ("re_openid".to_string(), self.re_openid),
+            ("total_amount".to_string(), self.total_amount.to_string()),
+            ("total_num".to_string(), self.total_num.to_string()),
+            ("wishing".to_string(), self.wishing),
+            ("client_ip".to_string(), self.client_ip),
+            ("act_name".to_string(), self.act_name),
+            ("remark".to_string(), self.remark),
+        ];
+        push_optional_param(&mut params, "scene_id", self.scene_id);
+        push_optional_param(&mut params, "risk_info", self.risk_info);
+        push_optional_param(&mut params, "consume_mch_id", self.consume_mch_id);
+        params
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendGroupRedpackRequest {
+    pub mch_billno: String,
+    pub wxappid: String,
+    pub send_name: String,
+    pub re_openid: String,
+    pub total_amount: i64,
+    pub total_num: i64,
+    pub amt_type: String,
+    pub wishing: String,
+    pub act_name: String,
+    pub remark: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub risk_info: Option<String>,
+}
+
+impl SendGroupRedpackRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        let mut params = vec![
+            ("mch_billno".to_string(), self.mch_billno),
+            ("wxappid".to_string(), self.wxappid),
+            ("send_name".to_string(), self.send_name),
+            ("re_openid".to_string(), self.re_openid),
+            ("total_amount".to_string(), self.total_amount.to_string()),
+            ("total_num".to_string(), self.total_num.to_string()),
+            ("amt_type".to_string(), self.amt_type),
+            ("wishing".to_string(), self.wishing),
+            ("act_name".to_string(), self.act_name),
+            ("remark".to_string(), self.remark),
+        ];
+        push_optional_param(&mut params, "scene_id", self.scene_id);
+        push_optional_param(&mut params, "risk_info", self.risk_info);
+        params
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryRedpackRequest {
+    pub mch_billno: String,
+    pub appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bill_type: Option<String>,
+}
+
+impl QueryRedpackRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        vec![
+            ("mch_billno".to_string(), self.mch_billno),
+            ("appid".to_string(), self.appid),
+            (
+                "bill_type".to_string(),
+                self.bill_type.unwrap_or_else(|| "MCHT".to_string()),
+            ),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedpackResponse {
+    #[serde(rename = "return_code")]
+    pub return_code: String,
+    #[serde(default, rename = "return_msg")]
+    pub return_msg: Option<String>,
+    #[serde(default, rename = "result_code")]
+    pub result_code: Option<String>,
+    #[serde(default, rename = "err_code")]
+    pub err_code: Option<String>,
+    #[serde(default, rename = "err_code_des")]
+    pub err_code_des: Option<String>,
+    #[serde(default, rename = "mch_billno")]
+    pub mch_billno: Option<String>,
+    #[serde(default, rename = "mch_id")]
+    pub mch_id: Option<String>,
+    #[serde(default)]
+    pub wxappid: Option<String>,
+    #[serde(default, rename = "re_openid")]
+    pub re_openid: Option<String>,
+    #[serde(default, rename = "total_amount")]
+    pub total_amount: Option<i64>,
+    #[serde(default, rename = "send_listid")]
+    pub send_list_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedpackInfoResponse {
+    #[serde(rename = "return_code")]
+    pub return_code: String,
+    #[serde(default, rename = "return_msg")]
+    pub return_msg: Option<String>,
+    #[serde(default, rename = "result_code")]
+    pub result_code: Option<String>,
+    #[serde(default, rename = "err_code")]
+    pub err_code: Option<String>,
+    #[serde(default, rename = "err_code_des")]
+    pub err_code_des: Option<String>,
+    #[serde(default, rename = "mch_billno")]
+    pub mch_billno: Option<String>,
+    #[serde(default, rename = "mch_id")]
+    pub mch_id: Option<String>,
+    #[serde(default, rename = "detail_id")]
+    pub detail_id: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default, rename = "send_type")]
+    pub send_type: Option<String>,
+    #[serde(default, rename = "hb_type")]
+    pub hb_type: Option<String>,
+    #[serde(default, rename = "total_num")]
+    pub total_num: Option<i64>,
+    #[serde(default, rename = "total_amount")]
+    pub total_amount: Option<i64>,
+    #[serde(default, rename = "send_time")]
+    pub send_time: Option<String>,
+    #[serde(default, rename = "refund_time")]
+    pub refund_time: Option<String>,
+    #[serde(default, rename = "refund_amount")]
+    pub refund_amount: Option<i64>,
+    #[serde(default)]
+    pub wishing: Option<String>,
+    #[serde(default)]
+    pub remark: Option<String>,
+    #[serde(default, rename = "act_name")]
+    pub act_name: Option<String>,
+    #[serde(default)]
+    pub hblist: Option<RedpackReceiverList>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedpackReceiverList {
+    #[serde(default, rename = "hbinfo")]
+    pub receivers: Vec<RedpackReceiver>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedpackReceiver {
+    pub openid: String,
+    pub amount: i64,
+    #[serde(rename = "rcv_time")]
+    pub receive_time: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1540,9 +1803,11 @@ mod tests {
         PartnerOrderQuery, PartnerPayer, PayScoreRiskFund, PayScoreServiceOrderQuery,
         PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
         PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, RefundAmount, RefundRequest, ReverseOrderRequest,
-        SandboxSignKeyResponse, TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell,
-        TransferBatchQuery, TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
+        ProfitSharingReceiverRequest, QueryRedpackRequest, RedpackInfoResponse, RedpackResponse,
+        RefundAmount, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
+        TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
+        TransferDetailInput, TransferSceneReportInfo,
     };
 
     #[test]
@@ -1652,6 +1917,94 @@ mod tests {
         assert_eq!(response.return_code, "SUCCESS");
         assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
         assert_eq!(response.sandbox_sign_key.as_deref(), Some("key"));
+    }
+
+    #[test]
+    fn builds_redpack_params_with_default_total_num() {
+        let request: SendRedpackRequest = serde_json::from_value(json!({
+            "mch_billno": "bill-1",
+            "wxappid": "wx-app",
+            "send_name": "merchant",
+            "re_openid": "openid",
+            "total_amount": 100,
+            "wishing": "thanks",
+            "client_ip": "127.0.0.1",
+            "act_name": "campaign",
+            "remark": "remark",
+            "scene_id": "PRODUCT_2"
+        }))
+        .unwrap();
+        let params = request.into_params();
+
+        assert!(params.contains(&("mch_billno".to_string(), "bill-1".to_string())));
+        assert!(params.contains(&("total_num".to_string(), "1".to_string())));
+        assert!(params.contains(&("scene_id".to_string(), "PRODUCT_2".to_string())));
+        assert!(!params.iter().any(|(key, _)| key == "mch_id"));
+        assert!(!params.iter().any(|(key, _)| key == "sign"));
+    }
+
+    #[test]
+    fn builds_group_redpack_params() {
+        let params = SendGroupRedpackRequest {
+            mch_billno: "bill-1".to_string(),
+            wxappid: "wx-app".to_string(),
+            send_name: "merchant".to_string(),
+            re_openid: "openid".to_string(),
+            total_amount: 300,
+            total_num: 3,
+            amt_type: "ALL_RAND".to_string(),
+            wishing: "thanks".to_string(),
+            act_name: "campaign".to_string(),
+            remark: "remark".to_string(),
+            scene_id: None,
+            risk_info: Some("posttime=1700000000".to_string()),
+        }
+        .into_params();
+
+        assert!(params.contains(&("amt_type".to_string(), "ALL_RAND".to_string())));
+        assert!(params.contains(&("total_num".to_string(), "3".to_string())));
+        assert!(params.contains(&("risk_info".to_string(), "posttime=1700000000".to_string())));
+    }
+
+    #[test]
+    fn builds_query_redpack_params_with_default_bill_type() {
+        let params = QueryRedpackRequest {
+            mch_billno: "bill-1".to_string(),
+            appid: "wx-app".to_string(),
+            bill_type: None,
+        }
+        .into_params();
+
+        assert!(params.contains(&("appid".to_string(), "wx-app".to_string())));
+        assert!(params.contains(&("bill_type".to_string(), "MCHT".to_string())));
+    }
+
+    #[test]
+    fn parses_redpack_response_xml() {
+        let response: RedpackResponse = quick_xml::de::from_str(
+            "<xml><return_code><![CDATA[SUCCESS]]></return_code><result_code><![CDATA[SUCCESS]]></result_code><mch_billno><![CDATA[bill-1]]></mch_billno><mch_id><![CDATA[1900000109]]></mch_id><wxappid><![CDATA[wx-app]]></wxappid><re_openid><![CDATA[openid]]></re_openid><total_amount>100</total_amount><send_listid><![CDATA[list-1]]></send_listid></xml>",
+        )
+        .unwrap();
+
+        assert_eq!(response.return_code, "SUCCESS");
+        assert_eq!(response.result_code.as_deref(), Some("SUCCESS"));
+        assert_eq!(response.total_amount, Some(100));
+        assert_eq!(response.send_list_id.as_deref(), Some("list-1"));
+    }
+
+    #[test]
+    fn parses_redpack_info_response_xml() {
+        let response: RedpackInfoResponse = quick_xml::de::from_str(
+            "<xml><return_code><![CDATA[SUCCESS]]></return_code><result_code><![CDATA[SUCCESS]]></result_code><mch_billno><![CDATA[bill-1]]></mch_billno><mch_id><![CDATA[1900000109]]></mch_id><detail_id><![CDATA[detail-1]]></detail_id><status><![CDATA[RECEIVED]]></status><send_type><![CDATA[API]]></send_type><hb_type><![CDATA[NORMAL]]></hb_type><total_num>1</total_num><total_amount>100</total_amount><send_time><![CDATA[2026-07-06 12:00:00]]></send_time><wishing><![CDATA[thanks]]></wishing><act_name><![CDATA[campaign]]></act_name><remark><![CDATA[remark]]></remark><hblist><hbinfo><openid><![CDATA[openid]]></openid><amount>100</amount><rcv_time><![CDATA[2026-07-06 12:01:00]]></rcv_time></hbinfo></hblist></xml>",
+        )
+        .unwrap();
+
+        assert_eq!(response.status.as_deref(), Some("RECEIVED"));
+        assert_eq!(response.total_num, Some(1));
+        let receivers = response.hblist.expect("receiver list").receivers;
+        assert_eq!(receivers.len(), 1);
+        assert_eq!(receivers[0].openid, "openid");
+        assert_eq!(receivers[0].amount, 100);
     }
 
     #[test]

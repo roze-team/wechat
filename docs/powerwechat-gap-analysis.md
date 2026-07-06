@@ -19,10 +19,10 @@ entries, request/response DTOs, and tests.
 | Official Account | 24 | 12 | 13 |
 | Open Platform | 6 | 5 | 1 |
 | Open Work | 8 | 6 | 2 |
-| Payment | 20 | 17 | 3 |
+| Payment | 20 | 18 | 2 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 59.
+Total remaining PowerWeChat submodule gaps: 58.
 
 ## Remaining Gaps
 
@@ -81,7 +81,6 @@ Total remaining PowerWeChat submodule gaps: 59.
 
 - `merchant`
 - `promotion`
-- `redpack`
 
 ### Work
 
@@ -109,7 +108,7 @@ Total remaining PowerWeChat submodule gaps: 59.
 ## Implementation Priority
 
 1. Payment production surface:
-   `redpack`, `merchant`, `promotion`.
+   `merchant`, `promotion`.
 2. Mini Program transaction and operational surface:
    `wxa/sec`, `virtualPayment`, `immediateDelivery`, `plugin`,
    `nearbyPoi`, `ocr`, `riskControl`, `search`.

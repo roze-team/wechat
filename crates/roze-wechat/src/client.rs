@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use quick_xml::de::from_str as from_xml_str;
-use reqwest::{multipart, Method, Url};
+use reqwest::{multipart, Identity, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use tracing::debug;
@@ -35,10 +35,13 @@ pub struct ApiRequest<T> {
 
 impl Client {
     pub fn new(config: WechatConfig) -> Result<Self> {
-        let http = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .timeout(config.timeout())
-            .pool_idle_timeout(Duration::from_secs(90))
-            .build()?;
+            .pool_idle_timeout(Duration::from_secs(90));
+        if let Some(identity_pem) = config.client_identity_pem.as_deref() {
+            builder = builder.identity(Identity::from_pem(identity_pem.as_bytes())?);
+        }
+        let http = builder.build()?;
 
         Ok(Self { http, config })
     }
