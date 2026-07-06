@@ -18,8 +18,10 @@ The target is full coverage for:
   callback verification, AES decryption, signing, token management, retries,
   metrics, health checks, and production configuration.
 
-See [docs/coverage-matrix.md](docs/coverage-matrix.md) for the implementation
-matrix.
+See [docs/coverage-matrix.md](docs/coverage-matrix.md) for the core
+implementation matrix and
+[docs/powerwechat-gap-analysis.md](docs/powerwechat-gap-analysis.md) for the
+remaining PowerWeChat submodule gaps.
 
 ## Layout
 
@@ -110,3 +112,18 @@ docker run --rm -p 8080:8080 roze-wechat-api
 
 The container copies `apps/wechat-api/config.yaml` to `/app/config.yaml` and
 uses the same `/healthz` endpoint for its Docker health check.
+
+## Kubernetes
+
+A production-ready baseline manifest is available at
+`deploy/kubernetes/wechat-api.yaml`.
+
+```bash
+kubectl apply -f deploy/kubernetes/wechat-api.yaml
+```
+
+Before applying it in your cluster, replace the image
+`ghcr.io/roze-team/wechat-api:latest` with the tag produced by your release
+pipeline. The manifest mounts Roze `config.yaml` from a ConfigMap and wires
+startup, liveness, and readiness probes to `/startupz`, `/healthz`, and
+`/readyz`.

@@ -22,3 +22,5 @@
 - CI runs format, tests, and clippy.
 - CI builds the production API container image.
 - The production API container exposes `/healthz` as its Docker health check.
+- Kubernetes manifests mount Roze config from ConfigMap and wire startup,
+  liveness, and readiness probes to Roze health endpoints.
