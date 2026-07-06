@@ -182,6 +182,90 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.partner")
     }
 
+    pub async fn partner_jsapi_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerJsapiPrepayRequest,
+    ) -> Result<PrepayResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/pay/partner/transactions/jsapi",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn partner_app_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerAppPrepayRequest,
+    ) -> Result<PrepayResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/pay/partner/transactions/app",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn partner_h5_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerH5PrepayRequest,
+    ) -> Result<H5PrepayResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/pay/partner/transactions/h5",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn partner_native_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerNativePrepayRequest,
+    ) -> Result<NativePrepayResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/pay/partner/transactions/native",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn partner_query_by_out_trade_no(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerOrderQuery,
+    ) -> Result<PaymentOrderResponse> {
+        let path = format!(
+            "/v3/pay/partner/transactions/out-trade-no/{}",
+            request.out_trade_no
+        );
+        self.get_v3(credentials, &path, request.into_query()).await
+    }
+
+    pub async fn partner_close_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerCloseOrderRequest,
+    ) -> Result<PaymentStatusResponse> {
+        let path = format!(
+            "/v3/pay/partner/transactions/out-trade-no/{}/close",
+            request.out_trade_no
+        );
+        self.post_v3(
+            credentials,
+            &path,
+            serde_json::json!({
+                "sp_mchid": request.sp_mchid,
+                "sub_mchid": request.sub_mchid,
+            }),
+        )
+        .await
+    }
+
     pub fn profit_sharing(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.profit_sharing")
     }
@@ -467,6 +551,137 @@ pub struct NativePrepayRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerJsapiPrepayRequest {
+    pub sp_appid: String,
+    pub sp_mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_appid: Option<String>,
+    pub sub_mchid: String,
+    pub description: String,
+    pub out_trade_no: String,
+    pub notify_url: String,
+    pub amount: Amount,
+    pub payer: PartnerPayer,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_expire: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_info: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerAppPrepayRequest {
+    pub sp_appid: String,
+    pub sp_mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_appid: Option<String>,
+    pub sub_mchid: String,
+    pub description: String,
+    pub out_trade_no: String,
+    pub notify_url: String,
+    pub amount: Amount,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_expire: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_info: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerH5PrepayRequest {
+    pub sp_appid: String,
+    pub sp_mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_appid: Option<String>,
+    pub sub_mchid: String,
+    pub description: String,
+    pub out_trade_no: String,
+    pub notify_url: String,
+    pub amount: Amount,
+    pub scene_info: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_expire: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerNativePrepayRequest {
+    pub sp_appid: String,
+    pub sp_mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_appid: Option<String>,
+    pub sub_mchid: String,
+    pub description: String,
+    pub out_trade_no: String,
+    pub notify_url: String,
+    pub amount: Amount,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_expire: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_info: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerPayer {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sp_openid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerOrderQuery {
+    pub out_trade_no: String,
+    pub sp_mchid: String,
+    pub sub_mchid: String,
+}
+
+impl PartnerOrderQuery {
+    fn into_query(self) -> Vec<(String, String)> {
+        vec![
+            ("sp_mchid".to_string(), self.sp_mchid),
+            ("sub_mchid".to_string(), self.sub_mchid),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerCloseOrderRequest {
+    pub out_trade_no: String,
+    pub sp_mchid: String,
+    pub sub_mchid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Amount {
     pub total: i64,
     #[serde(default = "default_cny")]
@@ -742,9 +957,10 @@ mod tests {
 
     use super::{
         Amount, AppPayParams, BillRequest, JsapiPayParams, NativePrepayRequest,
-        PaymentNotification, PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, RefundAmount, RefundRequest, TransferBatchQuery,
-        TransferBatchRequest, TransferDetailInput,
+        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
+        PartnerOrderQuery, PartnerPayer, PaymentNotification, PaymentResource,
+        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
+        RefundAmount, RefundRequest, TransferBatchQuery, TransferBatchRequest, TransferDetailInput,
     };
 
     #[test]
@@ -831,6 +1047,100 @@ mod tests {
 
         assert_eq!(value["partner_id"], "mchid");
         assert_eq!(value["package"], "Sign=WXPay");
+    }
+
+    #[test]
+    fn serializes_partner_jsapi_transaction_request() {
+        let value = serde_json::to_value(PartnerJsapiPrepayRequest {
+            sp_appid: "sp_appid".to_string(),
+            sp_mchid: "sp_mchid".to_string(),
+            sub_appid: Some("sub_appid".to_string()),
+            sub_mchid: "sub_mchid".to_string(),
+            description: "desc".to_string(),
+            out_trade_no: "out".to_string(),
+            notify_url: "https://example.com/notify".to_string(),
+            amount: Amount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            payer: PartnerPayer {
+                sp_openid: None,
+                sub_openid: Some("sub_openid".to_string()),
+            },
+            attach: None,
+            time_expire: None,
+            goods_tag: None,
+            detail: None,
+            scene_info: None,
+            settle_info: Some(json!({ "profit_sharing": true })),
+        })
+        .unwrap();
+
+        assert_eq!(value["sp_appid"], "sp_appid");
+        assert_eq!(value["sub_mchid"], "sub_mchid");
+        assert_eq!(value["payer"]["sub_openid"], "sub_openid");
+        assert_eq!(value["settle_info"]["profit_sharing"], true);
+        assert!(value.get("attach").is_none());
+    }
+
+    #[test]
+    fn serializes_partner_h5_transaction_request() {
+        let value = serde_json::to_value(PartnerH5PrepayRequest {
+            sp_appid: "sp_appid".to_string(),
+            sp_mchid: "sp_mchid".to_string(),
+            sub_appid: None,
+            sub_mchid: "sub_mchid".to_string(),
+            description: "desc".to_string(),
+            out_trade_no: "out".to_string(),
+            notify_url: "https://example.com/notify".to_string(),
+            amount: Amount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            scene_info: json!({ "payer_client_ip": "127.0.0.1" }),
+            attach: None,
+            time_expire: None,
+            goods_tag: None,
+            detail: None,
+            settle_info: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["sp_mchid"], "sp_mchid");
+        assert_eq!(value["scene_info"]["payer_client_ip"], "127.0.0.1");
+        assert!(value.get("sub_appid").is_none());
+    }
+
+    #[test]
+    fn builds_partner_order_query() {
+        let query = PartnerOrderQuery {
+            out_trade_no: "out".to_string(),
+            sp_mchid: "sp_mchid".to_string(),
+            sub_mchid: "sub_mchid".to_string(),
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![
+                ("sp_mchid".to_string(), "sp_mchid".to_string()),
+                ("sub_mchid".to_string(), "sub_mchid".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn serializes_partner_close_order_request() {
+        let value = serde_json::to_value(PartnerCloseOrderRequest {
+            out_trade_no: "out".to_string(),
+            sp_mchid: "sp_mchid".to_string(),
+            sub_mchid: "sub_mchid".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value["out_trade_no"], "out");
+        assert_eq!(value["sp_mchid"], "sp_mchid");
+        assert_eq!(value["sub_mchid"], "sub_mchid");
     }
 
     #[test]

@@ -48,7 +48,7 @@ Status values:
 | Payment | jssdk | `payment::jssdk` | tested |
 | Payment | notify | `payment::notify` | tested |
 | Payment | order | `payment::order` | tested |
-| Payment | partner | `payment::partner` | module |
+| Payment | partner | `payment::partner` | tested |
 | Payment | profitSharing | `payment::profit_sharing` | tested |
 | Payment | refund | `payment::refund` | tested |
 | Payment | reverse | `payment::reverse` | module |
