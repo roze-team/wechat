@@ -581,23 +581,38 @@ pub struct SubscribeMessageRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveRoomRequest {
     pub name: String,
+    #[serde(rename = "coverImg")]
     pub cover_img: String,
+    #[serde(rename = "startTime")]
     pub start_time: i64,
+    #[serde(rename = "endTime")]
     pub end_time: i64,
+    #[serde(rename = "anchorName")]
     pub anchor_name: String,
+    #[serde(rename = "anchorWechat")]
     pub anchor_wechat: String,
+    #[serde(rename = "shareImg")]
     pub share_img: String,
+    #[serde(rename = "type")]
     pub type_id: i64,
+    #[serde(rename = "screenType")]
     pub screen_type: i64,
+    #[serde(rename = "closeLike")]
     pub close_like: i64,
+    #[serde(rename = "closeGoods")]
     pub close_goods: i64,
+    #[serde(rename = "closeComment")]
     pub close_comment: i64,
+    #[serde(rename = "feedsImg")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feeds_img: Option<String>,
+    #[serde(rename = "closeReplay")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub close_replay: Option<i64>,
+    #[serde(rename = "closeShare")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub close_share: Option<i64>,
+    #[serde(rename = "closeKf")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub close_kf: Option<i64>,
 }
@@ -877,9 +892,19 @@ mod tests {
         .unwrap();
 
         assert_eq!(value["name"], "launch");
-        assert_eq!(value["cover_img"], "media-cover");
-        assert_eq!(value["close_replay"], 1);
-        assert!(value.get("feeds_img").is_none());
+        assert_eq!(value["coverImg"], "media-cover");
+        assert_eq!(value["startTime"], 1_800_000_000);
+        assert_eq!(value["endTime"], 1_800_003_600);
+        assert_eq!(value["anchorName"], "host");
+        assert_eq!(value["anchorWechat"], "host-wechat");
+        assert_eq!(value["shareImg"], "media-share");
+        assert_eq!(value["type"], 1);
+        assert_eq!(value["screenType"], 0);
+        assert_eq!(value["closeLike"], 0);
+        assert_eq!(value["closeGoods"], 0);
+        assert_eq!(value["closeComment"], 0);
+        assert_eq!(value["closeReplay"], 1);
+        assert!(value.get("feedsImg").is_none());
     }
 
     #[test]
