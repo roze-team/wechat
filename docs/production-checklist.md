@@ -7,7 +7,7 @@
 - Health probes use `roze-health::HealthRegistry` and dependency checks.
 - WeChat API calls use explicit timeout and structured error mapping.
 - Access tokens and tickets are cached with early refresh.
-- High-concurrency token refresh uses singleflight before production launch.
+- High-concurrency token refresh uses `roze-singleflight`.
 - Callback verification is tested for Official Account, Mini Program, Work,
   Open Platform, and Open Work.
 - WeChat Pay v3 signing and verification are tested with fixed fixtures.
