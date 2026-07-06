@@ -10,12 +10,12 @@ Status values:
 
 | Family | PowerWeChat module | Roze WeChat module | Status |
 | --- | --- | --- | --- |
-| Basic Service | contentSecurity | `basic_service::content_security` | typed |
+| Basic Service | contentSecurity | `basic_service::content_security` | tested |
 | Basic Service | jssdk | `basic_service::jssdk` | tested |
 | Basic Service | media | `basic_service::media` | tested |
 | Basic Service | qrCode | `basic_service::qr_code` | tested |
 | Basic Service | subscribeMessage | `basic_service::subscribe_message` | tested |
-| Basic Service | url | `basic_service::url` | typed |
+| Basic Service | url | `basic_service::url` | tested |
 | Channels | eCommerce | `channels::e_commerce` | tested |
 | Mini Program | auth | `mini_program::auth` | typed |
 | Mini Program | base | `mini_program::base` | module |

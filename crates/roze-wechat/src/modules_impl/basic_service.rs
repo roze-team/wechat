@@ -222,15 +222,27 @@ impl BasicService {
         access_token: impl Into<String>,
         long_data: impl Into<String>,
         expire_seconds: i64,
-    ) -> Result<Value> {
+    ) -> Result<ShortKeyGenerateResponse> {
+        self.generate_short_key(
+            access_token,
+            ShortKeyGenerateRequest {
+                long_data: long_data.into(),
+                expire_seconds,
+            },
+        )
+        .await
+    }
+
+    pub async fn generate_short_key(
+        &self,
+        access_token: impl Into<String>,
+        request: ShortKeyGenerateRequest,
+    ) -> Result<ShortKeyGenerateResponse> {
         self.inner
             .post(
                 "cgi-bin/shorten/gen",
                 Some(access_token.into()),
-                json!({
-                    "long_data": long_data.into(),
-                    "expire_seconds": expire_seconds.min(30 * 86_400),
-                }),
+                request.with_max_expire_seconds(),
             )
             .await
     }
@@ -239,13 +251,23 @@ impl BasicService {
         &self,
         access_token: impl Into<String>,
         short_key: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<ShortKeyFetchResponse> {
+        self.fetch_short_key_data(
+            access_token,
+            ShortKeyFetchRequest {
+                short_key: short_key.into(),
+            },
+        )
+        .await
+    }
+
+    pub async fn fetch_short_key_data(
+        &self,
+        access_token: impl Into<String>,
+        request: ShortKeyFetchRequest,
+    ) -> Result<ShortKeyFetchResponse> {
         self.inner
-            .post(
-                "cgi-bin/shorten/fetch",
-                Some(access_token.into()),
-                json!({ "short_key": short_key.into() }),
-            )
+            .post("cgi-bin/shorten/fetch", Some(access_token.into()), request)
             .await
     }
 }
@@ -389,12 +411,58 @@ pub struct SubscribeMessageRequest {
     pub title: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShortKeyGenerateRequest {
+    pub long_data: String,
+    pub expire_seconds: i64,
+}
+
+impl ShortKeyGenerateRequest {
+    fn with_max_expire_seconds(mut self) -> Self {
+        self.expire_seconds = self.expire_seconds.min(30 * 86_400);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShortKeyGenerateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub short_key: Option<String>,
+    #[serde(default)]
+    pub expire_seconds: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShortKeyFetchRequest {
+    pub short_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShortKeyFetchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub long_data: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub expire_seconds: Option<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
     use super::{
-        BasicService, QrActionInfo, QrCodeCreateRequest, SubscribeMessageRequest, TempMediaResponse,
+        BasicService, MediaCheckAsyncRequest, MsgSecCheckRequest, QrActionInfo,
+        QrCodeCreateRequest, ShortKeyFetchRequest, ShortKeyFetchResponse, ShortKeyGenerateRequest,
+        ShortKeyGenerateResponse, SubscribeMessageRequest, TempMediaResponse,
     };
 
     #[test]
@@ -446,5 +514,72 @@ mod tests {
         assert_eq!(value["touser"], "openid");
         assert_eq!(value["data"]["thing1"]["value"], "hello");
         assert!(value.get("miniprogram").is_none());
+    }
+
+    #[test]
+    fn serializes_msg_sec_check_request() {
+        let value = serde_json::to_value(MsgSecCheckRequest {
+            content: "hello".to_string(),
+            scene: 1,
+            version: Some(2),
+            openid: Some("openid".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(value["content"], "hello");
+        assert_eq!(value["scene"], 1);
+        assert_eq!(value["version"], 2);
+        assert_eq!(value["openid"], "openid");
+    }
+
+    #[test]
+    fn serializes_media_check_async_request() {
+        let value = serde_json::to_value(MediaCheckAsyncRequest {
+            media_url: "https://example.com/image.png".to_string(),
+            media_type: 2,
+            scene: 1,
+            version: None,
+            openid: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["media_url"], "https://example.com/image.png");
+        assert_eq!(value["media_type"], 2);
+        assert!(value.get("version").is_none());
+    }
+
+    #[test]
+    fn serializes_short_key_generate_request_with_max_expire_seconds() {
+        let request = ShortKeyGenerateRequest {
+            long_data: "https://example.com/a".to_string(),
+            expire_seconds: 40 * 86_400,
+        }
+        .with_max_expire_seconds();
+        let value = serde_json::to_value(request).unwrap();
+
+        assert_eq!(value["long_data"], "https://example.com/a");
+        assert_eq!(value["expire_seconds"], 30 * 86_400);
+    }
+
+    #[test]
+    fn serializes_short_key_fetch_request() {
+        let value = serde_json::to_value(ShortKeyFetchRequest {
+            short_key: "abc123".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value, json!({ "short_key": "abc123" }));
+    }
+
+    #[test]
+    fn deserializes_short_key_responses() {
+        let generated: ShortKeyGenerateResponse =
+            serde_json::from_value(json!({ "short_key": "abc", "expire_seconds": 60 })).unwrap();
+        let fetched: ShortKeyFetchResponse =
+            serde_json::from_value(json!({ "long_data": "https://example.com/a" })).unwrap();
+
+        assert_eq!(generated.short_key.as_deref(), Some("abc"));
+        assert_eq!(generated.expire_seconds, Some(60));
+        assert_eq!(fetched.long_data.as_deref(), Some("https://example.com/a"));
     }
 }
