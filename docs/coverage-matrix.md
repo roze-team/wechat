@@ -53,16 +53,16 @@ Status values:
 | Payment | refund | `payment::refund` | typed |
 | Payment | reverse | `payment::reverse` | module |
 | Payment | transfer | `payment::transfer` | tested |
-| Work | agent | `work::agent` | module |
-| Work | auth/oauth | `work::oauth` | module |
+| Work | agent | `work::agent` | tested |
+| Work | auth/oauth | `work::oauth` | tested |
 | Work | department/user/tag | `work::contact` | typed |
 | Work | externalContact | `work::external_contact` | tested |
 | Work | groupRobot | `work::group_robot` | tested |
-| Work | jssdk | `work::jssdk` | module |
+| Work | jssdk | `work::jssdk` | tested |
 | Work | media | `work::media` | tested |
 | Work | message | `work::message` | tested |
-| Work | msgAudit | `work::msg_audit` | module |
-| Work | oa | `work::oa` | module |
+| Work | msgAudit | `work::msg_audit` | tested |
+| Work | oa | `work::oa` | tested |
 | Work | server | `work::server` | foundation |
 
 The generic `PlatformClient` can call every WeChat endpoint before a typed
