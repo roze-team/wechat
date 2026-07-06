@@ -35,14 +35,14 @@ Status values:
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
-| Official Account | server | `official_account::server` | foundation |
+| Official Account | server | `official_account::server` | tested |
 | Official Account | templateMessage | `official_account::template_message` | tested |
 | Official Account | user/tag | `official_account::user` | tested |
 | Open Platform | auth | `open_platform::auth` | tested |
 | Open Platform | authorizer | `open_platform::authorizer` | tested |
 | Open Platform | codeTemplate | `open_platform::code_template` | tested |
 | Open Platform | component | `open_platform::component` | tested |
-| Open Platform | server | `open_platform::server` | module |
+| Open Platform | server | `open_platform::server` | tested |
 | Open Work | provider/suitAuth/corp | `open_work` | tested |
 | Payment | bill | `payment::bill` | tested |
 | Payment | jssdk | `payment::jssdk` | tested |
@@ -63,7 +63,7 @@ Status values:
 | Work | message | `work::message` | tested |
 | Work | msgAudit | `work::msg_audit` | tested |
 | Work | oa | `work::oa` | tested |
-| Work | server | `work::server` | foundation |
+| Work | server | `work::server` | tested |
 
 The generic `PlatformClient` can call every WeChat endpoint before a typed
 wrapper exists. Production readiness for a module requires `typed` or `tested`.

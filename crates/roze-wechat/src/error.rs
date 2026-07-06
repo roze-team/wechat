@@ -13,6 +13,9 @@ pub enum WechatError {
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[error("xml error: {0}")]
+    Xml(String),
+
     #[error("crypto error: {0}")]
     Crypto(String),
 

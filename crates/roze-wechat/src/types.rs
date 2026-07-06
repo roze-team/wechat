@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::error::{Result, WechatError};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WechatApiEnvelope<T> {
     #[serde(default)]
@@ -65,11 +67,86 @@ pub struct CallbackQuery {
     pub echostr: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CallbackMessage {
+    #[serde(default, rename = "ToUserName")]
+    pub to_user_name: Option<String>,
+    #[serde(default, rename = "FromUserName")]
+    pub from_user_name: Option<String>,
+    #[serde(default, rename = "CreateTime")]
+    pub create_time: Option<i64>,
+    #[serde(default, rename = "MsgType")]
+    pub msg_type: Option<String>,
+    #[serde(default, rename = "Event")]
+    pub event: Option<String>,
+    #[serde(default, rename = "EventKey")]
+    pub event_key: Option<String>,
+    #[serde(default, rename = "MsgId")]
+    pub msg_id: Option<i64>,
+    #[serde(default, rename = "Content")]
+    pub content: Option<String>,
+    #[serde(default, rename = "PicUrl")]
+    pub pic_url: Option<String>,
+    #[serde(default, rename = "MediaId")]
+    pub media_id: Option<String>,
+    #[serde(default, rename = "Format")]
+    pub format: Option<String>,
+    #[serde(default, rename = "Recognition")]
+    pub recognition: Option<String>,
+    #[serde(default, rename = "ThumbMediaId")]
+    pub thumb_media_id: Option<String>,
+    #[serde(default, rename = "Location_X")]
+    pub location_x: Option<f64>,
+    #[serde(default, rename = "Location_Y")]
+    pub location_y: Option<f64>,
+    #[serde(default, rename = "Scale")]
+    pub scale: Option<i64>,
+    #[serde(default, rename = "Label")]
+    pub label: Option<String>,
+    #[serde(default, rename = "Title")]
+    pub title: Option<String>,
+    #[serde(default, rename = "Description")]
+    pub description: Option<String>,
+    #[serde(default, rename = "Url")]
+    pub url: Option<String>,
+    #[serde(default, rename = "Encrypt")]
+    pub encrypt: Option<String>,
+    #[serde(default, rename = "AppId")]
+    pub app_id: Option<String>,
+    #[serde(default, rename = "InfoType")]
+    pub info_type: Option<String>,
+    #[serde(default, rename = "ComponentVerifyTicket")]
+    pub component_verify_ticket: Option<String>,
+    #[serde(default, rename = "AuthorizerAppid")]
+    pub authorizer_appid: Option<String>,
+    #[serde(default, rename = "AuthorizationCode")]
+    pub authorization_code: Option<String>,
+    #[serde(default, rename = "SuiteId")]
+    pub suite_id: Option<String>,
+    #[serde(default, rename = "SuiteTicket")]
+    pub suite_ticket: Option<String>,
+    #[serde(default, rename = "AuthCorpId")]
+    pub auth_corp_id: Option<String>,
+}
+
+impl CallbackMessage {
+    pub fn parse_xml(xml: &str) -> Result<Self> {
+        quick_xml::de::from_str(xml)
+            .map_err(|err| WechatError::Xml(format!("invalid callback xml: {err}")))
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        self.encrypt
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
-    use super::{StableAccessTokenRequest, StableAccessTokenResponse};
+    use super::{CallbackMessage, StableAccessTokenRequest, StableAccessTokenResponse};
 
     #[test]
     fn serializes_stable_access_token_request() {
@@ -96,5 +173,67 @@ mod tests {
 
         assert_eq!(response.access_token.as_deref(), Some("token"));
         assert_eq!(response.expires_in, Some(7200));
+    }
+
+    #[test]
+    fn parses_text_callback_message_xml() {
+        let message = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[text]]></MsgType>
+                <Content><![CDATA[hello]]></Content>
+                <MsgId>123</MsgId>
+            </xml>"#,
+        )
+        .unwrap();
+
+        assert_eq!(message.to_user_name.as_deref(), Some("to"));
+        assert_eq!(message.from_user_name.as_deref(), Some("from"));
+        assert_eq!(message.msg_type.as_deref(), Some("text"));
+        assert_eq!(message.content.as_deref(), Some("hello"));
+        assert_eq!(message.msg_id, Some(123));
+    }
+
+    #[test]
+    fn parses_event_callback_message_xml() {
+        let message = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[event]]></MsgType>
+                <Event><![CDATA[CLICK]]></Event>
+                <EventKey><![CDATA[MENU_KEY]]></EventKey>
+                <Encrypt><![CDATA[ciphertext]]></Encrypt>
+            </xml>"#,
+        )
+        .unwrap();
+
+        assert_eq!(message.msg_type.as_deref(), Some("event"));
+        assert_eq!(message.event.as_deref(), Some("CLICK"));
+        assert_eq!(message.event_key.as_deref(), Some("MENU_KEY"));
+        assert!(message.is_encrypted());
+    }
+
+    #[test]
+    fn parses_open_platform_ticket_callback_xml() {
+        let message = CallbackMessage::parse_xml(
+            r#"<xml>
+                <AppId><![CDATA[component-appid]]></AppId>
+                <CreateTime>1710000000</CreateTime>
+                <InfoType><![CDATA[component_verify_ticket]]></InfoType>
+                <ComponentVerifyTicket><![CDATA[ticket]]></ComponentVerifyTicket>
+            </xml>"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            message.info_type.as_deref(),
+            Some("component_verify_ticket")
+        );
+        assert_eq!(message.app_id.as_deref(), Some("component-appid"));
+        assert_eq!(message.component_verify_ticket.as_deref(), Some("ticket"));
     }
 }
