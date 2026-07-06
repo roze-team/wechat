@@ -10,7 +10,10 @@ use roze_error::RozeError;
 use roze_health::{HealthRegistry, ProbeKind};
 use roze_http::rest::RestServer;
 use roze_result::ApiResponse;
-use roze_wechat::{crypto, types::CallbackQuery};
+use roze_wechat::{
+    crypto,
+    types::{CallbackMessage, CallbackQuery},
+};
 use serde::Serialize;
 use std::{
     path::PathBuf,
@@ -52,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/startupz", get(startupz))
         .route("/metrics", get(metrics))
         .route("/wechat/callback/verify", post(verify_callback))
+        .route("/wechat/callback/parse", post(parse_callback))
         .with_state(state)
         .layer(middleware::from_fn(move |req: Request, next: Next| {
             let state = metrics_state.clone();
@@ -148,13 +152,34 @@ async fn verify_callback(
     input: Result<Json<VerifyCallbackRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<VerifyCallbackResponse>>, RozeError> {
     let Json(input) = input.map_err(|err| RozeError::BadRequest(err.to_string()))?;
-    let ok = crypto::verify_callback_signature(
-        &input.token,
-        &input.query.timestamp,
-        &input.query.nonce,
-        input.query.signature.as_deref().unwrap_or_default(),
-    );
+    let ok = verify_callback_query(&input.token, &input.query);
     Ok(Json(ApiResponse::ok(VerifyCallbackResponse { ok })))
+}
+
+async fn parse_callback(
+    input: Result<Json<ParseCallbackRequest>, JsonRejection>,
+) -> Result<Json<ApiResponse<ParseCallbackResponse>>, RozeError> {
+    let Json(input) = input.map_err(|err| RozeError::BadRequest(err.to_string()))?;
+    if !verify_callback_query(&input.token, &input.query) {
+        return Err(RozeError::Unauthorized);
+    }
+
+    let message = CallbackMessage::parse_xml(&input.xml)
+        .map_err(|err| RozeError::BadRequest(err.to_string()))?;
+    Ok(Json(ApiResponse::ok(ParseCallbackResponse {
+        signature_ok: true,
+        encrypted: message.is_encrypted(),
+        message,
+    })))
+}
+
+fn verify_callback_query(token: &str, query: &CallbackQuery) -> bool {
+    crypto::verify_callback_signature(
+        token,
+        &query.timestamp,
+        &query.nonce,
+        query.signature.as_deref().unwrap_or_default(),
+    )
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -163,9 +188,23 @@ struct VerifyCallbackRequest {
     query: CallbackQuery,
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct ParseCallbackRequest {
+    token: String,
+    query: CallbackQuery,
+    xml: String,
+}
+
 #[derive(Debug, Serialize)]
 struct VerifyCallbackResponse {
     ok: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct ParseCallbackResponse {
+    signature_ok: bool,
+    encrypted: bool,
+    message: CallbackMessage,
 }
 
 #[derive(Debug, Serialize)]
@@ -176,7 +215,9 @@ struct HealthProbeResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::{metrics, verify_callback, VerifyCallbackRequest};
+    use super::{
+        metrics, parse_callback, verify_callback, ParseCallbackRequest, VerifyCallbackRequest,
+    };
     use axum::http::StatusCode;
     use axum::response::{IntoResponse, Response};
     use axum::Json;
@@ -216,6 +257,60 @@ mod tests {
 
         assert_eq!(response.code, 0);
         assert!(response.data.expect("data").ok);
+    }
+
+    #[tokio::test]
+    async fn parse_callback_verifies_and_returns_message() {
+        let timestamp = "1700000000";
+        let nonce = "nonce";
+        let token = "token";
+        let signature = crypto::sha1_signature(&[token, timestamp, nonce]);
+        let response = parse_callback(Ok(Json(ParseCallbackRequest {
+            token: token.to_string(),
+            query: CallbackQuery {
+                signature: Some(signature),
+                msg_signature: None,
+                timestamp: timestamp.to_string(),
+                nonce: nonce.to_string(),
+                echostr: None,
+            },
+            xml: r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[text]]></MsgType>
+                <Content><![CDATA[hello]]></Content>
+            </xml>"#
+                .to_string(),
+        })))
+        .await
+        .expect("handler should succeed")
+        .0;
+
+        let data = response.data.expect("data");
+        assert!(data.signature_ok);
+        assert!(!data.encrypted);
+        assert_eq!(data.message.msg_type.as_deref(), Some("text"));
+        assert_eq!(data.message.content.as_deref(), Some("hello"));
+    }
+
+    #[tokio::test]
+    async fn parse_callback_rejects_invalid_signature() {
+        let err = parse_callback(Ok(Json(ParseCallbackRequest {
+            token: "token".to_string(),
+            query: CallbackQuery {
+                signature: Some("bad".to_string()),
+                msg_signature: None,
+                timestamp: "1700000000".to_string(),
+                nonce: "nonce".to_string(),
+                echostr: None,
+            },
+            xml: "<xml><MsgType><![CDATA[text]]></MsgType></xml>".to_string(),
+        })))
+        .await
+        .expect_err("invalid signature should be rejected");
+
+        assert_eq!(err, roze_error::RozeError::Unauthorized);
     }
 
     #[test]

@@ -60,3 +60,20 @@ cargo run -p wechat-api
 The service reads `apps/wechat-api/config.yaml` by default and exposes
 `/healthz`, `/readyz`, `/startupz`, `/metrics`, and
 `/wechat/callback/verify`.
+
+Callback XML can be verified and parsed with:
+
+```http
+POST /wechat/callback/parse
+Content-Type: application/json
+
+{
+  "token": "token",
+  "query": {
+    "signature": "sha1-signature",
+    "timestamp": "1700000000",
+    "nonce": "nonce"
+  },
+  "xml": "<xml><MsgType><![CDATA[text]]></MsgType></xml>"
+}
+```

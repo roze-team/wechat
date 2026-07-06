@@ -12,6 +12,8 @@
 - High-concurrency token refresh uses `roze-singleflight`.
 - Callback verification is tested for Official Account, Mini Program, Work,
   Open Platform, and Open Work.
+- Callback XML parsing is exposed behind signature verification before payloads
+  are returned to business callers.
 - WeChat Pay v3 signing and verification are tested with fixed fixtures.
 - Notification decryption is tested before accepting payment callbacks.
 - Every typed module has request/response DTO tests.
