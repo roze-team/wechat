@@ -44,8 +44,9 @@ Status values:
 | Open Platform | component | `open_platform::component` | tested |
 | Open Platform | server | `open_platform::server` | tested |
 | Open Work | provider/suitAuth/corp | `open_work` | tested |
+| Payment | apply4Sub | `payment::apply4_sub` | tested |
 | Payment | bill | `payment::bill` | tested |
-| Payment | base | `payment::base` | module |
+| Payment | base | `payment::base` | tested |
 | Payment | fundApp | `payment::fund_app` | tested |
 | Payment | jssdk | `payment::jssdk` | tested |
 | Payment | merchantService | `payment::merchant_service` | tested |

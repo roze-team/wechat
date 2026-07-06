@@ -112,6 +112,56 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.base")
     }
 
+    pub async fn micropay(
+        &self,
+        credentials: &PaymentCredentials,
+        request: MicropayRequest,
+    ) -> Result<PaymentOrderResponse> {
+        self.post_v3(credentials, "/v3/pay/micropay", to_value(request)?)
+            .await
+    }
+
+    pub fn apply4_sub(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.apply4_sub")
+    }
+
+    pub async fn create_applyment4_sub(
+        &self,
+        credentials: &PaymentCredentials,
+        request: Applyment4SubRequest,
+    ) -> Result<Applyment4SubResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/applyment4sub/applyment/",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_applyment4_sub_by_business_code(
+        &self,
+        credentials: &PaymentCredentials,
+        business_code: impl AsRef<str>,
+    ) -> Result<Applyment4SubQueryResponse> {
+        let path = format!(
+            "/v3/applyment4sub/applyment/business_code/{}",
+            business_code.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
+    pub async fn query_applyment4_sub_by_applyment_id(
+        &self,
+        credentials: &PaymentCredentials,
+        applyment_id: impl AsRef<str>,
+    ) -> Result<Applyment4SubQueryResponse> {
+        let path = format!(
+            "/v3/applyment4sub/applyment/applyment_id/{}",
+            applyment_id.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
     pub fn build_jsapi_pay_params(
         credentials: &PaymentCredentials,
         app_id: impl Into<String>,
@@ -956,6 +1006,48 @@ pub struct PaymentStatusResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MicropayRequest {
+    pub appid: String,
+    pub mchid: String,
+    pub description: String,
+    pub out_trade_no: String,
+    pub auth_code: String,
+    pub amount: Amount,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Applyment4SubRequest {
+    pub business_code: String,
+    pub contact_info: Value,
+    pub subject_info: Value,
+    pub business_info: Value,
+    pub settlement_info: Value,
+    pub bank_account_info: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub addition_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Applyment4SubResponse {
+    #[serde(default)]
+    pub applyment_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Applyment4SubQueryResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction_id: Option<String>,
@@ -1398,15 +1490,16 @@ mod tests {
     use crate::crypto;
 
     use super::{
-        Amount, AppPayParams, BillRequest, CertificateListResponse, ComplaintListRequest,
+        Amount, AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest,
+        Applyment4SubResponse, BillRequest, CertificateListResponse, ComplaintListRequest,
         FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        JsapiPayParams, NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
-        PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PayScoreRiskFund,
-        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreTimeRange,
-        PaymentNotification, PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, RefundAmount, RefundRequest, ReverseOrderRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
-        TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
+        JsapiPayParams, MicropayRequest, NativePrepayRequest, PartnerCloseOrderRequest,
+        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
+        PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
+        PayScoreTimeRange, PaymentNotification, PaymentResource, ProfitSharingOrderRequest,
+        ProfitSharingReceiver, ProfitSharingReceiverRequest, RefundAmount, RefundRequest,
+        ReverseOrderRequest, TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell,
+        TransferBatchQuery, TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
     };
 
     #[test]
@@ -1457,6 +1550,87 @@ mod tests {
 
         assert_eq!(value["amount"]["total"], 100);
         assert_eq!(value["out_trade_no"], "out");
+    }
+
+    #[test]
+    fn serializes_micropay_request() {
+        let value = serde_json::to_value(MicropayRequest {
+            appid: "appid".to_string(),
+            mchid: "mchid".to_string(),
+            description: "desc".to_string(),
+            out_trade_no: "out".to_string(),
+            auth_code: "134000000000000000".to_string(),
+            amount: Amount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            attach: Some("attach".to_string()),
+            goods_tag: None,
+            detail: None,
+            scene_info: Some(json!({ "device_id": "device-1" })),
+        })
+        .unwrap();
+
+        assert_eq!(value["appid"], "appid");
+        assert_eq!(value["auth_code"], "134000000000000000");
+        assert_eq!(value["amount"]["total"], 100);
+        assert_eq!(value["scene_info"]["device_id"], "device-1");
+        assert!(value.get("goods_tag").is_none());
+    }
+
+    #[test]
+    fn serializes_applyment4_sub_request() {
+        let value = serde_json::to_value(Applyment4SubRequest {
+            business_code: "business-1".to_string(),
+            contact_info: json!({
+                "contact_type": "LEGAL",
+                "contact_name": "encrypted-name"
+            }),
+            subject_info: json!({
+                "subject_type": "SUBJECT_TYPE_ENTERPRISE"
+            }),
+            business_info: json!({
+                "merchant_shortname": "merchant"
+            }),
+            settlement_info: json!({
+                "settlement_id": "716"
+            }),
+            bank_account_info: json!({
+                "bank_account_type": "BANK_ACCOUNT_TYPE_CORPORATE"
+            }),
+            addition_info: Some(json!({
+                "legal_person_commitment": "https://example.com/file"
+            })),
+        })
+        .unwrap();
+
+        assert_eq!(value["business_code"], "business-1");
+        assert_eq!(value["contact_info"]["contact_type"], "LEGAL");
+        assert_eq!(
+            value["subject_info"]["subject_type"],
+            "SUBJECT_TYPE_ENTERPRISE"
+        );
+        assert_eq!(
+            value["addition_info"]["legal_person_commitment"],
+            "https://example.com/file"
+        );
+    }
+
+    #[test]
+    fn deserializes_applyment4_sub_responses() {
+        let created: Applyment4SubResponse =
+            serde_json::from_value(json!({ "applyment_id": 2000002124775691_i64 })).unwrap();
+        assert_eq!(created.applyment_id, Some(2000002124775691));
+
+        let queried: Applyment4SubQueryResponse = serde_json::from_value(json!({
+            "business_code": "business-1",
+            "applyment_state": "APPLYMENT_STATE_FINISHED",
+            "sign_url": "https://example.com/sign"
+        }))
+        .unwrap();
+
+        assert_eq!(queried.value["business_code"], "business-1");
+        assert_eq!(queried.value["applyment_state"], "APPLYMENT_STATE_FINISHED");
     }
 
     #[test]
