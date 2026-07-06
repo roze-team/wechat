@@ -1038,9 +1038,11 @@ fn default_zh_cn() -> String {
 mod tests {
     use serde_json::json;
 
+    use crate::{config::Platform, Client, WechatConfig};
+
     use super::{
-        BatchGetUserInfoRequest, CustomerServiceMessage, MassSendAllRequest, MassSendFilter,
-        MaterialListRequest, MenuButton, OauthAuthorizeUrlRequest, OfficialAccount,
+        BatchGetUserInfoRequest, CustomerServiceMessage, JsapiConfig, MassSendAllRequest,
+        MassSendFilter, MaterialListRequest, MenuButton, OauthAuthorizeUrlRequest, OfficialAccount,
         TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
     };
 
@@ -1095,6 +1097,43 @@ mod tests {
         })
         .unwrap();
         assert_eq!(value, json!({ "type": "news", "offset": 0, "count": 20 }));
+    }
+
+    #[test]
+    fn builds_jsapi_config() {
+        let account = OfficialAccount::new(
+            Client::new(WechatConfig::default()).expect("client"),
+            Platform::OfficialAccount,
+        );
+        let config = account.build_jsapi_config(
+            "wxappid",
+            "ticket",
+            "https://example.com/page?a=1",
+            vec!["chooseImage".to_string()],
+        );
+
+        assert_eq!(config.app_id, "wxappid");
+        assert_eq!(config.nonce_str.len(), 16);
+        assert_eq!(config.signature.len(), 40);
+        assert_eq!(config.js_api_list, vec!["chooseImage"]);
+    }
+
+    #[test]
+    fn serializes_jsapi_config_wire_names() {
+        let value = serde_json::to_value(JsapiConfig {
+            app_id: "wxappid".to_string(),
+            timestamp: 1_800_000_000,
+            nonce_str: "nonce".to_string(),
+            signature: "signature".to_string(),
+            js_api_list: vec!["chooseImage".to_string()],
+        })
+        .unwrap();
+
+        assert_eq!(value["appId"], "wxappid");
+        assert_eq!(value["timestamp"], 1_800_000_000);
+        assert_eq!(value["nonceStr"], "nonce");
+        assert_eq!(value["signature"], "signature");
+        assert_eq!(value["jsApiList"][0], "chooseImage");
     }
 
     #[test]

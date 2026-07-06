@@ -32,7 +32,7 @@ Status values:
 | Official Account | broadcasting | `official_account::broadcasting` | tested |
 | Official Account | card | `official_account::card` | module |
 | Official Account | customerService | `official_account::customer_service` | tested |
-| Official Account | jssdk | `official_account::jssdk` | typed |
+| Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
 | Official Account | server | `official_account::server` | foundation |
