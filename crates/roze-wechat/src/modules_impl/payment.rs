@@ -742,8 +742,9 @@ mod tests {
 
     use super::{
         Amount, AppPayParams, BillRequest, JsapiPayParams, NativePrepayRequest,
-        PaymentNotification, PaymentResource, TransferBatchQuery, TransferBatchRequest,
-        TransferDetailInput,
+        PaymentNotification, PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, RefundAmount, RefundRequest, TransferBatchQuery,
+        TransferBatchRequest, TransferDetailInput,
     };
 
     #[test]
@@ -848,6 +849,72 @@ mod tests {
                 ("bill_type".to_string(), "ALL".to_string())
             ]
         );
+    }
+
+    #[test]
+    fn serializes_refund_request() {
+        let value = serde_json::to_value(RefundRequest {
+            transaction_id: None,
+            out_trade_no: Some("order-1".to_string()),
+            out_refund_no: "refund-1".to_string(),
+            reason: Some("user requested".to_string()),
+            notify_url: Some("https://example.com/pay/refund".to_string()),
+            amount: RefundAmount {
+                refund: 50,
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+        })
+        .unwrap();
+
+        assert!(value.get("transaction_id").is_none());
+        assert_eq!(value["out_trade_no"], "order-1");
+        assert_eq!(value["out_refund_no"], "refund-1");
+        assert_eq!(value["amount"]["refund"], 50);
+        assert_eq!(value["amount"]["total"], 100);
+        assert_eq!(value["amount"]["currency"], "CNY");
+    }
+
+    #[test]
+    fn serializes_profit_sharing_receiver_request() {
+        let value = serde_json::to_value(ProfitSharingReceiverRequest {
+            appid: "wxappid".to_string(),
+            receiver_type: "PERSONAL_OPENID".to_string(),
+            account: "openid".to_string(),
+            name: None,
+            relation_type: Some("PARTNER".to_string()),
+            custom_relation: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["appid"], "wxappid");
+        assert_eq!(value["type"], "PERSONAL_OPENID");
+        assert_eq!(value["account"], "openid");
+        assert_eq!(value["relation_type"], "PARTNER");
+        assert!(value.get("name").is_none());
+    }
+
+    #[test]
+    fn serializes_profit_sharing_order_request() {
+        let value = serde_json::to_value(ProfitSharingOrderRequest {
+            appid: "wxappid".to_string(),
+            transaction_id: "4200000000".to_string(),
+            out_order_no: "share-1".to_string(),
+            receivers: vec![ProfitSharingReceiver {
+                receiver_type: "PERSONAL_OPENID".to_string(),
+                account: "openid".to_string(),
+                amount: 30,
+                description: "commission".to_string(),
+            }],
+            unfreeze_unsplit: true,
+        })
+        .unwrap();
+
+        assert_eq!(value["transaction_id"], "4200000000");
+        assert_eq!(value["out_order_no"], "share-1");
+        assert_eq!(value["receivers"][0]["type"], "PERSONAL_OPENID");
+        assert_eq!(value["receivers"][0]["amount"], 30);
+        assert_eq!(value["unfreeze_unsplit"], true);
     }
 
     #[test]

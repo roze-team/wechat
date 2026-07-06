@@ -49,8 +49,8 @@ Status values:
 | Payment | notify | `payment::notify` | tested |
 | Payment | order | `payment::order` | tested |
 | Payment | partner | `payment::partner` | module |
-| Payment | profitSharing | `payment::profit_sharing` | typed |
-| Payment | refund | `payment::refund` | typed |
+| Payment | profitSharing | `payment::profit_sharing` | tested |
+| Payment | refund | `payment::refund` | tested |
 | Payment | reverse | `payment::reverse` | module |
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
