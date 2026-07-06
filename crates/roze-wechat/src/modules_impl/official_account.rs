@@ -191,6 +191,84 @@ impl OfficialAccount {
         DomainModule::new(self.inner.clone(), "official_account.card")
     }
 
+    pub async fn create_card(
+        &self,
+        access_token: impl Into<String>,
+        request: CardCreateRequest,
+    ) -> Result<CardCreateResponse> {
+        self.inner
+            .post("card/create", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_card(
+        &self,
+        access_token: impl Into<String>,
+        card_id: impl Into<String>,
+    ) -> Result<CardGetResponse> {
+        self.inner
+            .post(
+                "card/get",
+                Some(access_token.into()),
+                CardIdRequest {
+                    card_id: card_id.into(),
+                },
+            )
+            .await
+    }
+
+    pub async fn delete_card(
+        &self,
+        access_token: impl Into<String>,
+        card_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "card/delete",
+                Some(access_token.into()),
+                CardIdRequest {
+                    card_id: card_id.into(),
+                },
+            )
+            .await
+    }
+
+    pub async fn get_card_code(
+        &self,
+        access_token: impl Into<String>,
+        request: CardCodeRequest,
+    ) -> Result<CardCodeResponse> {
+        self.inner
+            .post("card/code/get", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn decrypt_card_code(
+        &self,
+        access_token: impl Into<String>,
+        encrypt_code: impl Into<String>,
+    ) -> Result<CardCodeDecryptResponse> {
+        self.inner
+            .post(
+                "card/code/decrypt",
+                Some(access_token.into()),
+                CardCodeDecryptRequest {
+                    encrypt_code: encrypt_code.into(),
+                },
+            )
+            .await
+    }
+
+    pub async fn create_card_qr_code(
+        &self,
+        access_token: impl Into<String>,
+        request: CardQrCodeRequest,
+    ) -> Result<CardQrCodeResponse> {
+        self.inner
+            .post("card/qrcode/create", Some(access_token.into()), request)
+            .await
+    }
+
     pub fn customer_service(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.customer_service")
     }
@@ -915,6 +993,99 @@ pub struct WechatStatusResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCreateRequest {
+    pub card: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub card_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardIdRequest {
+    pub card_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub card: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCodeRequest {
+    pub card_id: String,
+    pub code: String,
+    #[serde(default)]
+    pub check_consume: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub card: Option<Value>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub can_consume: Option<bool>,
+    #[serde(default)]
+    pub user_card_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCodeDecryptRequest {
+    pub encrypt_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCodeDecryptResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardQrCodeRequest {
+    pub action_name: String,
+    pub action_info: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expire_seconds: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardQrCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ticket: Option<String>,
+    #[serde(default)]
+    pub expire_seconds: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub show_qrcode_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsapiConfig {
     #[serde(rename = "appId")]
     pub app_id: String,
@@ -1049,7 +1220,9 @@ mod tests {
     use crate::{config::Platform, Client, WechatConfig};
 
     use super::{
-        BatchGetUserInfoRequest, CustomerServiceMessage, JsapiConfig, MassSendAllRequest,
+        BatchGetUserInfoRequest, CardCodeDecryptRequest, CardCodeDecryptResponse, CardCodeRequest,
+        CardCodeResponse, CardCreateRequest, CardCreateResponse, CardIdRequest, CardQrCodeRequest,
+        CardQrCodeResponse, CustomerServiceMessage, JsapiConfig, MassSendAllRequest,
         MassSendFilter, MaterialListRequest, MenuButton, OauthAuthorizeUrlRequest, OfficialAccount,
         TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
     };
@@ -1094,6 +1267,122 @@ mod tests {
         assert_eq!(value["touser"], "openid");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+    }
+
+    #[test]
+    fn serializes_card_create_request() {
+        let value = serde_json::to_value(CardCreateRequest {
+            card: json!({
+                "card_type": "GROUPON",
+                "groupon": {
+                    "base_info": { "brand_name": "brand", "title": "title" },
+                    "deal_detail": "detail"
+                }
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(value["card"]["card_type"], "GROUPON");
+        assert_eq!(value["card"]["groupon"]["base_info"]["brand_name"], "brand");
+    }
+
+    #[test]
+    fn deserializes_card_create_response() {
+        let response: CardCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "card_id": "card" })).unwrap();
+
+        assert_eq!(response.errcode, Some(0));
+        assert_eq!(response.card_id.as_deref(), Some("card"));
+    }
+
+    #[test]
+    fn serializes_card_id_request() {
+        let value = serde_json::to_value(CardIdRequest {
+            card_id: "card".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value, json!({ "card_id": "card" }));
+    }
+
+    #[test]
+    fn serializes_card_code_request() {
+        let value = serde_json::to_value(CardCodeRequest {
+            card_id: "card".to_string(),
+            code: "code".to_string(),
+            check_consume: true,
+        })
+        .unwrap();
+
+        assert_eq!(value["card_id"], "card");
+        assert_eq!(value["code"], "code");
+        assert_eq!(value["check_consume"], true);
+    }
+
+    #[test]
+    fn deserializes_card_code_response() {
+        let response: CardCodeResponse = serde_json::from_value(json!({
+            "openid": "openid",
+            "can_consume": true,
+            "user_card_status": "NORMAL",
+            "card": { "card_id": "card" }
+        }))
+        .unwrap();
+
+        assert_eq!(response.openid.as_deref(), Some("openid"));
+        assert_eq!(response.can_consume, Some(true));
+        assert_eq!(response.user_card_status.as_deref(), Some("NORMAL"));
+        assert_eq!(response.card.expect("card")["card_id"], "card");
+    }
+
+    #[test]
+    fn serializes_card_code_decrypt_request() {
+        let value = serde_json::to_value(CardCodeDecryptRequest {
+            encrypt_code: "encrypted".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value, json!({ "encrypt_code": "encrypted" }));
+    }
+
+    #[test]
+    fn deserializes_card_code_decrypt_response() {
+        let response: CardCodeDecryptResponse =
+            serde_json::from_value(json!({ "code": "plain-code" })).unwrap();
+
+        assert_eq!(response.code.as_deref(), Some("plain-code"));
+    }
+
+    #[test]
+    fn serializes_card_qr_code_request() {
+        let value = serde_json::to_value(CardQrCodeRequest {
+            action_name: "QR_CARD".to_string(),
+            action_info: json!({ "card": { "card_id": "card" } }),
+            expire_seconds: Some(1800),
+        })
+        .unwrap();
+
+        assert_eq!(value["action_name"], "QR_CARD");
+        assert_eq!(value["action_info"]["card"]["card_id"], "card");
+        assert_eq!(value["expire_seconds"], 1800);
+    }
+
+    #[test]
+    fn deserializes_card_qr_code_response() {
+        let response: CardQrCodeResponse = serde_json::from_value(json!({
+            "ticket": "ticket",
+            "expire_seconds": 1800,
+            "url": "https://example.com/card",
+            "show_qrcode_url": "https://example.com/qrcode"
+        }))
+        .unwrap();
+
+        assert_eq!(response.ticket.as_deref(), Some("ticket"));
+        assert_eq!(response.expire_seconds, Some(1800));
+        assert_eq!(
+            response.show_qrcode_url.as_deref(),
+            Some("https://example.com/qrcode")
+        );
     }
 
     #[test]

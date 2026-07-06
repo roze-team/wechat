@@ -30,7 +30,7 @@ Status values:
 | Official Account | auth/oauth | `official_account::oauth` | tested |
 | Official Account | base | `official_account::base` | tested |
 | Official Account | broadcasting | `official_account::broadcasting` | tested |
-| Official Account | card | `official_account::card` | module |
+| Official Account | card | `official_account::card` | tested |
 | Official Account | customerService | `official_account::customer_service` | tested |
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
