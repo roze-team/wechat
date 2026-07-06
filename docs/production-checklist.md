@@ -15,6 +15,8 @@
 - Callback XML parsing is exposed behind signature verification before payloads
   are returned to business callers.
 - WeChat Pay v3 signing and verification are tested with fixed fixtures.
+- Payment notification decryption is exposed behind WeChat Pay v3 RSA
+  signature verification before plaintext is returned to business callers.
 - Notification decryption is tested before accepting payment callbacks.
 - Every typed module has request/response DTO tests.
 - CI runs format, tests, and clippy.

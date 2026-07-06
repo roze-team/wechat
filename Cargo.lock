@@ -3198,6 +3198,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "rand 0.8.6",
  "roze-config",
  "roze-error",
  "roze-health",
@@ -3205,6 +3206,7 @@ dependencies = [
  "roze-metrics",
  "roze-result",
  "roze-wechat",
+ "rsa",
  "serde",
  "serde_json",
  "tokio",

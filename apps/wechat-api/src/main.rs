@@ -12,9 +12,11 @@ use roze_http::rest::RestServer;
 use roze_result::ApiResponse;
 use roze_wechat::{
     crypto,
+    modules::payment::PaymentNotification,
     types::{CallbackMessage, CallbackQuery},
 };
 use serde::Serialize;
+use serde_json::Value;
 use std::{
     path::PathBuf,
     sync::Arc,
@@ -56,6 +58,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/metrics", get(metrics))
         .route("/wechat/callback/verify", post(verify_callback))
         .route("/wechat/callback/parse", post(parse_callback))
+        .route(
+            "/wechat/payment/notify/decrypt",
+            post(decrypt_payment_notify),
+        )
         .with_state(state)
         .layer(middleware::from_fn(move |req: Request, next: Next| {
             let state = metrics_state.clone();
@@ -182,6 +188,46 @@ fn verify_callback_query(token: &str, query: &CallbackQuery) -> bool {
     )
 }
 
+async fn decrypt_payment_notify(
+    input: Result<Json<DecryptPaymentNotifyRequest>, JsonRejection>,
+) -> Result<Json<ApiResponse<DecryptPaymentNotifyResponse>>, RozeError> {
+    let Json(input) = input.map_err(|err| RozeError::BadRequest(err.to_string()))?;
+    if !verify_payment_notify_signature(
+        &input.public_key_pem,
+        &input.headers.timestamp,
+        &input.headers.nonce,
+        &input.body,
+        &input.headers.signature,
+    )? {
+        return Err(RozeError::Unauthorized);
+    }
+
+    let notification: PaymentNotification =
+        serde_json::from_str(&input.body).map_err(|err| RozeError::BadRequest(err.to_string()))?;
+    let plaintext = notification
+        .decrypt_resource::<Value>(&input.api_v3_key)
+        .map_err(|err| RozeError::BadRequest(err.to_string()))?;
+
+    Ok(Json(ApiResponse::ok(DecryptPaymentNotifyResponse {
+        signature_ok: true,
+        serial: input.headers.serial,
+        notification,
+        plaintext,
+    })))
+}
+
+fn verify_payment_notify_signature(
+    public_key_pem: &str,
+    timestamp: &str,
+    nonce: &str,
+    body: &str,
+    signature: &str,
+) -> Result<bool, RozeError> {
+    let message = format!("{timestamp}\n{nonce}\n{body}\n");
+    crypto::rsa_sha256_verify_base64(public_key_pem, message.as_bytes(), signature)
+        .map_err(|err| RozeError::BadRequest(err.to_string()))
+}
+
 #[derive(Debug, serde::Deserialize)]
 struct VerifyCallbackRequest {
     token: String,
@@ -193,6 +239,22 @@ struct ParseCallbackRequest {
     token: String,
     query: CallbackQuery,
     xml: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct DecryptPaymentNotifyRequest {
+    headers: PaymentNotifyHeaders,
+    public_key_pem: String,
+    api_v3_key: String,
+    body: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PaymentNotifyHeaders {
+    timestamp: String,
+    nonce: String,
+    signature: String,
+    serial: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -208,6 +270,14 @@ struct ParseCallbackResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct DecryptPaymentNotifyResponse {
+    signature_ok: bool,
+    serial: Option<String>,
+    notification: PaymentNotification,
+    plaintext: Value,
+}
+
+#[derive(Debug, Serialize)]
 struct HealthProbeResponse {
     service: String,
     probe: roze_health::ProbeReport,
@@ -216,12 +286,19 @@ struct HealthProbeResponse {
 #[cfg(test)]
 mod tests {
     use super::{
-        metrics, parse_callback, verify_callback, ParseCallbackRequest, VerifyCallbackRequest,
+        decrypt_payment_notify, metrics, parse_callback, verify_callback,
+        DecryptPaymentNotifyRequest, ParseCallbackRequest, PaymentNotifyHeaders,
+        VerifyCallbackRequest,
     };
     use axum::http::StatusCode;
     use axum::response::{IntoResponse, Response};
     use axum::Json;
     use roze_wechat::{crypto, types::CallbackQuery};
+    use rsa::{
+        pkcs8::{EncodePrivateKey, EncodePublicKey, LineEnding},
+        RsaPrivateKey,
+    };
+    use serde_json::json;
     use std::time::Duration;
 
     #[test]
@@ -313,6 +390,84 @@ mod tests {
         assert_eq!(err, roze_error::RozeError::Unauthorized);
     }
 
+    #[tokio::test]
+    async fn decrypt_payment_notify_verifies_signature_and_resource() {
+        let (private_key_pem, public_key_pem) = test_rsa_key_pair();
+        let api_v3_key = "0123456789abcdef0123456789abcdef";
+        let nonce = "nonce-123456";
+        let associated_data = "transaction";
+        let ciphertext = crypto::payment_v3_encrypt_for_test(
+            api_v3_key,
+            nonce,
+            associated_data,
+            br#"{"trade_state":"SUCCESS","out_trade_no":"order-1"}"#,
+        )
+        .unwrap();
+        let body = json!({
+            "id": "notify-id",
+            "create_time": "2026-07-06T00:00:00+08:00",
+            "event_type": "TRANSACTION.SUCCESS",
+            "resource_type": "encrypt-resource",
+            "resource": {
+                "algorithm": "AEAD_AES_256_GCM",
+                "ciphertext": ciphertext,
+                "nonce": nonce,
+                "associated_data": associated_data
+            },
+            "summary": "success"
+        })
+        .to_string();
+        let timestamp = "1700000000";
+        let notify_nonce = "notify-nonce";
+        let signature = sign_payment_notify(&private_key_pem, timestamp, notify_nonce, &body);
+
+        let response = decrypt_payment_notify(Ok(Json(DecryptPaymentNotifyRequest {
+            headers: PaymentNotifyHeaders {
+                timestamp: timestamp.to_string(),
+                nonce: notify_nonce.to_string(),
+                signature,
+                serial: Some("serial-no".to_string()),
+            },
+            public_key_pem,
+            api_v3_key: api_v3_key.to_string(),
+            body,
+        })))
+        .await
+        .expect("handler should succeed")
+        .0;
+
+        let data = response.data.expect("data");
+        assert!(data.signature_ok);
+        assert_eq!(data.serial.as_deref(), Some("serial-no"));
+        assert_eq!(data.notification.event_type, "TRANSACTION.SUCCESS");
+        assert_eq!(data.plaintext["trade_state"], "SUCCESS");
+        assert_eq!(data.plaintext["out_trade_no"], "order-1");
+    }
+
+    #[tokio::test]
+    async fn decrypt_payment_notify_rejects_invalid_signature() {
+        let (private_key_pem, public_key_pem) = test_rsa_key_pair();
+        let timestamp = "1700000000";
+        let nonce = "notify-nonce";
+        let signature =
+            sign_payment_notify(&private_key_pem, timestamp, nonce, r#"{"other":true}"#);
+        let err = decrypt_payment_notify(Ok(Json(DecryptPaymentNotifyRequest {
+            headers: PaymentNotifyHeaders {
+                timestamp: timestamp.to_string(),
+                nonce: nonce.to_string(),
+                signature,
+                serial: None,
+            },
+            public_key_pem,
+            api_v3_key: "0123456789abcdef0123456789abcdef".to_string(),
+            body: "{}".to_string(),
+        })))
+        .await
+        .expect_err("invalid signature should be rejected");
+
+        assert_eq!(err, roze_error::RozeError::Unauthorized);
+    }
+
     #[test]
     fn roze_error_uses_http_status_and_json_body() {
         let response: Response =
@@ -346,5 +501,27 @@ mod tests {
         assert!(body.contains(r#"route="/wechat/callback/verify""#));
         assert!(body.contains(r#"method="POST""#));
         assert!(body.contains(r#"status="200""#));
+    }
+
+    fn test_rsa_key_pair() -> (String, String) {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let public_key = private_key.to_public_key();
+        let private_key_pem = private_key
+            .to_pkcs8_pem(LineEnding::LF)
+            .unwrap()
+            .to_string();
+        let public_key_pem = public_key.to_public_key_pem(LineEnding::LF).unwrap();
+        (private_key_pem, public_key_pem)
+    }
+
+    fn sign_payment_notify(
+        private_key_pem: &str,
+        timestamp: &str,
+        nonce: &str,
+        body: &str,
+    ) -> String {
+        let message = format!("{timestamp}\n{nonce}\n{body}\n");
+        crypto::rsa_sha256_sign_base64(private_key_pem, message.as_bytes()).unwrap()
     }
 }

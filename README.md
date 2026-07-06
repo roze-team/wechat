@@ -77,3 +77,22 @@ Content-Type: application/json
   "xml": "<xml><MsgType><![CDATA[text]]></MsgType></xml>"
 }
 ```
+
+WeChat Pay v3 notifications can be verified and decrypted with:
+
+```http
+POST /wechat/payment/notify/decrypt
+Content-Type: application/json
+
+{
+  "headers": {
+    "timestamp": "1700000000",
+    "nonce": "nonce",
+    "signature": "wechatpay-signature",
+    "serial": "wechatpay-serial"
+  },
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----...",
+  "api_v3_key": "32-byte-api-v3-key",
+  "body": "{\"id\":\"notify-id\",\"resource\":{\"ciphertext\":\"...\"}}"
+}
+```
