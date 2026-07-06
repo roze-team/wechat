@@ -30,6 +30,7 @@ roze-config = { git = "https://github.com/roze-team/roze.git", package = "roze-c
 roze-error = { git = "https://github.com/roze-team/roze.git", package = "roze-error" }
 roze-health = { git = "https://github.com/roze-team/roze.git", package = "roze-health" }
 roze-http = { git = "https://github.com/roze-team/roze.git", package = "roze-http" }
+roze-metrics = { git = "https://github.com/roze-team/roze.git", package = "roze-metrics" }
 roze-result = { git = "https://github.com/roze-team/roze.git", package = "roze-result" }
 roze-singleflight = { git = "https://github.com/roze-team/roze.git", package = "roze-singleflight" }
 rsa = { version = "0.9", features = ["sha2"] }

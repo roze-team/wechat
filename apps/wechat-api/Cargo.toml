@@ -12,6 +12,7 @@ roze-config.workspace = true
 roze-error.workspace = true
 roze-health.workspace = true
 roze-http.workspace = true
+roze-metrics.workspace = true
 roze-result.workspace = true
 roze-wechat = { path = "../../crates/roze-wechat" }
 serde.workspace = true

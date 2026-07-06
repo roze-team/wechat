@@ -42,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/startupz", get(startupz))
+        .route("/metrics", get(metrics))
         .route("/wechat/callback/verify", post(verify_callback))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
@@ -90,6 +91,10 @@ async fn startupz(State(state): State<AppState>) -> Json<ApiResponse<HealthProbe
     }))
 }
 
+async fn metrics() -> String {
+    roze_metrics::http_metrics()
+}
+
 async fn verify_callback(
     input: Result<Json<VerifyCallbackRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<VerifyCallbackResponse>>, RozeError> {
@@ -122,7 +127,7 @@ struct HealthProbeResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::{verify_callback, VerifyCallbackRequest};
+    use super::{metrics, verify_callback, VerifyCallbackRequest};
     use axum::response::{IntoResponse, Response};
     use axum::Json;
     use roze_wechat::{crypto, types::CallbackQuery};
@@ -168,5 +173,13 @@ mod tests {
             roze_error::RozeError::BadRequest("invalid json".to_string()).into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn metrics_returns_roze_http_metrics() {
+        let body = metrics().await;
+
+        assert!(body.contains("roze_http_requests_total"));
+        assert!(body.contains("roze_http_requests_failed_total"));
     }
 }

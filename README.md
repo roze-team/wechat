@@ -58,4 +58,5 @@ cargo run -p wechat-api
 ```
 
 The service reads `apps/wechat-api/config.yaml` by default and exposes
-`/healthz`, `/readyz`, `/startupz`, and `/wechat/callback/verify`.
+`/healthz`, `/readyz`, `/startupz`, `/metrics`, and
+`/wechat/callback/verify`.
