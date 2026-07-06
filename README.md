@@ -51,6 +51,8 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
+The same checks run in GitHub Actions for pushes to `main` and pull requests.
+
 Run the API service with:
 
 ```bash
@@ -96,3 +98,15 @@ Content-Type: application/json
   "body": "{\"id\":\"notify-id\",\"resource\":{\"ciphertext\":\"...\"}}"
 }
 ```
+
+## Container
+
+Build and run the Roze API service image with:
+
+```bash
+docker build -t roze-wechat-api .
+docker run --rm -p 8080:8080 roze-wechat-api
+```
+
+The container copies `apps/wechat-api/config.yaml` to `/app/config.yaml` and
+uses the same `/healthz` endpoint for its Docker health check.

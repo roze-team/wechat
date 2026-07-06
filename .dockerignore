@@ -1,0 +1,9 @@
+target
+target*
+.git
+.github
+.agents
+.codex
+.env
+.env.*
+*.rs.bk

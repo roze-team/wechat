@@ -20,3 +20,5 @@
 - Notification decryption is tested before accepting payment callbacks.
 - Every typed module has request/response DTO tests.
 - CI runs format, tests, and clippy.
+- CI builds the production API container image.
+- The production API container exposes `/healthz` as its Docker health check.
