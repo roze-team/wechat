@@ -26,8 +26,10 @@ matrix.
 - `crates/roze-wechat`: core SDK crate.
 - `crates/roze-wechat/src/modules_impl`: product modules split by WeChat
   product family and capability area.
-- `apps/wechat-api`: Roze-style HTTP service for callbacks, health checks, and
-  operational endpoints.
+- `apps/wechat-api`: Roze REST service for callbacks, health checks, startup
+  probes, and operational endpoints. It uses `roze-config` for `config.yaml`,
+  `roze-http` for serving, `roze-health` for probes, and `roze-result` for
+  response envelopes.
 - `docs`: requirements, module mapping, and production checklist.
 
 ## Module Entry
@@ -48,3 +50,12 @@ cargo fmt --all --check
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+Run the API service with:
+
+```bash
+cargo run -p wechat-api
+```
+
+The service reads `apps/wechat-api/config.yaml` by default and exposes
+`/healthz`, `/readyz`, `/startupz`, and `/wechat/callback/verify`.

@@ -1,6 +1,10 @@
 # Production Checklist
 
-- All applications expose `/healthz` and `/readyz`.
+- All applications expose `/healthz`, `/readyz`, and `/startupz`.
+- HTTP services load `roze-config::ServiceConfig` from `config.yaml`.
+- HTTP services run through `roze-http::rest::RestServer`.
+- HTTP responses use `roze-result::ApiResponse`.
+- Health probes use `roze-health::HealthRegistry` and dependency checks.
 - WeChat API calls use explicit timeout and structured error mapping.
 - Access tokens and tickets are cached with early refresh.
 - High-concurrency token refresh uses singleflight before production launch.

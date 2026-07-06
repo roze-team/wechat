@@ -1,0 +1,25 @@
+name: wechat-api
+
+rest:
+  addr: 0.0.0.0:8080
+  register: false
+  middlewares:
+    recover: true
+    trace: true
+    stat: true
+    prometheus: true
+    cors: true
+    timeout: true
+
+governance:
+  timeout_ms: 30000
+  retry:
+    max_attempts: 1
+    backoff_ms: 100
+    max_backoff_ms: 1000
+  rate_limit:
+    burst: 200
+    refill_ms: 1000
+  breaker:
+    failure_threshold: 10
+    reset_timeout_ms: 30000
