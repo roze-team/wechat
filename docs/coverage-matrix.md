@@ -46,6 +46,7 @@ Status values:
 | Open Work | provider/suitAuth/corp | `open_work` | tested |
 | Payment | bill | `payment::bill` | tested |
 | Payment | base | `payment::base` | module |
+| Payment | fundApp | `payment::fund_app` | tested |
 | Payment | jssdk | `payment::jssdk` | tested |
 | Payment | merchantService | `payment::merchant_service` | tested |
 | Payment | notify | `payment::notify` | tested |
@@ -56,6 +57,7 @@ Status values:
 | Payment | refund | `payment::refund` | tested |
 | Payment | reverse | `payment::reverse` | tested |
 | Payment | security | `payment::security` | tested |
+| Payment | tax | `payment::tax` | tested |
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
 | Work | auth/oauth | `work::oauth` | tested |

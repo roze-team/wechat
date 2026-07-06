@@ -25,6 +25,85 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.bill")
     }
 
+    pub fn fund_app(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.fund_app")
+    }
+
+    pub async fn create_fund_app_transfer_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        request: FundAppTransferBillRequest,
+    ) -> Result<FundAppTransferBillResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/fund-app/mch-transfer/transfer-bills",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_fund_app_transfer_bill_by_out_no(
+        &self,
+        credentials: &PaymentCredentials,
+        out_bill_no: impl AsRef<str>,
+    ) -> Result<FundAppTransferBillDetailResponse> {
+        let path = format!(
+            "/v3/fund-app/mch-transfer/transfer-bills/out-bill-no/{}",
+            out_bill_no.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
+    pub async fn query_fund_app_transfer_bill_by_transfer_no(
+        &self,
+        credentials: &PaymentCredentials,
+        transfer_bill_no: impl AsRef<str>,
+    ) -> Result<FundAppTransferBillDetailResponse> {
+        let path = format!(
+            "/v3/fund-app/mch-transfer/transfer-bills/transfer-bill-no/{}",
+            transfer_bill_no.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
+    pub async fn cancel_fund_app_transfer_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        out_bill_no: impl AsRef<str>,
+    ) -> Result<FundAppTransferBillCancelResponse> {
+        let path = format!(
+            "/v3/fund-app/mch-transfer/transfer-bills/out-bill-no/{}/cancel",
+            out_bill_no.as_ref()
+        );
+        self.post_v3(credentials, &path, serde_json::json!({}))
+            .await
+    }
+
+    pub async fn apply_fund_app_elec_sign_by_out_no(
+        &self,
+        credentials: &PaymentCredentials,
+        out_bill_no: impl Into<String>,
+    ) -> Result<FundAppElecSignApplyResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/fund-app/mch-transfer/elecsign/out-bill-no",
+            serde_json::json!({ "out_bill_no": out_bill_no.into() }),
+        )
+        .await
+    }
+
+    pub async fn query_fund_app_elec_sign_by_out_no(
+        &self,
+        credentials: &PaymentCredentials,
+        out_bill_no: impl AsRef<str>,
+    ) -> Result<FundAppElecSignResponse> {
+        let path = format!(
+            "/v3/fund-app/mch-transfer/elecsign/out-bill-no/{}",
+            out_bill_no.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
     pub fn jssdk(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.jssdk")
     }
@@ -446,6 +525,23 @@ impl Payment {
     ) -> Result<CertificateListResponse> {
         self.get_v3(credentials, "/v3/certificates", Vec::new())
             .await
+    }
+
+    pub fn tax(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.tax")
+    }
+
+    pub async fn apply_tax_card_template(
+        &self,
+        credentials: &PaymentCredentials,
+        request: TaxCardTemplateRequest,
+    ) -> Result<TaxCardTemplateResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/new-tax-control-fapiao/card-template",
+            to_value(request)?,
+        )
+        .await
     }
 
     pub async fn create_transfer_batch(
@@ -1023,6 +1119,103 @@ pub struct BillResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundAppTransferBillRequest {
+    pub appid: String,
+    pub out_bill_no: String,
+    pub transfer_scene_id: String,
+    pub openid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_name: Option<String>,
+    pub transfer_amount: i64,
+    pub transfer_remark: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notify_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_recv_perception: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transfer_scene_report_infos: Option<Vec<TransferSceneReportInfo>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferSceneReportInfo {
+    pub info_type: String,
+    pub info_content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundAppTransferBillResponse {
+    pub out_bill_no: String,
+    pub transfer_bill_no: String,
+    pub create_time: String,
+    pub state: String,
+    #[serde(default)]
+    pub fail_reason: Option<String>,
+    #[serde(default)]
+    pub package_info: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundAppTransferBillDetailResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundAppTransferBillCancelResponse {
+    pub out_bill_no: String,
+    pub transfer_bill_no: String,
+    pub state: String,
+    pub update_time: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundAppElecSignApplyResponse {
+    pub state: String,
+    pub create_time: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundAppElecSignResponse {
+    pub state: String,
+    pub create_time: String,
+    pub update_time: String,
+    pub hash_type: String,
+    pub hash_value: String,
+    pub download_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaxCardTemplateRequest {
+    pub card_appid: String,
+    pub card_template_information: TaxCardTemplateInformation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaxCardTemplateInformation {
+    pub payee_name: String,
+    pub logo_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_cell: Option<TaxCustomCell>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaxCustomCell {
+    pub words: String,
+    pub description: String,
+    pub jump_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_user_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaxCardTemplateResponse {
+    pub card_appid: String,
+    pub card_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintListRequest {
     pub begin_date: String,
     pub end_date: String,
@@ -1206,12 +1399,14 @@ mod tests {
 
     use super::{
         Amount, AppPayParams, BillRequest, CertificateListResponse, ComplaintListRequest,
+        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
         JsapiPayParams, NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
         PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PayScoreRiskFund,
         PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreTimeRange,
         PaymentNotification, PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
         ProfitSharingReceiverRequest, RefundAmount, RefundRequest, ReverseOrderRequest,
-        TransferBatchQuery, TransferBatchRequest, TransferDetailInput,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
+        TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
     };
 
     #[test]
@@ -1651,5 +1846,98 @@ mod tests {
             response.data[0].encrypt_certificate.algorithm,
             "AEAD_AES_256_GCM"
         );
+    }
+
+    #[test]
+    fn serializes_fund_app_transfer_bill_request() {
+        let value = serde_json::to_value(FundAppTransferBillRequest {
+            appid: "wxappid".to_string(),
+            out_bill_no: "bill-1".to_string(),
+            transfer_scene_id: "1000".to_string(),
+            openid: "openid".to_string(),
+            user_name: None,
+            transfer_amount: 100,
+            transfer_remark: "bonus".to_string(),
+            notify_url: Some("https://example.com/fund-app".to_string()),
+            user_recv_perception: Some("cash reward".to_string()),
+            transfer_scene_report_infos: Some(vec![TransferSceneReportInfo {
+                info_type: "activity_name".to_string(),
+                info_content: "July campaign".to_string(),
+            }]),
+        })
+        .unwrap();
+
+        assert_eq!(value["appid"], "wxappid");
+        assert_eq!(value["out_bill_no"], "bill-1");
+        assert_eq!(value["transfer_amount"], 100);
+        assert_eq!(value["notify_url"], "https://example.com/fund-app");
+        assert_eq!(
+            value["transfer_scene_report_infos"][0]["info_content"],
+            "July campaign"
+        );
+        assert!(value.get("user_name").is_none());
+    }
+
+    #[test]
+    fn deserializes_fund_app_transfer_bill_response() {
+        let response: FundAppTransferBillResponse = serde_json::from_value(json!({
+            "out_bill_no": "bill-1",
+            "transfer_bill_no": "transfer-1",
+            "create_time": "2026-07-06T00:00:00+08:00",
+            "state": "ACCEPTED",
+            "package_info": "package"
+        }))
+        .unwrap();
+
+        assert_eq!(response.out_bill_no, "bill-1");
+        assert_eq!(response.transfer_bill_no, "transfer-1");
+        assert_eq!(response.state, "ACCEPTED");
+        assert_eq!(response.package_info.as_deref(), Some("package"));
+    }
+
+    #[test]
+    fn deserializes_fund_app_elec_sign_response() {
+        let response: FundAppElecSignResponse = serde_json::from_value(json!({
+            "state": "FINISHED",
+            "create_time": "2026-07-06T00:00:00+08:00",
+            "update_time": "2026-07-06T00:01:00+08:00",
+            "hash_type": "SHA256",
+            "hash_value": "hash",
+            "download_url": "https://example.com/sign.pdf"
+        }))
+        .unwrap();
+
+        assert_eq!(response.state, "FINISHED");
+        assert_eq!(response.hash_type, "SHA256");
+        assert_eq!(response.download_url, "https://example.com/sign.pdf");
+    }
+
+    #[test]
+    fn serializes_tax_card_template_request() {
+        let value = serde_json::to_value(TaxCardTemplateRequest {
+            card_appid: "wxappid".to_string(),
+            card_template_information: TaxCardTemplateInformation {
+                payee_name: "merchant".to_string(),
+                logo_url: "https://example.com/logo.png".to_string(),
+                custom_cell: Some(TaxCustomCell {
+                    words: "invoice".to_string(),
+                    description: "view invoice".to_string(),
+                    jump_url: "https://example.com/invoice".to_string(),
+                    miniprogram_user_name: None,
+                    miniprogram_path: Some("pages/invoice".to_string()),
+                }),
+            },
+        })
+        .unwrap();
+
+        assert_eq!(value["card_appid"], "wxappid");
+        assert_eq!(value["card_template_information"]["payee_name"], "merchant");
+        assert_eq!(
+            value["card_template_information"]["custom_cell"]["miniprogram_path"],
+            "pages/invoice"
+        );
+        assert!(value["card_template_information"]["custom_cell"]
+            .get("miniprogram_user_name")
+            .is_none());
     }
 }
