@@ -66,6 +66,40 @@ pub fn payment_v3_message(
     format!("{method}\n{url_path_query}\n{timestamp}\n{nonce}\n{body}\n")
 }
 
+pub fn payment_legacy_sign(params: &[(String, String)], api_key: &str) -> String {
+    let mut pairs = params
+        .iter()
+        .filter(|(key, value)| key != "sign" && !value.is_empty())
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect::<Vec<_>>();
+    pairs.sort_unstable_by(|left, right| left.0.cmp(right.0));
+
+    let mut payload = pairs
+        .into_iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join("&");
+    payload.push_str("&key=");
+    payload.push_str(api_key);
+
+    format!("{:x}", md5::compute(payload.as_bytes())).to_uppercase()
+}
+
+pub fn payment_legacy_xml(params: &[(String, String)]) -> String {
+    let mut xml = String::from("<xml>");
+    for (key, value) in params {
+        xml.push('<');
+        xml.push_str(key);
+        xml.push_str("><![CDATA[");
+        xml.push_str(&value.replace("]]>", "]]]]><![CDATA[>"));
+        xml.push_str("]]></");
+        xml.push_str(key);
+        xml.push('>');
+    }
+    xml.push_str("</xml>");
+    xml
+}
+
 pub fn rsa_sha256_sign_base64(private_key_pem: &str, message: &[u8]) -> Result<String> {
     let private_key = RsaPrivateKey::from_pkcs8_pem(private_key_pem)
         .map_err(|err| WechatError::Crypto(format!("invalid private key: {err}")))?;
@@ -196,6 +230,40 @@ mod tests {
             payment_v3_message("POST", "/v3/pay/transactions/jsapi", 1, "abc", "{}"),
             "POST\n/v3/pay/transactions/jsapi\n1\nabc\n{}\n"
         );
+    }
+
+    #[test]
+    fn builds_payment_legacy_md5_signature() {
+        let params = vec![
+            ("nonce_str".to_string(), "abc".to_string()),
+            ("empty".to_string(), String::new()),
+            ("mch_id".to_string(), "1900000109".to_string()),
+            ("sign".to_string(), "ignored".to_string()),
+        ];
+        let expected_payload = "mch_id=1900000109&nonce_str=abc&key=secret";
+        let expected = format!("{:x}", md5::compute(expected_payload.as_bytes())).to_uppercase();
+
+        assert_eq!(payment_legacy_sign(&params, "secret"), expected);
+    }
+
+    #[test]
+    fn builds_payment_legacy_xml() {
+        let xml = payment_legacy_xml(&[
+            ("mch_id".to_string(), "1900000109".to_string()),
+            ("nonce_str".to_string(), "abc".to_string()),
+        ]);
+
+        assert_eq!(
+            xml,
+            "<xml><mch_id><![CDATA[1900000109]]></mch_id><nonce_str><![CDATA[abc]]></nonce_str></xml>"
+        );
+    }
+
+    #[test]
+    fn escapes_payment_legacy_xml_cdata_end_marker() {
+        let xml = payment_legacy_xml(&[("body".to_string(), "a]]>b".to_string())]);
+
+        assert_eq!(xml, "<xml><body><![CDATA[a]]]]><![CDATA[>b]]></body></xml>");
     }
 
     #[test]

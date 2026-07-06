@@ -57,6 +57,7 @@ Status values:
 | Payment | profitSharing | `payment::profit_sharing` | tested |
 | Payment | refund | `payment::refund` | tested |
 | Payment | reverse | `payment::reverse` | tested |
+| Payment | sandbox | `payment::sandbox` | tested |
 | Payment | security | `payment::security` | tested |
 | Payment | tax | `payment::tax` | tested |
 | Payment | transfer | `payment::transfer` | tested |

@@ -581,6 +581,22 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.tax")
     }
 
+    pub fn sandbox(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.sandbox")
+    }
+
+    pub async fn get_sandbox_sign_key(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+    ) -> Result<SandboxSignKeyResponse> {
+        let body =
+            build_sandbox_sign_key_xml(credentials, api_key.as_ref(), &crypto::nonce_string(32));
+        self.inner
+            .post_xml("/sandboxnew/pay/getsignkey", body)
+            .await
+    }
+
     pub async fn apply_tax_card_template(
         &self,
         credentials: &PaymentCredentials,
@@ -686,6 +702,20 @@ impl Payment {
         )];
         self.inner.get_with_headers(path, query, headers).await
     }
+}
+
+fn build_sandbox_sign_key_xml(
+    credentials: &PaymentCredentials,
+    api_key: &str,
+    nonce_str: &str,
+) -> String {
+    let mut params = vec![
+        ("mch_id".to_string(), credentials.mch_id.clone()),
+        ("nonce_str".to_string(), nonce_str.to_string()),
+    ];
+    let sign = crypto::payment_legacy_sign(&params, api_key);
+    params.push(("sign".to_string(), sign));
+    crypto::payment_legacy_xml(&params)
 }
 
 #[derive(Debug, Clone)]
@@ -1277,6 +1307,18 @@ pub struct FundAppElecSignResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SandboxSignKeyResponse {
+    #[serde(rename = "return_code")]
+    pub return_code: String,
+    #[serde(default, rename = "return_msg")]
+    pub return_msg: Option<String>,
+    #[serde(default, rename = "mch_id")]
+    pub mch_id: Option<String>,
+    #[serde(default, rename = "sandbox_signkey")]
+    pub sandbox_sign_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaxCardTemplateRequest {
     pub card_appid: String,
     pub card_template_information: TaxCardTemplateInformation,
@@ -1490,15 +1532,16 @@ mod tests {
     use crate::crypto;
 
     use super::{
-        Amount, AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest,
-        Applyment4SubResponse, BillRequest, CertificateListResponse, ComplaintListRequest,
-        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        JsapiPayParams, MicropayRequest, NativePrepayRequest, PartnerCloseOrderRequest,
-        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
-        PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
-        PayScoreTimeRange, PaymentNotification, PaymentResource, ProfitSharingOrderRequest,
-        ProfitSharingReceiver, ProfitSharingReceiverRequest, RefundAmount, RefundRequest,
-        ReverseOrderRequest, TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell,
+        build_sandbox_sign_key_xml, Amount, AppPayParams, Applyment4SubQueryResponse,
+        Applyment4SubRequest, Applyment4SubResponse, BillRequest, CertificateListResponse,
+        ComplaintListRequest, FundAppElecSignResponse, FundAppTransferBillRequest,
+        FundAppTransferBillResponse, JsapiPayParams, MicropayRequest, NativePrepayRequest,
+        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
+        PartnerOrderQuery, PartnerPayer, PayScoreRiskFund, PayScoreServiceOrderQuery,
+        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
+        PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, RefundAmount, RefundRequest, ReverseOrderRequest,
+        SandboxSignKeyResponse, TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell,
         TransferBatchQuery, TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
     };
 
@@ -1576,6 +1619,39 @@ mod tests {
         assert_eq!(value["amount"]["total"], 100);
         assert_eq!(value["scene_info"]["device_id"], "device-1");
         assert!(value.get("goods_tag").is_none());
+    }
+
+    #[test]
+    fn builds_sandbox_sign_key_xml() {
+        let credentials = PaymentCredentials {
+            mch_id: "1900000109".to_string(),
+            serial_no: "serial".to_string(),
+            private_key_pem: "pem".to_string(),
+        };
+        let xml = build_sandbox_sign_key_xml(&credentials, "secret", "abc");
+        let expected_sign = crypto::payment_legacy_sign(
+            &[
+                ("mch_id".to_string(), "1900000109".to_string()),
+                ("nonce_str".to_string(), "abc".to_string()),
+            ],
+            "secret",
+        );
+
+        assert!(xml.contains("<mch_id><![CDATA[1900000109]]></mch_id>"));
+        assert!(xml.contains("<nonce_str><![CDATA[abc]]></nonce_str>"));
+        assert!(xml.contains(&format!("<sign><![CDATA[{expected_sign}]]></sign>")));
+    }
+
+    #[test]
+    fn parses_sandbox_sign_key_response_xml() {
+        let response: SandboxSignKeyResponse = quick_xml::de::from_str(
+            "<xml><return_code><![CDATA[SUCCESS]]></return_code><mch_id><![CDATA[1900000109]]></mch_id><sandbox_signkey><![CDATA[key]]></sandbox_signkey></xml>",
+        )
+        .unwrap();
+
+        assert_eq!(response.return_code, "SUCCESS");
+        assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
+        assert_eq!(response.sandbox_sign_key.as_deref(), Some("key"));
     }
 
     #[test]

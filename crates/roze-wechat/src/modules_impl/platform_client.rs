@@ -175,6 +175,14 @@ impl PlatformClient {
         }
         self.client.execute_multipart(endpoint, query, form).await
     }
+
+    pub async fn post_xml<R>(&self, path: impl Into<String>, body: String) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let endpoint = Endpoint::post(path);
+        self.client.execute_xml(endpoint, body).await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -301,5 +309,12 @@ impl DomainModule {
         self.inner
             .post_multipart(path, access_token, query, form)
             .await
+    }
+
+    pub async fn post_xml<R>(&self, path: impl Into<String>, body: String) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        self.inner.post_xml(path, body).await
     }
 }

@@ -90,6 +90,7 @@ mod tests {
         assert_eq!(wechat.payment().fund_app().name(), "payment.fund_app");
         assert_eq!(wechat.payment().pay_score().name(), "payment.pay_score");
         assert_eq!(wechat.payment().security().name(), "payment.security");
+        assert_eq!(wechat.payment().sandbox().name(), "payment.sandbox");
         assert_eq!(wechat.payment().tax().name(), "payment.tax");
         assert_eq!(wechat.work().message().name(), "work.message");
         assert_eq!(

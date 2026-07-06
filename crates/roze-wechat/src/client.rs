@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use bytes::Bytes;
+use quick_xml::de::from_str as from_xml_str;
 use reqwest::{multipart, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -169,6 +170,36 @@ impl Client {
         }
 
         Ok(builder.send().await?.error_for_status()?.bytes().await?)
+    }
+
+    pub async fn execute_xml<R>(&self, endpoint: Endpoint, body: String) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut url = Url::parse(&self.config.base_url)
+            .map_err(|err| WechatError::Config(format!("invalid base_url: {err}")))?;
+        url.set_path(endpoint.path.trim_start_matches('/'));
+
+        {
+            let mut pairs = url.query_pairs_mut();
+            if let Some(token) = endpoint.access_token {
+                pairs.append_pair("access_token", &token);
+            }
+        }
+
+        let mut builder = self
+            .http
+            .request(endpoint.method, url)
+            .header("content-type", "text/xml; charset=utf-8")
+            .body(body);
+        for (key, value) in endpoint.headers {
+            builder = builder.header(key, value);
+        }
+
+        let text = builder.send().await?.error_for_status()?.text().await?;
+        debug!(wechat_response = %text, "wechat xml response");
+
+        from_xml_str(&text).map_err(|err| WechatError::Xml(err.to_string()))
     }
 
     pub async fn execute_multipart<R>(
