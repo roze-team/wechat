@@ -56,7 +56,7 @@ impl OpenPlatform {
         component_access_token: impl Into<String>,
         component_appid: impl Into<String>,
         authorization_code: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<QueryAuthResponse> {
         self.inner
             .post_json_with_query(
                 "cgi-bin/component/api_query_auth",
@@ -77,7 +77,7 @@ impl OpenPlatform {
         &self,
         component_access_token: impl Into<String>,
         request: AuthorizerAccessTokenRequest,
-    ) -> Result<Value> {
+    ) -> Result<AuthorizerAccessTokenResponse> {
         self.inner
             .post_json_with_query(
                 "cgi-bin/component/api_authorizer_token",
@@ -197,13 +197,25 @@ impl OpenPlatform {
         draft_id: i64,
         template_type: i64,
     ) -> Result<OpenPlatformStatusResponse> {
+        self.add_template(
+            component_access_token,
+            AddTemplateFromDraftRequest {
+                draft_id,
+                template_type,
+            },
+        )
+        .await
+    }
+
+    pub async fn add_template(
+        &self,
+        component_access_token: impl Into<String>,
+        request: AddTemplateFromDraftRequest,
+    ) -> Result<OpenPlatformStatusResponse> {
         self.post_component_json(
             component_access_token,
             "wxa/addtotemplate",
-            json!({
-                "draft_id": draft_id,
-                "template_type": template_type,
-            }),
+            serde_json::to_value(request)?,
         )
         .await
     }
@@ -226,10 +238,24 @@ impl OpenPlatform {
         component_access_token: impl Into<String>,
         template_id: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
+        self.remove_template(
+            component_access_token,
+            DeleteTemplateRequest {
+                template_id: template_id.into(),
+            },
+        )
+        .await
+    }
+
+    pub async fn remove_template(
+        &self,
+        component_access_token: impl Into<String>,
+        request: DeleteTemplateRequest,
+    ) -> Result<OpenPlatformStatusResponse> {
         self.post_component_json(
             component_access_token,
             "wxa/deletetemplate",
-            json!({ "template_id": template_id.into() }),
+            serde_json::to_value(request)?,
         )
         .await
     }
@@ -336,10 +362,45 @@ pub struct PreauthCodeResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryAuthResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorization_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorizerAccessTokenRequest {
     pub component_appid: String,
     pub authorizer_appid: String,
     pub authorizer_refresh_token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthorizerAccessTokenResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorizer_access_token: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+    #[serde(default)]
+    pub authorizer_refresh_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddTemplateFromDraftRequest {
+    pub draft_id: i64,
+    pub template_type: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteTemplateRequest {
+    pub template_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -373,7 +434,12 @@ pub struct OpenPlatformStatusResponse {
 mod tests {
     use serde_json::json;
 
-    use super::{ComponentAccessTokenRequest, RegisterMiniProgramRequest};
+    use super::{
+        AddTemplateFromDraftRequest, AuthorizerAccessTokenRequest, AuthorizerAccessTokenResponse,
+        ComponentAccessTokenRequest, ComponentAccessTokenResponse, DeleteTemplateRequest,
+        OpenPlatformStatusResponse, PreauthCodeResponse, QueryAuthResponse,
+        RegisterMiniProgramRequest, RegistrationStatusRequest,
+    };
 
     #[test]
     fn serializes_component_token_request() {
@@ -395,6 +461,85 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_component_auth_responses() {
+        let token: ComponentAccessTokenResponse = serde_json::from_value(json!({
+            "component_access_token": "component-token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        let preauth: PreauthCodeResponse =
+            serde_json::from_value(json!({ "pre_auth_code": "preauth", "expires_in": 600 }))
+                .unwrap();
+        let query_auth: QueryAuthResponse = serde_json::from_value(json!({
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer"
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            token.component_access_token.as_deref(),
+            Some("component-token")
+        );
+        assert_eq!(token.expires_in, Some(7200));
+        assert_eq!(preauth.pre_auth_code.as_deref(), Some("preauth"));
+        assert_eq!(
+            query_auth.authorization_info.expect("authorization_info")["authorizer_appid"],
+            "wx-authorizer"
+        );
+    }
+
+    #[test]
+    fn serializes_authorizer_access_token_request() {
+        let value = serde_json::to_value(AuthorizerAccessTokenRequest {
+            component_appid: "component".to_string(),
+            authorizer_appid: "authorizer".to_string(),
+            authorizer_refresh_token: "refresh".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value["component_appid"], "component");
+        assert_eq!(value["authorizer_appid"], "authorizer");
+        assert_eq!(value["authorizer_refresh_token"], "refresh");
+    }
+
+    #[test]
+    fn deserializes_authorizer_access_token_response() {
+        let response: AuthorizerAccessTokenResponse = serde_json::from_value(json!({
+            "authorizer_access_token": "authorizer-token",
+            "expires_in": 7200,
+            "authorizer_refresh_token": "refresh-token"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            response.authorizer_access_token.as_deref(),
+            Some("authorizer-token")
+        );
+        assert_eq!(response.expires_in, Some(7200));
+        assert_eq!(
+            response.authorizer_refresh_token.as_deref(),
+            Some("refresh-token")
+        );
+    }
+
+    #[test]
+    fn serializes_code_template_requests() {
+        let add = serde_json::to_value(AddTemplateFromDraftRequest {
+            draft_id: 100,
+            template_type: 0,
+        })
+        .unwrap();
+        let delete = serde_json::to_value(DeleteTemplateRequest {
+            template_id: "tpl".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(add, json!({ "draft_id": 100, "template_type": 0 }));
+        assert_eq!(delete, json!({ "template_id": "tpl" }));
+    }
+
+    #[test]
     fn serializes_register_mini_program_request() {
         let value = serde_json::to_value(RegisterMiniProgramRequest {
             name: "corp".to_string(),
@@ -408,5 +553,28 @@ mod tests {
 
         assert_eq!(value["legal_persona_wechat"], "wechat");
         assert_eq!(value["code_type"], 1);
+    }
+
+    #[test]
+    fn serializes_registration_status_request() {
+        let value = serde_json::to_value(RegistrationStatusRequest {
+            name: "corp".to_string(),
+            legal_persona_wechat: "wechat".to_string(),
+            legal_persona_name: "name".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value["name"], "corp");
+        assert_eq!(value["legal_persona_name"], "name");
+    }
+
+    #[test]
+    fn deserializes_open_platform_status_extra_fields() {
+        let response: OpenPlatformStatusResponse =
+            serde_json::from_value(json!({ "errcode": 0, "status": 1, "msg": "ok" })).unwrap();
+
+        assert_eq!(response.errcode, Some(0));
+        assert_eq!(response.extra["status"], 1);
+        assert_eq!(response.extra["msg"], "ok");
     }
 }

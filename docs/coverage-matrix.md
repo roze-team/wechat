@@ -39,9 +39,9 @@ Status values:
 | Official Account | templateMessage | `official_account::template_message` | tested |
 | Official Account | user/tag | `official_account::user` | tested |
 | Open Platform | auth | `open_platform::auth` | tested |
-| Open Platform | authorizer | `open_platform::authorizer` | typed |
-| Open Platform | codeTemplate | `open_platform::code_template` | typed |
-| Open Platform | component | `open_platform::component` | typed |
+| Open Platform | authorizer | `open_platform::authorizer` | tested |
+| Open Platform | codeTemplate | `open_platform::code_template` | tested |
+| Open Platform | component | `open_platform::component` | tested |
 | Open Platform | server | `open_platform::server` | module |
 | Open Work | provider/suitAuth/corp | `open_work` | tested |
 | Payment | bill | `payment::bill` | tested |
