@@ -170,12 +170,26 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         user_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<UserIdToOpenIdResponse> {
+        self.convert_user_id_to_openid(
+            access_token,
+            UserIdToOpenIdRequest {
+                userid: user_id.into(),
+            },
+        )
+        .await
+    }
+
+    pub async fn convert_user_id_to_openid(
+        &self,
+        access_token: impl Into<String>,
+        request: UserIdToOpenIdRequest,
+    ) -> Result<UserIdToOpenIdResponse> {
         self.inner
             .post(
                 "cgi-bin/user/convert_to_openid",
                 Some(access_token.into()),
-                json!({ "userid": user_id.into() }),
+                request,
             )
             .await
     }
@@ -184,12 +198,26 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         openid: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenIdToUserIdResponse> {
+        self.convert_openid_to_user_id(
+            access_token,
+            OpenIdToUserIdRequest {
+                openid: openid.into(),
+            },
+        )
+        .await
+    }
+
+    pub async fn convert_openid_to_user_id(
+        &self,
+        access_token: impl Into<String>,
+        request: OpenIdToUserIdRequest,
+    ) -> Result<OpenIdToUserIdResponse> {
         self.inner
             .post(
                 "cgi-bin/user/convert_to_userid",
                 Some(access_token.into()),
-                json!({ "openid": openid.into() }),
+                request,
             )
             .await
     }
@@ -704,6 +732,38 @@ pub struct DepartmentCreateResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserIdToOpenIdRequest {
+    pub userid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserIdToOpenIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenIdToUserIdRequest {
+    pub openid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenIdToUserIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkStatusResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -929,7 +989,9 @@ mod tests {
 
     use super::{
         AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
-        MsgAuditChatDataRequest, Work, WorkMessage, WorkOauthAuthorizeUrlRequest,
+        DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
+        OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
+        UserIdToOpenIdResponse, Work, WorkMessage, WorkOauthAuthorizeUrlRequest,
         WorkUploadMediaResponse,
     };
 
@@ -985,6 +1047,60 @@ mod tests {
 
         assert_eq!(value["type"], 1);
         assert_eq!(value["user"][0], "user");
+    }
+
+    #[test]
+    fn serializes_department_request() {
+        let value = serde_json::to_value(DepartmentRequest {
+            name: "Engineering".to_string(),
+            parentid: 1,
+            id: Some(2),
+            name_en: Some("Engineering".to_string()),
+            order: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["name"], "Engineering");
+        assert_eq!(value["parentid"], 1);
+        assert_eq!(value["id"], 2);
+        assert_eq!(value["name_en"], "Engineering");
+        assert!(value.get("order").is_none());
+    }
+
+    #[test]
+    fn deserializes_department_create_response() {
+        let response: DepartmentCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "id": 42 })).unwrap();
+
+        assert_eq!(response.errcode, Some(0));
+        assert_eq!(response.id, Some(42));
+    }
+
+    #[test]
+    fn serializes_user_id_openid_conversion_requests() {
+        let to_openid = serde_json::to_value(UserIdToOpenIdRequest {
+            userid: "user".to_string(),
+        })
+        .unwrap();
+        let to_userid = serde_json::to_value(OpenIdToUserIdRequest {
+            openid: "openid".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(to_openid, json!({ "userid": "user" }));
+        assert_eq!(to_userid, json!({ "openid": "openid" }));
+    }
+
+    #[test]
+    fn deserializes_user_id_openid_conversion_responses() {
+        let to_openid: UserIdToOpenIdResponse =
+            serde_json::from_value(json!({ "openid": "openid", "appid": "wxappid" })).unwrap();
+        let to_userid: OpenIdToUserIdResponse =
+            serde_json::from_value(json!({ "userid": "user" })).unwrap();
+
+        assert_eq!(to_openid.openid.as_deref(), Some("openid"));
+        assert_eq!(to_openid.appid.as_deref(), Some("wxappid"));
+        assert_eq!(to_userid.userid.as_deref(), Some("user"));
     }
 
     #[test]

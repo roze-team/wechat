@@ -55,7 +55,7 @@ Status values:
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
 | Work | auth/oauth | `work::oauth` | tested |
-| Work | department/user/tag | `work::contact` | typed |
+| Work | department/user/tag | `work::contact` | tested |
 | Work | externalContact | `work::external_contact` | tested |
 | Work | groupRobot | `work::group_robot` | tested |
 | Work | jssdk | `work::jssdk` | tested |
