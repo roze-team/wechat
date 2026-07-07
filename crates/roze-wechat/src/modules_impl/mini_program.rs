@@ -307,6 +307,190 @@ impl MiniProgram {
             .await
     }
 
+    pub fn ocr(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.ocr")
+    }
+
+    pub async fn ocr_bankcard_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OcrBankcardResponse> {
+        self.ocr_by_url("cv/ocr/bankcard", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_bankcard_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OcrBankcardResponse> {
+        self.ocr_from_bytes("cv/ocr/bankcard", access_token, file_name, data, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_business_license_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OcrBusinessLicenseResponse> {
+        self.ocr_by_url("cv/ocr/bizlicense", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_business_license_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OcrBusinessLicenseResponse> {
+        self.ocr_from_bytes(
+            "cv/ocr/bizlicense",
+            access_token,
+            file_name,
+            data,
+            Vec::new(),
+        )
+        .await
+    }
+
+    pub async fn ocr_driving_license_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OcrDrivingLicenseResponse> {
+        self.ocr_by_url("cv/ocr/drivinglicense", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_driving_license_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OcrDrivingLicenseResponse> {
+        self.ocr_from_bytes(
+            "cv/ocr/drivinglicense",
+            access_token,
+            file_name,
+            data,
+            Vec::new(),
+        )
+        .await
+    }
+
+    pub async fn ocr_id_card_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OcrIdCardResponse> {
+        self.ocr_by_url("cv/ocr/idcard", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_id_card_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OcrIdCardResponse> {
+        self.ocr_from_bytes("cv/ocr/idcard", access_token, file_name, data, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_printed_text_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OcrPrintedTextResponse> {
+        self.ocr_by_url("cv/ocr/comm", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_printed_text_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OcrPrintedTextResponse> {
+        self.ocr_from_bytes("cv/ocr/comm", access_token, file_name, data, Vec::new())
+            .await
+    }
+
+    pub async fn ocr_vehicle_license_by_url(
+        &self,
+        access_token: impl Into<String>,
+        mode: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OcrVehicleLicenseResponse> {
+        self.ocr_by_url(
+            "cv/ocr/driving",
+            access_token,
+            img_url,
+            vec![("type".to_string(), mode.into())],
+        )
+        .await
+    }
+
+    pub async fn ocr_vehicle_license_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        mode: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OcrVehicleLicenseResponse> {
+        self.ocr_from_bytes(
+            "cv/ocr/driving",
+            access_token,
+            file_name,
+            data,
+            vec![("type".to_string(), mode.into())],
+        )
+        .await
+    }
+
+    async fn ocr_by_url<R>(
+        &self,
+        path: &'static str,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+        mut query: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        query.push(("img_url".to_string(), img_url.into()));
+        self.inner
+            .post_multipart(
+                path,
+                Some(access_token.into()),
+                query,
+                reqwest::multipart::Form::new(),
+            )
+            .await
+    }
+
+    async fn ocr_from_bytes<R>(
+        &self,
+        path: &'static str,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+        query: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        let form = reqwest::multipart::Form::new().part(
+            "img",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(path, Some(access_token.into()), query, form)
+            .await
+    }
+
     pub fn security(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.security")
     }
@@ -664,6 +848,152 @@ pub struct PhoneInfo {
     pub country_code: String,
     #[serde(default)]
     pub watermark: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrBankcardResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub number: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrBusinessLicenseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub reg_num: Option<String>,
+    #[serde(default)]
+    pub serial: Option<String>,
+    #[serde(default)]
+    pub legal_representative: Option<String>,
+    #[serde(default)]
+    pub enterprise_name: Option<String>,
+    #[serde(default)]
+    pub type_of_organization: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub type_of_enterprise: Option<String>,
+    #[serde(default)]
+    pub business_scope: Option<String>,
+    #[serde(default)]
+    pub registered_capital: Option<String>,
+    #[serde(default)]
+    pub paid_in_capital: Option<String>,
+    #[serde(default)]
+    pub valid_period: Option<String>,
+    #[serde(default)]
+    pub registered_date: Option<String>,
+    #[serde(default)]
+    pub cert_position: Option<Value>,
+    #[serde(default)]
+    pub img_size: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrDrivingLicenseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub id_num: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub sex: Option<String>,
+    #[serde(default)]
+    pub nationality: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub birth_date: Option<String>,
+    #[serde(default)]
+    pub issue_date: Option<String>,
+    #[serde(default)]
+    pub car_class: Option<String>,
+    #[serde(default)]
+    pub valid_from: Option<String>,
+    #[serde(default)]
+    pub valid_to: Option<String>,
+    #[serde(default)]
+    pub official_seal: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrIdCardResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub r#type: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub addr: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub nationality: Option<String>,
+    #[serde(default)]
+    pub valid_date: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrPrintedTextResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub items: Vec<Value>,
+    #[serde(default)]
+    pub img_size: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrVehicleLicenseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub vhicle_type: Option<String>,
+    #[serde(default)]
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub addr: Option<String>,
+    #[serde(default)]
+    pub use_character: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub vin: Option<String>,
+    #[serde(default)]
+    pub engine_num: Option<String>,
+    #[serde(default)]
+    pub register_date: Option<String>,
+    #[serde(default)]
+    pub issue_date: Option<String>,
+    #[serde(default)]
+    pub plate_num_b: Option<String>,
+    #[serde(default)]
+    pub record: Option<String>,
+    #[serde(default)]
+    pub passengers_num: Option<String>,
+    #[serde(default)]
+    pub total_quality: Option<String>,
+    #[serde(default)]
+    pub prepare_quality: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1093,13 +1423,14 @@ mod tests {
 
     use super::{
         Code2SessionResponse, CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange,
-        JumpWxa, LiveInfoRequest, LiveRoomRequest, PhoneNumberResponse,
-        RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
-        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
-        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
-        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
-        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
-        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
+        JumpWxa, LiveInfoRequest, LiveRoomRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
+        OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
+        OcrVehicleLicenseResponse, PhoneNumberResponse, RiskControlGetUserRiskRankRequest,
+        RiskControlGetUserRiskRankResponse, SecurityMsgSecCheckRequest, SubscribeMessageRequest,
+        UrlSchemeGenerateRequest, WxaSecConfirmReceiveRequest, WxaSecOrderKey,
+        WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse,
+        WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo,
+        WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
         WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
         WxaSecUploadShippingInfoRequest,
     };
@@ -1428,6 +1759,80 @@ mod tests {
         assert_eq!(phone_info.pure_phone_number, "13800000000");
         assert_eq!(phone_info.country_code, "86");
         assert_eq!(phone_info.watermark.expect("watermark")["appid"], "wxappid");
+    }
+
+    #[test]
+    fn deserializes_ocr_responses() {
+        let bankcard: OcrBankcardResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "number": "6222000000000000"
+        }))
+        .unwrap();
+        assert_eq!(bankcard.number.as_deref(), Some("6222000000000000"));
+
+        let business_license: OcrBusinessLicenseResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "reg_num": "91440000",
+            "legal_representative": "Alice",
+            "enterprise_name": "Example Ltd",
+            "cert_position": { "pos": { "left_top": { "x": 1, "y": 2 } } },
+            "img_size": { "w": 100, "h": 80 }
+        }))
+        .unwrap();
+        assert_eq!(business_license.reg_num.as_deref(), Some("91440000"));
+        assert_eq!(
+            business_license.legal_representative.as_deref(),
+            Some("Alice")
+        );
+        assert_eq!(
+            business_license.cert_position.expect("cert_position")["pos"]["left_top"]["x"],
+            1
+        );
+
+        let driving_license: OcrDrivingLicenseResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "id_num": "110101199001010000",
+            "name": "Alice",
+            "car_class": "C1",
+            "official_seal": "seal"
+        }))
+        .unwrap();
+        assert_eq!(
+            driving_license.id_num.as_deref(),
+            Some("110101199001010000")
+        );
+        assert_eq!(driving_license.car_class.as_deref(), Some("C1"));
+
+        let id_card: OcrIdCardResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "type": "Front",
+            "name": "Alice",
+            "id": "110101199001010000",
+            "addr": "Beijing"
+        }))
+        .unwrap();
+        assert_eq!(id_card.r#type.as_deref(), Some("Front"));
+        assert_eq!(id_card.id.as_deref(), Some("110101199001010000"));
+
+        let printed_text: OcrPrintedTextResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "items": [{ "text": "hello", "pos": { "x": 1 } }],
+            "img_size": { "w": 100 }
+        }))
+        .unwrap();
+        assert_eq!(printed_text.items[0]["text"], "hello");
+        assert_eq!(printed_text.img_size.expect("img_size")["w"], 100);
+
+        let vehicle_license: OcrVehicleLicenseResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "vhicle_type": "small car",
+            "owner": "Alice",
+            "vin": "VIN123",
+            "plate_num_b": "YUEB00000"
+        }))
+        .unwrap();
+        assert_eq!(vehicle_license.vhicle_type.as_deref(), Some("small car"));
+        assert_eq!(vehicle_license.plate_num_b.as_deref(), Some("YUEB00000"));
     }
 
     #[test]

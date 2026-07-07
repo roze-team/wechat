@@ -22,6 +22,7 @@ Status values:
 | Mini Program | customerServiceMessage | `mini_program::customer_service_message` | tested |
 | Mini Program | dataCube | `mini_program::data_cube` | tested |
 | Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
+| Mini Program | ocr | `mini_program::ocr` | tested |
 | Mini Program | phoneNumber | `mini_program::phone_number` | tested |
 | Mini Program | riskControl | `mini_program::risk_control` | tested |
 | Mini Program | security | `mini_program::security` | tested |
