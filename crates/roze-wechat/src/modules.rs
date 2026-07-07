@@ -80,6 +80,10 @@ mod tests {
             "official_account.menu"
         );
         assert_eq!(wechat.mini_program().auth().name(), "mini_program.auth");
+        assert_eq!(
+            wechat.mini_program().wxa_sec_order().name(),
+            "mini_program.wxa_sec_order"
+        );
         assert_eq!(wechat.payment().notify().name(), "payment.notify");
         assert_eq!(wechat.payment().apply4_sub().name(), "payment.apply4_sub");
         assert_eq!(wechat.payment().base().name(), "payment.base");

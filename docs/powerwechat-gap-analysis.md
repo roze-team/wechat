@@ -15,14 +15,14 @@ entries, request/response DTOs, and tests.
 | --- | ---: | ---: | ---: |
 | Basic Service | 6 | 6 | 0 |
 | Channels | 2 | 1 | 1 |
-| Mini Program | 32 | 13 | 19 |
+| Mini Program | 32 | 14 | 18 |
 | Official Account | 24 | 12 | 13 |
 | Open Platform | 6 | 5 | 1 |
 | Open Work | 8 | 6 | 2 |
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 56.
+Total remaining PowerWeChat submodule gaps: 55.
 
 ## Remaining Gaps
 
@@ -50,7 +50,6 @@ Total remaining PowerWeChat submodule gaps: 56.
 - `soter`
 - `virtualPayment`
 - `wxa`
-- `wxa/sec`
 
 ### Official Account
 

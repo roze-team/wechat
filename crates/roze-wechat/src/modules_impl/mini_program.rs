@@ -331,6 +331,136 @@ impl MiniProgram {
             .await
     }
 
+    pub fn wxa_sec_order(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
+    }
+
+    pub async fn upload_shipping_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WxaSecUploadShippingInfoRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/upload_shipping_info",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn upload_combined_shipping_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WxaSecUploadCombinedShippingInfoRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/upload_combined_shipping_info",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wxa_sec_order(
+        &self,
+        access_token: impl Into<String>,
+        request: WxaSecOrderQuery,
+    ) -> Result<WxaSecOrderResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/get_order",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wxa_sec_order_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WxaSecOrderListRequest,
+    ) -> Result<WxaSecOrderListResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/get_order_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn notify_wxa_sec_confirm_receive(
+        &self,
+        access_token: impl Into<String>,
+        request: WxaSecConfirmReceiveRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/notify_confirm_receive",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn set_wxa_sec_msg_jump_path(
+        &self,
+        access_token: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/set_msg_jump_path",
+                Some(access_token.into()),
+                json!({ "path": path.into() }),
+            )
+            .await
+    }
+
+    pub async fn is_wxa_sec_trade_managed(
+        &self,
+        access_token: impl Into<String>,
+        app_id: impl Into<String>,
+    ) -> Result<WxaSecTradeManagedResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/is_trade_managed",
+                Some(access_token.into()),
+                json!({ "appid": app_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn is_wxa_sec_trade_management_confirmation_completed(
+        &self,
+        access_token: impl Into<String>,
+        app_id: impl Into<String>,
+    ) -> Result<WxaSecTradeManagementConfirmationResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/is_trade_management_confirmation_completed",
+                Some(access_token.into()),
+                json!({ "appid": app_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn operate_wxa_sec_special_order(
+        &self,
+        access_token: impl Into<String>,
+        request: WxaSecSpecialOrderRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/order/opspecialorder",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn messages(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.messages")
     }
@@ -574,6 +704,171 @@ pub struct SecurityMediaCheckAsyncRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderKey {
+    pub order_number_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "mchid")]
+    pub mch_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_trade_no: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecPayer {
+    pub openid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecShippingContact {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consignor_contact: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receiver_contact: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecShippingInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_no: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub express_company: Option<String>,
+    pub item_desc: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact: Option<WxaSecShippingContact>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecUploadShippingInfoRequest {
+    pub order_key: WxaSecOrderKey,
+    pub logistics_type: i64,
+    pub delivery_mode: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_all_delivered: Option<bool>,
+    pub shipping_list: Vec<WxaSecShippingInfo>,
+    pub upload_time: String,
+    pub payer: WxaSecPayer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecSubOrderShippingInfo {
+    pub order_key: WxaSecOrderKey,
+    pub logistics_type: i64,
+    pub delivery_mode: i64,
+    pub is_all_delivered: bool,
+    pub shipping_list: Vec<WxaSecShippingInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecUploadCombinedShippingInfoRequest {
+    pub order_key: WxaSecOrderKey,
+    pub sub_orders: Vec<WxaSecSubOrderShippingInfo>,
+    pub upload_time: String,
+    pub payer: WxaSecPayer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merchant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_merchant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merchant_trade_no: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderListRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pay_time_range: Option<WxaSecPayTimeRange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_state: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub openid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_index: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_size: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecPayTimeRange {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub begin_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecConfirmReceiveRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merchant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_merchant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merchant_trade_no: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub received_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecSpecialOrderRequest {
+    pub order_id: String,
+    #[serde(rename = "type")]
+    pub operation_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delay_to: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub order: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub last_index: Option<String>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub order_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecTradeManagedResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub is_trade_managed: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecTradeManagementConfirmationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub completed: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscribeMessageRequest {
     pub touser: String,
     pub template_id: String,
@@ -757,7 +1052,12 @@ mod tests {
     use super::{
         Code2SessionResponse, CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange,
         JumpWxa, LiveInfoRequest, LiveRoomRequest, PhoneNumberResponse, SecurityMsgSecCheckRequest,
-        SubscribeMessageRequest, UrlSchemeGenerateRequest,
+        SubscribeMessageRequest, UrlSchemeGenerateRequest, WxaSecConfirmReceiveRequest,
+        WxaSecOrderKey, WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery,
+        WxaSecOrderResponse, WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact,
+        WxaSecShippingInfo, WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo,
+        WxaSecTradeManagedResponse, WxaSecTradeManagementConfirmationResponse,
+        WxaSecUploadCombinedShippingInfoRequest, WxaSecUploadShippingInfoRequest,
     };
 
     #[test]
@@ -842,6 +1142,175 @@ mod tests {
         assert_eq!(value["scene"], 1);
         assert_eq!(value["version"], 2);
         assert_eq!(value["openid"], "openid");
+    }
+
+    #[test]
+    fn serializes_wxa_sec_shipping_info_request() {
+        let value = serde_json::to_value(WxaSecUploadShippingInfoRequest {
+            order_key: WxaSecOrderKey {
+                order_number_type: 2,
+                transaction_id: Some("tx".to_string()),
+                mch_id: Some("mchid".to_string()),
+                out_trade_no: None,
+            },
+            logistics_type: 1,
+            delivery_mode: 1,
+            is_all_delivered: Some(true),
+            shipping_list: vec![WxaSecShippingInfo {
+                tracking_no: Some("tracking".to_string()),
+                express_company: Some("SF".to_string()),
+                item_desc: "book".to_string(),
+                contact: Some(WxaSecShippingContact {
+                    consignor_contact: None,
+                    receiver_contact: Some("13800000000".to_string()),
+                }),
+            }],
+            upload_time: "2026-07-07T00:00:00+08:00".to_string(),
+            payer: WxaSecPayer {
+                openid: "openid".to_string(),
+            },
+        })
+        .unwrap();
+
+        assert_eq!(value["order_key"]["mchid"], "mchid");
+        assert!(value["order_key"].get("out_trade_no").is_none());
+        assert_eq!(value["is_all_delivered"], true);
+        assert_eq!(value["shipping_list"][0]["item_desc"], "book");
+        assert_eq!(
+            value["shipping_list"][0]["contact"]["receiver_contact"],
+            "13800000000"
+        );
+        assert_eq!(value["payer"]["openid"], "openid");
+    }
+
+    #[test]
+    fn serializes_wxa_sec_combined_shipping_info_request() {
+        let value = serde_json::to_value(WxaSecUploadCombinedShippingInfoRequest {
+            order_key: WxaSecOrderKey {
+                order_number_type: 1,
+                transaction_id: Some("tx-parent".to_string()),
+                mch_id: None,
+                out_trade_no: None,
+            },
+            sub_orders: vec![WxaSecSubOrderShippingInfo {
+                order_key: WxaSecOrderKey {
+                    order_number_type: 2,
+                    transaction_id: None,
+                    mch_id: Some("mchid".to_string()),
+                    out_trade_no: Some("out-trade-no".to_string()),
+                },
+                logistics_type: 1,
+                delivery_mode: 1,
+                is_all_delivered: true,
+                shipping_list: vec![WxaSecShippingInfo {
+                    tracking_no: Some("tracking".to_string()),
+                    express_company: None,
+                    item_desc: "coffee".to_string(),
+                    contact: None,
+                }],
+            }],
+            upload_time: "2026-07-07T00:00:00+08:00".to_string(),
+            payer: WxaSecPayer {
+                openid: "openid".to_string(),
+            },
+        })
+        .unwrap();
+
+        assert_eq!(value["order_key"]["transaction_id"], "tx-parent");
+        assert_eq!(
+            value["sub_orders"][0]["order_key"]["out_trade_no"],
+            "out-trade-no"
+        );
+        assert_eq!(value["sub_orders"][0]["is_all_delivered"], true);
+        assert_eq!(value["payer"]["openid"], "openid");
+    }
+
+    #[test]
+    fn serializes_wxa_sec_order_queries() {
+        let order_query = serde_json::to_value(WxaSecOrderQuery {
+            transaction_id: None,
+            merchant_id: None,
+            sub_merchant_id: None,
+            merchant_trade_no: Some("trade-no".to_string()),
+        })
+        .unwrap();
+        assert_eq!(order_query["merchant_trade_no"], "trade-no");
+        assert!(order_query.get("transaction_id").is_none());
+
+        let list_query = serde_json::to_value(WxaSecOrderListRequest {
+            pay_time_range: Some(WxaSecPayTimeRange {
+                begin_time: Some(1_800_000_000),
+                end_time: Some(1_800_003_600),
+            }),
+            order_state: Some(2),
+            openid: Some("openid".to_string()),
+            last_index: Some("cursor".to_string()),
+            page_size: Some(20),
+        })
+        .unwrap();
+        assert_eq!(list_query["pay_time_range"]["begin_time"], 1_800_000_000);
+        assert_eq!(list_query["page_size"], 20);
+
+        let confirm = serde_json::to_value(WxaSecConfirmReceiveRequest {
+            transaction_id: Some("tx".to_string()),
+            merchant_id: None,
+            sub_merchant_id: None,
+            merchant_trade_no: None,
+            received_time: Some(1_800_003_600),
+        })
+        .unwrap();
+        assert_eq!(confirm["transaction_id"], "tx");
+        assert_eq!(confirm["received_time"], 1_800_003_600);
+
+        let special = serde_json::to_value(WxaSecSpecialOrderRequest {
+            order_id: "order-id".to_string(),
+            operation_type: 1,
+            delay_to: Some(1_800_010_000),
+        })
+        .unwrap();
+        assert_eq!(special["order_id"], "order-id");
+        assert_eq!(special["type"], 1);
+        assert_eq!(special["delay_to"], 1_800_010_000);
+    }
+
+    #[test]
+    fn deserializes_wxa_sec_order_responses() {
+        let order: WxaSecOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "order": {
+                "transaction_id": "tx",
+                "order_state": 2
+            }
+        }))
+        .unwrap();
+        assert_eq!(order.errcode, Some(0));
+        assert_eq!(order.order.expect("order")["transaction_id"], "tx");
+
+        let list: WxaSecOrderListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "last_index": "cursor",
+            "has_more": true,
+            "order_list": [{ "transaction_id": "tx" }]
+        }))
+        .unwrap();
+        assert_eq!(list.last_index.as_deref(), Some("cursor"));
+        assert_eq!(list.has_more, Some(true));
+        assert_eq!(list.order_list[0]["transaction_id"], "tx");
+
+        let managed: WxaSecTradeManagedResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "is_trade_managed": true
+        }))
+        .unwrap();
+        assert_eq!(managed.is_trade_managed, Some(true));
+
+        let confirmation: WxaSecTradeManagementConfirmationResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "completed": true
+            }))
+            .unwrap();
+        assert_eq!(confirmation.completed, Some(true));
     }
 
     #[test]
