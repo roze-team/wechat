@@ -55,6 +55,7 @@ Status values:
 | Payment | partner | `payment::partner` | tested |
 | Payment | payScore | `payment::pay_score` | tested |
 | Payment | profitSharing | `payment::profit_sharing` | tested |
+| Payment | promotion | `payment::promotion` | tested |
 | Payment | redpack | `payment::redpack` | tested |
 | Payment | refund | `payment::refund` | tested |
 | Payment | reverse | `payment::reverse` | tested |

@@ -424,6 +424,115 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.profit_sharing")
     }
 
+    pub fn promotion(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.promotion")
+    }
+
+    pub async fn create_coupon_stock(
+        &self,
+        credentials: &PaymentCredentials,
+        request: CouponStockCreateRequest,
+    ) -> Result<CouponStockResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/marketing/favor/stocks",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn start_coupon_stock(
+        &self,
+        credentials: &PaymentCredentials,
+        stock_id: impl AsRef<str>,
+        request: CouponStockOperationRequest,
+    ) -> Result<CouponStockOperationResponse> {
+        let path = format!("/v3/marketing/favor/stocks/{}/start", stock_id.as_ref());
+        self.post_v3(credentials, &path, to_value(request)?).await
+    }
+
+    pub async fn pause_coupon_stock(
+        &self,
+        credentials: &PaymentCredentials,
+        stock_id: impl AsRef<str>,
+        request: CouponStockOperationRequest,
+    ) -> Result<CouponStockOperationResponse> {
+        let path = format!("/v3/marketing/favor/stocks/{}/pause", stock_id.as_ref());
+        self.post_v3(credentials, &path, to_value(request)?).await
+    }
+
+    pub async fn restart_coupon_stock(
+        &self,
+        credentials: &PaymentCredentials,
+        stock_id: impl AsRef<str>,
+        request: CouponStockOperationRequest,
+    ) -> Result<CouponStockOperationResponse> {
+        let path = format!("/v3/marketing/favor/stocks/{}/restart", stock_id.as_ref());
+        self.post_v3(credentials, &path, to_value(request)?).await
+    }
+
+    pub async fn query_coupon_stock(
+        &self,
+        credentials: &PaymentCredentials,
+        stock_id: impl AsRef<str>,
+        stock_creator_mchid: Option<String>,
+    ) -> Result<CouponStockResponse> {
+        let path = format!("/v3/marketing/favor/stocks/{}", stock_id.as_ref());
+        let mut query = Vec::new();
+        push_optional_query(&mut query, "stock_creator_mchid", stock_creator_mchid);
+        self.get_v3(credentials, &path, query).await
+    }
+
+    pub async fn list_coupon_stocks(
+        &self,
+        credentials: &PaymentCredentials,
+        request: CouponStockListRequest,
+    ) -> Result<CouponStockListResponse> {
+        self.get_v3(
+            credentials,
+            "/v3/marketing/favor/stocks",
+            request.into_query(),
+        )
+        .await
+    }
+
+    pub async fn send_coupon(
+        &self,
+        credentials: &PaymentCredentials,
+        openid: impl AsRef<str>,
+        request: SendCouponRequest,
+    ) -> Result<SendCouponResponse> {
+        let path = format!("/v3/marketing/favor/users/{}/coupons", openid.as_ref());
+        self.post_v3(credentials, &path, to_value(request)?).await
+    }
+
+    pub async fn list_user_coupons(
+        &self,
+        credentials: &PaymentCredentials,
+        openid: impl AsRef<str>,
+        request: UserCouponListRequest,
+    ) -> Result<UserCouponListResponse> {
+        let path = format!("/v3/marketing/favor/users/{}/coupons", openid.as_ref());
+        self.get_v3(credentials, &path, request.into_query()).await
+    }
+
+    pub async fn query_user_coupon(
+        &self,
+        credentials: &PaymentCredentials,
+        openid: impl AsRef<str>,
+        coupon_id: impl AsRef<str>,
+        appid: Option<String>,
+    ) -> Result<UserCouponResponse> {
+        let path = format!(
+            "/v3/marketing/favor/users/{}/coupons/{}",
+            openid.as_ref(),
+            coupon_id.as_ref()
+        );
+        let mut query = Vec::new();
+        push_optional_query(&mut query, "appid", appid);
+        self.get_v3(credentials, &path, query).await
+    }
+
     pub async fn add_profit_sharing_receiver(
         &self,
         credentials: &PaymentCredentials,
@@ -1053,6 +1162,12 @@ fn push_optional_param(params: &mut Vec<(String, String)>, key: &str, value: Opt
     }
 }
 
+fn push_optional_query(query: &mut Vec<(String, String)>, key: &str, value: Option<String>) {
+    if let Some(value) = value {
+        query.push((key.to_string(), value));
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payer {
     pub openid: String,
@@ -1403,6 +1518,141 @@ pub struct ProfitSharingReceiver {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfitSharingResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CouponStockCreateRequest {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CouponStockOperationRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stock_creator_mchid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CouponStockListRequest {
+    pub stock_creator_mchid: String,
+    pub offset: i64,
+    pub limit: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stock_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub create_start_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub create_end_time: Option<String>,
+}
+
+impl CouponStockListRequest {
+    fn into_query(self) -> Vec<(String, String)> {
+        let mut query = vec![
+            ("stock_creator_mchid".to_string(), self.stock_creator_mchid),
+            ("offset".to_string(), self.offset.to_string()),
+            ("limit".to_string(), self.limit.to_string()),
+        ];
+        push_optional_query(&mut query, "status", self.status);
+        push_optional_query(&mut query, "stock_id", self.stock_id);
+        push_optional_query(&mut query, "create_start_time", self.create_start_time);
+        push_optional_query(&mut query, "create_end_time", self.create_end_time);
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendCouponRequest {
+    pub appid: String,
+    pub stock_id: String,
+    pub out_request_no: String,
+    pub stock_creator_mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coupon_value: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coupon_minimum: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserCouponListRequest {
+    pub appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stock_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coupon_state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_mchid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_mchid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+impl UserCouponListRequest {
+    fn into_query(self) -> Vec<(String, String)> {
+        let mut query = vec![("appid".to_string(), self.appid)];
+        push_optional_query(&mut query, "stock_id", self.stock_id);
+        push_optional_query(&mut query, "coupon_state", self.coupon_state);
+        push_optional_query(&mut query, "creator_mchid", self.creator_mchid);
+        push_optional_query(&mut query, "sender_mchid", self.sender_mchid);
+        if let Some(offset) = self.offset {
+            query.push(("offset".to_string(), offset.to_string()));
+        }
+        if let Some(limit) = self.limit {
+            query.push(("limit".to_string(), limit.to_string()));
+        }
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CouponStockResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CouponStockOperationResponse {
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CouponStockListResponse {
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    #[serde(default)]
+    pub offset: Option<i64>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendCouponResponse {
+    pub coupon_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserCouponListResponse {
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    #[serde(default)]
+    pub offset: Option<i64>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserCouponResponse {
     #[serde(flatten)]
     pub value: Value,
 }
@@ -1797,17 +2047,20 @@ mod tests {
     use super::{
         build_sandbox_sign_key_xml, Amount, AppPayParams, Applyment4SubQueryResponse,
         Applyment4SubRequest, Applyment4SubResponse, BillRequest, CertificateListResponse,
-        ComplaintListRequest, FundAppElecSignResponse, FundAppTransferBillRequest,
-        FundAppTransferBillResponse, JsapiPayParams, MicropayRequest, NativePrepayRequest,
-        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
-        PartnerOrderQuery, PartnerPayer, PayScoreRiskFund, PayScoreServiceOrderQuery,
-        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
-        PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, QueryRedpackRequest, RedpackInfoResponse, RedpackResponse,
-        RefundAmount, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        ComplaintListRequest, CouponStockCreateRequest, CouponStockListRequest,
+        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
+        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
+        JsapiPayParams, MicropayRequest, NativePrepayRequest, PartnerCloseOrderRequest,
+        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
+        PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
+        PayScoreTimeRange, PaymentCredentials, PaymentNotification, PaymentResource,
+        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
+        QueryRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount, RefundRequest,
+        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
         SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
         TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
-        TransferDetailInput, TransferSceneReportInfo,
+        TransferDetailInput, TransferSceneReportInfo, UserCouponListRequest,
+        UserCouponListResponse, UserCouponResponse,
     };
 
     #[test]
@@ -1917,6 +2170,148 @@ mod tests {
         assert_eq!(response.return_code, "SUCCESS");
         assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
         assert_eq!(response.sandbox_sign_key.as_deref(), Some("key"));
+    }
+
+    #[test]
+    fn serializes_coupon_stock_create_request() {
+        let value = serde_json::to_value(CouponStockCreateRequest {
+            value: json!({
+                "stock_name": "coupon-stock",
+                "belong_merchant": "10000098",
+                "comment": "campaign",
+                "stock_type": "NORMAL",
+                "available_begin_time": "2026-07-07T00:00:00+08:00",
+                "available_end_time": "2026-07-31T23:59:59+08:00",
+                "stock_use_rule": {
+                    "max_coupons": 100,
+                    "max_amount": 10000,
+                    "max_amount_by_day": 1000,
+                    "max_coupons_per_user": 1
+                },
+                "pattern_info": {
+                    "description": "discount",
+                    "merchant_logo": "https://example.com/logo.png",
+                    "merchant_name": "merchant"
+                }
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(value["stock_name"], "coupon-stock");
+        assert_eq!(value["stock_use_rule"]["max_coupons"], 100);
+        assert_eq!(value["pattern_info"]["merchant_name"], "merchant");
+    }
+
+    #[test]
+    fn serializes_coupon_stock_operation_request() {
+        let value = serde_json::to_value(CouponStockOperationRequest {
+            stock_creator_mchid: Some("10000098".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(value["stock_creator_mchid"], "10000098");
+    }
+
+    #[test]
+    fn builds_coupon_stock_list_query() {
+        let query = CouponStockListRequest {
+            stock_creator_mchid: "10000098".to_string(),
+            offset: 0,
+            limit: 20,
+            status: Some("running".to_string()),
+            stock_id: Some("stock-1".to_string()),
+            create_start_time: None,
+            create_end_time: Some("2026-07-31T23:59:59+08:00".to_string()),
+        }
+        .into_query();
+
+        assert!(query.contains(&("stock_creator_mchid".to_string(), "10000098".to_string())));
+        assert!(query.contains(&("offset".to_string(), "0".to_string())));
+        assert!(query.contains(&("limit".to_string(), "20".to_string())));
+        assert!(query.contains(&("status".to_string(), "running".to_string())));
+        assert!(query.contains(&("stock_id".to_string(), "stock-1".to_string())));
+        assert!(query.contains(&(
+            "create_end_time".to_string(),
+            "2026-07-31T23:59:59+08:00".to_string()
+        )));
+    }
+
+    #[test]
+    fn serializes_send_coupon_request() {
+        let value = serde_json::to_value(SendCouponRequest {
+            appid: "wx-app".to_string(),
+            stock_id: "stock-1".to_string(),
+            out_request_no: "request-1".to_string(),
+            stock_creator_mchid: "10000098".to_string(),
+            coupon_value: Some(100),
+            coupon_minimum: Some(1000),
+        })
+        .unwrap();
+
+        assert_eq!(value["appid"], "wx-app");
+        assert_eq!(value["stock_id"], "stock-1");
+        assert_eq!(value["coupon_value"], 100);
+    }
+
+    #[test]
+    fn builds_user_coupon_list_query() {
+        let query = UserCouponListRequest {
+            appid: "wx-app".to_string(),
+            stock_id: Some("stock-1".to_string()),
+            coupon_state: Some("SENDED".to_string()),
+            creator_mchid: Some("10000098".to_string()),
+            sender_mchid: None,
+            offset: Some(0),
+            limit: Some(10),
+        }
+        .into_query();
+
+        assert!(query.contains(&("appid".to_string(), "wx-app".to_string())));
+        assert!(query.contains(&("stock_id".to_string(), "stock-1".to_string())));
+        assert!(query.contains(&("coupon_state".to_string(), "SENDED".to_string())));
+        assert!(query.contains(&("offset".to_string(), "0".to_string())));
+        assert!(query.contains(&("limit".to_string(), "10".to_string())));
+    }
+
+    #[test]
+    fn deserializes_coupon_stock_responses() {
+        let stock: CouponStockResponse = serde_json::from_value(json!({
+            "stock_id": "stock-1",
+            "stock_name": "coupon-stock",
+            "status": "running"
+        }))
+        .unwrap();
+        let list: CouponStockListResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "limit": 20,
+            "offset": 0,
+            "data": [{ "stock_id": "stock-1" }]
+        }))
+        .unwrap();
+
+        assert_eq!(stock.value["stock_id"], "stock-1");
+        assert_eq!(list.total_count, Some(1));
+        assert_eq!(list.data[0]["stock_id"], "stock-1");
+    }
+
+    #[test]
+    fn deserializes_coupon_user_responses() {
+        let sent: SendCouponResponse =
+            serde_json::from_value(json!({ "coupon_id": "coupon-1" })).unwrap();
+        let list: UserCouponListResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "data": [{ "coupon_id": "coupon-1", "stock_id": "stock-1" }]
+        }))
+        .unwrap();
+        let coupon: UserCouponResponse = serde_json::from_value(json!({
+            "coupon_id": "coupon-1",
+            "coupon_state": "SENDED"
+        }))
+        .unwrap();
+
+        assert_eq!(sent.coupon_id, "coupon-1");
+        assert_eq!(list.data[0]["stock_id"], "stock-1");
+        assert_eq!(coupon.value["coupon_state"], "SENDED");
     }
 
     #[test]
