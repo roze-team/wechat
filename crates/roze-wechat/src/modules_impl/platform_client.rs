@@ -159,6 +159,39 @@ impl PlatformClient {
         self.client.execute_json(endpoint, query, Some(body)).await
     }
 
+    pub async fn put_json<R>(
+        &self,
+        path: impl Into<String>,
+        body: Value,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut endpoint = Endpoint::put(path);
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client
+            .execute_json(endpoint, Vec::new(), Some(body))
+            .await
+    }
+
+    pub async fn delete_json<R>(
+        &self,
+        path: impl Into<String>,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut endpoint = Endpoint::delete(path);
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client.execute_json(endpoint, Vec::new(), None).await
+    }
+
     pub async fn post_multipart<R>(
         &self,
         path: impl Into<String>,
@@ -314,6 +347,29 @@ impl DomainModule {
         self.inner
             .post_json_with_query(path, query, body, headers)
             .await
+    }
+
+    pub async fn put_json<R>(
+        &self,
+        path: impl Into<String>,
+        body: Value,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        self.inner.put_json(path, body, headers).await
+    }
+
+    pub async fn delete_json<R>(
+        &self,
+        path: impl Into<String>,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        self.inner.delete_json(path, headers).await
     }
 
     pub async fn post_multipart<R>(

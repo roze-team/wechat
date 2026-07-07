@@ -735,6 +735,138 @@ impl Payment {
         self.get_v3(credentials, &path, Vec::new()).await
     }
 
+    pub async fn query_complaint_negotiation_history(
+        &self,
+        credentials: &PaymentCredentials,
+        complaint_id: impl AsRef<str>,
+        request: ComplaintNegotiationHistoryRequest,
+    ) -> Result<ComplaintNegotiationHistoryResponse> {
+        let path = format!(
+            "/v3/merchant-service/complaints-v2/{}/negotiation-historys",
+            complaint_id.as_ref()
+        );
+        self.get_v3(credentials, &path, request.into_query()).await
+    }
+
+    pub async fn create_complaint_notification(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ComplaintNotificationRequest,
+    ) -> Result<ComplaintNotificationResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/merchant-service/complaint-notifications",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_complaint_notification(
+        &self,
+        credentials: &PaymentCredentials,
+    ) -> Result<ComplaintNotificationResponse> {
+        self.get_v3(
+            credentials,
+            "/v3/merchant-service/complaint-notifications",
+            Vec::new(),
+        )
+        .await
+    }
+
+    pub async fn update_complaint_notification(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ComplaintNotificationRequest,
+    ) -> Result<ComplaintNotificationResponse> {
+        self.put_v3(
+            credentials,
+            "/v3/merchant-service/complaint-notifications",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn delete_complaint_notification(
+        &self,
+        credentials: &PaymentCredentials,
+    ) -> Result<PaymentStatusResponse> {
+        self.delete_v3(credentials, "/v3/merchant-service/complaint-notifications")
+            .await
+    }
+
+    pub async fn reply_to_complaint_user(
+        &self,
+        credentials: &PaymentCredentials,
+        complaint_id: impl AsRef<str>,
+        request: ComplaintReplyRequest,
+    ) -> Result<PaymentStatusResponse> {
+        let path = format!(
+            "/v3/merchant-service/complaints-v2/{}/response",
+            complaint_id.as_ref()
+        );
+        self.post_v3(credentials, &path, to_value(request)?).await
+    }
+
+    pub async fn complete_complaint(
+        &self,
+        credentials: &PaymentCredentials,
+        complaint_id: impl AsRef<str>,
+    ) -> Result<PaymentStatusResponse> {
+        let path = format!(
+            "/v3/merchant-service/complaints-v2/{}/complete",
+            complaint_id.as_ref()
+        );
+        self.post_v3(credentials, &path, serde_json::json!({}))
+            .await
+    }
+
+    pub async fn update_complaint_refund_progress(
+        &self,
+        credentials: &PaymentCredentials,
+        complaint_id: impl AsRef<str>,
+        request: ComplaintRefundProgressRequest,
+    ) -> Result<PaymentStatusResponse> {
+        let path = format!(
+            "/v3/merchant-service/complaints-v2/{}/update-refund-progress",
+            complaint_id.as_ref()
+        );
+        self.post_v3(credentials, &path, to_value(request)?).await
+    }
+
+    pub async fn upload_complaint_image(
+        &self,
+        credentials: &PaymentCredentials,
+        request: MerchantMediaUploadRequest,
+    ) -> Result<MerchantMediaUploadResponse> {
+        let path = "/v3/merchant-service/images/upload";
+        let (content_type, body) = build_merchant_media_upload_body(&request);
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization_bytes("POST", path, &body)?,
+        )];
+        self.inner
+            .post_raw_json(path, Vec::new(), content_type, body, headers)
+            .await
+    }
+
+    pub async fn upload_complaint_image_from_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        file_name: impl Into<String>,
+        data: impl Into<Vec<u8>>,
+    ) -> Result<MerchantMediaUploadResponse> {
+        let data = data.into();
+        self.upload_complaint_image(
+            credentials,
+            MerchantMediaUploadRequest {
+                file_name: file_name.into(),
+                sha256: crypto::sha256_hex(&data),
+                data,
+            },
+        )
+        .await
+    }
+
     pub fn pay_score(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.pay_score")
     }
@@ -871,6 +1003,34 @@ impl Payment {
             credentials.authorization("POST", path, &body_text)?,
         )];
         self.inner.post_json(path, None, body, headers).await
+    }
+
+    async fn put_v3<R>(
+        &self,
+        credentials: &PaymentCredentials,
+        path: &str,
+        body: Value,
+    ) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        let body_text = body.to_string();
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization("PUT", path, &body_text)?,
+        )];
+        self.inner.put_json(path, body, headers).await
+    }
+
+    async fn delete_v3<R>(&self, credentials: &PaymentCredentials, path: &str) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization("DELETE", path, "")?,
+        )];
+        self.inner.delete_json(path, headers).await
     }
 
     async fn get_v3<R>(
@@ -2001,6 +2161,70 @@ pub struct ComplaintDetailResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNegotiationHistoryRequest {
+    pub limit: i64,
+    pub offset: i64,
+}
+
+impl ComplaintNegotiationHistoryRequest {
+    fn into_query(self) -> Vec<(String, String)> {
+        vec![
+            ("limit".to_string(), self.limit.to_string()),
+            ("offset".to_string(), self.offset.to_string()),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNegotiationHistoryResponse {
+    #[serde(default)]
+    pub data: Vec<Value>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    #[serde(default)]
+    pub offset: Option<i64>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNotificationRequest {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNotificationResponse {
+    #[serde(default, rename = "mchid")]
+    pub mch_id: Option<String>,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintReplyRequest {
+    pub complainted_mchid: String,
+    pub response_content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub response_images: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jump_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jump_url_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintRefundProgressRequest {
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub launch_refund_day: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reject_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reject_media_list: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PayScoreServiceOrderRequest {
     pub appid: String,
     pub service_id: String,
@@ -2148,7 +2372,10 @@ mod tests {
     use super::{
         build_merchant_media_upload_body, build_sandbox_sign_key_xml, multipart_quoted, Amount,
         AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
-        BillRequest, CertificateListResponse, ComplaintListRequest, CouponStockCreateRequest,
+        BillRequest, CertificateListResponse, ComplaintListRequest,
+        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
+        ComplaintNotificationRequest, ComplaintNotificationResponse,
+        ComplaintRefundProgressRequest, ComplaintReplyRequest, CouponStockCreateRequest,
         CouponStockListRequest, CouponStockListResponse, CouponStockOperationRequest,
         CouponStockResponse, FundAppElecSignResponse, FundAppTransferBillRequest,
         FundAppTransferBillResponse, JsapiPayParams, MerchantMediaUploadRequest,
@@ -2901,6 +3128,97 @@ mod tests {
                 ("complainted_mchid".to_string(), "mchid".to_string())
             ]
         );
+    }
+
+    #[test]
+    fn builds_complaint_negotiation_history_query() {
+        let query = ComplaintNegotiationHistoryRequest {
+            limit: 10,
+            offset: 20,
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![
+                ("limit".to_string(), "10".to_string()),
+                ("offset".to_string(), "20".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn serializes_complaint_notification_request() {
+        let value = serde_json::to_value(ComplaintNotificationRequest {
+            url: "https://example.com/complaints".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value["url"], "https://example.com/complaints");
+    }
+
+    #[test]
+    fn deserializes_complaint_notification_response() {
+        let response: ComplaintNotificationResponse = serde_json::from_value(json!({
+            "mchid": "1900000109",
+            "url": "https://example.com/complaints"
+        }))
+        .unwrap();
+
+        assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
+        assert_eq!(response.url, "https://example.com/complaints");
+    }
+
+    #[test]
+    fn serializes_complaint_reply_request() {
+        let value = serde_json::to_value(ComplaintReplyRequest {
+            complainted_mchid: "1900000109".to_string(),
+            response_content: "handled".to_string(),
+            response_images: vec!["media-1".to_string()],
+            jump_url: Some("https://example.com/detail".to_string()),
+            jump_url_text: Some("detail".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(value["complainted_mchid"], "1900000109");
+        assert_eq!(value["response_content"], "handled");
+        assert_eq!(value["response_images"][0], "media-1");
+        assert_eq!(value["jump_url_text"], "detail");
+    }
+
+    #[test]
+    fn serializes_complaint_refund_progress_request() {
+        let value = serde_json::to_value(ComplaintRefundProgressRequest {
+            action: "APPROVE".to_string(),
+            launch_refund_day: Some(3),
+            reject_reason: None,
+            reject_media_list: Vec::new(),
+            remark: Some("refund accepted".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(value["action"], "APPROVE");
+        assert_eq!(value["launch_refund_day"], 3);
+        assert_eq!(value["remark"], "refund accepted");
+        assert!(value.get("reject_media_list").is_none());
+    }
+
+    #[test]
+    fn deserializes_complaint_negotiation_history_response() {
+        let response: ComplaintNegotiationHistoryResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "limit": 10,
+            "offset": 0,
+            "data": [{
+                "log_id": "log-1",
+                "operator": "MERCHANT",
+                "operate_type": "RESPONSE"
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(response.total_count, Some(1));
+        assert_eq!(response.data[0]["log_id"], "log-1");
     }
 
     #[test]

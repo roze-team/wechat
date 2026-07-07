@@ -326,6 +326,24 @@ impl Endpoint {
         }
     }
 
+    pub fn put(path: impl Into<String>) -> Self {
+        Self {
+            method: Method::PUT,
+            path: path.into(),
+            access_token: None,
+            headers: Vec::new(),
+        }
+    }
+
+    pub fn delete(path: impl Into<String>) -> Self {
+        Self {
+            method: Method::DELETE,
+            path: path.into(),
+            access_token: None,
+            headers: Vec::new(),
+        }
+    }
+
     pub fn with_access_token(mut self, token: impl Into<String>) -> Self {
         self.access_token = Some(token.into());
         self
