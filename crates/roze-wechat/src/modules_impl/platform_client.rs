@@ -183,6 +183,26 @@ impl PlatformClient {
         let endpoint = Endpoint::post(path);
         self.client.execute_xml(endpoint, body).await
     }
+
+    pub async fn post_raw_json<R>(
+        &self,
+        path: impl Into<String>,
+        query: Vec<(String, String)>,
+        content_type: String,
+        body: Vec<u8>,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut endpoint = Endpoint::post(path);
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client
+            .execute_raw_json(endpoint, query, content_type, body)
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -316,5 +336,21 @@ impl DomainModule {
         R: DeserializeOwned,
     {
         self.inner.post_xml(path, body).await
+    }
+
+    pub async fn post_raw_json<R>(
+        &self,
+        path: impl Into<String>,
+        query: Vec<(String, String)>,
+        content_type: String,
+        body: Vec<u8>,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        self.inner
+            .post_raw_json(path, query, content_type, body, headers)
+            .await
     }
 }

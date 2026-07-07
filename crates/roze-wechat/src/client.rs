@@ -205,6 +205,57 @@ impl Client {
         from_xml_str(&text).map_err(|err| WechatError::Xml(err.to_string()))
     }
 
+    pub async fn execute_raw_json<R>(
+        &self,
+        endpoint: Endpoint,
+        query: Vec<(String, String)>,
+        content_type: String,
+        body: Vec<u8>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut url = Url::parse(&self.config.base_url)
+            .map_err(|err| WechatError::Config(format!("invalid base_url: {err}")))?;
+        url.set_path(endpoint.path.trim_start_matches('/'));
+
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (key, value) in query {
+                pairs.append_pair(&key, &value);
+            }
+            if let Some(token) = endpoint.access_token {
+                pairs.append_pair("access_token", &token);
+            }
+        }
+
+        let mut builder = self
+            .http
+            .request(endpoint.method, url)
+            .header("content-type", content_type)
+            .body(body);
+        for (key, value) in endpoint.headers {
+            builder = builder.header(key, value);
+        }
+
+        let response = builder.send().await?.error_for_status()?;
+        let value = response.json::<Value>().await?;
+        debug!(wechat_response = %value, "wechat raw body response");
+
+        if let Some(code) = value.get("errcode").and_then(Value::as_i64) {
+            if code != 0 {
+                let message = value
+                    .get("errmsg")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown wechat error")
+                    .to_string();
+                return Err(WechatError::Api { code, message });
+            }
+        }
+
+        Ok(serde_json::from_value(value)?)
+    }
+
     pub async fn execute_multipart<R>(
         &self,
         endpoint: Endpoint,

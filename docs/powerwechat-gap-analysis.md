@@ -19,10 +19,10 @@ entries, request/response DTOs, and tests.
 | Official Account | 24 | 12 | 13 |
 | Open Platform | 6 | 5 | 1 |
 | Open Work | 8 | 6 | 2 |
-| Payment | 20 | 19 | 1 |
+| Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 57.
+Total remaining PowerWeChat submodule gaps: 56.
 
 ## Remaining Gaps
 
@@ -77,10 +77,6 @@ Total remaining PowerWeChat submodule gaps: 57.
 - `base`
 - `user`
 
-### Payment
-
-- `merchant`
-
 ### Work
 
 - `accountService`
@@ -106,18 +102,16 @@ Total remaining PowerWeChat submodule gaps: 57.
 
 ## Implementation Priority
 
-1. Payment production surface:
-   `merchant`.
-2. Mini Program transaction and operational surface:
+1. Mini Program transaction and operational surface:
    `wxa/sec`, `virtualPayment`, `immediateDelivery`, `plugin`,
    `nearbyPoi`, `ocr`, `riskControl`, `search`.
-3. Work enterprise service surface:
+2. Work enterprise service surface:
    `accountService`, `externalPay`, `invoice`, `idConvert`, `menu`,
    `oa/approval`, `oa/meeting`, `oa/wedoc`, `oa/wedrive`.
-4. Official Account long-tail modules:
+3. Official Account long-tail modules:
    `publish`, `comment`, `dataCube`, `guide`, `semantic`, `shakeAround`,
    `store`, `wifi`, `poi`, `device`, `goods`, `autoReply`, `ocr`.
-5. Remaining platform/base wrappers:
+4. Remaining platform/base wrappers:
    Channels `eCommerce/store`, Open Platform `base`, Open Work `base` and
    `user`.
 

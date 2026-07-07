@@ -49,6 +49,7 @@ Status values:
 | Payment | base | `payment::base` | tested |
 | Payment | fundApp | `payment::fund_app` | tested |
 | Payment | jssdk | `payment::jssdk` | tested |
+| Payment | merchant | `payment::merchant` | tested |
 | Payment | merchantService | `payment::merchant_service` | tested |
 | Payment | notify | `payment::notify` | tested |
 | Payment | order | `payment::order` | tested |

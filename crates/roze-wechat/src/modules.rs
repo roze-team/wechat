@@ -83,6 +83,7 @@ mod tests {
         assert_eq!(wechat.payment().notify().name(), "payment.notify");
         assert_eq!(wechat.payment().apply4_sub().name(), "payment.apply4_sub");
         assert_eq!(wechat.payment().base().name(), "payment.base");
+        assert_eq!(wechat.payment().merchant().name(), "payment.merchant");
         assert_eq!(
             wechat.payment().merchant_service().name(),
             "payment.merchant_service"

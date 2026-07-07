@@ -56,6 +56,12 @@ pub fn hmac_sha256_hex(secret: &[u8], message: &[u8]) -> Result<String> {
     Ok(hex::encode(mac.finalize().into_bytes()))
 }
 
+pub fn sha256_hex(data: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    hex::encode(hasher.finalize())
+}
+
 pub fn payment_v3_message(
     method: &str,
     url_path_query: &str,
@@ -229,6 +235,14 @@ mod tests {
         assert_eq!(
             payment_v3_message("POST", "/v3/pay/transactions/jsapi", 1, "abc", "{}"),
             "POST\n/v3/pay/transactions/jsapi\n1\nabc\n{}\n"
+        );
+    }
+
+    #[test]
+    fn builds_sha256_hex() {
+        assert_eq!(
+            sha256_hex(b"hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         );
     }
 

@@ -672,6 +672,44 @@ impl Payment {
         DomainModule::new(self.inner.clone(), "payment.merchant_service")
     }
 
+    pub fn merchant(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "payment.merchant")
+    }
+
+    pub async fn upload_merchant_media(
+        &self,
+        credentials: &PaymentCredentials,
+        request: MerchantMediaUploadRequest,
+    ) -> Result<MerchantMediaUploadResponse> {
+        let path = "/v3/merchant/media/upload";
+        let (content_type, body) = build_merchant_media_upload_body(&request);
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization_bytes("POST", path, &body)?,
+        )];
+        self.inner
+            .post_raw_json(path, Vec::new(), content_type, body, headers)
+            .await
+    }
+
+    pub async fn upload_merchant_media_from_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        file_name: impl Into<String>,
+        data: impl Into<Vec<u8>>,
+    ) -> Result<MerchantMediaUploadResponse> {
+        let data = data.into();
+        self.upload_merchant_media(
+            credentials,
+            MerchantMediaUploadRequest {
+                file_name: file_name.into(),
+                sha256: crypto::sha256_hex(&data),
+                data,
+            },
+        )
+        .await
+    }
+
     pub async fn query_complaints(
         &self,
         credentials: &PaymentCredentials,
@@ -895,6 +933,43 @@ fn build_sandbox_sign_key_xml(
     crypto::payment_legacy_xml(&params)
 }
 
+const MERCHANT_MEDIA_UPLOAD_BOUNDARY: &str = "----roze-wechat-pay-v3-media-upload";
+
+fn build_merchant_media_upload_body(request: &MerchantMediaUploadRequest) -> (String, Vec<u8>) {
+    let meta = serde_json::json!({
+        "filename": request.file_name,
+        "sha256": request.sha256,
+    })
+    .to_string();
+    let file_name = multipart_quoted(&request.file_name);
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{MERCHANT_MEDIA_UPLOAD_BOUNDARY}\r\n").as_bytes());
+    body.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"meta\"\r\nContent-Type: application/json\r\n\r\n",
+    );
+    body.extend_from_slice(meta.as_bytes());
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{MERCHANT_MEDIA_UPLOAD_BOUNDARY}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\nContent-Type: application/octet-stream\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(&request.data);
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{MERCHANT_MEDIA_UPLOAD_BOUNDARY}--\r\n").as_bytes());
+
+    (
+        format!("multipart/form-data; boundary={MERCHANT_MEDIA_UPLOAD_BOUNDARY}"),
+        body,
+    )
+}
+
+fn multipart_quoted(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 #[derive(Debug, Clone)]
 pub struct PaymentCredentials {
     pub mch_id: String,
@@ -904,10 +979,24 @@ pub struct PaymentCredentials {
 
 impl PaymentCredentials {
     pub fn authorization(&self, method: &str, path_query: &str, body: &str) -> Result<String> {
+        self.authorization_bytes(method, path_query, body.as_bytes())
+    }
+
+    pub fn authorization_bytes(
+        &self,
+        method: &str,
+        path_query: &str,
+        body: &[u8],
+    ) -> Result<String> {
         let timestamp = chrono::Utc::now().timestamp();
         let nonce = crypto::nonce_string(32);
-        let message = crypto::payment_v3_message(method, path_query, timestamp, &nonce, body);
-        let signature = crypto::rsa_sha256_sign_base64(&self.private_key_pem, message.as_bytes())?;
+        let mut message = Vec::new();
+        message.extend_from_slice(
+            format!("{method}\n{path_query}\n{timestamp}\n{nonce}\n").as_bytes(),
+        );
+        message.extend_from_slice(body);
+        message.extend_from_slice(b"\n");
+        let signature = crypto::rsa_sha256_sign_base64(&self.private_key_pem, &message)?;
         Ok(format!(
             "WECHATPAY2-SHA256-RSA2048 mchid=\"{}\",nonce_str=\"{}\",signature=\"{}\",timestamp=\"{}\",serial_no=\"{}\"",
             self.mch_id, nonce, signature, timestamp, self.serial_no
@@ -1862,6 +1951,18 @@ pub struct TaxCardTemplateResponse {
     pub card_id: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct MerchantMediaUploadRequest {
+    pub file_name: String,
+    pub sha256: String,
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerchantMediaUploadResponse {
+    pub media_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintListRequest {
     pub begin_date: String,
@@ -2045,21 +2146,22 @@ mod tests {
     use crate::crypto;
 
     use super::{
-        build_sandbox_sign_key_xml, Amount, AppPayParams, Applyment4SubQueryResponse,
-        Applyment4SubRequest, Applyment4SubResponse, BillRequest, CertificateListResponse,
-        ComplaintListRequest, CouponStockCreateRequest, CouponStockListRequest,
-        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
-        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        JsapiPayParams, MicropayRequest, NativePrepayRequest, PartnerCloseOrderRequest,
-        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
-        PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
-        PayScoreTimeRange, PaymentCredentials, PaymentNotification, PaymentResource,
-        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        QueryRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount, RefundRequest,
-        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
-        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
-        TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
-        TransferDetailInput, TransferSceneReportInfo, UserCouponListRequest,
+        build_merchant_media_upload_body, build_sandbox_sign_key_xml, multipart_quoted, Amount,
+        AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
+        BillRequest, CertificateListResponse, ComplaintListRequest, CouponStockCreateRequest,
+        CouponStockListRequest, CouponStockListResponse, CouponStockOperationRequest,
+        CouponStockResponse, FundAppElecSignResponse, FundAppTransferBillRequest,
+        FundAppTransferBillResponse, JsapiPayParams, MerchantMediaUploadRequest,
+        MerchantMediaUploadResponse, MicropayRequest, NativePrepayRequest,
+        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
+        PartnerOrderQuery, PartnerPayer, PayScoreRiskFund, PayScoreServiceOrderQuery,
+        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
+        PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, QueryRedpackRequest, RedpackInfoResponse, RedpackResponse,
+        RefundAmount, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
+        TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo, UserCouponListRequest,
         UserCouponListResponse, UserCouponResponse,
     };
 
@@ -2170,6 +2272,41 @@ mod tests {
         assert_eq!(response.return_code, "SUCCESS");
         assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
         assert_eq!(response.sandbox_sign_key.as_deref(), Some("key"));
+    }
+
+    #[test]
+    fn builds_merchant_media_upload_body() {
+        let request = MerchantMediaUploadRequest {
+            file_name: "pay\"logo.png".to_string(),
+            sha256: crypto::sha256_hex(b"image-bytes"),
+            data: b"image-bytes".to_vec(),
+        };
+        let (content_type, body) = build_merchant_media_upload_body(&request);
+        let text = String::from_utf8(body).unwrap();
+
+        assert_eq!(
+            content_type,
+            "multipart/form-data; boundary=----roze-wechat-pay-v3-media-upload"
+        );
+        assert!(text.contains("name=\"meta\""));
+        assert!(text.contains("\"filename\":\"pay\\\"logo.png\""));
+        assert!(text.contains("\"sha256\":\""));
+        assert!(text.contains("name=\"file\"; filename=\"pay\\\"logo.png\""));
+        assert!(text.contains("image-bytes"));
+        assert!(text.ends_with("----roze-wechat-pay-v3-media-upload--\r\n"));
+    }
+
+    #[test]
+    fn escapes_multipart_filename() {
+        assert_eq!(multipart_quoted("a\\b\"c.png"), "a\\\\b\\\"c.png");
+    }
+
+    #[test]
+    fn deserializes_merchant_media_upload_response() {
+        let response: MerchantMediaUploadResponse =
+            serde_json::from_value(json!({ "media_id": "media-1" })).unwrap();
+
+        assert_eq!(response.media_id, "media-1");
     }
 
     #[test]
