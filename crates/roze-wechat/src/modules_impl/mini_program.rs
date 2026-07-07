@@ -331,6 +331,20 @@ impl MiniProgram {
             .await
     }
 
+    pub fn risk_control(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.risk_control")
+    }
+
+    pub async fn get_user_risk_rank(
+        &self,
+        access_token: impl Into<String>,
+        request: RiskControlGetUserRiskRankRequest,
+    ) -> Result<RiskControlGetUserRiskRankResponse> {
+        self.inner
+            .post("wxa/getuserriskrank", Some(access_token.into()), request)
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -704,6 +718,34 @@ pub struct SecurityMediaCheckAsyncRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskControlGetUserRiskRankRequest {
+    pub appid: String,
+    pub openid: String,
+    pub scene: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile_no: Option<String>,
+    pub bank_card_no: String,
+    pub cert_no: String,
+    pub client_ip: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extended_info: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskControlGetUserRiskRankResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub risk_rank: Option<i64>,
+    #[serde(default)]
+    pub unoin_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1051,13 +1093,15 @@ mod tests {
 
     use super::{
         Code2SessionResponse, CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange,
-        JumpWxa, LiveInfoRequest, LiveRoomRequest, PhoneNumberResponse, SecurityMsgSecCheckRequest,
-        SubscribeMessageRequest, UrlSchemeGenerateRequest, WxaSecConfirmReceiveRequest,
-        WxaSecOrderKey, WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery,
-        WxaSecOrderResponse, WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact,
-        WxaSecShippingInfo, WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo,
-        WxaSecTradeManagedResponse, WxaSecTradeManagementConfirmationResponse,
-        WxaSecUploadCombinedShippingInfoRequest, WxaSecUploadShippingInfoRequest,
+        JumpWxa, LiveInfoRequest, LiveRoomRequest, PhoneNumberResponse,
+        RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
+        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
+        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
+        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
+        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
+        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
+        WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
+        WxaSecUploadShippingInfoRequest,
     };
 
     #[test]
@@ -1142,6 +1186,46 @@ mod tests {
         assert_eq!(value["scene"], 1);
         assert_eq!(value["version"], 2);
         assert_eq!(value["openid"], "openid");
+    }
+
+    #[test]
+    fn serializes_risk_control_user_risk_rank_request() {
+        let value = serde_json::to_value(RiskControlGetUserRiskRankRequest {
+            appid: "wxappid".to_string(),
+            openid: "openid".to_string(),
+            scene: 1,
+            mobile_no: Some("13800000000".to_string()),
+            bank_card_no: "6222000000000000".to_string(),
+            cert_no: "110101199001010000".to_string(),
+            client_ip: "127.0.0.1".to_string(),
+            email_address: None,
+            extended_info: Some("{\"device\":\"ios\"}".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(value["appid"], "wxappid");
+        assert_eq!(value["openid"], "openid");
+        assert_eq!(value["scene"], 1);
+        assert_eq!(value["mobile_no"], "13800000000");
+        assert_eq!(value["bank_card_no"], "6222000000000000");
+        assert_eq!(value["cert_no"], "110101199001010000");
+        assert_eq!(value["client_ip"], "127.0.0.1");
+        assert!(value.get("email_address").is_none());
+        assert_eq!(value["extended_info"], "{\"device\":\"ios\"}");
+    }
+
+    #[test]
+    fn deserializes_risk_control_user_risk_rank_response() {
+        let response: RiskControlGetUserRiskRankResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "risk_rank": 2,
+            "unoin_id": 123456
+        }))
+        .unwrap();
+
+        assert_eq!(response.errcode, Some(0));
+        assert_eq!(response.risk_rank, Some(2));
+        assert_eq!(response.unoin_id, Some(123456));
     }
 
     #[test]

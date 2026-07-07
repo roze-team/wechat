@@ -84,6 +84,10 @@ mod tests {
             wechat.mini_program().wxa_sec_order().name(),
             "mini_program.wxa_sec_order"
         );
+        assert_eq!(
+            wechat.mini_program().risk_control().name(),
+            "mini_program.risk_control"
+        );
         assert_eq!(wechat.payment().notify().name(), "payment.notify");
         assert_eq!(wechat.payment().apply4_sub().name(), "payment.apply4_sub");
         assert_eq!(wechat.payment().base().name(), "payment.base");
