@@ -627,6 +627,72 @@ impl MiniProgram {
             .await
     }
 
+    pub fn plugin(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.plugin")
+    }
+
+    pub async fn apply_plugin(
+        &self,
+        access_token: impl Into<String>,
+        plugin_app_id: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wxa/plugin",
+                Some(access_token.into()),
+                PluginActionRequest::apply(plugin_app_id, reason),
+            )
+            .await
+    }
+
+    pub async fn get_plugin_list(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<PluginListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wxa/plugin",
+                Some(access_token.into()),
+                json!({ "action": "list" }),
+            )
+            .await
+    }
+
+    pub async fn unbind_plugin(
+        &self,
+        access_token: impl Into<String>,
+        plugin_app_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wxa/plugin",
+                Some(access_token.into()),
+                PluginActionRequest::unbind(plugin_app_id),
+            )
+            .await
+    }
+
+    pub async fn get_plugin_dev_apply_list(
+        &self,
+        access_token: impl Into<String>,
+        request: PluginDevApplyListRequest,
+    ) -> Result<PluginDevApplyListResponse> {
+        self.inner
+            .post("cgi-bin/wxa/devplugin", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn set_plugin_dev_apply_status(
+        &self,
+        access_token: impl Into<String>,
+        request: PluginDevApplyStatusRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post("cgi-bin/wxa/devplugin", Some(access_token.into()), request)
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -1255,6 +1321,67 @@ pub struct NearbyPoiShowStatusRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginActionRequest {
+    pub action: String,
+    pub plugin_appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl PluginActionRequest {
+    pub fn apply(plugin_app_id: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self {
+            action: "apply".to_string(),
+            plugin_appid: plugin_app_id.into(),
+            reason: Some(reason.into()),
+        }
+    }
+
+    pub fn unbind(plugin_app_id: impl Into<String>) -> Self {
+        Self {
+            action: "unbind".to_string(),
+            plugin_appid: plugin_app_id.into(),
+            reason: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub plugin_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginDevApplyListRequest {
+    pub action: String,
+    pub page: i64,
+    pub num: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginDevApplyListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub apply_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginDevApplyStatusRequest {
+    pub action: String,
+    pub appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1606,15 +1733,17 @@ mod tests {
         NearbyPoiListResponse, NearbyPoiShowStatusRequest, OcrBankcardResponse,
         OcrBusinessLicenseResponse, OcrDrivingLicenseResponse, OcrIdCardResponse,
         OcrPrintedTextResponse, OcrVehicleLicenseResponse, PhoneNumberResponse,
-        RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
-        SearchImageSearchRequest, SearchImageSearchResponse, SearchSiteSearchRequest,
-        SearchSiteSearchResponse, SearchSubmitPagesRequest, SecurityMsgSecCheckRequest,
-        SubscribeMessageRequest, UrlSchemeGenerateRequest, WxaSecConfirmReceiveRequest,
-        WxaSecOrderKey, WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery,
-        WxaSecOrderResponse, WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact,
-        WxaSecShippingInfo, WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo,
-        WxaSecTradeManagedResponse, WxaSecTradeManagementConfirmationResponse,
-        WxaSecUploadCombinedShippingInfoRequest, WxaSecUploadShippingInfoRequest,
+        PluginActionRequest, PluginDevApplyListRequest, PluginDevApplyListResponse,
+        PluginDevApplyStatusRequest, PluginListResponse, RiskControlGetUserRiskRankRequest,
+        RiskControlGetUserRiskRankResponse, SearchImageSearchRequest, SearchImageSearchResponse,
+        SearchSiteSearchRequest, SearchSiteSearchResponse, SearchSubmitPagesRequest,
+        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
+        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
+        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
+        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
+        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
+        WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
+        WxaSecUploadShippingInfoRequest,
     };
 
     #[test]
@@ -1839,6 +1968,61 @@ mod tests {
         let data = list.data.expect("data");
         assert_eq!(data["left_apply_num"], 9);
         assert_eq!(data["data"][0]["store_name"], "Roze Coffee");
+    }
+
+    #[test]
+    fn serializes_plugin_requests() {
+        let apply = serde_json::to_value(PluginActionRequest::apply(
+            "plugin-appid",
+            "needed for checkout",
+        ))
+        .unwrap();
+        assert_eq!(apply["action"], "apply");
+        assert_eq!(apply["plugin_appid"], "plugin-appid");
+        assert_eq!(apply["reason"], "needed for checkout");
+
+        let unbind = serde_json::to_value(PluginActionRequest::unbind("plugin-appid")).unwrap();
+        assert_eq!(unbind["action"], "unbind");
+        assert_eq!(unbind["plugin_appid"], "plugin-appid");
+        assert!(unbind.get("reason").is_none());
+
+        let list = serde_json::to_value(PluginDevApplyListRequest {
+            action: "dev_apply_list".to_string(),
+            page: 1,
+            num: 20,
+        })
+        .unwrap();
+        assert_eq!(list["action"], "dev_apply_list");
+        assert_eq!(list["page"], 1);
+        assert_eq!(list["num"], 20);
+
+        let status = serde_json::to_value(PluginDevApplyStatusRequest {
+            action: "dev_agree".to_string(),
+            appid: "wxappid".to_string(),
+            reason: None,
+        })
+        .unwrap();
+        assert_eq!(status["action"], "dev_agree");
+        assert_eq!(status["appid"], "wxappid");
+        assert!(status.get("reason").is_none());
+    }
+
+    #[test]
+    fn deserializes_plugin_responses() {
+        let list: PluginListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "plugin_list": [{ "appid": "plugin-appid", "status": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(list.errcode, Some(0));
+        assert_eq!(list.plugin_list[0]["appid"], "plugin-appid");
+
+        let apply_list: PluginDevApplyListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "apply_list": [{ "appid": "wxappid", "reason": "need plugin" }]
+        }))
+        .unwrap();
+        assert_eq!(apply_list.apply_list[0]["reason"], "need plugin");
     }
 
     #[test]

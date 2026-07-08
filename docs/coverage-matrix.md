@@ -25,6 +25,7 @@ Status values:
 | Mini Program | nearbyPoi | `mini_program::nearby_poi` | tested |
 | Mini Program | ocr | `mini_program::ocr` | tested |
 | Mini Program | phoneNumber | `mini_program::phone_number` | tested |
+| Mini Program | plugin | `mini_program::plugin` | tested |
 | Mini Program | riskControl | `mini_program::risk_control` | tested |
 | Mini Program | search | `mini_program::search` | tested |
 | Mini Program | security | `mini_program::security` | tested |
