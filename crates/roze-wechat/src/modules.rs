@@ -107,6 +107,15 @@ mod tests {
             wechat.mini_program().express().name(),
             "mini_program.express"
         );
+        assert_eq!(wechat.mini_program().soter().name(), "mini_program.soter");
+        assert_eq!(
+            wechat.mini_program().service_market().name(),
+            "mini_program.service_market"
+        );
+        assert_eq!(
+            wechat.mini_program().internet().name(),
+            "mini_program.internet"
+        );
         assert_eq!(wechat.payment().notify().name(), "payment.notify");
         assert_eq!(wechat.payment().apply4_sub().name(), "payment.apply4_sub");
         assert_eq!(wechat.payment().base().name(), "payment.base");

@@ -159,6 +159,27 @@ impl PlatformClient {
         self.client.execute_json(endpoint, query, Some(body)).await
     }
 
+    pub async fn post_json_with_access_token_query<R>(
+        &self,
+        path: impl Into<String>,
+        access_token: Option<String>,
+        query: Vec<(String, String)>,
+        body: Value,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut endpoint = Endpoint::post(path);
+        if let Some(token) = access_token {
+            endpoint = endpoint.with_access_token(token);
+        }
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client.execute_json(endpoint, query, Some(body)).await
+    }
+
     pub async fn put_json<R>(
         &self,
         path: impl Into<String>,

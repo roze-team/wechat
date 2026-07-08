@@ -529,6 +529,62 @@ impl MiniProgram {
             .await
     }
 
+    pub fn soter(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.soter")
+    }
+
+    pub async fn verify_soter_signature(
+        &self,
+        access_token: impl Into<String>,
+        request: SoterVerifySignatureRequest,
+    ) -> Result<SoterVerifySignatureResponse> {
+        self.inner
+            .post(
+                "cgi-bin/soter/verify_signature",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn service_market(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.service_market")
+    }
+
+    pub async fn invoke_service_market(
+        &self,
+        access_token: impl Into<String>,
+        request: ServiceMarketInvokeRequest,
+    ) -> Result<ServiceMarketInvokeResponse> {
+        self.inner
+            .post("wxa/servicemarket", Some(access_token.into()), request)
+            .await
+    }
+
+    pub fn internet(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.internet")
+    }
+
+    pub async fn get_user_encrypt_key(
+        &self,
+        access_token: impl Into<String>,
+        request: InternetGetUserEncryptKeyRequest,
+    ) -> Result<InternetGetUserEncryptKeyResponse> {
+        self.inner
+            .post_json_with_access_token_query(
+                "wxa/business/getuserencryptkey",
+                Some(access_token.into()),
+                vec![
+                    ("openid".to_string(), request.openid),
+                    ("signature".to_string(), request.signature),
+                    ("sig_method".to_string(), request.sig_method),
+                ],
+                json!({}),
+                Vec::new(),
+            )
+            .await
+    }
+
     pub fn search(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.search")
     }
@@ -1713,6 +1769,72 @@ pub struct RiskControlGetUserRiskRankResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SoterVerifySignatureRequest {
+    pub openid: String,
+    pub json_string: String,
+    pub json_signature: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SoterVerifySignatureResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub is_ok: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceMarketInvokeRequest {
+    pub service: String,
+    pub api: String,
+    pub client_msg_id: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceMarketInvokeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternetGetUserEncryptKeyRequest {
+    pub openid: String,
+    pub signature: String,
+    pub sig_method: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternetGetUserEncryptKeyResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub key_info_list: Vec<InternetUserEncryptKeyInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternetUserEncryptKeyInfo {
+    #[serde(default)]
+    pub encrypt_key: Option<String>,
+    #[serde(default)]
+    pub version: Option<i64>,
+    #[serde(default)]
+    pub expire_in: Option<i64>,
+    #[serde(default)]
+    pub iv: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchImageSearchRequest {
     pub img: Vec<Value>,
 }
@@ -2645,21 +2767,24 @@ mod tests {
         ImmediateDeliveryCancelOrderResponse, ImmediateDeliveryDeliveryListResponse,
         ImmediateDeliveryGetOrderRequest, ImmediateDeliveryGetOrderResponse,
         ImmediateDeliveryPreAddOrderResponse, ImmediateDeliveryPreCancelOrderResponse,
-        ImmediateDeliveryReOrderResponse, ImmediateDeliveryRequest, JumpWxa, LiveInfoRequest,
-        LiveRoomRequest, NearbyPoiAddRequest, NearbyPoiAddResponse, NearbyPoiListResponse,
-        NearbyPoiShowStatusRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
-        OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
-        OcrVehicleLicenseResponse, PhoneNumberResponse, PluginActionRequest,
-        PluginDevApplyListRequest, PluginDevApplyListResponse, PluginDevApplyStatusRequest,
-        PluginListResponse, RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
-        SearchImageSearchRequest, SearchImageSearchResponse, SearchSiteSearchRequest,
-        SearchSiteSearchResponse, SearchSubmitPagesRequest, SecurityMsgSecCheckRequest,
-        SubscribeMessageRequest, UrlSchemeGenerateRequest, VirtualPaymentGoodItem,
-        VirtualPaymentOrderRequest, VirtualPaymentUploadProductSearchResponse,
-        VirtualPaymentUploadProductsRequest, WxaSecConfirmReceiveRequest, WxaSecOrderKey,
-        WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse,
-        WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo,
-        WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
+        ImmediateDeliveryReOrderResponse, ImmediateDeliveryRequest,
+        InternetGetUserEncryptKeyRequest, InternetGetUserEncryptKeyResponse, JumpWxa,
+        LiveInfoRequest, LiveRoomRequest, NearbyPoiAddRequest, NearbyPoiAddResponse,
+        NearbyPoiListResponse, NearbyPoiShowStatusRequest, OcrBankcardResponse,
+        OcrBusinessLicenseResponse, OcrDrivingLicenseResponse, OcrIdCardResponse,
+        OcrPrintedTextResponse, OcrVehicleLicenseResponse, PhoneNumberResponse,
+        PluginActionRequest, PluginDevApplyListRequest, PluginDevApplyListResponse,
+        PluginDevApplyStatusRequest, PluginListResponse, RiskControlGetUserRiskRankRequest,
+        RiskControlGetUserRiskRankResponse, SearchImageSearchRequest, SearchImageSearchResponse,
+        SearchSiteSearchRequest, SearchSiteSearchResponse, SearchSubmitPagesRequest,
+        SecurityMsgSecCheckRequest, ServiceMarketInvokeRequest, ServiceMarketInvokeResponse,
+        SoterVerifySignatureRequest, SoterVerifySignatureResponse, SubscribeMessageRequest,
+        UrlSchemeGenerateRequest, VirtualPaymentGoodItem, VirtualPaymentOrderRequest,
+        VirtualPaymentUploadProductSearchResponse, VirtualPaymentUploadProductsRequest,
+        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
+        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
+        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
+        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
         WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
         WxaSecUploadShippingInfoRequest,
     };
@@ -2786,6 +2911,90 @@ mod tests {
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.risk_rank, Some(2));
         assert_eq!(response.unoin_id, Some(123456));
+    }
+
+    #[test]
+    fn serializes_soter_service_market_and_internet_requests() {
+        let soter = serde_json::to_value(SoterVerifySignatureRequest {
+            openid: "openid".to_string(),
+            json_string: "{\"challenge\":\"abc\"}".to_string(),
+            json_signature: "signature".to_string(),
+        })
+        .unwrap();
+        assert_eq!(soter["openid"], "openid");
+        assert_eq!(soter["json_string"], "{\"challenge\":\"abc\"}");
+        assert_eq!(soter["json_signature"], "signature");
+
+        let service = serde_json::to_value(ServiceMarketInvokeRequest {
+            service: "wx79ac3de8be320b71".to_string(),
+            api: "OcrAllInOne".to_string(),
+            client_msg_id: "client-msg-id".to_string(),
+            data: json!({
+                "img_url": "https://example.com/id-card.jpg",
+                "data_type": 3
+            }),
+        })
+        .unwrap();
+        assert_eq!(service["service"], "wx79ac3de8be320b71");
+        assert_eq!(service["api"], "OcrAllInOne");
+        assert_eq!(service["client_msg_id"], "client-msg-id");
+        assert_eq!(service["data"]["data_type"], 3);
+
+        let internet = serde_json::to_value(InternetGetUserEncryptKeyRequest {
+            openid: "openid".to_string(),
+            signature: "signature".to_string(),
+            sig_method: "hmac_sha256".to_string(),
+        })
+        .unwrap();
+        assert_eq!(internet["openid"], "openid");
+        assert_eq!(internet["signature"], "signature");
+        assert_eq!(internet["sig_method"], "hmac_sha256");
+    }
+
+    #[test]
+    fn deserializes_soter_service_market_and_internet_responses() {
+        let soter: SoterVerifySignatureResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "is_ok": true
+        }))
+        .unwrap();
+        assert_eq!(soter.errcode, Some(0));
+        assert_eq!(soter.is_ok, Some(true));
+
+        let service: ServiceMarketInvokeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": {
+                "result": "ok",
+                "score": 99
+            }
+        }))
+        .unwrap();
+        assert_eq!(service.data.expect("data")["score"], 99);
+
+        let service_string: ServiceMarketInvokeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": "{\"result\":\"ok\"}"
+        }))
+        .unwrap();
+        assert_eq!(service_string.data, Some(json!("{\"result\":\"ok\"}")));
+
+        let encrypt_key: InternetGetUserEncryptKeyResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "key_info_list": [{
+                "encrypt_key": "encrypt-key",
+                "version": 1,
+                "expire_in": 7200,
+                "iv": "iv",
+                "create_time": 1800000000
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            encrypt_key.key_info_list[0].encrypt_key.as_deref(),
+            Some("encrypt-key")
+        );
+        assert_eq!(encrypt_key.key_info_list[0].version, Some(1));
+        assert_eq!(encrypt_key.key_info_list[0].expire_in, Some(7200));
     }
 
     #[test]

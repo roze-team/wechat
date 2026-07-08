@@ -23,6 +23,7 @@ Status values:
 | Mini Program | dataCube | `mini_program::data_cube` | tested |
 | Mini Program | express | `mini_program::express` | tested |
 | Mini Program | immediateDelivery | `mini_program::immediate_delivery` | tested |
+| Mini Program | internet | `mini_program::internet` | tested |
 | Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
 | Mini Program | nearbyPoi | `mini_program::nearby_poi` | tested |
 | Mini Program | ocr | `mini_program::ocr` | tested |
@@ -31,6 +32,8 @@ Status values:
 | Mini Program | riskControl | `mini_program::risk_control` | tested |
 | Mini Program | search | `mini_program::search` | tested |
 | Mini Program | security | `mini_program::security` | tested |
+| Mini Program | serviceMarket | `mini_program::service_market` | tested |
+| Mini Program | soter | `mini_program::soter` | tested |
 | Mini Program | subscribe/uniform/updatable messages | `mini_program::messages` | tested |
 | Mini Program | urlScheme/urlLink/shortLink | `mini_program::url` | tested |
 | Mini Program | virtualPayment | `mini_program::virtual_payment` | tested |
