@@ -936,6 +936,236 @@ impl MiniProgram {
             .await
     }
 
+    pub fn express(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.express")
+    }
+
+    pub async fn add_express_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressRequest,
+    ) -> Result<ExpressAddOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/order/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn batch_get_express_order(
+        &self,
+        access_token: impl Into<String>,
+        order_list: Vec<Value>,
+    ) -> Result<ExpressBatchOrderListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/order/batchget",
+                Some(access_token.into()),
+                json!({ "order_list": order_list }),
+            )
+            .await
+    }
+
+    pub async fn bind_express_account(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressBindAccountRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/accountService/bind",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn cancel_express_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressOrderRequest,
+    ) -> Result<ExpressCancelOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/order/cancel",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_all_express_account(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ExpressAccountListResponse> {
+        self.inner
+            .get(
+                "cgi-bin/express/business/accountService/getall",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_all_express_delivery(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ExpressDeliveryListResponse> {
+        self.inner
+            .get(
+                "cgi-bin/express/business/delivery/getall",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_express_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressGetOrderRequest,
+    ) -> Result<ExpressGetOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/order/get",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_express_path(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressOrderRequest,
+    ) -> Result<ExpressGetPathResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/path/get",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_express_printer(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ExpressGetPrinterResponse> {
+        self.inner
+            .get(
+                "cgi-bin/express/business/printer/getall",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_express_quota(
+        &self,
+        access_token: impl Into<String>,
+        delivery_id: impl Into<String>,
+        biz_id: impl Into<String>,
+    ) -> Result<ExpressGetQuotaResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/quota/get",
+                Some(access_token.into()),
+                json!({
+                    "delivery_id": delivery_id.into(),
+                    "biz_id": biz_id.into(),
+                }),
+            )
+            .await
+    }
+
+    pub async fn test_update_express_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressTestUpdateOrderRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/test_update_order",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_express_printer(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressUpdatePrinterRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/business/printer/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_express_contact(
+        &self,
+        access_token: impl Into<String>,
+        token: impl Into<String>,
+        waybill_id: impl Into<String>,
+    ) -> Result<ExpressGetContactResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/contact/get",
+                Some(access_token.into()),
+                json!({
+                    "token": token.into(),
+                    "waybill_id": waybill_id.into(),
+                }),
+            )
+            .await
+    }
+
+    pub async fn preview_express_template(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressRequest,
+    ) -> Result<ExpressPreviewTemplateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/template/preview",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_express_business(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/service/business/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_express_path(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/path/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -1850,6 +2080,214 @@ pub struct ImmediateDeliveryReOrderResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressRequest {
+    #[serde(flatten)]
+    pub payload: Value,
+}
+
+impl ExpressRequest {
+    pub fn new(payload: Value) -> Self {
+        Self { payload }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressBindAccountRequest {
+    #[serde(rename = "type")]
+    pub action_type: String,
+    pub biz_id: String,
+    pub delivery_id: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressOrderRequest {
+    pub order_id: String,
+    pub openid: String,
+    pub delivery_id: String,
+    pub waybill_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressGetOrderRequest {
+    pub order_id: String,
+    pub openid: String,
+    pub delivery_id: String,
+    pub waybill_id: String,
+    pub print_type: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressTestUpdateOrderRequest {
+    pub biz_id: String,
+    pub order_id: String,
+    pub delivery_id: String,
+    pub waybill_id: String,
+    pub action_time: i64,
+    pub action_type: i64,
+    pub action_msg: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressUpdatePrinterRequest {
+    pub openid: String,
+    pub update_type: String,
+    pub tagid_list: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressAddOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub delivery_resultcode: Option<i64>,
+    #[serde(default)]
+    pub delivery_resultmsg: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub waybill_data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressBatchOrderListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub order_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressCancelOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub delivery_resultcode: Option<i64>,
+    #[serde(default)]
+    pub delivery_resultmsg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressAccountListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressDeliveryListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressGetOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub print_html: Option<String>,
+    #[serde(default)]
+    pub waybill_data: Vec<Value>,
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub order_status: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressGetPathResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub path_item_num: Option<i64>,
+    #[serde(default)]
+    pub path_item_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressGetPrinterResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<Value>,
+    #[serde(default)]
+    pub openid: Vec<String>,
+    #[serde(default)]
+    pub tagid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressGetQuotaResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub quota_num: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressGetContactResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub waybill_id: Option<Value>,
+    #[serde(default)]
+    pub sender: Vec<Value>,
+    #[serde(default)]
+    pub receiver: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressPreviewTemplateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub rendered_waybill_template: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2197,7 +2635,13 @@ mod tests {
 
     use super::{
         virtual_payment_order_post_body, Code2SessionResponse, CreateQrCodeRequest,
-        CustomerServiceMessage, DataCubeDateRange, ImmediateDeliveryBindAccountResponse,
+        CustomerServiceMessage, DataCubeDateRange, ExpressAccountListResponse,
+        ExpressAddOrderResponse, ExpressBatchOrderListResponse, ExpressBindAccountRequest,
+        ExpressCancelOrderResponse, ExpressDeliveryListResponse, ExpressGetContactResponse,
+        ExpressGetOrderRequest, ExpressGetOrderResponse, ExpressGetPathResponse,
+        ExpressGetPrinterResponse, ExpressGetQuotaResponse, ExpressOrderRequest,
+        ExpressPreviewTemplateResponse, ExpressRequest, ExpressTestUpdateOrderRequest,
+        ExpressUpdatePrinterRequest, ImmediateDeliveryBindAccountResponse,
         ImmediateDeliveryCancelOrderResponse, ImmediateDeliveryDeliveryListResponse,
         ImmediateDeliveryGetOrderRequest, ImmediateDeliveryGetOrderResponse,
         ImmediateDeliveryPreAddOrderResponse, ImmediateDeliveryPreCancelOrderResponse,
@@ -2681,6 +3125,186 @@ mod tests {
         assert_eq!(reorder.insurance_fee, Some(0.0));
         assert_eq!(reorder.waybill_id, Some(123456789));
         assert_eq!(reorder.pickup_code, Some(2048));
+    }
+
+    #[test]
+    fn serializes_express_requests() {
+        let add = serde_json::to_value(ExpressRequest::new(json!({
+            "order_id": "order-id",
+            "openid": "openid",
+            "delivery_id": "delivery-id",
+            "biz_id": "biz-id"
+        })))
+        .unwrap();
+        assert_eq!(add["order_id"], "order-id");
+        assert_eq!(add["biz_id"], "biz-id");
+
+        let bind = serde_json::to_value(ExpressBindAccountRequest {
+            action_type: "bind".to_string(),
+            biz_id: "biz-id".to_string(),
+            delivery_id: "delivery-id".to_string(),
+            password: "secret".to_string(),
+        })
+        .unwrap();
+        assert_eq!(bind["type"], "bind");
+        assert_eq!(bind["biz_id"], "biz-id");
+        assert_eq!(bind["delivery_id"], "delivery-id");
+        assert_eq!(bind["password"], "secret");
+
+        let order = serde_json::to_value(ExpressOrderRequest {
+            order_id: "order-id".to_string(),
+            openid: "openid".to_string(),
+            delivery_id: "delivery-id".to_string(),
+            waybill_id: "waybill-id".to_string(),
+        })
+        .unwrap();
+        assert_eq!(order["order_id"], "order-id");
+        assert_eq!(order["openid"], "openid");
+
+        let get_order = serde_json::to_value(ExpressGetOrderRequest {
+            order_id: "order-id".to_string(),
+            openid: "openid".to_string(),
+            delivery_id: "delivery-id".to_string(),
+            waybill_id: "waybill-id".to_string(),
+            print_type: 1,
+        })
+        .unwrap();
+        assert_eq!(get_order["print_type"], 1);
+
+        let update = serde_json::to_value(ExpressTestUpdateOrderRequest {
+            biz_id: "biz-id".to_string(),
+            order_id: "order-id".to_string(),
+            delivery_id: "delivery-id".to_string(),
+            waybill_id: "waybill-id".to_string(),
+            action_time: 1_800_000_000,
+            action_type: 100001,
+            action_msg: "picked up".to_string(),
+        })
+        .unwrap();
+        assert_eq!(update["action_time"], 1_800_000_000);
+        assert_eq!(update["action_type"], 100001);
+        assert_eq!(update["action_msg"], "picked up");
+
+        let printer = serde_json::to_value(ExpressUpdatePrinterRequest {
+            openid: "openid".to_string(),
+            update_type: "bind".to_string(),
+            tagid_list: "tag-a,tag-b".to_string(),
+        })
+        .unwrap();
+        assert_eq!(printer["update_type"], "bind");
+        assert_eq!(printer["tagid_list"], "tag-a,tag-b");
+    }
+
+    #[test]
+    fn deserializes_express_responses() {
+        let add: ExpressAddOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "delivery_resultcode": 0,
+            "delivery_resultmsg": "ok",
+            "order_id": "order-id",
+            "waybill_id": "waybill-id",
+            "waybill_data": [{ "key": "tracking_no", "value": "waybill-id" }]
+        }))
+        .unwrap();
+        assert_eq!(add.delivery_resultcode, Some(0));
+        assert_eq!(add.order_id.as_deref(), Some("order-id"));
+        assert_eq!(add.waybill_data[0]["key"], "tracking_no");
+
+        let batch: ExpressBatchOrderListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "order_list": [{ "order_id": "order-id", "waybill_id": "waybill-id" }]
+        }))
+        .unwrap();
+        assert_eq!(batch.order_list[0]["waybill_id"], "waybill-id");
+
+        let cancel: ExpressCancelOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "delivery_resultcode": 0,
+            "delivery_resultmsg": ""
+        }))
+        .unwrap();
+        assert_eq!(cancel.delivery_resultcode, Some(0));
+
+        let accounts: ExpressAccountListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "count": 1,
+            "list": [{ "biz_id": "biz-id", "delivery_id": "delivery-id" }]
+        }))
+        .unwrap();
+        assert_eq!(accounts.count, Some(1));
+        assert_eq!(accounts.list[0]["biz_id"], "biz-id");
+
+        let deliveries: ExpressDeliveryListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "count": 1,
+            "data": [{ "delivery_id": "delivery-id", "delivery_name": "Fast Delivery" }]
+        }))
+        .unwrap();
+        assert_eq!(deliveries.data[0]["delivery_name"], "Fast Delivery");
+
+        let order: ExpressGetOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "print_html": "<html></html>",
+            "waybill_data": [{ "key": "tracking_no", "value": "waybill-id" }],
+            "delivery_id": "delivery-id",
+            "waybill_id": "waybill-id",
+            "order_id": "order-id",
+            "order_status": 1
+        }))
+        .unwrap();
+        assert_eq!(order.order_status, Some(1));
+        assert_eq!(order.print_html.as_deref(), Some("<html></html>"));
+
+        let path: ExpressGetPathResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "openid": "openid",
+            "delivery_id": "delivery-id",
+            "waybill_id": "waybill-id",
+            "path_item_num": 1,
+            "path_item_list": [{ "action_msg": "picked up" }]
+        }))
+        .unwrap();
+        assert_eq!(path.path_item_num, Some(1));
+        assert_eq!(path.path_item_list[0]["action_msg"], "picked up");
+
+        let printer: ExpressGetPrinterResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "count": "1",
+            "openid": ["openid"],
+            "tagid_list": ["tag-a"]
+        }))
+        .unwrap();
+        assert_eq!(printer.count, Some(json!("1")));
+        assert_eq!(printer.openid[0], "openid");
+
+        let quota: ExpressGetQuotaResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "quota_num": "100"
+        }))
+        .unwrap();
+        assert_eq!(quota.quota_num, Some(json!("100")));
+
+        let contact: ExpressGetContactResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "waybill_id": "waybill-id",
+            "sender": [{ "name": "sender" }],
+            "receiver": [{ "name": "receiver" }]
+        }))
+        .unwrap();
+        assert_eq!(contact.waybill_id, Some(json!("waybill-id")));
+        assert_eq!(contact.receiver[0]["name"], "receiver");
+
+        let preview: ExpressPreviewTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "waybill_id": "waybill-id",
+            "rendered_waybill_template": "template"
+        }))
+        .unwrap();
+        assert_eq!(preview.waybill_id.as_deref(), Some("waybill-id"));
+        assert_eq!(
+            preview.rendered_waybill_template.as_deref(),
+            Some("template")
+        );
     }
 
     #[test]
