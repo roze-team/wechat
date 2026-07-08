@@ -529,6 +529,44 @@ impl MiniProgram {
             .await
     }
 
+    pub fn search(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.search")
+    }
+
+    pub async fn image_search(
+        &self,
+        access_token: impl Into<String>,
+        request: SearchImageSearchRequest,
+    ) -> Result<SearchImageSearchResponse> {
+        self.inner
+            .post("wxa/imagesearch", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn site_search(
+        &self,
+        access_token: impl Into<String>,
+        request: SearchSiteSearchRequest,
+    ) -> Result<SearchSiteSearchResponse> {
+        self.inner
+            .post("wxa/sitesearch", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn submit_search_pages(
+        &self,
+        access_token: impl Into<String>,
+        request: SearchSubmitPagesRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/search/wxaapi_submitpages",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -1076,6 +1114,49 @@ pub struct RiskControlGetUserRiskRankResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchImageSearchRequest {
+    pub img: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchImageSearchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub items: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSiteSearchRequest {
+    pub keyword: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_page_info: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSiteSearchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub items: Vec<Value>,
+    #[serde(default)]
+    pub has_next_page: Option<i64>,
+    #[serde(default)]
+    pub hit_count: Option<i64>,
+    #[serde(default)]
+    pub next_page_info: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSubmitPagesRequest {
+    pub pages: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1426,11 +1507,13 @@ mod tests {
         JumpWxa, LiveInfoRequest, LiveRoomRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
         OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
         OcrVehicleLicenseResponse, PhoneNumberResponse, RiskControlGetUserRiskRankRequest,
-        RiskControlGetUserRiskRankResponse, SecurityMsgSecCheckRequest, SubscribeMessageRequest,
-        UrlSchemeGenerateRequest, WxaSecConfirmReceiveRequest, WxaSecOrderKey,
-        WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse,
-        WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo,
-        WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
+        RiskControlGetUserRiskRankResponse, SearchImageSearchRequest, SearchImageSearchResponse,
+        SearchSiteSearchRequest, SearchSiteSearchResponse, SearchSubmitPagesRequest,
+        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
+        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
+        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
+        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
+        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
         WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
         WxaSecUploadShippingInfoRequest,
     };
@@ -1557,6 +1640,61 @@ mod tests {
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.risk_rank, Some(2));
         assert_eq!(response.unoin_id, Some(123456));
+    }
+
+    #[test]
+    fn serializes_search_requests() {
+        let image_search = serde_json::to_value(SearchImageSearchRequest {
+            img: vec![json!({
+                "name": "goods.jpg",
+                "value": "base64-image"
+            })],
+        })
+        .unwrap();
+        assert_eq!(image_search["img"][0]["name"], "goods.jpg");
+        assert_eq!(image_search["img"][0]["value"], "base64-image");
+
+        let site_search = serde_json::to_value(SearchSiteSearchRequest {
+            keyword: "coffee".to_string(),
+            next_page_info: None,
+        })
+        .unwrap();
+        assert_eq!(site_search["keyword"], "coffee");
+        assert!(site_search.get("next_page_info").is_none());
+
+        let submit_pages = serde_json::to_value(SearchSubmitPagesRequest {
+            pages: vec![json!({
+                "path": "pages/goods/detail",
+                "query": "id=1"
+            })],
+        })
+        .unwrap();
+        assert_eq!(submit_pages["pages"][0]["path"], "pages/goods/detail");
+        assert_eq!(submit_pages["pages"][0]["query"], "id=1");
+    }
+
+    #[test]
+    fn deserializes_search_responses() {
+        let image_search: SearchImageSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "items": [{ "img_url": "https://example.com/goods.jpg", "score": 98 }]
+        }))
+        .unwrap();
+        assert_eq!(image_search.errcode, Some(0));
+        assert_eq!(image_search.items[0]["score"], 98);
+
+        let site_search: SearchSiteSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "items": [{ "title": "Coffee", "path": "pages/goods/detail" }],
+            "has_next_page": 1,
+            "hit_count": 10,
+            "next_page_info": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(site_search.items[0]["title"], "Coffee");
+        assert_eq!(site_search.has_next_page, Some(1));
+        assert_eq!(site_search.hit_count, Some(10));
+        assert_eq!(site_search.next_page_info.as_deref(), Some("cursor"));
     }
 
     #[test]

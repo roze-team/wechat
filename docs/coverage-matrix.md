@@ -25,6 +25,7 @@ Status values:
 | Mini Program | ocr | `mini_program::ocr` | tested |
 | Mini Program | phoneNumber | `mini_program::phone_number` | tested |
 | Mini Program | riskControl | `mini_program::risk_control` | tested |
+| Mini Program | search | `mini_program::search` | tested |
 | Mini Program | security | `mini_program::security` | tested |
 | Mini Program | subscribe/uniform/updatable messages | `mini_program::messages` | tested |
 | Mini Program | urlScheme/urlLink/shortLink | `mini_program::url` | tested |
