@@ -31,6 +31,7 @@ Status values:
 | Mini Program | security | `mini_program::security` | tested |
 | Mini Program | subscribe/uniform/updatable messages | `mini_program::messages` | tested |
 | Mini Program | urlScheme/urlLink/shortLink | `mini_program::url` | tested |
+| Mini Program | virtualPayment | `mini_program::virtual_payment` | tested |
 | Mini Program | wxaCode | `mini_program::wxa_code` | tested |
 | Mini Program | wxa/sec/order | `mini_program::wxa_sec_order` | tested |
 | Official Account | auth/oauth | `official_account::oauth` | tested |

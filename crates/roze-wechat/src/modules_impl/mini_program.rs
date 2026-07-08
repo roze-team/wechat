@@ -693,6 +693,52 @@ impl MiniProgram {
             .await
     }
 
+    pub fn virtual_payment(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.virtual_payment")
+    }
+
+    pub fn build_virtual_payment_order(
+        &self,
+        offer_id: impl Into<String>,
+        app_key: impl AsRef<[u8]>,
+        request: VirtualPaymentOrderRequest,
+    ) -> Result<VirtualPaymentOrderResponse> {
+        let post_body = virtual_payment_order_post_body(&offer_id.into(), &request);
+        Ok(VirtualPaymentOrderResponse {
+            pay_sign: crypto::hmac_sha256_hex(
+                app_key.as_ref(),
+                format!("requestVirtualPayment&{post_body}").as_bytes(),
+            )?,
+            signature: crypto::hmac_sha256_hex(
+                request.session_key.as_bytes(),
+                post_body.as_bytes(),
+            )?,
+            post_body,
+        })
+    }
+
+    pub async fn start_upload_virtual_payment_goods(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: VirtualPaymentUploadProductsRequest,
+    ) -> Result<VirtualPaymentUploadGoodsResponse> {
+        let post_body = serde_json::to_string(&request)?;
+        let pay_sig = crypto::hmac_sha256_hex(
+            app_key.as_ref(),
+            format!("/xpay/start_upload_goods&{post_body}").as_bytes(),
+        )?;
+        let body = serde_json::from_str(&post_body)?;
+
+        self.inner
+            .post_json_with_query(
+                "/xpay/start_upload_goods",
+                vec![("pay_sig".to_string(), pay_sig)],
+                body,
+                Vec::new(),
+            )
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -1382,6 +1428,91 @@ pub struct PluginDevApplyStatusRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentOrderRequest {
+    pub session_key: String,
+    pub product_id: String,
+    pub price: i64,
+    pub out_trade_no: String,
+    pub attach: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentOrderResponse {
+    pub post_body: String,
+    pub pay_sign: String,
+    pub signature: String,
+}
+
+fn virtual_payment_order_post_body(offer_id: &str, request: &VirtualPaymentOrderRequest) -> String {
+    format!(
+        r#"{{"offerId":"{}","buyQuantity":1,"env":0,"currencyType":"CNY","platform":"android","productId":"{}","goodsPrice":{},"outTradeNo":"{}","attach":"{}"}}"#,
+        offer_id, request.product_id, request.price, request.out_trade_no, request.attach
+    )
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentUploadProductsRequest {
+    pub env: i64,
+    pub upload_item: Vec<VirtualPaymentGoodItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentGoodItem {
+    pub id: String,
+    pub name: String,
+    pub price: i64,
+    #[serde(rename = "remake")]
+    pub remark: String,
+    pub item_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentUploadGoodsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub base_resp: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentUploadProductSearchResponse {
+    #[serde(default)]
+    pub cost: Option<i64>,
+    #[serde(default)]
+    pub end: Option<i64>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub progress: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub upload_item: Vec<VirtualPaymentUploadItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VirtualPaymentUploadItem {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub item_url: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub price: Option<i64>,
+    #[serde(default)]
+    pub upload_status: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1728,20 +1859,22 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        Code2SessionResponse, CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange,
-        JumpWxa, LiveInfoRequest, LiveRoomRequest, NearbyPoiAddRequest, NearbyPoiAddResponse,
-        NearbyPoiListResponse, NearbyPoiShowStatusRequest, OcrBankcardResponse,
-        OcrBusinessLicenseResponse, OcrDrivingLicenseResponse, OcrIdCardResponse,
-        OcrPrintedTextResponse, OcrVehicleLicenseResponse, PhoneNumberResponse,
-        PluginActionRequest, PluginDevApplyListRequest, PluginDevApplyListResponse,
-        PluginDevApplyStatusRequest, PluginListResponse, RiskControlGetUserRiskRankRequest,
-        RiskControlGetUserRiskRankResponse, SearchImageSearchRequest, SearchImageSearchResponse,
-        SearchSiteSearchRequest, SearchSiteSearchResponse, SearchSubmitPagesRequest,
-        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
-        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
-        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
-        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
-        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
+        virtual_payment_order_post_body, Code2SessionResponse, CreateQrCodeRequest,
+        CustomerServiceMessage, DataCubeDateRange, JumpWxa, LiveInfoRequest, LiveRoomRequest,
+        NearbyPoiAddRequest, NearbyPoiAddResponse, NearbyPoiListResponse,
+        NearbyPoiShowStatusRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
+        OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
+        OcrVehicleLicenseResponse, PhoneNumberResponse, PluginActionRequest,
+        PluginDevApplyListRequest, PluginDevApplyListResponse, PluginDevApplyStatusRequest,
+        PluginListResponse, RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
+        SearchImageSearchRequest, SearchImageSearchResponse, SearchSiteSearchRequest,
+        SearchSiteSearchResponse, SearchSubmitPagesRequest, SecurityMsgSecCheckRequest,
+        SubscribeMessageRequest, UrlSchemeGenerateRequest, VirtualPaymentGoodItem,
+        VirtualPaymentOrderRequest, VirtualPaymentUploadProductSearchResponse,
+        VirtualPaymentUploadProductsRequest, WxaSecConfirmReceiveRequest, WxaSecOrderKey,
+        WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse,
+        WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo,
+        WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
         WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
         WxaSecUploadShippingInfoRequest,
     };
@@ -2023,6 +2156,82 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(apply_list.apply_list[0]["reason"], "need plugin");
+    }
+
+    #[test]
+    fn builds_virtual_payment_order_post_body_and_signatures() {
+        let request = VirtualPaymentOrderRequest {
+            session_key: "session-key".to_string(),
+            product_id: "coins_100".to_string(),
+            price: 100,
+            out_trade_no: "out-trade-no".to_string(),
+            attach: "metadata".to_string(),
+        };
+        let post_body = virtual_payment_order_post_body("offer-id", &request);
+
+        assert_eq!(
+            post_body,
+            r#"{"offerId":"offer-id","buyQuantity":1,"env":0,"currencyType":"CNY","platform":"android","productId":"coins_100","goodsPrice":100,"outTradeNo":"out-trade-no","attach":"metadata"}"#
+        );
+        assert_eq!(
+            crate::crypto::hmac_sha256_hex(
+                b"app-key",
+                format!("requestVirtualPayment&{post_body}").as_bytes()
+            )
+            .unwrap(),
+            "b49d01ba290228d068311a5f8f86d7f1c0ed09532d5acbcf0be1007b9927085a"
+        );
+        assert_eq!(
+            crate::crypto::hmac_sha256_hex(b"session-key", post_body.as_bytes()).unwrap(),
+            "548bded6ea02f3e30d23a7ae30e9883645d5f73e552322ccfb86af61d068f819"
+        );
+    }
+
+    #[test]
+    fn serializes_virtual_payment_upload_products_request() {
+        let value = serde_json::to_value(VirtualPaymentUploadProductsRequest {
+            env: 0,
+            upload_item: vec![VirtualPaymentGoodItem {
+                id: "coins_100".to_string(),
+                name: "100 coins".to_string(),
+                price: 100,
+                remark: "coin pack".to_string(),
+                item_url: "https://example.com/coin.png".to_string(),
+            }],
+        })
+        .unwrap();
+
+        assert_eq!(value["env"], 0);
+        assert_eq!(value["upload_item"][0]["id"], "coins_100");
+        assert_eq!(value["upload_item"][0]["remake"], "coin pack");
+        assert_eq!(
+            value["upload_item"][0]["item_url"],
+            "https://example.com/coin.png"
+        );
+    }
+
+    #[test]
+    fn deserializes_virtual_payment_upload_search_response() {
+        let response: VirtualPaymentUploadProductSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "status": 2,
+            "progress": 100,
+            "upload_item": [{
+                "id": "coins_100",
+                "item_url": "https://example.com/coin.png",
+                "name": "100 coins",
+                "price": 100,
+                "upload_status": 0,
+                "errmsg": ""
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(response.errcode, Some(0));
+        assert_eq!(response.status, Some(2));
+        assert_eq!(response.upload_item[0].id.as_deref(), Some("coins_100"));
+        assert_eq!(response.upload_item[0].upload_status, Some(0));
     }
 
     #[test]

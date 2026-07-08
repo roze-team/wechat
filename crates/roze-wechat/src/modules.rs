@@ -95,6 +95,10 @@ mod tests {
             "mini_program.nearby_poi"
         );
         assert_eq!(wechat.mini_program().plugin().name(), "mini_program.plugin");
+        assert_eq!(
+            wechat.mini_program().virtual_payment().name(),
+            "mini_program.virtual_payment"
+        );
         assert_eq!(wechat.payment().notify().name(), "payment.notify");
         assert_eq!(wechat.payment().apply4_sub().name(), "payment.apply4_sub");
         assert_eq!(wechat.payment().base().name(), "payment.base");
