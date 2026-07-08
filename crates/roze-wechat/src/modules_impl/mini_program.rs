@@ -567,6 +567,66 @@ impl MiniProgram {
             .await
     }
 
+    pub fn nearby_poi(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.nearby_poi")
+    }
+
+    pub async fn add_nearby_poi(
+        &self,
+        access_token: impl Into<String>,
+        request: NearbyPoiAddRequest,
+    ) -> Result<NearbyPoiAddResponse> {
+        self.inner
+            .post("wxa/addnearbypoi", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn delete_nearby_poi(
+        &self,
+        access_token: impl Into<String>,
+        poi_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/delnearbypoi",
+                Some(access_token.into()),
+                json!({ "poi_id": poi_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_nearby_poi_list(
+        &self,
+        access_token: impl Into<String>,
+        page: i64,
+        page_rows: i64,
+    ) -> Result<NearbyPoiListResponse> {
+        self.inner
+            .get_with_query(
+                "wxa/getnearbypoilist",
+                Some(access_token.into()),
+                vec![
+                    ("page".to_string(), page.to_string()),
+                    ("page_rows".to_string(), page_rows.to_string()),
+                ],
+            )
+            .await
+    }
+
+    pub async fn set_nearby_poi_show_status(
+        &self,
+        access_token: impl Into<String>,
+        request: NearbyPoiShowStatusRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/setnearbypoishowstatus",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -1157,6 +1217,44 @@ pub struct SearchSubmitPagesRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NearbyPoiAddRequest {
+    #[serde(flatten)]
+    pub payload: Value,
+}
+
+impl NearbyPoiAddRequest {
+    pub fn new(payload: Value) -> Self {
+        Self { payload }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NearbyPoiAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NearbyPoiListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NearbyPoiShowStatusRequest {
+    pub poi_id: String,
+    pub status: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1504,18 +1602,19 @@ mod tests {
 
     use super::{
         Code2SessionResponse, CreateQrCodeRequest, CustomerServiceMessage, DataCubeDateRange,
-        JumpWxa, LiveInfoRequest, LiveRoomRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
-        OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
-        OcrVehicleLicenseResponse, PhoneNumberResponse, RiskControlGetUserRiskRankRequest,
-        RiskControlGetUserRiskRankResponse, SearchImageSearchRequest, SearchImageSearchResponse,
-        SearchSiteSearchRequest, SearchSiteSearchResponse, SearchSubmitPagesRequest,
-        SecurityMsgSecCheckRequest, SubscribeMessageRequest, UrlSchemeGenerateRequest,
-        WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
-        WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
-        WxaSecPayer, WxaSecShippingContact, WxaSecShippingInfo, WxaSecSpecialOrderRequest,
-        WxaSecSubOrderShippingInfo, WxaSecTradeManagedResponse,
-        WxaSecTradeManagementConfirmationResponse, WxaSecUploadCombinedShippingInfoRequest,
-        WxaSecUploadShippingInfoRequest,
+        JumpWxa, LiveInfoRequest, LiveRoomRequest, NearbyPoiAddRequest, NearbyPoiAddResponse,
+        NearbyPoiListResponse, NearbyPoiShowStatusRequest, OcrBankcardResponse,
+        OcrBusinessLicenseResponse, OcrDrivingLicenseResponse, OcrIdCardResponse,
+        OcrPrintedTextResponse, OcrVehicleLicenseResponse, PhoneNumberResponse,
+        RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
+        SearchImageSearchRequest, SearchImageSearchResponse, SearchSiteSearchRequest,
+        SearchSiteSearchResponse, SearchSubmitPagesRequest, SecurityMsgSecCheckRequest,
+        SubscribeMessageRequest, UrlSchemeGenerateRequest, WxaSecConfirmReceiveRequest,
+        WxaSecOrderKey, WxaSecOrderListRequest, WxaSecOrderListResponse, WxaSecOrderQuery,
+        WxaSecOrderResponse, WxaSecPayTimeRange, WxaSecPayer, WxaSecShippingContact,
+        WxaSecShippingInfo, WxaSecSpecialOrderRequest, WxaSecSubOrderShippingInfo,
+        WxaSecTradeManagedResponse, WxaSecTradeManagementConfirmationResponse,
+        WxaSecUploadCombinedShippingInfoRequest, WxaSecUploadShippingInfoRequest,
     };
 
     #[test]
@@ -1695,6 +1794,51 @@ mod tests {
         assert_eq!(site_search.has_next_page, Some(1));
         assert_eq!(site_search.hit_count, Some(10));
         assert_eq!(site_search.next_page_info.as_deref(), Some("cursor"));
+    }
+
+    #[test]
+    fn serializes_nearby_poi_requests() {
+        let add = serde_json::to_value(NearbyPoiAddRequest::new(json!({
+            "store_name": "Roze Coffee",
+            "address": "1 Rust Road",
+            "pic_list": ["media-id"],
+            "service_infos": [{ "id": 1, "type": 2 }]
+        })))
+        .unwrap();
+        assert_eq!(add["store_name"], "Roze Coffee");
+        assert_eq!(add["pic_list"][0], "media-id");
+        assert_eq!(add["service_infos"][0]["type"], 2);
+
+        let show_status = serde_json::to_value(NearbyPoiShowStatusRequest {
+            poi_id: "poi-id".to_string(),
+            status: 1,
+        })
+        .unwrap();
+        assert_eq!(show_status, json!({ "poi_id": "poi-id", "status": 1 }));
+    }
+
+    #[test]
+    fn deserializes_nearby_poi_responses() {
+        let add: NearbyPoiAddResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": [{ "poi_id": "poi-id", "audit_id": "audit-id" }]
+        }))
+        .unwrap();
+        assert_eq!(add.errcode, Some(0));
+        assert_eq!(add.data[0]["poi_id"], "poi-id");
+
+        let list: NearbyPoiListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": {
+                "left_apply_num": 9,
+                "max_apply_num": 10,
+                "data": [{ "poi_id": "poi-id", "store_name": "Roze Coffee" }]
+            }
+        }))
+        .unwrap();
+        let data = list.data.expect("data");
+        assert_eq!(data["left_apply_num"], 9);
+        assert_eq!(data["data"][0]["store_name"], "Roze Coffee");
     }
 
     #[test]
