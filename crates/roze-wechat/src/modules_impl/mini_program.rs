@@ -450,6 +450,73 @@ impl MiniProgram {
         .await
     }
 
+    pub fn image(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.image")
+    }
+
+    pub async fn image_ai_crop_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<ImageAiCropResponse> {
+        self.ocr_by_url("cv/img/aicrop", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn image_ai_crop_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<ImageAiCropResponse> {
+        self.ocr_from_bytes("cv/img/aicrop", access_token, file_name, data, Vec::new())
+            .await
+    }
+
+    pub async fn image_scan_qrcode_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<ImageScanQrCodeResponse> {
+        self.ocr_by_url("cv/img/qrcode", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn image_scan_qrcode_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<ImageScanQrCodeResponse> {
+        self.ocr_from_bytes("cv/img/qrcode", access_token, file_name, data, Vec::new())
+            .await
+    }
+
+    pub async fn image_super_resolution_by_url(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<ImageSuperResolutionResponse> {
+        self.ocr_by_url("cv/img/superresolution", access_token, img_url, Vec::new())
+            .await
+    }
+
+    pub async fn image_super_resolution_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<ImageSuperResolutionResponse> {
+        self.ocr_from_bytes(
+            "cv/img/superresolution",
+            access_token,
+            file_name,
+            data,
+            Vec::new(),
+        )
+        .await
+    }
+
     async fn ocr_by_url<R>(
         &self,
         path: &'static str,
@@ -1690,6 +1757,38 @@ pub struct OcrVehicleLicenseResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageAiCropResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub results: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageScanQrCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub code_results: Vec<Value>,
+    #[serde(default)]
+    pub img_size: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageSuperResolutionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerServiceMessage {
     pub touser: String,
     pub msgtype: String,
@@ -2763,7 +2862,8 @@ mod tests {
         ExpressGetOrderRequest, ExpressGetOrderResponse, ExpressGetPathResponse,
         ExpressGetPrinterResponse, ExpressGetQuotaResponse, ExpressOrderRequest,
         ExpressPreviewTemplateResponse, ExpressRequest, ExpressTestUpdateOrderRequest,
-        ExpressUpdatePrinterRequest, ImmediateDeliveryBindAccountResponse,
+        ExpressUpdatePrinterRequest, ImageAiCropResponse, ImageScanQrCodeResponse,
+        ImageSuperResolutionResponse, ImmediateDeliveryBindAccountResponse,
         ImmediateDeliveryCancelOrderResponse, ImmediateDeliveryDeliveryListResponse,
         ImmediateDeliveryGetOrderRequest, ImmediateDeliveryGetOrderResponse,
         ImmediateDeliveryPreAddOrderResponse, ImmediateDeliveryPreCancelOrderResponse,
@@ -3790,6 +3890,44 @@ mod tests {
         .unwrap();
         assert_eq!(vehicle_license.vhicle_type.as_deref(), Some("small car"));
         assert_eq!(vehicle_license.plate_num_b.as_deref(), Some("YUEB00000"));
+    }
+
+    #[test]
+    fn deserializes_image_responses() {
+        let crop: ImageAiCropResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "results": [{
+                "crop_left": 10,
+                "crop_top": 20,
+                "crop_right": 300,
+                "crop_bottom": 240
+            }]
+        }))
+        .unwrap();
+        assert_eq!(crop.errcode, Some(0));
+        assert_eq!(crop.results[0]["crop_left"], 10);
+
+        let qrcode: ImageScanQrCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "code_results": [{
+                "type_name": "QR_CODE",
+                "data": "https://example.com"
+            }],
+            "img_size": {
+                "w": 640,
+                "h": 480
+            }
+        }))
+        .unwrap();
+        assert_eq!(qrcode.code_results[0]["type_name"], "QR_CODE");
+        assert_eq!(qrcode.img_size.expect("img_size")["w"], 640);
+
+        let super_resolution: ImageSuperResolutionResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "media_id": "media-id"
+        }))
+        .unwrap();
+        assert_eq!(super_resolution.media_id.as_deref(), Some("media-id"));
     }
 
     #[test]
