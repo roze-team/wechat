@@ -15,14 +15,14 @@ entries, request/response DTOs, and tests.
 | --- | ---: | ---: | ---: |
 | Basic Service | 6 | 6 | 0 |
 | Channels | 2 | 1 | 1 |
-| Mini Program | 32 | 20 | 12 |
+| Mini Program | 32 | 21 | 11 |
 | Official Account | 24 | 12 | 13 |
 | Open Platform | 6 | 5 | 1 |
 | Open Work | 8 | 6 | 2 |
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 49.
+Total remaining PowerWeChat submodule gaps: 48.
 
 ## Remaining Gaps
 
@@ -36,7 +36,6 @@ Total remaining PowerWeChat submodule gaps: 49.
 - `device`
 - `express`
 - `image`
-- `immediateDelivery`
 - `industry`
 - `internet`
 - `operation`
@@ -96,7 +95,7 @@ Total remaining PowerWeChat submodule gaps: 49.
 ## Implementation Priority
 
 1. Mini Program transaction and operational surface:
-   `wxa/sec`, `immediateDelivery`.
+   `wxa/sec`.
 2. Work enterprise service surface:
    `accountService`, `externalPay`, `invoice`, `idConvert`, `menu`,
    `oa/approval`, `oa/meeting`, `oa/wedoc`, `oa/wedrive`.

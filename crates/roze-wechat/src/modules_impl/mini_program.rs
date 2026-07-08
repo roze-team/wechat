@@ -739,6 +739,203 @@ impl MiniProgram {
             .await
     }
 
+    pub fn immediate_delivery(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.immediate_delivery")
+    }
+
+    pub async fn abnormal_confirm_immediate_delivery(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/local/business/order/confirm_return",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_immediate_delivery_tip(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/addtips",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn bind_immediate_delivery_account(
+        &self,
+        access_token: impl Into<String>,
+        delivery_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/local/business/shop/add",
+                Some(access_token.into()),
+                json!({ "delivery_id": delivery_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn cancel_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<ImmediateDeliveryCancelOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/cancel",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_all_immediate_delivery(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ImmediateDeliveryDeliveryListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/delivery/getall",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn get_immediate_delivery_bind_account(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ImmediateDeliveryBindAccountResponse> {
+        self.inner
+            .post(
+                "cgi-bin/express/local/business/shop/get",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn get_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryGetOrderRequest,
+    ) -> Result<ImmediateDeliveryGetOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/get",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn mock_update_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/test_update_order",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn open_immediate_delivery(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/open",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn pre_add_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<ImmediateDeliveryPreAddOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/pre_add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn pre_cancel_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<ImmediateDeliveryPreCancelOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/precancel",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn real_mock_update_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/realmock_update_order",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn re_add_immediate_delivery_order(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryRequest,
+    ) -> Result<ImmediateDeliveryReOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/readd",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn wxa_sec_order(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.wxa_sec_order")
     }
@@ -1513,6 +1710,146 @@ pub struct VirtualPaymentUploadItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryRequest {
+    #[serde(flatten)]
+    pub payload: Value,
+}
+
+impl ImmediateDeliveryRequest {
+    pub fn new(payload: Value) -> Self {
+        Self { payload }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryGetOrderRequest {
+    pub shopid: String,
+    pub shop_order_id: String,
+    pub shop_no: String,
+    pub delivery_sign: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryBindAccountResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub shop_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryDeliveryListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryCancelOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub deduct_fee: Option<i64>,
+    #[serde(default)]
+    pub desc: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryGetOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub order_status: Option<i64>,
+    #[serde(default)]
+    pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub rider_name: Option<String>,
+    #[serde(default)]
+    pub rider_phone: Option<String>,
+    #[serde(default)]
+    pub rider_lng: Option<f64>,
+    #[serde(default)]
+    pub rider_lat: Option<f64>,
+    #[serde(default)]
+    pub reach_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryPreAddOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub fee: Option<i64>,
+    #[serde(default)]
+    pub deliverfee: Option<String>,
+    #[serde(default)]
+    pub couponfee: Option<String>,
+    #[serde(default)]
+    pub tips: Option<String>,
+    #[serde(default)]
+    pub insurancfee: Option<f64>,
+    #[serde(default)]
+    pub distance: Option<f64>,
+    #[serde(default)]
+    pub dispatch_duration: Option<i64>,
+    #[serde(default)]
+    pub delivery_token: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryPreCancelOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub deduct_fee: Option<i64>,
+    #[serde(default)]
+    pub desc: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryReOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub fee: Option<i64>,
+    #[serde(default)]
+    pub deliverfee: Option<String>,
+    #[serde(default)]
+    pub couponfee: Option<String>,
+    #[serde(default)]
+    pub tips: Option<String>,
+    #[serde(default, rename = "insurancfee")]
+    pub insurance_fee: Option<f64>,
+    #[serde(default)]
+    pub distance: Option<f64>,
+    #[serde(default)]
+    pub waybill_id: Option<i64>,
+    #[serde(default)]
+    pub order_status: Option<i64>,
+    #[serde(default)]
+    pub finish_code: Option<i64>,
+    #[serde(default)]
+    pub pickup_code: Option<i64>,
+    #[serde(default)]
+    pub dispatch_duration: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderKey {
     pub order_number_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1860,8 +2197,12 @@ mod tests {
 
     use super::{
         virtual_payment_order_post_body, Code2SessionResponse, CreateQrCodeRequest,
-        CustomerServiceMessage, DataCubeDateRange, JumpWxa, LiveInfoRequest, LiveRoomRequest,
-        NearbyPoiAddRequest, NearbyPoiAddResponse, NearbyPoiListResponse,
+        CustomerServiceMessage, DataCubeDateRange, ImmediateDeliveryBindAccountResponse,
+        ImmediateDeliveryCancelOrderResponse, ImmediateDeliveryDeliveryListResponse,
+        ImmediateDeliveryGetOrderRequest, ImmediateDeliveryGetOrderResponse,
+        ImmediateDeliveryPreAddOrderResponse, ImmediateDeliveryPreCancelOrderResponse,
+        ImmediateDeliveryReOrderResponse, ImmediateDeliveryRequest, JumpWxa, LiveInfoRequest,
+        LiveRoomRequest, NearbyPoiAddRequest, NearbyPoiAddResponse, NearbyPoiListResponse,
         NearbyPoiShowStatusRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
         OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
         OcrVehicleLicenseResponse, PhoneNumberResponse, PluginActionRequest,
@@ -2232,6 +2573,114 @@ mod tests {
         assert_eq!(response.status, Some(2));
         assert_eq!(response.upload_item[0].id.as_deref(), Some("coins_100"));
         assert_eq!(response.upload_item[0].upload_status, Some(0));
+    }
+
+    #[test]
+    fn serializes_immediate_delivery_requests() {
+        let request = serde_json::to_value(ImmediateDeliveryRequest::new(json!({
+            "shopid": "shop-id",
+            "shop_order_id": "order-id",
+            "delivery_id": "delivery-id",
+            "delivery_sign": "sign"
+        })))
+        .unwrap();
+        assert_eq!(request["shopid"], "shop-id");
+        assert_eq!(request["delivery_sign"], "sign");
+
+        let get_order = serde_json::to_value(ImmediateDeliveryGetOrderRequest {
+            shopid: "shop-id".to_string(),
+            shop_order_id: "order-id".to_string(),
+            shop_no: "shop-no".to_string(),
+            delivery_sign: "sign".to_string(),
+        })
+        .unwrap();
+        assert_eq!(get_order["shopid"], "shop-id");
+        assert_eq!(get_order["shop_order_id"], "order-id");
+        assert_eq!(get_order["shop_no"], "shop-no");
+        assert_eq!(get_order["delivery_sign"], "sign");
+    }
+
+    #[test]
+    fn deserializes_immediate_delivery_responses() {
+        let shops: ImmediateDeliveryBindAccountResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "shop_list": [{ "delivery_id": "delivery-id", "shopid": "shop-id" }]
+        }))
+        .unwrap();
+        assert_eq!(shops.shop_list[0]["delivery_id"], "delivery-id");
+
+        let delivery_list: ImmediateDeliveryDeliveryListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "list": [{ "delivery_id": "delivery-id", "delivery_name": "Fast Delivery" }]
+        }))
+        .unwrap();
+        assert_eq!(delivery_list.list[0]["delivery_name"], "Fast Delivery");
+
+        let cancel: ImmediateDeliveryCancelOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "deduct_fee": 5,
+            "desc": "cancelled"
+        }))
+        .unwrap();
+        assert_eq!(cancel.deduct_fee, Some(5));
+        assert_eq!(cancel.desc.as_deref(), Some("cancelled"));
+
+        let order: ImmediateDeliveryGetOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "order_status": 101,
+            "waybill_id": "waybill-id",
+            "rider_name": "Alex",
+            "rider_phone": "13800000000",
+            "rider_lng": 120.1,
+            "rider_lat": 30.2,
+            "reach_time": 300
+        }))
+        .unwrap();
+        assert_eq!(order.order_status, Some(101));
+        assert_eq!(order.waybill_id.as_deref(), Some("waybill-id"));
+        assert_eq!(order.rider_lng, Some(120.1));
+
+        let pre_add: ImmediateDeliveryPreAddOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "fee": 10,
+            "deliverfee": "10",
+            "couponfee": "0",
+            "tips": "0",
+            "insurancfee": 0.0,
+            "distance": 1000.0,
+            "dispatch_duration": 300,
+            "delivery_token": 1111111
+        }))
+        .unwrap();
+        assert_eq!(pre_add.fee, Some(10));
+        assert_eq!(pre_add.delivery_token, Some(1111111));
+
+        let pre_cancel: ImmediateDeliveryPreCancelOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "deduct_fee": 5,
+            "desc": "fee"
+        }))
+        .unwrap();
+        assert_eq!(pre_cancel.deduct_fee, Some(5));
+
+        let reorder: ImmediateDeliveryReOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "fee": 10,
+            "deliverfee": "10",
+            "couponfee": "0",
+            "tips": "0",
+            "insurancfee": 0.0,
+            "distance": 1000.0,
+            "waybill_id": 123456789,
+            "order_status": 101,
+            "finish_code": 1024,
+            "pickup_code": 2048,
+            "dispatch_duration": 300
+        }))
+        .unwrap();
+        assert_eq!(reorder.insurance_fee, Some(0.0));
+        assert_eq!(reorder.waybill_id, Some(123456789));
+        assert_eq!(reorder.pickup_code, Some(2048));
     }
 
     #[test]

@@ -21,6 +21,7 @@ Status values:
 | Mini Program | base | `mini_program::base` | tested |
 | Mini Program | customerServiceMessage | `mini_program::customer_service_message` | tested |
 | Mini Program | dataCube | `mini_program::data_cube` | tested |
+| Mini Program | immediateDelivery | `mini_program::immediate_delivery` | tested |
 | Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
 | Mini Program | nearbyPoi | `mini_program::nearby_poi` | tested |
 | Mini Program | ocr | `mini_program::ocr` | tested |
