@@ -1389,6 +1389,400 @@ impl Work {
             .await
     }
 
+    pub fn oa_living(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.living")
+    }
+
+    pub async fn create_living(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkLivingCreateRequest,
+    ) -> Result<WorkLivingCreateResponse> {
+        self.inner
+            .post("cgi-bin/living/create", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn modify_living(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkLivingModifyRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/living/modify", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn cancel_living(
+        &self,
+        access_token: impl Into<String>,
+        living_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/cancel",
+                Some(access_token.into()),
+                json!({ "livingid": living_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn delete_living_replay_data(
+        &self,
+        access_token: impl Into<String>,
+        living_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/delete_replay_data",
+                Some(access_token.into()),
+                json!({ "livingid": living_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_living_code(
+        &self,
+        access_token: impl Into<String>,
+        living_id: impl Into<String>,
+        open_id: impl Into<String>,
+    ) -> Result<WorkLivingCodeResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/get_living_code",
+                Some(access_token.into()),
+                json!({ "livingid": living_id.into(), "openid": open_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_user_all_living_ids(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkLivingGetUserAllLivingIdRequest,
+    ) -> Result<WorkLivingGetUserAllLivingIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/get_user_all_livingid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_living_info(
+        &self,
+        access_token: impl Into<String>,
+        living_id: impl Into<String>,
+    ) -> Result<WorkLivingInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/get_living_info",
+                Some(access_token.into()),
+                json!({ "livingid": living_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_living_watch_stat(
+        &self,
+        access_token: impl Into<String>,
+        living_id: impl Into<String>,
+        next_key: impl Into<String>,
+    ) -> Result<WorkLivingWatchStatResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/get_watch_stat",
+                Some(access_token.into()),
+                json!({ "livingid": living_id.into(), "next_key": next_key.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_living_share_info(
+        &self,
+        access_token: impl Into<String>,
+        ww_share_code: impl Into<String>,
+    ) -> Result<WorkLivingShareInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/living/get_living_share_info",
+                Some(access_token.into()),
+                json!({ "ww_share_code": ww_share_code.into() }),
+            )
+            .await
+    }
+
+    pub fn oa_wedrive(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.wedrive")
+    }
+
+    pub async fn wedrive_space_create(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceCreateRequest,
+    ) -> Result<WorkWeDriveSpaceCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_create",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_rename(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceRenameRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_rename",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_dismiss(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceIdRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_dismiss",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceIdRequest,
+    ) -> Result<WorkWeDriveSpaceInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_info",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_acl_add(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceAclRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_acl_add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_acl_del(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceAclRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_acl_del",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_setting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceSettingRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_setting",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_space_share(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveSpaceIdRequest,
+    ) -> Result<WorkWeDriveSpaceShareResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/space_share",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileListRequest,
+    ) -> Result<WorkWeDriveFileListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_upload(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileUploadRequest,
+    ) -> Result<WorkWeDriveFileUploadResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_upload",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_download(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileIdRequest,
+    ) -> Result<WorkWeDriveFileDownloadResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_download",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_create(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileCreateRequest,
+    ) -> Result<WorkWeDriveFileCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_create",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_rename(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileRenameRequest,
+    ) -> Result<WorkWeDriveFileRenameResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_rename",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_move(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileMoveRequest,
+    ) -> Result<WorkWeDriveFileMoveResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_move",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_delete(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileIdRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_delete",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_acl_add(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileAclRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_acl_add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_acl_del(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileAclRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_acl_del",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_setting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileSettingRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_setting",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_share(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileIdRequest,
+    ) -> Result<WorkWeDriveFileShareResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_share",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn appchat_create(
         &self,
         access_token: impl Into<String>,
@@ -2409,6 +2803,328 @@ pub struct WorkWeDocCreateFormResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingCreateRequest {
+    pub anchor_userid: String,
+    pub theme: String,
+    pub living_start: i64,
+    pub living_duration: i64,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub living_type: i64,
+    pub agentid: i64,
+    pub remind_time: i64,
+    pub activity_cover_mediaid: String,
+    pub activity_share_mediaid: String,
+    pub activity_detail: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingModifyRequest {
+    pub livingid: String,
+    pub theme: String,
+    pub living_start: i64,
+    pub living_duration: i64,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub living_type: i64,
+    pub remind_time: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingGetUserAllLivingIdRequest {
+    pub userid: String,
+    pub cursor: String,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub livingid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub living_code: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingGetUserAllLivingIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub livingid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub living_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingWatchStatResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_key: Option<String>,
+    #[serde(default)]
+    pub stat_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingShareInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub livingid: Option<String>,
+    #[serde(default)]
+    pub viewer_userid: Option<String>,
+    #[serde(default)]
+    pub viewer_external_userid: Option<String>,
+    #[serde(default)]
+    pub invitor_userid: Option<String>,
+    #[serde(default)]
+    pub invitor_external_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceCreateRequest {
+    pub userid: String,
+    pub space_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_info: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceRenameRequest {
+    pub userid: String,
+    pub spaceid: String,
+    pub space_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceIdRequest {
+    pub userid: String,
+    pub spaceid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceAclRequest {
+    pub userid: String,
+    pub spaceid: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_info: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceSettingRequest {
+    pub userid: String,
+    pub spaceid: String,
+    pub enable_watermark: bool,
+    pub add_member_only_admin: bool,
+    pub enable_share_url: bool,
+    pub share_url_no_approve: bool,
+    pub share_url_no_approve_default_auth: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileListRequest {
+    pub userid: String,
+    pub spaceid: String,
+    pub fatherid: String,
+    pub sort_type: i64,
+    pub start: i64,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadRequest {
+    pub userid: String,
+    pub spaceid: String,
+    pub fatherid: String,
+    pub file_name: String,
+    pub file_base64_content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileIdRequest {
+    pub userid: String,
+    pub fileid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileCreateRequest {
+    pub userid: String,
+    pub spaceid: String,
+    pub fatherid: String,
+    pub file_type: String,
+    pub file_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileRenameRequest {
+    pub userid: String,
+    pub fileid: String,
+    pub new_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileMoveRequest {
+    pub userid: String,
+    pub fatherid: String,
+    pub replace: bool,
+    pub fileid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileAclRequest {
+    pub userid: String,
+    pub fileid: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_info: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileSettingRequest {
+    pub userid: String,
+    pub fileid: String,
+    pub auth_scope: i64,
+    pub auth: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub spaceid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub space_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceShareResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub space_share_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub next_start: Option<i64>,
+    #[serde(default)]
+    pub file_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub fileid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileDownloadResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub download_url: Option<String>,
+    #[serde(default)]
+    pub cookie_name: Option<String>,
+    #[serde(default)]
+    pub cookie_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileRenameResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub file: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileMoveResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub file_list: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileShareResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub share_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleAddRequest {
     pub schedule: Value,
     pub agentid: i64,
@@ -2499,8 +3215,11 @@ mod tests {
         WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse, WorkInvoiceStatusBatchRequest,
         WorkInvoiceStatusRequest, WorkIpListResponse, WorkJournalRecordDetailResponse,
         WorkJournalRecordListRequest, WorkJournalRecordListResponse, WorkJournalStatListRequest,
-        WorkJournalStatListResponse, WorkMeetingCreateRequest, WorkMeetingCreateResponse,
-        WorkMeetingGetInfoResponse, WorkMeetingGetUserMeetingIdRequest,
+        WorkJournalStatListResponse, WorkLivingCodeResponse, WorkLivingCreateRequest,
+        WorkLivingCreateResponse, WorkLivingGetUserAllLivingIdRequest,
+        WorkLivingGetUserAllLivingIdResponse, WorkLivingInfoResponse, WorkLivingModifyRequest,
+        WorkLivingShareInfoResponse, WorkLivingWatchStatResponse, WorkMeetingCreateRequest,
+        WorkMeetingCreateResponse, WorkMeetingGetInfoResponse, WorkMeetingGetUserMeetingIdRequest,
         WorkMeetingGetUserMeetingIdResponse, WorkMeetingRoomAddRequest, WorkMeetingRoomAddResponse,
         WorkMeetingRoomBookRequest, WorkMeetingRoomBookResponse, WorkMeetingRoomCancelBookRequest,
         WorkMeetingRoomEditRequest, WorkMeetingRoomGetBookingInfoRequest,
@@ -2512,7 +3231,15 @@ mod tests {
         WorkScheduleAddRequest, WorkScheduleAddResponse, WorkScheduleGetResponse,
         WorkUnionIdToExternalUserIdRequest, WorkUnionIdToExternalUserIdResponse,
         WorkUploadMediaResponse, WorkUserIdToOpenUserIdResponse, WorkWeDocCreateFormRequest,
-        WorkWeDocCreateFormResponse,
+        WorkWeDocCreateFormResponse, WorkWeDriveFileAclRequest, WorkWeDriveFileCreateRequest,
+        WorkWeDriveFileCreateResponse, WorkWeDriveFileDownloadResponse, WorkWeDriveFileIdRequest,
+        WorkWeDriveFileListRequest, WorkWeDriveFileListResponse, WorkWeDriveFileMoveRequest,
+        WorkWeDriveFileMoveResponse, WorkWeDriveFileRenameRequest, WorkWeDriveFileRenameResponse,
+        WorkWeDriveFileSettingRequest, WorkWeDriveFileShareResponse, WorkWeDriveFileUploadRequest,
+        WorkWeDriveFileUploadResponse, WorkWeDriveSpaceAclRequest, WorkWeDriveSpaceCreateRequest,
+        WorkWeDriveSpaceCreateResponse, WorkWeDriveSpaceIdRequest, WorkWeDriveSpaceInfoResponse,
+        WorkWeDriveSpaceRenameRequest, WorkWeDriveSpaceSettingRequest,
+        WorkWeDriveSpaceShareResponse,
     };
 
     #[test]
@@ -3271,6 +3998,276 @@ mod tests {
         let form: WorkWeDocCreateFormResponse =
             serde_json::from_value(json!({ "formid": "form-1" })).unwrap();
         assert_eq!(form.formid.as_deref(), Some("form-1"));
+    }
+
+    #[test]
+    fn serializes_work_oa_living_and_wedrive_requests() {
+        let living = serde_json::to_value(WorkLivingCreateRequest {
+            anchor_userid: "anchor".to_string(),
+            theme: "Launch".to_string(),
+            living_start: 1_800_000_000,
+            living_duration: 3600,
+            description: "product update".to_string(),
+            living_type: 1,
+            agentid: 100001,
+            remind_time: 15,
+            activity_cover_mediaid: "cover".to_string(),
+            activity_share_mediaid: "share".to_string(),
+            activity_detail: json!({ "description": "detail" }),
+        })
+        .unwrap();
+        assert_eq!(living["anchor_userid"], "anchor");
+        assert_eq!(living["type"], 1);
+        assert_eq!(living["activity_detail"]["description"], "detail");
+
+        let modify = serde_json::to_value(WorkLivingModifyRequest {
+            livingid: "living-1".to_string(),
+            theme: "Launch updated".to_string(),
+            living_start: 1_800_000_300,
+            living_duration: 1800,
+            description: "update".to_string(),
+            living_type: 1,
+            remind_time: 10,
+        })
+        .unwrap();
+        assert_eq!(modify["livingid"], "living-1");
+        assert_eq!(modify["living_duration"], 1800);
+
+        let living_ids = serde_json::to_value(WorkLivingGetUserAllLivingIdRequest {
+            userid: "user".to_string(),
+            cursor: "cursor".to_string(),
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(living_ids["userid"], "user");
+        assert_eq!(living_ids["limit"], 100);
+
+        let space = serde_json::to_value(WorkWeDriveSpaceCreateRequest {
+            userid: "user".to_string(),
+            space_name: "Team Space".to_string(),
+            auth_info: vec![json!({ "type": 1, "auth": 7 })],
+        })
+        .unwrap();
+        assert_eq!(space["space_name"], "Team Space");
+        assert_eq!(space["auth_info"][0]["auth"], 7);
+
+        let rename = serde_json::to_value(WorkWeDriveSpaceRenameRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+            space_name: "New Space".to_string(),
+        })
+        .unwrap();
+        assert_eq!(rename["spaceid"], "space");
+
+        let space_id = serde_json::to_value(WorkWeDriveSpaceIdRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+        })
+        .unwrap();
+        assert_eq!(space_id["userid"], "user");
+
+        let space_acl = serde_json::to_value(WorkWeDriveSpaceAclRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+            auth_info: vec![json!({ "userid": "member", "auth": 1 })],
+        })
+        .unwrap();
+        assert_eq!(space_acl["auth_info"][0]["userid"], "member");
+
+        let space_setting = serde_json::to_value(WorkWeDriveSpaceSettingRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+            enable_watermark: true,
+            add_member_only_admin: false,
+            enable_share_url: true,
+            share_url_no_approve: false,
+            share_url_no_approve_default_auth: 1,
+        })
+        .unwrap();
+        assert_eq!(space_setting["enable_watermark"], true);
+
+        let file_list = serde_json::to_value(WorkWeDriveFileListRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+            fatherid: "root".to_string(),
+            sort_type: 1,
+            start: 0,
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(file_list["fatherid"], "root");
+
+        let upload = serde_json::to_value(WorkWeDriveFileUploadRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+            fatherid: "root".to_string(),
+            file_name: "a.txt".to_string(),
+            file_base64_content: "YQ==".to_string(),
+        })
+        .unwrap();
+        assert_eq!(upload["file_base64_content"], "YQ==");
+
+        let file_id = serde_json::to_value(WorkWeDriveFileIdRequest {
+            userid: "user".to_string(),
+            fileid: "file".to_string(),
+        })
+        .unwrap();
+        assert_eq!(file_id["fileid"], "file");
+
+        let create = serde_json::to_value(WorkWeDriveFileCreateRequest {
+            userid: "user".to_string(),
+            spaceid: "space".to_string(),
+            fatherid: "root".to_string(),
+            file_type: "doc".to_string(),
+            file_name: "doc".to_string(),
+        })
+        .unwrap();
+        assert_eq!(create["file_type"], "doc");
+
+        let file_rename = serde_json::to_value(WorkWeDriveFileRenameRequest {
+            userid: "user".to_string(),
+            fileid: "file".to_string(),
+            new_name: "new.txt".to_string(),
+        })
+        .unwrap();
+        assert_eq!(file_rename["new_name"], "new.txt");
+
+        let file_move = serde_json::to_value(WorkWeDriveFileMoveRequest {
+            userid: "user".to_string(),
+            fatherid: "new-parent".to_string(),
+            replace: true,
+            fileid: vec!["file".to_string()],
+        })
+        .unwrap();
+        assert_eq!(file_move["replace"], true);
+        assert_eq!(file_move["fileid"][0], "file");
+
+        let file_acl = serde_json::to_value(WorkWeDriveFileAclRequest {
+            userid: "user".to_string(),
+            fileid: "file".to_string(),
+            auth_info: vec![json!({ "userid": "member", "auth": 1 })],
+        })
+        .unwrap();
+        assert_eq!(file_acl["auth_info"][0]["auth"], 1);
+
+        let file_setting = serde_json::to_value(WorkWeDriveFileSettingRequest {
+            userid: "user".to_string(),
+            fileid: "file".to_string(),
+            auth_scope: 1,
+            auth: 7,
+        })
+        .unwrap();
+        assert_eq!(file_setting["auth_scope"], 1);
+    }
+
+    #[test]
+    fn deserializes_work_oa_living_and_wedrive_responses() {
+        let living: WorkLivingCreateResponse =
+            serde_json::from_value(json!({ "livingid": 100 })).unwrap();
+        assert_eq!(living.livingid, Some(100));
+
+        let code: WorkLivingCodeResponse =
+            serde_json::from_value(json!({ "living_code": 200 })).unwrap();
+        assert_eq!(code.living_code, Some(200));
+
+        let ids: WorkLivingGetUserAllLivingIdResponse = serde_json::from_value(json!({
+            "next_cursor": "next",
+            "livingid_list": ["living-1"]
+        }))
+        .unwrap();
+        assert_eq!(ids.next_cursor.as_deref(), Some("next"));
+        assert_eq!(ids.livingid_list[0], "living-1");
+
+        let info: WorkLivingInfoResponse = serde_json::from_value(json!({
+            "living_info": { "theme": "Launch" }
+        }))
+        .unwrap();
+        assert_eq!(info.living_info.unwrap()["theme"], "Launch");
+
+        let stat: WorkLivingWatchStatResponse = serde_json::from_value(json!({
+            "next_key": "next",
+            "stat_info": { "viewer_count": 3 }
+        }))
+        .unwrap();
+        assert_eq!(stat.stat_info.unwrap()["viewer_count"], 3);
+
+        let share_info: WorkLivingShareInfoResponse = serde_json::from_value(json!({
+            "livingid": "living-1",
+            "viewer_userid": "viewer",
+            "viewer_external_userid": "external-viewer",
+            "invitor_userid": "invitor",
+            "invitor_external_userid": "external-invitor"
+        }))
+        .unwrap();
+        assert_eq!(share_info.viewer_userid.as_deref(), Some("viewer"));
+
+        let space_create: WorkWeDriveSpaceCreateResponse =
+            serde_json::from_value(json!({ "spaceid": "space" })).unwrap();
+        assert_eq!(space_create.spaceid.as_deref(), Some("space"));
+
+        let space_info: WorkWeDriveSpaceInfoResponse = serde_json::from_value(json!({
+            "space_info": { "space_name": "Team Space" }
+        }))
+        .unwrap();
+        assert_eq!(space_info.space_info.unwrap()["space_name"], "Team Space");
+
+        let space_share: WorkWeDriveSpaceShareResponse = serde_json::from_value(json!({
+            "space_share_url": "https://example.com/space"
+        }))
+        .unwrap();
+        assert_eq!(
+            space_share.space_share_url.as_deref(),
+            Some("https://example.com/space")
+        );
+
+        let file_list: WorkWeDriveFileListResponse = serde_json::from_value(json!({
+            "has_more": true,
+            "next_start": 100,
+            "file_list": [{ "fileid": "file" }]
+        }))
+        .unwrap();
+        assert_eq!(file_list.has_more, Some(true));
+        assert_eq!(file_list.file_list[0]["fileid"], "file");
+
+        let upload: WorkWeDriveFileUploadResponse =
+            serde_json::from_value(json!({ "fileid": "file" })).unwrap();
+        assert_eq!(upload.fileid.as_deref(), Some("file"));
+
+        let download: WorkWeDriveFileDownloadResponse = serde_json::from_value(json!({
+            "download_url": "https://example.com/file",
+            "cookie_name": "SESSION",
+            "cookie_value": "value"
+        }))
+        .unwrap();
+        assert_eq!(download.cookie_name.as_deref(), Some("SESSION"));
+
+        let create: WorkWeDriveFileCreateResponse = serde_json::from_value(json!({
+            "fileid": "file",
+            "url": "https://example.com/doc"
+        }))
+        .unwrap();
+        assert_eq!(create.url.as_deref(), Some("https://example.com/doc"));
+
+        let rename: WorkWeDriveFileRenameResponse = serde_json::from_value(json!({
+            "file": { "fileid": "file", "file_name": "new.txt" }
+        }))
+        .unwrap();
+        assert_eq!(rename.file.unwrap()["file_name"], "new.txt");
+
+        let moved: WorkWeDriveFileMoveResponse = serde_json::from_value(json!({
+            "file_list": { "success": ["file"] }
+        }))
+        .unwrap();
+        assert_eq!(moved.file_list.unwrap()["success"][0], "file");
+
+        let share: WorkWeDriveFileShareResponse = serde_json::from_value(json!({
+            "share_url": "https://example.com/share"
+        }))
+        .unwrap();
+        assert_eq!(
+            share.share_url.as_deref(),
+            Some("https://example.com/share")
+        );
     }
 
     #[test]
