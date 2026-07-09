@@ -29,6 +29,7 @@ Status values:
 | Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
 | Mini Program | nearbyPoi | `mini_program::nearby_poi` | tested |
 | Mini Program | ocr | `mini_program::ocr` | tested |
+| Mini Program | operation | `mini_program::operation` | tested |
 | Mini Program | phoneNumber | `mini_program::phone_number` | tested |
 | Mini Program | plugin | `mini_program::plugin` | tested |
 | Mini Program | riskControl | `mini_program::risk_control` | tested |

@@ -97,6 +97,21 @@ impl PlatformClient {
             .await
     }
 
+    pub async fn post_form_bytes(
+        &self,
+        path: impl Into<String>,
+        access_token: Option<String>,
+        form: Vec<(String, String)>,
+    ) -> Result<Bytes> {
+        let mut endpoint = Endpoint::post(path);
+        if let Some(token) = access_token {
+            endpoint = endpoint.with_access_token(token);
+        }
+        self.client
+            .execute_form_bytes(endpoint, Vec::new(), form)
+            .await
+    }
+
     pub async fn post<B, R>(
         &self,
         path: impl Into<String>,
@@ -325,6 +340,15 @@ impl DomainModule {
         body: Value,
     ) -> Result<Bytes> {
         self.inner.post_json_bytes(path, access_token, body).await
+    }
+
+    pub async fn post_form_bytes(
+        &self,
+        path: impl Into<String>,
+        access_token: Option<String>,
+        form: Vec<(String, String)>,
+    ) -> Result<Bytes> {
+        self.inner.post_form_bytes(path, access_token, form).await
     }
 
     pub async fn post<B, R>(

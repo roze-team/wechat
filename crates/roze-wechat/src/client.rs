@@ -175,6 +175,39 @@ impl Client {
         Ok(builder.send().await?.error_for_status()?.bytes().await?)
     }
 
+    pub async fn execute_form_bytes(
+        &self,
+        endpoint: Endpoint,
+        query: Vec<(String, String)>,
+        form: Vec<(String, String)>,
+    ) -> Result<Bytes> {
+        let mut url = Url::parse(&self.config.base_url)
+            .map_err(|err| WechatError::Config(format!("invalid base_url: {err}")))?;
+        url.set_path(endpoint.path.trim_start_matches('/'));
+
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (key, value) in query {
+                pairs.append_pair(&key, &value);
+            }
+            if let Some(token) = endpoint.access_token {
+                pairs.append_pair("access_token", &token);
+            }
+        }
+
+        let body = form_urlencoded_body(form);
+        let mut builder = self
+            .http
+            .request(endpoint.method, url)
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(body);
+        for (key, value) in endpoint.headers {
+            builder = builder.header(key, value);
+        }
+
+        Ok(builder.send().await?.error_for_status()?.bytes().await?)
+    }
+
     pub async fn execute_xml<R>(&self, endpoint: Endpoint, body: String) -> Result<R>
     where
         R: DeserializeOwned,
@@ -305,6 +338,27 @@ impl Client {
     pub fn config(&self) -> &WechatConfig {
         &self.config
     }
+}
+
+fn form_urlencoded_body(form: Vec<(String, String)>) -> String {
+    form.into_iter()
+        .map(|(key, value)| format!("{}={}", percent_encode(&key), percent_encode(&value)))
+        .collect::<Vec<_>>()
+        .join("&")
+}
+
+fn percent_encode(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(byte as char);
+            }
+            b' ' => encoded.push('+'),
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
 }
 
 impl Endpoint {

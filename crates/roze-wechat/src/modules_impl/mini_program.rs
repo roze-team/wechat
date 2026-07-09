@@ -778,6 +778,155 @@ impl MiniProgram {
             .await
     }
 
+    pub fn operation(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.operation")
+    }
+
+    pub async fn get_operation_domain_info(
+        &self,
+        access_token: impl Into<String>,
+        action: impl Into<String>,
+    ) -> Result<OperationDomainInfoResponse> {
+        self.inner
+            .post(
+                "wxa/getwxadevinfo",
+                Some(access_token.into()),
+                json!({ "action": action.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_operation_feedback(
+        &self,
+        access_token: impl Into<String>,
+        feedback_type: i64,
+        page: i64,
+        num: i64,
+    ) -> Result<OperationFeedbackResponse> {
+        self.inner
+            .get_with_query(
+                "wxaapi/feedback/list",
+                Some(access_token.into()),
+                vec![
+                    ("type".to_string(), feedback_type.to_string()),
+                    ("page".to_string(), page.to_string()),
+                    ("num".to_string(), num.to_string()),
+                ],
+            )
+            .await
+    }
+
+    pub async fn get_operation_feedback_media(
+        &self,
+        access_token: impl Into<String>,
+        record_id: i64,
+        media_id: impl Into<String>,
+    ) -> Result<Bytes> {
+        self.inner
+            .post_form_bytes(
+                "cgi-bin/media/getfeedbackmedia",
+                Some(access_token.into()),
+                vec![
+                    ("record_id".to_string(), record_id.to_string()),
+                    ("media_id".to_string(), media_id.into()),
+                ],
+            )
+            .await
+    }
+
+    pub async fn get_operation_gray_release_plan(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OperationGrayReleasePlanResponse> {
+        self.inner
+            .get("wxa/getgrayreleaseplan", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn get_operation_js_err_detail(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationRequest,
+    ) -> Result<OperationJsErrDetailResponse> {
+        self.inner
+            .post(
+                "wxaapi/log/jserr_detail",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_operation_js_err_list(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationRequest,
+    ) -> Result<OperationJsErrListResponse> {
+        self.inner
+            .post("wxaapi/log/jserr_list", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn search_operation_js_err(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationRequest,
+    ) -> Result<OperationJsErrSearchResponse> {
+        self.inner
+            .post(
+                "wxaapi/log/jserr_search",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_operation_performance(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationRequest,
+    ) -> Result<OperationPerformanceResponse> {
+        self.inner
+            .post(
+                "wxaapi/log/get_performance",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_operation_scene_list(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OperationSceneListResponse> {
+        self.inner
+            .get("wxa/log/get_scene", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn get_operation_version_list(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OperationVersionListResponse> {
+        self.inner
+            .get("wxaapi/log/get_client_version", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn search_operation_real_time_log(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationRequest,
+    ) -> Result<OperationRealTimeLogSearchResponse> {
+        self.inner
+            .post(
+                "wxaapi/userlog/userlog_search",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn search(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.search")
     }
@@ -2215,6 +2364,146 @@ pub struct DeviceLicenseInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationRequest {
+    #[serde(flatten)]
+    pub payload: Value,
+}
+
+impl OperationRequest {
+    pub fn new(payload: Value) -> Self {
+        Self { payload }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationDomainInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub requestdomain: Vec<String>,
+    #[serde(default)]
+    pub wsrequestdomain: Vec<String>,
+    #[serde(default)]
+    pub uploaddomain: Vec<String>,
+    #[serde(default)]
+    pub downloaddomain: Vec<String>,
+    #[serde(default)]
+    pub udpdomain: Vec<String>,
+    #[serde(default)]
+    pub bizdomain: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationFeedbackResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<Value>,
+    #[serde(default)]
+    pub total_num: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationGrayReleasePlanResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub gray_release_plan: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub success: Option<bool>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub success: Option<bool>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+    #[serde(default, rename = "totalCount")]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrSearchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub results: Option<Value>,
+    #[serde(default)]
+    pub total: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationPerformanceResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub default_time_data: Option<String>,
+    #[serde(default)]
+    pub compare_time_data: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationSceneListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub scene: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationVersionListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub cvlist: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationRealTimeLogSearchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+    #[serde(default)]
+    pub list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchImageSearchRequest {
     pub img: Vec<Value>,
 }
@@ -3158,7 +3447,11 @@ mod tests {
         NearbyPoiAddRequest, NearbyPoiAddResponse, NearbyPoiListResponse,
         NearbyPoiShowStatusRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
         OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
-        OcrVehicleLicenseResponse, PhoneNumberResponse, PluginActionRequest,
+        OcrVehicleLicenseResponse, OperationDomainInfoResponse, OperationFeedbackResponse,
+        OperationGrayReleasePlanResponse, OperationJsErrDetailResponse, OperationJsErrListResponse,
+        OperationJsErrSearchResponse, OperationPerformanceResponse,
+        OperationRealTimeLogSearchResponse, OperationRequest, OperationSceneListResponse,
+        OperationVersionListResponse, PhoneNumberResponse, PluginActionRequest,
         PluginDevApplyListRequest, PluginDevApplyListResponse, PluginDevApplyStatusRequest,
         PluginListResponse, RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
         SearchImageSearchRequest, SearchImageSearchResponse, SearchSiteSearchRequest,
@@ -3504,6 +3797,120 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(info.device_list[0].expire_time, Some(1_800_100_000));
+    }
+
+    #[test]
+    fn serializes_operation_request() {
+        let request = serde_json::to_value(OperationRequest::new(json!({
+            "start_time": 1_800_000_000,
+            "end_time": 1_800_003_600,
+            "errmsg_keyword": "TypeError",
+            "openid": "openid"
+        })))
+        .unwrap();
+
+        assert_eq!(request["start_time"], 1_800_000_000);
+        assert_eq!(request["errmsg_keyword"], "TypeError");
+        assert_eq!(request["openid"], "openid");
+    }
+
+    #[test]
+    fn deserializes_operation_responses() {
+        let domain: OperationDomainInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "requestdomain": ["https://api.example.com"],
+            "wsrequestdomain": ["wss://ws.example.com"],
+            "uploaddomain": ["https://upload.example.com"],
+            "downloaddomain": ["https://download.example.com"],
+            "udpdomain": ["udp.example.com"],
+            "bizdomain": ["https://biz.example.com"]
+        }))
+        .unwrap();
+        assert_eq!(domain.requestdomain[0], "https://api.example.com");
+        assert_eq!(domain.wsrequestdomain[0], "wss://ws.example.com");
+
+        let feedback: OperationFeedbackResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "list": [{ "record_id": 1, "content": "feedback" }],
+            "total_num": 1
+        }))
+        .unwrap();
+        assert_eq!(feedback.total_num, Some(1));
+        assert_eq!(feedback.list[0]["content"], "feedback");
+
+        let gray: OperationGrayReleasePlanResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "gray_release_plan": { "status": 1, "gray_percentage": 30 }
+        }))
+        .unwrap();
+        assert_eq!(
+            gray.gray_release_plan.expect("gray_release_plan")["gray_percentage"],
+            30
+        );
+
+        let detail: OperationJsErrDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "success": true,
+            "openid": "openid",
+            "data": [{ "message": "TypeError" }]
+        }))
+        .unwrap();
+        assert_eq!(detail.success, Some(true));
+        assert_eq!(detail.data[0]["message"], "TypeError");
+
+        let list: OperationJsErrListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "success": true,
+            "openid": "openid",
+            "data": [{ "count": 3 }],
+            "totalCount": 3
+        }))
+        .unwrap();
+        assert_eq!(list.total_count, Some(3));
+        assert_eq!(list.data[0]["count"], 3);
+
+        let search: OperationJsErrSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "results": { "items": [{ "message": "TypeError" }] },
+            "total": 1
+        }))
+        .unwrap();
+        assert_eq!(search.total, Some(1));
+        assert_eq!(
+            search.results.expect("results")["items"][0]["message"],
+            "TypeError"
+        );
+
+        let performance: OperationPerformanceResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "default_time_data": "[1,2]",
+            "compare_time_data": "[2,3]"
+        }))
+        .unwrap();
+        assert_eq!(performance.default_time_data.as_deref(), Some("[1,2]"));
+
+        let scene: OperationSceneListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "scene": [{ "name": "chat", "value": 1007 }]
+        }))
+        .unwrap();
+        assert_eq!(scene.scene[0]["value"], 1007);
+
+        let version: OperationVersionListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "cvlist": [{ "version": "8.0.0", "percentage": 50 }]
+        }))
+        .unwrap();
+        assert_eq!(version.cvlist[0]["version"], "8.0.0");
+
+        let real_time: OperationRealTimeLogSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": { "total": 1 },
+            "list": [{ "level": "error", "message": "failed" }]
+        }))
+        .unwrap();
+        assert_eq!(real_time.data.expect("data")["total"], 1);
+        assert_eq!(real_time.list[0]["level"], "error");
     }
 
     #[test]
