@@ -56,6 +56,7 @@ Status values:
 | Official Account | dataCube | `official_account::data_cube` | tested |
 | Official Account | device | `official_account::device` | tested |
 | Official Account | goods | `official_account::goods` | tested |
+| Official Account | guide | `official_account::guide` | tested |
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
@@ -64,8 +65,11 @@ Status values:
 | Official Account | publish | `official_account::publish` | tested |
 | Official Account | semantic | `official_account::semantic` | tested |
 | Official Account | server | `official_account::server` | tested |
+| Official Account | shakeAround | `official_account::shake_around` | tested |
+| Official Account | store | `official_account::store` | tested |
 | Official Account | templateMessage | `official_account::template_message` | tested |
 | Official Account | user/tag | `official_account::user` | tested |
+| Official Account | wifi | `official_account::wifi` | tested |
 | Open Platform | auth | `open_platform::auth` | tested |
 | Open Platform | authorizer | `open_platform::authorizer` | tested |
 | Open Platform | base | `open_platform::base` | tested |

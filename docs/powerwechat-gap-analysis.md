@@ -16,27 +16,21 @@ entries, request/response DTOs, and tests.
 | Basic Service | 6 | 6 | 0 |
 | Channels | 2 | 2 | 0 |
 | Mini Program | 32 | 32 | 0 |
-| Official Account | 24 | 21 | 4 |
+| Official Account | 24 | 24 | 0 |
 | Open Platform | 6 | 6 | 0 |
 | Open Work | 8 | 8 | 0 |
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 33 | 0 |
 
-Total remaining PowerWeChat submodule gaps: 4.
+Total remaining PowerWeChat submodule gaps: 0.
 
 ## Remaining Gaps
 
-### Official Account
-
-- `guide`
-- `shakeAround`
-- `store`
-- `wifi`
+No remaining submodule-level PowerWeChat gaps are currently tracked.
 
 ## Implementation Priority
 
-1. Official Account long-tail modules:
-   `guide`, `shakeAround`, `store`, `wifi`.
+1. Keep submodule parity intact as PowerWeChat and WeChat APIs evolve.
 Each completed submodule should add:
 
 - a public `DomainModule` entry when the boundary is new;

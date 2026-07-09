@@ -1515,6 +1515,1490 @@ impl OfficialAccount {
             .await
     }
 
+    pub fn store(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.store")
+    }
+
+    pub async fn store_categories(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialStoreCategoryResponse> {
+        self.inner
+            .get("wxa/get_merchant_category", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn store_districts(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialStoreDistrictResponse> {
+        self.inner
+            .get("wxa/get_district", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn store_search_from_map(
+        &self,
+        access_token: impl Into<String>,
+        district_id: i64,
+        keyword: impl Into<String>,
+    ) -> Result<OfficialStoreSearchMapResponse> {
+        self.inner
+            .post(
+                "wxa/search_map_poi",
+                Some(access_token.into()),
+                json!({ "districtid": district_id, "keyword": keyword.into() }),
+            )
+            .await
+    }
+
+    pub async fn store_status(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialStoreStatusResponse> {
+        self.inner
+            .get("wxa/get_merchant_audit_info", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn store_update_merchant(
+        &self,
+        access_token: impl Into<String>,
+        media_id: i64,
+        intro: impl Into<String>,
+    ) -> Result<OfficialStoreSearchMapResponse> {
+        self.inner
+            .post(
+                "wxa/modify_merchant",
+                Some(access_token.into()),
+                json!({ "headimg_mediaid": media_id, "intro": intro.into() }),
+            )
+            .await
+    }
+
+    pub async fn store_create_from_map(
+        &self,
+        access_token: impl Into<String>,
+        base_info: OfficialStoreBaseInfo,
+    ) -> Result<OfficialStoreCreateFromMapResponse> {
+        self.inner
+            .post("wxa/create_map_poi", Some(access_token.into()), base_info)
+            .await
+    }
+
+    pub async fn store_create(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialStoreCreateRequest,
+    ) -> Result<OfficialStoreCreateResponse> {
+        self.inner
+            .post("wxa/add_store", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn store_update(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialStoreUpdateRequest,
+    ) -> Result<OfficialStoreUpdateResponse> {
+        self.inner
+            .post("wxa/update_store", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn store_get(
+        &self,
+        access_token: impl Into<String>,
+        poi_id: i64,
+    ) -> Result<OfficialStoreInfoResponse> {
+        self.inner
+            .post(
+                "wxa/get_store_info",
+                Some(access_token.into()),
+                json!({ "poi_id": poi_id }),
+            )
+            .await
+    }
+
+    pub async fn store_list(
+        &self,
+        access_token: impl Into<String>,
+        offset: i64,
+        limit: i64,
+    ) -> Result<OfficialStoreListResponse> {
+        self.inner
+            .post(
+                "wxa/get_store_list",
+                Some(access_token.into()),
+                json!({ "offset": offset, "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn store_delete(
+        &self,
+        access_token: impl Into<String>,
+        poi_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/del_store",
+                Some(access_token.into()),
+                json!({ "poi_id": poi_id }),
+            )
+            .await
+    }
+
+    pub fn wifi(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.wifi")
+    }
+
+    pub async fn wifi_summary(
+        &self,
+        access_token: impl Into<String>,
+        begin_date: impl Into<String>,
+        end_date: impl Into<String>,
+        shop_id: i64,
+    ) -> Result<OfficialWifiSummaryResponse> {
+        self.inner
+            .post(
+                "bizwifi/statistics/list",
+                Some(access_token.into()),
+                json!({ "begin_date": begin_date.into(), "end_date": end_date.into(), "shop_id": shop_id }),
+            )
+            .await
+    }
+
+    pub async fn wifi_qrcode_url(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        ssid: impl Into<String>,
+        image_id: i64,
+    ) -> Result<OfficialWifiQrCodeUrlResponse> {
+        self.inner
+            .post(
+                "bizwifi/qrcode/get",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id, "ssid": ssid.into(), "img_id": image_id }),
+            )
+            .await
+    }
+
+    pub async fn wifi_set_finish_page(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        finish_page_url: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "bizwifi/finishpage/set",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id, "finishpage_url": finish_page_url.into() }),
+            )
+            .await
+    }
+
+    pub async fn wifi_set_home_page(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialWifiSetHomePageRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post("bizwifi/homepage/set", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn wifi_shop_get(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+    ) -> Result<OfficialWifiShopGetResponse> {
+        self.inner
+            .post(
+                "bizwifi/shop/get",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id }),
+            )
+            .await
+    }
+
+    pub async fn wifi_shop_list(
+        &self,
+        access_token: impl Into<String>,
+        page: i64,
+        size: i64,
+    ) -> Result<OfficialWifiShopListResponse> {
+        self.inner
+            .post(
+                "bizwifi/shop/List",
+                Some(access_token.into()),
+                json!({ "pageindex": page, "pagesize": size }),
+            )
+            .await
+    }
+
+    pub async fn wifi_shop_update(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        old_ssid: impl Into<String>,
+        ssid: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "bizwifi/shop/update",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id, "old_ssid": old_ssid.into(), "ssid": ssid.into() }),
+            )
+            .await
+    }
+
+    pub async fn wifi_shop_clear_device(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        ssid: Option<String>,
+    ) -> Result<WechatStatusResponse> {
+        let mut body = json!({ "shop_id": shop_id });
+        if let Some(ssid) = ssid {
+            body["ssid"] = json!(ssid);
+        }
+        self.inner
+            .post("bizwifi/shop/clean", Some(access_token.into()), body)
+            .await
+    }
+
+    pub async fn wifi_device_add_password(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        ssid: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "bizwifi/device/add",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id, "ssid": ssid.into(), "password": password.into() }),
+            )
+            .await
+    }
+
+    pub async fn wifi_device_add_portal(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        ssid: impl Into<String>,
+        reset: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "bizwifi/apportal/register",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id, "ssid": ssid.into(), "reset": reset.into() }),
+            )
+            .await
+    }
+
+    pub async fn wifi_device_delete(
+        &self,
+        access_token: impl Into<String>,
+        mac_address: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "bizwifi/device/delete",
+                Some(access_token.into()),
+                json!({ "bssid": mac_address.into() }),
+            )
+            .await
+    }
+
+    pub async fn wifi_device_list(
+        &self,
+        access_token: impl Into<String>,
+        page: i64,
+        size: i64,
+    ) -> Result<OfficialWifiDeviceListResponse> {
+        self.inner
+            .post(
+                "bizwifi/device/List",
+                Some(access_token.into()),
+                json!({ "pageindex": page, "pagesize": size }),
+            )
+            .await
+    }
+
+    pub async fn wifi_device_list_by_shop(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+        page: i64,
+        size: i64,
+    ) -> Result<OfficialWifiDeviceListResponse> {
+        self.inner
+            .post(
+                "bizwifi/device/List",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id, "pageindex": page, "pagesize": size }),
+            )
+            .await
+    }
+
+    pub async fn wifi_card_set(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialWifiCardSetRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post("bizwifi/couponput/set", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn wifi_card_get(
+        &self,
+        access_token: impl Into<String>,
+        shop_id: i64,
+    ) -> Result<OfficialWifiCardGetResponse> {
+        self.inner
+            .post(
+                "bizwifi/couponput/get",
+                Some(access_token.into()),
+                json!({ "shop_id": shop_id }),
+            )
+            .await
+    }
+
+    pub fn guide(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.guide")
+    }
+
+    pub async fn guide_create_adviser(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAdviserRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/addguideacct",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_get_adviser(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAccountRequest,
+    ) -> Result<OfficialGuideGetAdviserResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguideacct",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_update_adviser(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAdviserRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/updateguideacct",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_delete_adviser(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAccountRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguideacct",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_advisers(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAccountRequest,
+    ) -> Result<OfficialGuideGetAdvisersResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguideacctlist",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_create_qrcode(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideQrcodeRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/guidecreateqrcode",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_buyer_chat_records(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerChatRecordRequest,
+    ) -> Result<OfficialGuideChatRecordsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidebuyerchatrecord",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_set_config(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideConfigRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/setguideconfig",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_get_config(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAccountRequest,
+    ) -> Result<OfficialGuideConfigResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguideconfig",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_set_adviser_config(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideAdviserConfigRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/setguideacctconfig",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_get_adviser_config(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialGuideAdviserConfigResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguideacctconfig",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn guide_allow_copy_mini_app_path(
+        &self,
+        access_token: impl Into<String>,
+        wxa_appid: impl Into<String>,
+        wx_username: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/pushshowwxapathmenu",
+                Some(access_token.into()),
+                json!({ "wxa_appid": wxa_appid.into(), "wx_username": wx_username.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_create_group(
+        &self,
+        access_token: impl Into<String>,
+        group_name: impl Into<String>,
+    ) -> Result<OfficialGuideCreateGroupResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/newguidegroup",
+                Some(access_token.into()),
+                json!({ "group_name": group_name.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_groups(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialGuideGroupListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidegrouplist",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn guide_group(
+        &self,
+        access_token: impl Into<String>,
+        group_name: impl Into<String>,
+    ) -> Result<OfficialGuideGroupResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getgroupinfo",
+                Some(access_token.into()),
+                json!({ "group_name": group_name.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_add_group_guide(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+        guide_account: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/addguide2guidegroup",
+                Some(access_token.into()),
+                json!({ "group_id": group_id, "guide_account": guide_account.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_delete_group_guide(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+        guide_account: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguide2guidegroup",
+                Some(access_token.into()),
+                json!({ "group_id": group_id, "guide_account": guide_account.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_group_by_guide(
+        &self,
+        access_token: impl Into<String>,
+        guide_account: impl Into<String>,
+    ) -> Result<OfficialGuideGroupByGuideResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getgroupbyguide",
+                Some(access_token.into()),
+                json!({ "guide_account": guide_account.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_delete_group(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguidegroup",
+                Some(access_token.into()),
+                json!({ "group_id": group_id }),
+            )
+            .await
+    }
+
+    pub async fn guide_create_buyer_relation(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerRelationRequest,
+    ) -> Result<OfficialGuideBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/addguidebuyerrelation",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_delete_buyer_relation(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideDeleteBuyerRelationRequest,
+    ) -> Result<OfficialGuideBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguidebuyerrelation",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_buyer_relations(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerRelationsRequest,
+    ) -> Result<OfficialGuideBuyerRelationListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidebuyerrelationlist",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_rebind_buyer(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideRebindBuyerRequest,
+    ) -> Result<OfficialGuideBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/rebindguideacctforbuyer",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_update_buyer_relation(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideUpdateBuyerRelationRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/updateguidebuyerrelation",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_buyer_relation(
+        &self,
+        access_token: impl Into<String>,
+        openid: impl Into<String>,
+    ) -> Result<OfficialGuideGetBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidebuyerrelationbybuyer",
+                Some(access_token.into()),
+                json!({ "openid": openid.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_buyer_relation_by_guide(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerRelationByGuideRequest,
+    ) -> Result<OfficialGuideGetBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidebuyerrelation",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_new_tag_option(
+        &self,
+        access_token: impl Into<String>,
+        tag_name: impl Into<String>,
+        tag_values: Vec<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/newguidetagoption",
+                Some(access_token.into()),
+                json!({ "tag_name": tag_name.into(), "tag_values": tag_values }),
+            )
+            .await
+    }
+
+    pub async fn guide_delete_tag_option(
+        &self,
+        access_token: impl Into<String>,
+        tag_name: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguidetagoption",
+                Some(access_token.into()),
+                json!({ "tag_name": tag_name.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_add_tag_option(
+        &self,
+        access_token: impl Into<String>,
+        tag_name: impl Into<String>,
+        tag_values: Vec<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/addguidetagoption",
+                Some(access_token.into()),
+                json!({ "tag_name": tag_name.into(), "tag_values": tag_values }),
+            )
+            .await
+    }
+
+    pub async fn guide_tag_options(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialGuideTagOptionResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidetagoption",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn guide_set_buyers_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerTagRequest,
+    ) -> Result<OfficialGuideBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/addguidebuyertag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_buyer_tags(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerTagRequest,
+    ) -> Result<OfficialGuideBuyerTagsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidebuyertag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_buyers_by_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyersByTagRequest,
+    ) -> Result<OfficialGuideBuyersByTagResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/queryguidebuyerbytag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_delete_buyer_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideDeleteBuyerTagRequest,
+    ) -> Result<OfficialGuideBuyerRelationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguidebuyertag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_set_buyer_display_tags(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerDisplayTagRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/addguidebuyerdisplaytag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_buyer_display_tags(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideBuyerDisplayTagsRequest,
+    ) -> Result<OfficialGuideBuyerDisplayTagsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidebuyerdisplaytag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_create_card_material(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideCardMaterialRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/setguidecardmaterial",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_card_material(
+        &self,
+        access_token: impl Into<String>,
+        material_type: i64,
+    ) -> Result<OfficialGuideCardMaterialResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidecardmaterial",
+                Some(access_token.into()),
+                json!({ "type": material_type }),
+            )
+            .await
+    }
+
+    pub async fn guide_delete_card_material(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGuideDeleteCardMaterialRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguidecardmaterial",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn guide_create_image_material(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+        material_type: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/setguideimagematerial",
+                Some(access_token.into()),
+                json!({ "media_id": media_id.into(), "type": material_type }),
+            )
+            .await
+    }
+
+    pub async fn guide_image_material(
+        &self,
+        access_token: impl Into<String>,
+        material_type: i64,
+    ) -> Result<OfficialGuideImageMaterialResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguideimagematerial",
+                Some(access_token.into()),
+                json!({ "type": material_type }),
+            )
+            .await
+    }
+
+    pub async fn guide_delete_image_material(
+        &self,
+        access_token: impl Into<String>,
+        material_type: i64,
+        pic_url: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguideimagematerial",
+                Some(access_token.into()),
+                json!({ "type": material_type, "picurl": pic_url.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_create_word_material(
+        &self,
+        access_token: impl Into<String>,
+        material_type: i64,
+        word: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/setguidewordmaterial",
+                Some(access_token.into()),
+                json!({ "type": material_type, "word": word.into() }),
+            )
+            .await
+    }
+
+    pub async fn guide_word_material(
+        &self,
+        access_token: impl Into<String>,
+        material_type: i64,
+        start: i64,
+        num: i64,
+    ) -> Result<OfficialGuideWordMaterialResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/getguidewordmaterial",
+                Some(access_token.into()),
+                json!({ "type": material_type, "start": start, "num": num }),
+            )
+            .await
+    }
+
+    pub async fn guide_delete_word_material(
+        &self,
+        access_token: impl Into<String>,
+        material_type: i64,
+        word: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/guide/delguidewordmaterial",
+                Some(access_token.into()),
+                json!({ "type": material_type, "word": word.into() }),
+            )
+            .await
+    }
+
+    pub fn shake_around(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.shake_around")
+    }
+
+    pub async fn shake_around_register(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialShakeAroundAccountRegisterRequest,
+    ) -> Result<OfficialShakeAroundAccountRegisterResponse> {
+        self.inner
+            .post(
+                "shakearound/account/register",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn shake_around_status(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialShakeAroundAccountRegisterResponse> {
+        self.inner
+            .get("shakearound/account/auditstatus", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn shake_around_user(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialShakeAroundUserRequest,
+    ) -> Result<OfficialShakeAroundUserResponse> {
+        self.inner
+            .post(
+                "shakearound/user/getshakeinfo",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn shake_around_user_with_poi(
+        &self,
+        access_token: impl Into<String>,
+        ticket: impl Into<String>,
+    ) -> Result<OfficialShakeAroundUserResponse> {
+        self.shake_around_user(
+            access_token,
+            OfficialShakeAroundUserRequest {
+                ticket: ticket.into(),
+                need_poi: Some(1),
+            },
+        )
+        .await
+    }
+
+    pub async fn shake_around_device_apply(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialShakeAroundDeviceApplyRequest,
+    ) -> Result<OfficialShakeAroundDeviceApplyResponse> {
+        self.inner
+            .post(
+                "shakearound/device/applyid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn shake_around_device_apply_status(
+        &self,
+        access_token: impl Into<String>,
+        apply_id: i64,
+    ) -> Result<OfficialShakeAroundDeviceApplyStatusResponse> {
+        self.inner
+            .post(
+                "shakearound/device/applystatus",
+                Some(access_token.into()),
+                json!({ "apply_id": apply_id }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_device_update(
+        &self,
+        access_token: impl Into<String>,
+        device_identifier: OfficialShakeAroundDeviceIdentifier,
+        comment: impl Into<String>,
+    ) -> Result<OfficialShakeAroundDeviceApplyStatusResponse> {
+        self.inner
+            .post(
+                "shakearound/device/update",
+                Some(access_token.into()),
+                json!({ "device_identifier": device_identifier, "comment": comment.into() }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_device_bind_poi(
+        &self,
+        access_token: impl Into<String>,
+        device_identifier: OfficialShakeAroundDeviceIdentifier,
+        poi_id: i64,
+    ) -> Result<OfficialShakeAroundDeviceBindPoiResponse> {
+        self.inner
+            .post(
+                "shakearound/device/bindlocation",
+                Some(access_token.into()),
+                json!({ "device_identifier": device_identifier, "poi_id": poi_id }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_device_bind_third_poi(
+        &self,
+        access_token: impl Into<String>,
+        device_identifier: OfficialShakeAroundDeviceIdentifier,
+        poi_id: i64,
+        app_id: impl Into<String>,
+    ) -> Result<OfficialShakeAroundDeviceBindPoiResponse> {
+        self.inner
+            .post(
+                "shakearound/device/bindlocation",
+                Some(access_token.into()),
+                json!({ "device_identifier": device_identifier, "poi_id": poi_id, "type": 2, "poi_appid": app_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_devices_by_ids(
+        &self,
+        access_token: impl Into<String>,
+        device_identifiers: Vec<OfficialShakeAroundDeviceIdentifier>,
+    ) -> Result<OfficialShakeAroundDeviceSearchResponse> {
+        self.shake_around_device_search(
+            access_token,
+            OfficialShakeAroundDeviceSearchRequest {
+                search_type: 1,
+                device_identifiers,
+                apply_id: None,
+                last_seen: None,
+                count: None,
+            },
+        )
+        .await
+    }
+
+    pub async fn shake_around_devices(
+        &self,
+        access_token: impl Into<String>,
+        last_seen: i64,
+        count: i64,
+    ) -> Result<OfficialShakeAroundDeviceSearchResponse> {
+        self.shake_around_device_search(
+            access_token,
+            OfficialShakeAroundDeviceSearchRequest {
+                search_type: 2,
+                device_identifiers: Vec::new(),
+                apply_id: None,
+                last_seen: Some(last_seen),
+                count: Some(count),
+            },
+        )
+        .await
+    }
+
+    pub async fn shake_around_devices_by_apply_id(
+        &self,
+        access_token: impl Into<String>,
+        apply_id: i64,
+        last_seen: i64,
+        count: i64,
+    ) -> Result<OfficialShakeAroundDeviceSearchResponse> {
+        self.shake_around_device_search(
+            access_token,
+            OfficialShakeAroundDeviceSearchRequest {
+                search_type: 3,
+                device_identifiers: Vec::new(),
+                apply_id: Some(apply_id),
+                last_seen: Some(last_seen),
+                count: Some(count),
+            },
+        )
+        .await
+    }
+
+    pub async fn shake_around_device_search(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialShakeAroundDeviceSearchRequest,
+    ) -> Result<OfficialShakeAroundDeviceSearchResponse> {
+        self.inner
+            .post(
+                "shakearound/device/search",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_create(
+        &self,
+        access_token: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Result<OfficialShakeAroundGroupResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/add",
+                Some(access_token.into()),
+                json!({ "group_name": name.into() }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_update(
+        &self,
+        access_token: impl Into<String>,
+        group_id: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Result<OfficialShakeAroundGroupResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/update",
+                Some(access_token.into()),
+                json!({ "group_id": group_id.into(), "group_name": name.into() }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_delete(
+        &self,
+        access_token: impl Into<String>,
+        group_id: impl Into<String>,
+    ) -> Result<OfficialShakeAroundGroupResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/delete",
+                Some(access_token.into()),
+                json!({ "group_id": group_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_list(
+        &self,
+        access_token: impl Into<String>,
+        begin: i64,
+        count: i64,
+    ) -> Result<OfficialShakeAroundGroupListResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/getlist",
+                Some(access_token.into()),
+                json!({ "begin": begin, "count": count }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_get(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+        begin: i64,
+        count: i64,
+    ) -> Result<OfficialShakeAroundGroupDetailResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/getdetail",
+                Some(access_token.into()),
+                json!({ "group_id": group_id, "begin": begin, "count": count }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_add_devices(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+        device_identifiers: Vec<OfficialShakeAroundDeviceIdentifier>,
+    ) -> Result<OfficialShakeAroundGroupResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/adddevice",
+                Some(access_token.into()),
+                json!({ "group_id": group_id, "device_identifiers": device_identifiers }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_group_remove_devices(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+        device_identifiers: Vec<OfficialShakeAroundDeviceIdentifier>,
+    ) -> Result<OfficialShakeAroundGroupResponse> {
+        self.inner
+            .post(
+                "shakearound/device/group/deletedevice",
+                Some(access_token.into()),
+                json!({ "group_id": group_id, "device_identifiers": device_identifiers }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_page_create(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialShakeAroundPageInfoRequest,
+    ) -> Result<OfficialShakeAroundPageResponse> {
+        self.inner
+            .post("shakearound/page/add", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn shake_around_page_update(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialShakeAroundPageUpdateRequest,
+    ) -> Result<OfficialShakeAroundPageResponse> {
+        self.inner
+            .post(
+                "shakearound/page/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn shake_around_page_list(
+        &self,
+        access_token: impl Into<String>,
+        begin: i64,
+        count: i64,
+    ) -> Result<OfficialShakeAroundPageListResponse> {
+        self.inner
+            .post(
+                "shakearound/page/search",
+                Some(access_token.into()),
+                json!({ "type": 2, "begin": begin, "count": count }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_page_delete(
+        &self,
+        access_token: impl Into<String>,
+        page_id: impl Into<String>,
+    ) -> Result<OfficialShakeAroundPageResponse> {
+        self.inner
+            .post(
+                "shakearound/page/delete",
+                Some(access_token.into()),
+                json!({ "page_id": page_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_bind_pages(
+        &self,
+        access_token: impl Into<String>,
+        device_identifier: OfficialShakeAroundDeviceIdentifier,
+        page_ids: Vec<i64>,
+    ) -> Result<OfficialShakeAroundPageResponse> {
+        self.inner
+            .post(
+                "shakearound/device/bindpage",
+                Some(access_token.into()),
+                json!({ "device_identifier": device_identifier, "page_ids": page_ids }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_relations_by_device(
+        &self,
+        access_token: impl Into<String>,
+        device_identifier: OfficialShakeAroundDeviceIdentifier,
+    ) -> Result<OfficialShakeAroundRelationSearchResponse> {
+        self.inner
+            .post(
+                "shakearound/relation/search",
+                Some(access_token.into()),
+                json!({ "type": 1, "device_identifier": device_identifier }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_relations_by_page(
+        &self,
+        access_token: impl Into<String>,
+        page_id: i64,
+        begin: i64,
+        count: i64,
+    ) -> Result<OfficialShakeAroundRelationSearchResponse> {
+        self.inner
+            .post(
+                "shakearound/relation/search",
+                Some(access_token.into()),
+                json!({ "type": 2, "page_id": page_id, "begin": begin, "count": count }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_material_upload_image(
+        &self,
+        access_token: impl Into<String>,
+        media: Vec<u8>,
+        file_name: impl Into<String>,
+        image_type: impl Into<String>,
+    ) -> Result<OfficialShakeAroundMaterialUploadResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(media).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "shakearound/material/add",
+                Some(access_token.into()),
+                vec![("type".to_string(), image_type.into().to_lowercase())],
+                form,
+            )
+            .await
+    }
+
+    pub async fn shake_around_device_summary(
+        &self,
+        access_token: impl Into<String>,
+        device_identifier: OfficialShakeAroundDeviceIdentifier,
+        begin_date: i64,
+        end_date: i64,
+    ) -> Result<OfficialShakeAroundStatsSummaryResponse> {
+        self.inner
+            .post(
+                "shakearound/statistics/device",
+                Some(access_token.into()),
+                json!({ "device_identifier": device_identifier, "begin_date": begin_date, "end_date": end_date }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_devices_summary(
+        &self,
+        access_token: impl Into<String>,
+        date: i64,
+        page_index: i64,
+    ) -> Result<OfficialShakeAroundStatsDeviceListResponse> {
+        self.inner
+            .post(
+                "shakearound/statistics/devicelist",
+                Some(access_token.into()),
+                json!({ "date": date, "page_index": page_index }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_page_summary(
+        &self,
+        access_token: impl Into<String>,
+        page_id: i64,
+        begin_date: i64,
+        end_date: i64,
+    ) -> Result<OfficialShakeAroundStatsPageResponse> {
+        self.inner
+            .post(
+                "shakearound/statistics/page",
+                Some(access_token.into()),
+                json!({ "page_id": page_id, "begin_date": begin_date, "end_date": end_date }),
+            )
+            .await
+    }
+
+    pub async fn shake_around_pages_summary(
+        &self,
+        access_token: impl Into<String>,
+        date: i64,
+        page_index: i64,
+    ) -> Result<OfficialShakeAroundStatsPageListResponse> {
+        self.inner
+            .post(
+                "shakearound/statistics/pagelist",
+                Some(access_token.into()),
+                json!({ "date": date, "page_index": page_index }),
+            )
+            .await
+    }
+
     pub fn server(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.server")
     }
@@ -2108,6 +3592,564 @@ pub struct OfficialOcrPlateNumberResponse {
     #[serde(default)]
     pub number: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreBaseInfo {
+    pub name: String,
+    pub longitude: String,
+    pub latitude: String,
+    pub province: String,
+    pub city: String,
+    pub district: String,
+    pub address: String,
+    pub category: String,
+    pub telephone: String,
+    pub photo: String,
+    pub license: String,
+    #[serde(rename = "introduct")]
+    pub introduction: String,
+    pub districtid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreCreateRequest {
+    pub poi_id: String,
+    pub map_poi_id: String,
+    pub pic_list: String,
+    pub contract_phone: String,
+    pub credential: String,
+    pub qualification_list: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreUpdateRequest {
+    pub map_poi_id: String,
+    pub poi_id: String,
+    pub hour: String,
+    pub contract_phone: String,
+    pub pic_list: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreCategoryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreDistrictResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub data_version: Option<String>,
+    #[serde(default)]
+    pub result: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreSearchMapResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub first_catid: Option<i64>,
+    #[serde(default)]
+    pub second_catid: Option<i64>,
+    #[serde(default)]
+    pub qualification_list: Option<String>,
+    #[serde(default)]
+    pub headimg_mediaid: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub intro: Option<String>,
+    #[serde(default)]
+    pub org_code: Option<String>,
+    #[serde(default)]
+    pub other_files: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreCreateFromMapResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub error: Option<Value>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreUpdateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub business: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialStoreListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub business_list: Option<Vec<Value>>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiHomePageStruct {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiSetHomePageRequest {
+    pub shop_id: i64,
+    pub template_id: i64,
+    #[serde(rename = "struct")]
+    pub struct_data: OfficialWifiHomePageStruct,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiCardSetRequest {
+    pub shop_id: i64,
+    pub card_id: String,
+    pub card_describe: String,
+    pub start_time: i64,
+    pub end_time: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiSummaryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Vec<Value>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiQrCodeUrlResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiCardGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiDeviceListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiShopGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialWifiShopListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideAccountRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideAdviserRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_headimgurl: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_nickname: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideQrcodeRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qrcode_info: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerChatRecordRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub openid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub begin_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideConfigRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub is_delete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_fast_reply_list: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_auto_reply: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_auto_reply_plus: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideAdviserConfigRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub is_delete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub black_keyword: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guide_auto_reply: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyer {
+    pub openid: String,
+    pub buyer_nickname: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerRelationRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub buyer_list: Vec<OfficialGuideBuyer>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideDeleteBuyerRelationRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub openid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerRelationsRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub page: i64,
+    pub num: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideRebindBuyerRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_guide_account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_guide_account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_guide_openid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_guide_openid: Option<String>,
+    pub openid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideUpdateBuyerRelationRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub openid: String,
+    pub buyer_nickname: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerRelationByGuideRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub openid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerTagRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub tag_value: String,
+    pub openid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyersByTagRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_count: Option<i64>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub tag_values: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideDeleteBuyerTagRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub tag_value: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub openid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerDisplayTagRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub openid: String,
+    pub display_tag_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideBuyerDisplayTagsRequest {
+    #[serde(flatten)]
+    pub account: OfficialGuideAccountRequest,
+    pub openid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideCardMaterialRequest {
+    pub media_id: String,
+    #[serde(rename = "type")]
+    pub material_type: i64,
+    pub title: String,
+    pub path: String,
+    pub appid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGuideDeleteCardMaterialRequest {
+    #[serde(rename = "type")]
+    pub material_type: i64,
+    pub title: String,
+    pub path: String,
+    pub appid: String,
+}
+
+macro_rules! official_value_response {
+    ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct $name {
+            #[serde(default)]
+            pub errcode: Option<i64>,
+            #[serde(default)]
+            pub errmsg: Option<String>,
+            $(
+                #[serde(default)]
+                pub $field: Option<$ty>,
+            )*
+        }
+    };
+}
+
+official_value_response!(OfficialGuideGetAdviserResponse {
+    guide_account: String,
+    guide_headimgurl: String,
+    guide_nickname: String,
+    guide_openid: Value,
+});
+official_value_response!(OfficialGuideGetAdvisersResponse { total_num: i64, list: Vec<Value> });
+official_value_response!(OfficialGuideChatRecordsResponse { total_num: i64, msg_list: Vec<Value> });
+official_value_response!(OfficialGuideConfigResponse {
+    guide_fast_reply_list: Vec<Value>,
+    guide_auto_reply: Value,
+    updatetime: i64,
+    guide_auto_reply_plus: Value,
+});
+official_value_response!(OfficialGuideAdviserConfigResponse {
+    black_keyword: Value,
+    guide_auto_reply: Value,
+});
+official_value_response!(OfficialGuideCreateGroupResponse { group_id: Value });
+official_value_response!(OfficialGuideGroupListResponse { group_list: Vec<Value> });
+official_value_response!(OfficialGuideGroupResponse { guide_list: Vec<Value>, total_num: i64 });
+official_value_response!(OfficialGuideGroupByGuideResponse { group_id_list: Vec<i64> });
+official_value_response!(OfficialGuideBuyerRelationResponse { buyer_resp: Vec<Value> });
+official_value_response!(OfficialGuideBuyerRelationListResponse { total_num: i64, list: Vec<Value> });
+official_value_response!(OfficialGuideGetBuyerRelationResponse {
+    openid: String,
+    guide_account: String,
+    guide_openid: String,
+    buyer_nickname: String,
+    create_time: i64,
+});
+official_value_response!(OfficialGuideTagOptionResponse { options: Vec<Value> });
+official_value_response!(OfficialGuideBuyerTagsResponse { tag_values: Vec<String> });
+official_value_response!(OfficialGuideBuyersByTagResponse { openid_list: Vec<String> });
+official_value_response!(OfficialGuideBuyerDisplayTagsResponse { display_tag_list: Vec<String> });
+official_value_response!(OfficialGuideCardMaterialResponse { card_list: Vec<Value> });
+official_value_response!(OfficialGuideImageMaterialResponse { model_list: Vec<Value>, total_num: i64 });
+official_value_response!(OfficialGuideWordMaterialResponse { word_list: Vec<Value>, total_num: i64 });
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundAccountRegisterRequest {
+    pub name: String,
+    pub phone_number: String,
+    pub email: String,
+    pub industry_id: String,
+    pub qualification_cert_urls: Vec<String>,
+    pub apply_reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundUserRequest {
+    pub ticket: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub need_poi: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundDeviceApplyRequest {
+    pub quantity: i64,
+    pub apply_reason: String,
+    pub comment: String,
+    pub poi_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundDeviceIdentifier {
+    pub device_id: i64,
+    pub uuid: String,
+    pub major: i64,
+    pub minor: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundDeviceSearchRequest {
+    #[serde(rename = "type")]
+    pub search_type: i64,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub device_identifiers: Vec<OfficialShakeAroundDeviceIdentifier>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apply_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_seen: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundPageInfoRequest {
+    pub title: String,
+    pub description: String,
+    pub page_url: String,
+    pub comment: String,
+    pub icon_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialShakeAroundPageUpdateRequest {
+    #[serde(flatten)]
+    pub page: OfficialShakeAroundPageInfoRequest,
+    pub page_id: i64,
+}
+
+official_value_response!(OfficialShakeAroundAccountRegisterResponse { data: Value });
+official_value_response!(OfficialShakeAroundUserResponse { data: Value });
+official_value_response!(OfficialShakeAroundDeviceApplyResponse { data: Value });
+official_value_response!(OfficialShakeAroundDeviceApplyStatusResponse { data: Value });
+official_value_response!(OfficialShakeAroundDeviceBindPoiResponse { data: Value });
+official_value_response!(OfficialShakeAroundDeviceSearchResponse { data: Value });
+official_value_response!(OfficialShakeAroundGroupResponse { data: Value });
+official_value_response!(OfficialShakeAroundGroupListResponse { data: Value });
+official_value_response!(OfficialShakeAroundGroupDetailResponse { data: Value });
+official_value_response!(OfficialShakeAroundPageResponse { data: Value });
+official_value_response!(OfficialShakeAroundPageListResponse { data: Value });
+official_value_response!(OfficialShakeAroundRelationSearchResponse { data: Value });
+official_value_response!(OfficialShakeAroundMaterialUploadResponse { data: Value });
+official_value_response!(OfficialShakeAroundStatsSummaryResponse { data: Vec<Value> });
+official_value_response!(OfficialShakeAroundStatsDeviceListResponse {
+    data: Value,
+    date: i64,
+    total_count: i64,
+    page_index: i64,
+});
+official_value_response!(OfficialShakeAroundStatsPageResponse { data: Vec<Value> });
+official_value_response!(OfficialShakeAroundStatsPageListResponse {
+    data: Value,
+    date: i64,
+    total_count: i64,
+    page_index: i64,
+});
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WechatStatusResponse {
@@ -2934,6 +4976,182 @@ mod tests {
         let plate: OfficialOcrPlateNumberResponse =
             serde_json::from_value(json!({ "number": "PLATE123" })).unwrap();
         assert_eq!(plate.number.as_deref(), Some("PLATE123"));
+    }
+
+    #[test]
+    fn serializes_official_store_wifi_guide_and_shake_requests() {
+        let store = serde_json::to_value(OfficialStoreBaseInfo {
+            name: "Roze Store".to_string(),
+            longitude: "121.5".to_string(),
+            latitude: "31.2".to_string(),
+            province: "Shanghai".to_string(),
+            city: "Shanghai".to_string(),
+            district: "Pudong".to_string(),
+            address: "Road".to_string(),
+            category: "Food".to_string(),
+            telephone: "10086".to_string(),
+            photo: "media".to_string(),
+            license: "license".to_string(),
+            introduction: "intro".to_string(),
+            districtid: "310000".to_string(),
+        })
+        .unwrap();
+        assert_eq!(store["introduct"], "intro");
+        assert_eq!(store["districtid"], "310000");
+
+        let wifi_home = serde_json::to_value(OfficialWifiSetHomePageRequest {
+            shop_id: 1,
+            template_id: 2,
+            struct_data: OfficialWifiHomePageStruct {
+                url: "https://example.com".to_string(),
+            },
+        })
+        .unwrap();
+        assert_eq!(wifi_home["struct"]["url"], "https://example.com");
+        assert_eq!(wifi_home["template_id"], 2);
+
+        let guide = serde_json::to_value(OfficialGuideAdviserRequest {
+            account: OfficialGuideAccountRequest {
+                guide_account: Some("guide".to_string()),
+                guide_openid: None,
+            },
+            guide_headimgurl: Some("https://example.com/avatar.png".to_string()),
+            guide_nickname: None,
+        })
+        .unwrap();
+        assert_eq!(guide["guide_account"], "guide");
+        assert!(guide.get("guide_openid").is_none());
+        assert!(guide.get("guide_nickname").is_none());
+
+        let tag = serde_json::to_value(OfficialGuideBuyersByTagRequest {
+            account: OfficialGuideAccountRequest {
+                guide_account: None,
+                guide_openid: Some("openid".to_string()),
+            },
+            push_count: Some(10),
+            tag_values: vec!["vip".to_string()],
+        })
+        .unwrap();
+        assert_eq!(tag["guide_openid"], "openid");
+        assert_eq!(tag["tag_values"][0], "vip");
+
+        let search = serde_json::to_value(OfficialShakeAroundDeviceSearchRequest {
+            search_type: 3,
+            device_identifiers: Vec::new(),
+            apply_id: Some(10),
+            last_seen: Some(0),
+            count: Some(20),
+        })
+        .unwrap();
+        assert_eq!(search["type"], 3);
+        assert_eq!(search["apply_id"], 10);
+        assert!(search.get("device_identifiers").is_none());
+
+        let page = serde_json::to_value(OfficialShakeAroundPageUpdateRequest {
+            page: OfficialShakeAroundPageInfoRequest {
+                title: "Title".to_string(),
+                description: "Desc".to_string(),
+                page_url: "https://example.com/page".to_string(),
+                comment: "Comment".to_string(),
+                icon_url: "https://example.com/icon.png".to_string(),
+            },
+            page_id: 7,
+        })
+        .unwrap();
+        assert_eq!(page["page_id"], 7);
+        assert_eq!(page["page_url"], "https://example.com/page");
+    }
+
+    #[test]
+    fn deserializes_official_store_wifi_guide_and_shake_responses() {
+        let categories: OfficialStoreCategoryResponse = serde_json::from_value(json!({
+            "data": { "all_category_info": { "categories": [{ "id": 1, "name": "Food" }] } }
+        }))
+        .unwrap();
+        assert_eq!(
+            categories.data.unwrap()["all_category_info"]["categories"][0]["name"],
+            "Food"
+        );
+
+        let districts: OfficialStoreDistrictResponse = serde_json::from_value(json!({
+            "status": 0,
+            "message": "query ok",
+            "data_version": "v1",
+            "result": [[{ "id": "310000", "fullname": "Shanghai" }]]
+        }))
+        .unwrap();
+        assert_eq!(districts.status, Some(0));
+        assert_eq!(districts.result.unwrap()[0][0]["id"], "310000");
+
+        let store_list: OfficialStoreListResponse = serde_json::from_value(json!({
+            "business_list": [{ "base_info": { "poi_id": "poi" } }],
+            "total_count": 1
+        }))
+        .unwrap();
+        assert_eq!(store_list.total_count, Some(1));
+        assert_eq!(
+            store_list.business_list.unwrap()[0]["base_info"]["poi_id"],
+            "poi"
+        );
+
+        let wifi: OfficialWifiSummaryResponse = serde_json::from_value(json!({
+            "data": [{ "shop_id": "1", "total_user": 10 }]
+        }))
+        .unwrap();
+        assert_eq!(wifi.data.unwrap()[0]["total_user"], 10);
+
+        let shop: OfficialWifiShopGetResponse = serde_json::from_value(json!({
+            "data": { "shop_name": "Roze Store", "ssid": "RozeWiFi" }
+        }))
+        .unwrap();
+        assert_eq!(shop.data.unwrap()["ssid"], "RozeWiFi");
+
+        let adviser: OfficialGuideGetAdviserResponse = serde_json::from_value(json!({
+            "guide_account": "guide",
+            "guide_nickname": "Alice"
+        }))
+        .unwrap();
+        assert_eq!(adviser.guide_account.as_deref(), Some("guide"));
+        assert_eq!(adviser.guide_nickname.as_deref(), Some("Alice"));
+
+        let buyers: OfficialGuideBuyerRelationListResponse = serde_json::from_value(json!({
+            "total_num": 1,
+            "list": [{ "openid": "buyer", "guide_account": "guide" }]
+        }))
+        .unwrap();
+        assert_eq!(buyers.total_num, Some(1));
+        assert_eq!(buyers.list.unwrap()[0]["openid"], "buyer");
+
+        let material: OfficialGuideCardMaterialResponse = serde_json::from_value(json!({
+            "card_list": [{ "title": "Card", "appid": "app" }]
+        }))
+        .unwrap();
+        assert_eq!(material.card_list.unwrap()[0]["title"], "Card");
+
+        let register: OfficialShakeAroundAccountRegisterResponse = serde_json::from_value(json!({
+            "data": { "audit_status": 1, "audit_comment": "ok" }
+        }))
+        .unwrap();
+        assert_eq!(register.data.unwrap()["audit_status"], 1);
+
+        let search: OfficialShakeAroundDeviceSearchResponse = serde_json::from_value(json!({
+            "data": {
+                "devices": [{ "device_id": 1, "uuid": "uuid" }],
+                "total_count": 1
+            }
+        }))
+        .unwrap();
+        assert_eq!(search.data.unwrap()["devices"][0]["uuid"], "uuid");
+
+        let stats: OfficialShakeAroundStatsDeviceListResponse = serde_json::from_value(json!({
+            "data": { "devices": [{ "device_id": 1, "shake_pv": 2 }] },
+            "date": 20260709,
+            "total_count": 1,
+            "page_index": 1
+        }))
+        .unwrap();
+        assert_eq!(stats.date, Some(20260709));
+        assert_eq!(stats.data.unwrap()["devices"][0]["shake_pv"], 2);
     }
 
     #[test]
