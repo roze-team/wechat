@@ -187,6 +187,302 @@ impl OfficialAccount {
             .await
     }
 
+    pub fn comment(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.comment")
+    }
+
+    pub async fn open_comment(
+        &self,
+        access_token: impl Into<String>,
+        msg_data_id: impl Into<String>,
+        index: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action(
+            "cgi-bin/comment/open",
+            access_token,
+            CommentArticleRequest {
+                msg_data_id: msg_data_id.into(),
+                index,
+            },
+        )
+        .await
+    }
+
+    pub async fn close_comment(
+        &self,
+        access_token: impl Into<String>,
+        msg_data_id: impl Into<String>,
+        index: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action(
+            "cgi-bin/comment/close",
+            access_token,
+            CommentArticleRequest {
+                msg_data_id: msg_data_id.into(),
+                index,
+            },
+        )
+        .await
+    }
+
+    pub async fn list_comments(
+        &self,
+        access_token: impl Into<String>,
+        request: CommentListRequest,
+    ) -> Result<CommentListResponse> {
+        self.inner
+            .post("cgi-bin/comment/list", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn mark_comment_elect(
+        &self,
+        access_token: impl Into<String>,
+        request: CommentOperateRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action("cgi-bin/comment/markelect", access_token, request)
+            .await
+    }
+
+    pub async fn unmark_comment_elect(
+        &self,
+        access_token: impl Into<String>,
+        request: CommentOperateRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action("cgi-bin/comment/unmarkelect", access_token, request)
+            .await
+    }
+
+    pub async fn delete_comment(
+        &self,
+        access_token: impl Into<String>,
+        request: CommentOperateRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action("cgi-bin/comment/delete", access_token, request)
+            .await
+    }
+
+    pub async fn reply_comment(
+        &self,
+        access_token: impl Into<String>,
+        request: CommentReplyRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action("cgi-bin/comment/reply/add", access_token, request)
+            .await
+    }
+
+    pub async fn delete_comment_reply(
+        &self,
+        access_token: impl Into<String>,
+        request: CommentOperateRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.comment_action("cgi-bin/comment/reply/delete", access_token, request)
+            .await
+    }
+
+    pub fn data_cube(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.data_cube")
+    }
+
+    pub async fn data_cube_user_summary(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getusersummary", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_user_cumulate(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getusercumulate", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_article_summary(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getarticlesummary", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_article_total(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getarticletotal", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_user_read(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getuserread", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_user_share(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getusershare", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_user_share_hourly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getusersharehour", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsg", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message_hourly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsghour", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message_weekly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsgweek", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message_monthly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsgmonth", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message_dist(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsgdist", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message_dist_weekly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsgdistweek", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_upstream_message_dist_monthly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getupstreammsgdistmonth", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_interface_summary(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getinterfacesummary", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_interface_summary_hourly(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRangeRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getinterfacesummaryhour", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_free_card_summary(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeCardSummaryRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getcardcardinfo", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_member_card_summary(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeCardSummaryRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getcardmembercardinfo", access_token, request)
+            .await
+    }
+
+    pub async fn data_cube_member_card_summary_by_id(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeCardDetailRequest,
+    ) -> Result<DataCubeListResponse> {
+        self.data_cube_query("datacube/getcardmembercarddetail", access_token, request)
+            .await
+    }
+
+    async fn comment_action<B>(
+        &self,
+        path: &'static str,
+        access_token: impl Into<String>,
+        request: B,
+    ) -> Result<WechatStatusResponse>
+    where
+        B: Serialize,
+    {
+        self.inner
+            .post(path, Some(access_token.into()), request)
+            .await
+    }
+
+    async fn data_cube_query<B>(
+        &self,
+        path: &'static str,
+        access_token: impl Into<String>,
+        request: B,
+    ) -> Result<DataCubeListResponse>
+    where
+        B: Serialize,
+    {
+        self.inner
+            .post(path, Some(access_token.into()), request)
+            .await
+    }
+
     pub fn card(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.card")
     }
@@ -1159,6 +1455,104 @@ pub struct WechatStatusResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentArticleRequest {
+    pub msg_data_id: String,
+    pub index: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentListRequest {
+    pub msg_data_id: String,
+    pub index: i64,
+    pub begin: i64,
+    pub count: i64,
+    #[serde(rename = "type")]
+    pub comment_type: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentOperateRequest {
+    pub msg_data_id: String,
+    pub index: i64,
+    pub user_comment_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentReplyRequest {
+    pub msg_data_id: String,
+    pub index: i64,
+    pub user_comment_id: i64,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentReply {
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentItem {
+    #[serde(default)]
+    pub user_comment_id: Option<i64>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub comment_type: Option<i64>,
+    #[serde(default)]
+    pub reply: Option<CommentReply>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub comment: Vec<CommentItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeDateRangeRequest {
+    pub begin_date: String,
+    pub end_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeCardSummaryRequest {
+    pub begin_date: String,
+    pub end_date: String,
+    pub cond_source: i64,
+    pub card_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeCardDetailRequest {
+    pub begin_date: String,
+    pub end_date: String,
+    pub card_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardCreateRequest {
     pub card: Value,
 }
@@ -1587,12 +1981,15 @@ mod tests {
     use super::{
         BatchGetUserInfoRequest, CardCodeDecryptRequest, CardCodeDecryptResponse, CardCodeRequest,
         CardCodeResponse, CardCreateRequest, CardCreateResponse, CardIdRequest, CardQrCodeRequest,
-        CardQrCodeResponse, CustomerServiceMessage, JsapiConfig, MassSendAllRequest,
-        MassSendFilter, MaterialListRequest, MenuButton, OauthAuthorizeUrlRequest, OfficialAccount,
-        PublishArticle, PublishArticleResponse, PublishBatchGetRequest, PublishBatchGetResponse,
-        PublishDraftAddRequest, PublishDraftAddResponse, PublishDraftGetResponse,
-        PublishDraftSwitchStatusResponse, PublishDraftUpdateRequest, PublishStatusResponse,
-        PublishSubmitResponse, TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
+        CardQrCodeResponse, CommentListRequest, CommentListResponse, CommentOperateRequest,
+        CommentReplyRequest, CustomerServiceMessage, DataCubeCardDetailRequest,
+        DataCubeCardSummaryRequest, DataCubeDateRangeRequest, DataCubeListResponse, JsapiConfig,
+        MassSendAllRequest, MassSendFilter, MaterialListRequest, MenuButton,
+        OauthAuthorizeUrlRequest, OfficialAccount, PublishArticle, PublishArticleResponse,
+        PublishBatchGetRequest, PublishBatchGetResponse, PublishDraftAddRequest,
+        PublishDraftAddResponse, PublishDraftGetResponse, PublishDraftSwitchStatusResponse,
+        PublishDraftUpdateRequest, PublishStatusResponse, PublishSubmitResponse,
+        TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
     };
 
     #[test]
@@ -1968,5 +2365,112 @@ mod tests {
         assert_eq!(value["filter"]["tag_id"], 2);
         assert_eq!(value["msgtype"], "mpnews");
         assert_eq!(value["mpnews"]["media_id"], "mid");
+    }
+
+    #[test]
+    fn serializes_comment_requests() {
+        let list = serde_json::to_value(CommentListRequest {
+            msg_data_id: "msg".to_string(),
+            index: 0,
+            begin: 0,
+            count: 20,
+            comment_type: 1,
+        })
+        .unwrap();
+        assert_eq!(list["msg_data_id"], "msg");
+        assert_eq!(list["type"], 1);
+
+        let operate = serde_json::to_value(CommentOperateRequest {
+            msg_data_id: "msg".to_string(),
+            index: 0,
+            user_comment_id: 42,
+        })
+        .unwrap();
+        assert_eq!(operate["user_comment_id"], 42);
+
+        let reply = serde_json::to_value(CommentReplyRequest {
+            msg_data_id: "msg".to_string(),
+            index: 0,
+            user_comment_id: 42,
+            content: "thanks".to_string(),
+        })
+        .unwrap();
+        assert_eq!(reply["content"], "thanks");
+    }
+
+    #[test]
+    fn deserializes_comment_list_response() {
+        let response: CommentListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "comment": [{
+                "user_comment_id": 42,
+                "openid": "openid",
+                "create_time": 1_800_000_000,
+                "content": "great",
+                "comment_type": 0,
+                "reply": { "content": "thanks", "create_time": 1_800_000_001 }
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(response.total, Some(1));
+        assert_eq!(response.comment[0].openid.as_deref(), Some("openid"));
+        assert_eq!(
+            response.comment[0]
+                .reply
+                .as_ref()
+                .expect("reply")
+                .content
+                .as_deref(),
+            Some("thanks")
+        );
+    }
+
+    #[test]
+    fn serializes_data_cube_requests() {
+        let range = serde_json::to_value(DataCubeDateRangeRequest {
+            begin_date: "2026-07-01".to_string(),
+            end_date: "2026-07-07".to_string(),
+        })
+        .unwrap();
+        assert_eq!(range["begin_date"], "2026-07-01");
+        assert_eq!(range["end_date"], "2026-07-07");
+
+        let card = serde_json::to_value(DataCubeCardSummaryRequest {
+            begin_date: "2026-07-01".to_string(),
+            end_date: "2026-07-07".to_string(),
+            cond_source: 0,
+            card_id: "card".to_string(),
+        })
+        .unwrap();
+        assert_eq!(card["cond_source"], 0);
+        assert_eq!(card["card_id"], "card");
+
+        let detail = serde_json::to_value(DataCubeCardDetailRequest {
+            begin_date: "2026-07-01".to_string(),
+            end_date: "2026-07-07".to_string(),
+            card_id: "card".to_string(),
+        })
+        .unwrap();
+        assert!(detail.get("cond_source").is_none());
+        assert_eq!(detail["card_id"], "card");
+    }
+
+    #[test]
+    fn deserializes_data_cube_list_response() {
+        let response: DataCubeListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "list": [{
+                "ref_date": "2026-07-01",
+                "user_source": 0,
+                "new_user": 10
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(response.errcode, Some(0));
+        assert_eq!(response.list[0]["ref_date"], "2026-07-01");
+        assert_eq!(response.list[0]["new_user"], 10);
     }
 }

@@ -50,7 +50,9 @@ Status values:
 | Official Account | base | `official_account::base` | tested |
 | Official Account | broadcasting | `official_account::broadcasting` | tested |
 | Official Account | card | `official_account::card` | tested |
+| Official Account | comment | `official_account::comment` | tested |
 | Official Account | customerService | `official_account::customer_service` | tested |
+| Official Account | dataCube | `official_account::data_cube` | tested |
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
