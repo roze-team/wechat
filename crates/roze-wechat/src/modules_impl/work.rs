@@ -25,6 +25,25 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.agent")
     }
 
+    pub fn base(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.base")
+    }
+
+    pub async fn callback_ip(&self, access_token: impl Into<String>) -> Result<WorkIpListResponse> {
+        self.inner
+            .get("cgi-bin/getcallbackip", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn api_domain_ip(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkIpListResponse> {
+        self.inner
+            .get("cgi-bin/get_api_domain_ip", Some(access_token.into()))
+            .await
+    }
+
     pub async fn list_agents(&self, access_token: impl Into<String>) -> Result<Value> {
         self.inner
             .get("cgi-bin/agent/list", Some(access_token.into()))
@@ -218,6 +237,74 @@ impl Work {
                 "cgi-bin/user/convert_to_userid",
                 Some(access_token.into()),
                 request,
+            )
+            .await
+    }
+
+    pub fn corpgroup(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.corpgroup")
+    }
+
+    pub async fn corpgroup_app_share_info(
+        &self,
+        access_token: impl Into<String>,
+        agent_id: i64,
+    ) -> Result<WorkCorpGroupAppShareInfoResponse> {
+        self.inner
+            .post_json_with_access_token_query(
+                "cgi-bin/corpgroup/corp/list_app_share_info",
+                Some(access_token.into()),
+                vec![("agentid".to_string(), agent_id.to_string())],
+                json!({}),
+                Vec::new(),
+            )
+            .await
+    }
+
+    pub async fn corpgroup_token(
+        &self,
+        access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        agent_id: impl Into<String>,
+    ) -> Result<WorkCorpGroupTokenResponse> {
+        self.inner
+            .post(
+                "cgi-bin/corpgroup/corp/gettoken",
+                Some(access_token.into()),
+                json!({ "corpid": corp_id.into(), "agentid": agent_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn corpgroup_miniprogram_transfer_session(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+        session_key: impl Into<String>,
+    ) -> Result<WorkCorpGroupTransferSessionResponse> {
+        self.inner
+            .post(
+                "cgi-bin/corpgroup/miniprogram/transfer_session",
+                Some(access_token.into()),
+                json!({ "userid": user_id.into(), "session_key": session_key.into() }),
+            )
+            .await
+    }
+
+    pub fn mini_program(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.mini_program")
+    }
+
+    pub async fn mini_program_code_to_session(
+        &self,
+        access_token: impl Into<String>,
+        code: impl Into<String>,
+    ) -> Result<WorkMiniProgramSessionResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/miniprogram/jscode2session",
+                Some(access_token.into()),
+                vec![("js_code".to_string(), code.into())],
             )
             .await
     }
@@ -1004,6 +1091,66 @@ pub struct DepartmentCreateResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkIpListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ip_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCorpGroupAppShareInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub corp_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCorpGroupTokenResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub access_token: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCorpGroupTransferSessionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub session_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMiniProgramSessionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub deviceid: Option<String>,
+    #[serde(default)]
+    pub session_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserIdToOpenIdRequest {
     pub userid: String,
 }
@@ -1528,14 +1675,17 @@ mod tests {
         AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
         DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
         OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
-        UserIdToOpenIdResponse, Work, WorkExternalPayBillListRequest,
-        WorkExternalPayBillListResponse, WorkExternalPayMerchantResponse,
-        WorkExternalPaySetMerchantUseScopeRequest, WorkExternalTagIdToOpenExternalTagIdResponse,
-        WorkExternalUserIdToPendingIdRequest, WorkExternalUserIdToPendingIdResponse,
-        WorkFromServiceExternalUserIdRequest, WorkFromServiceExternalUserIdResponse,
-        WorkInvoiceCardRequest, WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse,
-        WorkInvoiceStatusBatchRequest, WorkInvoiceStatusRequest, WorkMenuButton, WorkMenuRequest,
-        WorkMenuResponse, WorkMessage, WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
+        UserIdToOpenIdResponse, Work, WorkCorpGroupAppShareInfoResponse,
+        WorkCorpGroupTokenResponse, WorkCorpGroupTransferSessionResponse,
+        WorkExternalPayBillListRequest, WorkExternalPayBillListResponse,
+        WorkExternalPayMerchantResponse, WorkExternalPaySetMerchantUseScopeRequest,
+        WorkExternalTagIdToOpenExternalTagIdResponse, WorkExternalUserIdToPendingIdRequest,
+        WorkExternalUserIdToPendingIdResponse, WorkFromServiceExternalUserIdRequest,
+        WorkFromServiceExternalUserIdResponse, WorkInvoiceCardRequest,
+        WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse, WorkInvoiceStatusBatchRequest,
+        WorkInvoiceStatusRequest, WorkIpListResponse, WorkMenuButton, WorkMenuRequest,
+        WorkMenuResponse, WorkMessage, WorkMiniProgramSessionResponse,
+        WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
         WorkOpenUserIdToUserIdResponse, WorkUnionIdToExternalUserIdRequest,
         WorkUnionIdToExternalUserIdResponse, WorkUploadMediaResponse,
         WorkUserIdToOpenUserIdResponse,
@@ -1680,6 +1830,59 @@ mod tests {
 
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.id, Some(42));
+    }
+
+    #[test]
+    fn deserializes_work_base_responses() {
+        let callback: WorkIpListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "ip_list": ["1.1.1.1", "2.2.2.2"]
+        }))
+        .unwrap();
+
+        assert_eq!(callback.ip_list[0], "1.1.1.1");
+        assert_eq!(callback.ip_list.len(), 2);
+    }
+
+    #[test]
+    fn deserializes_work_corpgroup_responses() {
+        let share: WorkCorpGroupAppShareInfoResponse = serde_json::from_value(json!({
+            "corp_list": [{ "corpid": "corp", "agentid": 100001 }]
+        }))
+        .unwrap();
+        assert_eq!(share.corp_list[0]["corpid"], "corp");
+
+        let token: WorkCorpGroupTokenResponse = serde_json::from_value(json!({
+            "access_token": "token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert_eq!(token.access_token.as_deref(), Some("token"));
+        assert_eq!(token.expires_in, Some(7200));
+
+        let session: WorkCorpGroupTransferSessionResponse = serde_json::from_value(json!({
+            "userid": "user",
+            "session_key": "session"
+        }))
+        .unwrap();
+        assert_eq!(session.userid.as_deref(), Some("user"));
+        assert_eq!(session.session_key.as_deref(), Some("session"));
+    }
+
+    #[test]
+    fn deserializes_work_mini_program_session_response() {
+        let session: WorkMiniProgramSessionResponse = serde_json::from_value(json!({
+            "corpid": "corp",
+            "userid": "user",
+            "deviceid": "device",
+            "session_key": "session"
+        }))
+        .unwrap();
+
+        assert_eq!(session.corpid.as_deref(), Some("corp"));
+        assert_eq!(session.userid.as_deref(), Some("user"));
+        assert_eq!(session.deviceid.as_deref(), Some("device"));
+        assert_eq!(session.session_key.as_deref(), Some("session"));
     }
 
     #[test]

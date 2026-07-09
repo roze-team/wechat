@@ -20,9 +20,9 @@ entries, request/response DTOs, and tests.
 | Open Platform | 6 | 6 | 0 |
 | Open Work | 8 | 8 | 0 |
 | Payment | 20 | 20 | 0 |
-| Work | 33 | 18 | 16 |
+| Work | 33 | 21 | 13 |
 
-Total remaining PowerWeChat submodule gaps: 26.
+Total remaining PowerWeChat submodule gaps: 23.
 
 ## Remaining Gaps
 
@@ -43,9 +43,6 @@ Total remaining PowerWeChat submodule gaps: 26.
 
 - `accountService`
 - `aibot`
-- `base`
-- `corpgroup`
-- `miniProgram`
 - `oa/approval`
 - `oa/calendar`
 - `oa/dial`

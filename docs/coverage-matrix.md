@@ -96,6 +96,8 @@ Status values:
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
 | Work | auth/oauth | `work::oauth` | tested |
+| Work | base | `work::base` | tested |
+| Work | corpgroup | `work::corpgroup` | tested |
 | Work | department/user/tag | `work::contact` | tested |
 | Work | externalPay | `work::external_pay` | tested |
 | Work | externalContact | `work::external_contact` | tested |
@@ -106,6 +108,7 @@ Status values:
 | Work | menu | `work::menu` | tested |
 | Work | media | `work::media` | tested |
 | Work | message | `work::message` | tested |
+| Work | miniProgram | `work::mini_program` | tested |
 | Work | msgAudit | `work::msg_audit` | tested |
 | Work | oa | `work::oa` | tested |
 | Work | server | `work::server` | tested |
