@@ -58,6 +58,7 @@ Status values:
 | Official Account | user/tag | `official_account::user` | tested |
 | Open Platform | auth | `open_platform::auth` | tested |
 | Open Platform | authorizer | `open_platform::authorizer` | tested |
+| Open Platform | base | `open_platform::base` | tested |
 | Open Platform | codeTemplate | `open_platform::code_template` | tested |
 | Open Platform | component | `open_platform::component` | tested |
 | Open Platform | server | `open_platform::server` | tested |

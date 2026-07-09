@@ -17,12 +17,12 @@ entries, request/response DTOs, and tests.
 | Channels | 2 | 1 | 1 |
 | Mini Program | 32 | 32 | 0 |
 | Official Account | 24 | 12 | 13 |
-| Open Platform | 6 | 5 | 1 |
+| Open Platform | 6 | 6 | 0 |
 | Open Work | 8 | 6 | 2 |
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 37.
+Total remaining PowerWeChat submodule gaps: 36.
 
 ## Remaining Gaps
 
@@ -45,10 +45,6 @@ Total remaining PowerWeChat submodule gaps: 37.
 - `shakeAround`
 - `store`
 - `wifi`
-
-### Open Platform
-
-- `base`
 
 ### Open Work
 

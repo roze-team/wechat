@@ -148,5 +148,6 @@ mod tests {
             wechat.open_platform().component().name(),
             "open_platform.component"
         );
+        assert_eq!(wechat.open_platform().base().name(), "open_platform.base");
     }
 }

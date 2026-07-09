@@ -24,6 +24,10 @@ impl OpenPlatform {
         DomainModule::new(self.inner.clone(), "open_platform.auth")
     }
 
+    pub fn base(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "open_platform.base")
+    }
+
     pub async fn component_access_token(
         &self,
         request: ComponentAccessTokenRequest,
@@ -89,6 +93,121 @@ impl OpenPlatform {
                 Vec::new(),
             )
             .await
+    }
+
+    pub async fn handle_authorize(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorization_code: impl Into<String>,
+    ) -> Result<OpenPlatformHandleAuthorizeResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_query_auth",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorization_code": authorization_code.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn get_base_authorizer(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorizer_appid: impl Into<String>,
+    ) -> Result<OpenPlatformAuthorizerInfoResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_get_authorizer_info",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorizer_appid": authorizer_appid.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn get_base_authorizer_option(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorizer_appid: impl Into<String>,
+        option_name: impl Into<String>,
+    ) -> Result<OpenPlatformAuthorizerOptionResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_get_authorizer_option",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorizer_appid": authorizer_appid.into(),
+                "option_name": option_name.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn set_base_authorizer_option(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorizer_appid: impl Into<String>,
+        option_name: impl Into<String>,
+        option_value: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_set_authorizer_option",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorizer_appid": authorizer_appid.into(),
+                "option_name": option_name.into(),
+                "option_value": option_value.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn get_base_authorizers(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        offset: i64,
+        count: i64,
+    ) -> Result<OpenPlatformAuthorizersResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_get_authorizer_list",
+            json!({
+                "component_appid": component_appid.into(),
+                "offset": offset,
+                "count": count,
+            }),
+        )
+        .await
+    }
+
+    pub async fn create_pre_authorization_code(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+    ) -> Result<PreauthCodeResponse> {
+        self.create_preauth_code(component_access_token, component_appid)
+            .await
+    }
+
+    pub async fn clear_component_quota(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/clear_quota",
+            json!({ "component_appid": component_appid.into() }),
+        )
+        .await
     }
 
     pub fn authorizer(&self) -> DomainModule {
@@ -393,6 +512,170 @@ pub struct AuthorizerAccessTokenResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformFuncScopeCategory {
+    #[serde(default)]
+    pub id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformConfirmInfo {
+    #[serde(default)]
+    pub need_confirm: Option<i64>,
+    #[serde(default)]
+    pub already_confirm: Option<i64>,
+    #[serde(default)]
+    pub can_confirm: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformFuncInfo {
+    #[serde(default)]
+    pub funcscope_category: Option<OpenPlatformFuncScopeCategory>,
+    #[serde(default)]
+    pub confirm_info: Option<OpenPlatformConfirmInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizationInfo {
+    #[serde(default)]
+    pub authorizer_appid: Option<String>,
+    #[serde(default)]
+    pub authorizer_access_token: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+    #[serde(default)]
+    pub authorizer_refresh_token: Option<String>,
+    #[serde(default)]
+    pub func_info: Vec<OpenPlatformFuncInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformHandleAuthorizeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformServiceTypeInfo {
+    #[serde(default)]
+    pub id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformVerifyTypeInfo {
+    #[serde(default)]
+    pub id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformBusinessInfo {
+    #[serde(default)]
+    pub open_store: Option<i64>,
+    #[serde(default)]
+    pub open_scan: Option<i64>,
+    #[serde(default)]
+    pub open_pay: Option<i64>,
+    #[serde(default)]
+    pub open_card: Option<i64>,
+    #[serde(default)]
+    pub open_shake: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformBasicConfig {
+    #[serde(default)]
+    pub is_phone_configured: Option<bool>,
+    #[serde(default)]
+    pub is_email_configured: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerInfo {
+    #[serde(default)]
+    pub nick_name: Option<String>,
+    #[serde(default)]
+    pub head_img: Option<String>,
+    #[serde(default)]
+    pub service_type_info: Option<OpenPlatformServiceTypeInfo>,
+    #[serde(default)]
+    pub verify_type_info: Option<OpenPlatformVerifyTypeInfo>,
+    #[serde(default)]
+    pub user_name: Option<String>,
+    #[serde(default)]
+    pub principal_name: Option<String>,
+    #[serde(default)]
+    pub business_info: Option<OpenPlatformBusinessInfo>,
+    #[serde(default)]
+    pub alias: Option<String>,
+    #[serde(default)]
+    pub qrcode_url: Option<String>,
+    #[serde(default)]
+    pub account_status: Option<i64>,
+    #[serde(default)]
+    pub idc: Option<i64>,
+    #[serde(default)]
+    pub signature: Option<String>,
+    #[serde(default, rename = "MiniProgramInfo")]
+    pub mini_program_info: Option<Value>,
+    #[serde(default)]
+    pub register_type: Option<i64>,
+    #[serde(default)]
+    pub basic_config: Option<OpenPlatformBasicConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorizer_info: Option<OpenPlatformAuthorizerInfo>,
+    #[serde(default)]
+    pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizationSummary {
+    #[serde(default)]
+    pub authorizer_appid: Option<String>,
+    #[serde(default)]
+    pub refresh_token: Option<String>,
+    #[serde(default)]
+    pub auth_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizersResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub list: Vec<OpenPlatformAuthorizationSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerOptionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorizer_appid: Option<String>,
+    #[serde(default)]
+    pub option_name: Option<String>,
+    #[serde(default)]
+    pub option_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddTemplateFromDraftRequest {
     pub draft_id: i64,
     pub template_type: i64,
@@ -437,6 +720,8 @@ mod tests {
     use super::{
         AddTemplateFromDraftRequest, AuthorizerAccessTokenRequest, AuthorizerAccessTokenResponse,
         ComponentAccessTokenRequest, ComponentAccessTokenResponse, DeleteTemplateRequest,
+        OpenPlatformAuthorizerInfoResponse, OpenPlatformAuthorizerOptionResponse,
+        OpenPlatformAuthorizersResponse, OpenPlatformHandleAuthorizeResponse,
         OpenPlatformStatusResponse, PreauthCodeResponse, QueryAuthResponse,
         RegisterMiniProgramRequest, RegistrationStatusRequest,
     };
@@ -521,6 +806,97 @@ mod tests {
             response.authorizer_refresh_token.as_deref(),
             Some("refresh-token")
         );
+    }
+
+    #[test]
+    fn deserializes_open_platform_base_responses() {
+        let authorize: OpenPlatformHandleAuthorizeResponse = serde_json::from_value(json!({
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "authorizer_access_token": "authorizer-token",
+                "expires_in": 7200,
+                "authorizer_refresh_token": "refresh-token",
+                "func_info": [{
+                    "funcscope_category": { "id": 1 },
+                    "confirm_info": {
+                        "need_confirm": 1,
+                        "already_confirm": 0,
+                        "can_confirm": 1
+                    }
+                }]
+            }
+        }))
+        .unwrap();
+        let info = authorize.authorization_info.expect("authorization_info");
+        assert_eq!(info.authorizer_appid.as_deref(), Some("wx-authorizer"));
+        assert_eq!(
+            info.func_info[0].funcscope_category.as_ref().unwrap().id,
+            Some(1)
+        );
+        assert_eq!(
+            info.func_info[0].confirm_info.as_ref().unwrap().can_confirm,
+            Some(1)
+        );
+
+        let authorizer: OpenPlatformAuthorizerInfoResponse = serde_json::from_value(json!({
+            "authorizer_info": {
+                "nick_name": "demo",
+                "head_img": "https://example.com/head.png",
+                "service_type_info": { "id": 2 },
+                "verify_type_info": { "id": 0 },
+                "user_name": "gh_xxx",
+                "principal_name": "principal",
+                "business_info": { "open_store": 1, "open_scan": 1 },
+                "alias": "alias",
+                "qrcode_url": "https://example.com/qrcode",
+                "account_status": 0,
+                "MiniProgramInfo": {
+                    "network": { "RequestDomain": ["https://api.example.com"] },
+                    "visit_status": 0
+                },
+                "basic_config": {
+                    "is_phone_configured": true,
+                    "is_email_configured": false
+                }
+            },
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "func_info": []
+            }
+        }))
+        .unwrap();
+        let authorizer_info = authorizer.authorizer_info.expect("authorizer_info");
+        assert_eq!(authorizer_info.nick_name.as_deref(), Some("demo"));
+        assert_eq!(authorizer_info.service_type_info.unwrap().id, Some(2));
+        assert_eq!(
+            authorizer_info.basic_config.unwrap().is_phone_configured,
+            Some(true)
+        );
+        assert_eq!(
+            authorizer_info.mini_program_info.unwrap()["network"]["RequestDomain"][0],
+            "https://api.example.com"
+        );
+
+        let list: OpenPlatformAuthorizersResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "list": [{
+                "authorizer_appid": "wx-authorizer",
+                "refresh_token": "refresh-token",
+                "auth_time": 1800000000
+            }]
+        }))
+        .unwrap();
+        assert_eq!(list.total_count, Some(1));
+        assert_eq!(list.list[0].refresh_token.as_deref(), Some("refresh-token"));
+
+        let option: OpenPlatformAuthorizerOptionResponse = serde_json::from_value(json!({
+            "authorizer_appid": "wx-authorizer",
+            "option_name": "location_report",
+            "option_value": "1"
+        }))
+        .unwrap();
+        assert_eq!(option.option_name.as_deref(), Some("location_report"));
+        assert_eq!(option.option_value.as_deref(), Some("1"));
     }
 
     #[test]
