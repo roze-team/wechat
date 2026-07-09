@@ -149,5 +149,16 @@ mod tests {
             "open_platform.component"
         );
         assert_eq!(wechat.open_platform().base().name(), "open_platform.base");
+        assert_eq!(wechat.open_work().provider().name(), "open_work.provider");
+        assert_eq!(wechat.open_work().base().name(), "open_work.base");
+        assert_eq!(wechat.open_work().suit_auth().name(), "open_work.suit_auth");
+        assert_eq!(wechat.open_work().corp().name(), "open_work.corp");
+        assert_eq!(wechat.open_work().user().name(), "open_work.user");
+        assert_eq!(
+            wechat.open_work().external_contact().name(),
+            "open_work.external_contact"
+        );
+        assert_eq!(wechat.open_work().license().name(), "open_work.license");
+        assert_eq!(wechat.open_work().server().name(), "open_work.server");
     }
 }

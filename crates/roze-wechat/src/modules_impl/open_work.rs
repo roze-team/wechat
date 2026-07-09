@@ -24,6 +24,10 @@ impl OpenWork {
         DomainModule::new(self.inner.clone(), "open_work.provider")
     }
 
+    pub fn base(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "open_work.base")
+    }
+
     pub async fn provider_token(
         &self,
         request: ProviderTokenRequest,
@@ -107,6 +111,38 @@ impl OpenWork {
             .await
     }
 
+    pub fn user(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "open_work.user")
+    }
+
+    pub async fn get_user_info_3rd_by_code(
+        &self,
+        suite_access_token: impl Into<String>,
+        code: impl Into<String>,
+    ) -> Result<OpenWorkUserInfo3rdByCodeResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/service/getuserinfo3rd",
+                Some(suite_access_token.into()),
+                vec![("code".to_string(), code.into())],
+            )
+            .await
+    }
+
+    pub async fn get_user_info_3rd_by_user_ticket(
+        &self,
+        suite_access_token: impl Into<String>,
+        user_ticket: impl Into<String>,
+    ) -> Result<OpenWorkUserInfo3rdByUserTicketResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/service/getuserinfo3rd",
+                Some(suite_access_token.into()),
+                vec![("user_ticket".to_string(), user_ticket.into())],
+            )
+            .await
+    }
+
     pub fn external_contact(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "open_work.external_contact")
     }
@@ -157,11 +193,58 @@ pub struct SuiteTokenResponse {
     pub expires_in: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkUserInfo3rdByCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub deviceid: Option<String>,
+    #[serde(default)]
+    pub user_ticket: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkUserInfo3rdByUserTicketResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default)]
+    pub gender: Option<i64>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub qrcode: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
-    use super::{ProviderTokenRequest, SuiteTokenRequest};
+    use super::{
+        OpenWorkUserInfo3rdByCodeResponse, OpenWorkUserInfo3rdByUserTicketResponse,
+        ProviderTokenRequest, ProviderTokenResponse, SuiteTokenRequest, SuiteTokenResponse,
+    };
 
     #[test]
     fn serializes_provider_token_request() {
@@ -187,5 +270,64 @@ mod tests {
         .unwrap();
 
         assert_eq!(value["suite_ticket"], "ticket");
+    }
+
+    #[test]
+    fn deserializes_open_work_token_responses() {
+        let provider: ProviderTokenResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "provider_access_token": "provider-token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert_eq!(
+            provider.provider_access_token.as_deref(),
+            Some("provider-token")
+        );
+        assert_eq!(provider.expires_in, Some(7200));
+
+        let suite: SuiteTokenResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "suite_access_token": "suite-token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert_eq!(suite.suite_access_token.as_deref(), Some("suite-token"));
+        assert_eq!(suite.expires_in, Some(7200));
+    }
+
+    #[test]
+    fn deserializes_open_work_user_responses() {
+        let by_code: OpenWorkUserInfo3rdByCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "corpid": "corp",
+            "userid": "user",
+            "deviceid": "device",
+            "user_ticket": "ticket",
+            "expires_in": 1800,
+            "open_userid": "open-user"
+        }))
+        .unwrap();
+        assert_eq!(by_code.corpid.as_deref(), Some("corp"));
+        assert_eq!(by_code.userid.as_deref(), Some("user"));
+        assert_eq!(by_code.user_ticket.as_deref(), Some("ticket"));
+        assert_eq!(by_code.open_userid.as_deref(), Some("open-user"));
+
+        let by_ticket: OpenWorkUserInfo3rdByUserTicketResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "corpid": "corp",
+            "userid": "user",
+            "name": "User",
+            "mobile": "13800000000",
+            "gender": 1,
+            "email": "user@example.com",
+            "avatar": "https://example.com/avatar.png",
+            "qrcode": "https://example.com/qrcode.png"
+        }))
+        .unwrap();
+        assert_eq!(by_ticket.name.as_deref(), Some("User"));
+        assert_eq!(by_ticket.mobile.as_deref(), Some("13800000000"));
+        assert_eq!(by_ticket.gender, Some(1));
+        assert_eq!(by_ticket.email.as_deref(), Some("user@example.com"));
     }
 }

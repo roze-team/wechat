@@ -18,11 +18,11 @@ entries, request/response DTOs, and tests.
 | Mini Program | 32 | 32 | 0 |
 | Official Account | 24 | 12 | 13 |
 | Open Platform | 6 | 6 | 0 |
-| Open Work | 8 | 6 | 2 |
+| Open Work | 8 | 8 | 0 |
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 36.
+Total remaining PowerWeChat submodule gaps: 34.
 
 ## Remaining Gaps
 
@@ -45,11 +45,6 @@ Total remaining PowerWeChat submodule gaps: 36.
 - `shakeAround`
 - `store`
 - `wifi`
-
-### Open Work
-
-- `base`
-- `user`
 
 ### Work
 
@@ -76,17 +71,14 @@ Total remaining PowerWeChat submodule gaps: 36.
 
 ## Implementation Priority
 
-1. Mini Program transaction and operational surface:
-   `wxa/sec`.
-2. Work enterprise service surface:
+1. Work enterprise service surface:
    `accountService`, `externalPay`, `invoice`, `idConvert`, `menu`,
    `oa/approval`, `oa/meeting`, `oa/wedoc`, `oa/wedrive`.
-3. Official Account long-tail modules:
+2. Official Account long-tail modules:
    `publish`, `comment`, `dataCube`, `guide`, `semantic`, `shakeAround`,
    `store`, `wifi`, `poi`, `device`, `goods`, `autoReply`, `ocr`.
-4. Remaining platform/base wrappers:
-   Channels `eCommerce/store`, Open Platform `base`, Open Work `base` and
-   `user`.
+3. Remaining Channels wrapper:
+   `eCommerce/store`.
 
 Each completed submodule should add:
 

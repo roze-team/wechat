@@ -62,7 +62,14 @@ Status values:
 | Open Platform | codeTemplate | `open_platform::code_template` | tested |
 | Open Platform | component | `open_platform::component` | tested |
 | Open Platform | server | `open_platform::server` | tested |
-| Open Work | provider/suitAuth/corp | `open_work` | tested |
+| Open Work | base | `open_work::base` | tested |
+| Open Work | corp | `open_work::corp` | tested |
+| Open Work | externalContact | `open_work::external_contact` | tested |
+| Open Work | license | `open_work::license` | tested |
+| Open Work | provider | `open_work::provider` | tested |
+| Open Work | server | `open_work::server` | tested |
+| Open Work | suitAuth | `open_work::suit_auth` | tested |
+| Open Work | user | `open_work::user` | tested |
 | Payment | apply4Sub | `payment::apply4_sub` | tested |
 | Payment | bill | `payment::bill` | tested |
 | Payment | base | `payment::base` | tested |
