@@ -95,9 +95,11 @@ Status values:
 | Work | agent | `work::agent` | tested |
 | Work | auth/oauth | `work::oauth` | tested |
 | Work | department/user/tag | `work::contact` | tested |
+| Work | externalPay | `work::external_pay` | tested |
 | Work | externalContact | `work::external_contact` | tested |
 | Work | groupRobot | `work::group_robot` | tested |
 | Work | idConvert | `work::id_convert` | tested |
+| Work | invoice | `work::invoice` | tested |
 | Work | jssdk | `work::jssdk` | tested |
 | Work | menu | `work::menu` | tested |
 | Work | media | `work::media` | tested |

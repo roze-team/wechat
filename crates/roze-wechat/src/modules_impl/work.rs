@@ -310,6 +310,141 @@ impl Work {
             .await
     }
 
+    pub fn invoice(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.invoice")
+    }
+
+    pub async fn get_invoice_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkInvoiceCardRequest,
+    ) -> Result<WorkInvoiceInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/card/invoice/reimburse/getinvoiceinfo",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_invoice_info_batch(
+        &self,
+        access_token: impl Into<String>,
+        invoice_list: Vec<WorkInvoiceCardRequest>,
+    ) -> Result<WorkInvoiceInfoBatchResponse> {
+        self.inner
+            .post(
+                "cgi-bin/card/invoice/reimburse/getinvoiceinfobatch",
+                Some(access_token.into()),
+                json!({ "item_list": invoice_list }),
+            )
+            .await
+    }
+
+    pub async fn update_invoice_status(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkInvoiceStatusRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/card/invoice/reimburse/updateinvoicestatus",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_invoice_status_batch(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkInvoiceStatusBatchRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/card/invoice/reimburse/updatestatusbatch",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn external_pay(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.external_pay")
+    }
+
+    pub async fn add_external_pay_merchant(
+        &self,
+        access_token: impl Into<String>,
+        mch_id: impl Into<String>,
+        merchant_name: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalpay/addmerchant",
+                Some(access_token.into()),
+                json!({ "mch_id": mch_id.into(), "merchant_name": merchant_name.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_external_pay_merchant(
+        &self,
+        access_token: impl Into<String>,
+        mch_id: impl Into<String>,
+    ) -> Result<WorkExternalPayMerchantResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalpay/getmerchant",
+                Some(access_token.into()),
+                json!({ "mch_id": mch_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn delete_external_pay_merchant(
+        &self,
+        access_token: impl Into<String>,
+        mch_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalpay/delmerchant",
+                Some(access_token.into()),
+                json!({ "mch_id": mch_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn set_external_pay_merchant_use_scope(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkExternalPaySetMerchantUseScopeRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalpay/set_mch_use_scope",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_pay_bill_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkExternalPayBillListRequest,
+    ) -> Result<WorkExternalPayBillListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalpay/get_bill_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn external_contact(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.external_contact")
     }
@@ -1026,6 +1161,104 @@ pub struct WorkFromServiceExternalUserIdResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceCardRequest {
+    pub card_id: String,
+    pub encrypt_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceStatusRequest {
+    pub card_id: String,
+    pub encrypt_code: String,
+    pub reimburse_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceStatusBatchRequest {
+    pub openid: String,
+    pub reimburse_status: String,
+    pub invoice_list: Vec<WorkInvoiceCardRequest>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub card_id: Option<String>,
+    #[serde(default)]
+    pub begin_time: Option<String>,
+    #[serde(default)]
+    pub end_time: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default, rename = "type")]
+    pub invoice_type: Option<String>,
+    #[serde(default)]
+    pub payee: Option<String>,
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub user_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceInfoBatchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub item_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPaySetMerchantUseScopeRequest {
+    pub mch_id: String,
+    pub allow_use_scope: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayBillListRequest {
+    pub begin_time: i64,
+    pub end_time: i64,
+    pub payee_userid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayMerchantResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub bind_status: Option<String>,
+    #[serde(default)]
+    pub mch_id: Option<String>,
+    #[serde(default)]
+    pub merchant_name: Option<String>,
+    #[serde(default)]
+    pub allow_use_scope: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayBillListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub bill_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkStatusResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -1295,11 +1528,14 @@ mod tests {
         AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
         DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
         OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
-        UserIdToOpenIdResponse, Work, WorkExternalTagIdToOpenExternalTagIdResponse,
+        UserIdToOpenIdResponse, Work, WorkExternalPayBillListRequest,
+        WorkExternalPayBillListResponse, WorkExternalPayMerchantResponse,
+        WorkExternalPaySetMerchantUseScopeRequest, WorkExternalTagIdToOpenExternalTagIdResponse,
         WorkExternalUserIdToPendingIdRequest, WorkExternalUserIdToPendingIdResponse,
         WorkFromServiceExternalUserIdRequest, WorkFromServiceExternalUserIdResponse,
-        WorkMenuButton, WorkMenuRequest, WorkMenuResponse, WorkMessage,
-        WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
+        WorkInvoiceCardRequest, WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse,
+        WorkInvoiceStatusBatchRequest, WorkInvoiceStatusRequest, WorkMenuButton, WorkMenuRequest,
+        WorkMenuResponse, WorkMessage, WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
         WorkOpenUserIdToUserIdResponse, WorkUnionIdToExternalUserIdRequest,
         WorkUnionIdToExternalUserIdResponse, WorkUploadMediaResponse,
         WorkUserIdToOpenUserIdResponse,
@@ -1553,6 +1789,105 @@ mod tests {
         let from_service: WorkFromServiceExternalUserIdResponse =
             serde_json::from_value(json!({ "external_userid": "external" })).unwrap();
         assert_eq!(from_service.external_userid.as_deref(), Some("external"));
+    }
+
+    #[test]
+    fn serializes_invoice_requests() {
+        let card = WorkInvoiceCardRequest {
+            card_id: "card".to_string(),
+            encrypt_code: "encrypted".to_string(),
+        };
+        let value = serde_json::to_value(&card).unwrap();
+        assert_eq!(
+            value,
+            json!({ "card_id": "card", "encrypt_code": "encrypted" })
+        );
+
+        let status = serde_json::to_value(WorkInvoiceStatusRequest {
+            card_id: "card".to_string(),
+            encrypt_code: "encrypted".to_string(),
+            reimburse_status: "INVOICE_REIMBURSE_INIT".to_string(),
+        })
+        .unwrap();
+        assert_eq!(status["reimburse_status"], "INVOICE_REIMBURSE_INIT");
+
+        let batch = serde_json::to_value(WorkInvoiceStatusBatchRequest {
+            openid: "openid".to_string(),
+            reimburse_status: "INVOICE_REIMBURSE_CLOSURE".to_string(),
+            invoice_list: vec![card],
+        })
+        .unwrap();
+        assert_eq!(batch["openid"], "openid");
+        assert_eq!(batch["invoice_list"][0]["card_id"], "card");
+    }
+
+    #[test]
+    fn deserializes_invoice_responses() {
+        let info: WorkInvoiceInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "card_id": "card",
+            "begin_time": "2026-01-01",
+            "end_time": "2026-01-31",
+            "openid": "openid",
+            "type": "vat",
+            "payee": "Roze",
+            "detail": "Cloud service",
+            "user_info": { "fee": 100 }
+        }))
+        .unwrap();
+        assert_eq!(info.card_id.as_deref(), Some("card"));
+        assert_eq!(info.invoice_type.as_deref(), Some("vat"));
+        assert_eq!(info.user_info.unwrap()["fee"], 100);
+
+        let batch: WorkInvoiceInfoBatchResponse = serde_json::from_value(json!({
+            "item_list": [{ "card_id": "card", "encrypt_code": "encrypted" }]
+        }))
+        .unwrap();
+        assert_eq!(batch.item_list[0]["card_id"], "card");
+    }
+
+    #[test]
+    fn serializes_external_pay_requests() {
+        let scope = serde_json::to_value(WorkExternalPaySetMerchantUseScopeRequest {
+            mch_id: "1900000109".to_string(),
+            allow_use_scope: "all".to_string(),
+        })
+        .unwrap();
+        assert_eq!(scope["mch_id"], "1900000109");
+        assert_eq!(scope["allow_use_scope"], "all");
+
+        let bill = serde_json::to_value(WorkExternalPayBillListRequest {
+            begin_time: 1_800_000_000,
+            end_time: 1_800_086_400,
+            payee_userid: "user".to_string(),
+            cursor: None,
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(bill["payee_userid"], "user");
+        assert_eq!(bill["limit"], 100);
+        assert!(bill.get("cursor").is_none());
+    }
+
+    #[test]
+    fn deserializes_external_pay_responses() {
+        let merchant: WorkExternalPayMerchantResponse = serde_json::from_value(json!({
+            "bind_status": "bind",
+            "mch_id": "1900000109",
+            "merchant_name": "Roze Shop",
+            "allow_use_scope": [{ "type": "all" }]
+        }))
+        .unwrap();
+        assert_eq!(merchant.mch_id.as_deref(), Some("1900000109"));
+        assert_eq!(merchant.allow_use_scope[0]["type"], "all");
+
+        let bills: WorkExternalPayBillListResponse = serde_json::from_value(json!({
+            "next_cursor": "cursor",
+            "bill_list": [{ "out_trade_no": "trade-no", "amount": 100 }]
+        }))
+        .unwrap();
+        assert_eq!(bills.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(bills.bill_list[0]["out_trade_no"], "trade-no");
     }
 
     #[test]
