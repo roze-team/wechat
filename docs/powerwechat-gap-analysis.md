@@ -9,6 +9,9 @@ The generic `PlatformClient` can still call uncovered endpoints, but these
 items are not considered fully aligned until they have explicit module
 entries, request/response DTOs, and tests.
 
+For method-level depth beyond submodule coverage, see
+`docs/powerwechat-method-depth-audit.md`.
+
 ## Summary
 
 | Family | PowerWeChat submodules | Explicit Roze typed/tested coverage | Remaining gaps |
