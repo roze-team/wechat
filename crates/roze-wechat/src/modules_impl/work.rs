@@ -958,6 +958,38 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.oa.calendar")
     }
 
+    pub fn oa_approval(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.approval")
+    }
+
+    pub async fn create_approval_template(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkApprovalCreateTemplateRequest,
+    ) -> Result<WorkApprovalCreateTemplateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/approval/create_template",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_approval_template(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkApprovalUpdateTemplateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/approval/update_template",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn add_calendar(
         &self,
         access_token: impl Into<String>,
@@ -1032,6 +1064,52 @@ impl Work {
             .await
     }
 
+    pub fn oa_journal(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.journal")
+    }
+
+    pub async fn get_journal_record_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkJournalRecordListRequest,
+    ) -> Result<WorkJournalRecordListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/journal/get_record_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_journal_record_detail(
+        &self,
+        access_token: impl Into<String>,
+        journal_uuid: impl Into<String>,
+    ) -> Result<WorkJournalRecordDetailResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/journal/get_record_detail",
+                Some(access_token.into()),
+                json!({ "journaluuid": journal_uuid.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_journal_stat_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkJournalStatListRequest,
+    ) -> Result<WorkJournalStatListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/journal/get_stat_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn oa_pstncc(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.oa.pstncc")
     }
@@ -1061,6 +1139,66 @@ impl Work {
                 "cgi-bin/pstncc/getstates",
                 Some(access_token.into()),
                 json!({ "callee_userid": callee_userid.into(), "callid": call_id.into() }),
+            )
+            .await
+    }
+
+    pub fn oa_schedule(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.schedule")
+    }
+
+    pub async fn add_schedule(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkScheduleAddRequest,
+    ) -> Result<WorkScheduleAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/schedule/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_schedule(
+        &self,
+        access_token: impl Into<String>,
+        schedule: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/schedule/update",
+                Some(access_token.into()),
+                json!({ "schedule": schedule }),
+            )
+            .await
+    }
+
+    pub async fn get_schedule(
+        &self,
+        access_token: impl Into<String>,
+        schedule_id_list: Vec<String>,
+    ) -> Result<WorkScheduleGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/schedule/get",
+                Some(access_token.into()),
+                json!({ "schedule_id_list": schedule_id_list }),
+            )
+            .await
+    }
+
+    pub async fn delete_schedule(
+        &self,
+        access_token: impl Into<String>,
+        schedule_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/schedule/del",
+                Some(access_token.into()),
+                json!({ "schedule_id": schedule_id.into() }),
             )
             .await
     }
@@ -1735,6 +1873,29 @@ pub struct AppChatCreateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalCreateTemplateRequest {
+    pub template_name: Vec<Value>,
+    pub template_content: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalUpdateTemplateRequest {
+    pub template_id: String,
+    pub template_name: Vec<Value>,
+    pub template_content: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalCreateTemplateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarAddRequest {
     pub calendar: Value,
     pub agentid: i64,
@@ -1779,6 +1940,57 @@ pub struct WorkDialRecordResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalRecordListRequest {
+    pub starttime: String,
+    pub endtime: String,
+    pub cursor: String,
+    pub limit: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalRecordListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub journaluuid_list: Vec<String>,
+    #[serde(default)]
+    pub next_cursor: Option<i64>,
+    #[serde(default)]
+    pub endflag: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalRecordDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalStatListRequest {
+    pub template_id: String,
+    pub starttime: String,
+    pub endtime: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalStatListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub stat_list: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkPstnccCallResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -1802,6 +2014,32 @@ pub struct WorkPstnccGetStatesResponse {
     pub talktime: Option<i64>,
     #[serde(default)]
     pub reason: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleAddRequest {
+    pub schedule: Value,
+    pub agentid: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub schedule_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub schedule_list: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1856,8 +2094,10 @@ mod tests {
         AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
         DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
         OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
-        UserIdToOpenIdResponse, Work, WorkCalendarAddRequest, WorkCalendarAddResponse,
-        WorkCalendarGetResponse, WorkCorpGroupAppShareInfoResponse, WorkCorpGroupTokenResponse,
+        UserIdToOpenIdResponse, Work, WorkApprovalCreateTemplateRequest,
+        WorkApprovalCreateTemplateResponse, WorkApprovalUpdateTemplateRequest,
+        WorkCalendarAddRequest, WorkCalendarAddResponse, WorkCalendarGetResponse,
+        WorkCorpGroupAppShareInfoResponse, WorkCorpGroupTokenResponse,
         WorkCorpGroupTransferSessionResponse, WorkDialRecordRequest, WorkDialRecordResponse,
         WorkExternalPayBillListRequest, WorkExternalPayBillListResponse,
         WorkExternalPayMerchantResponse, WorkExternalPaySetMerchantUseScopeRequest,
@@ -1865,12 +2105,15 @@ mod tests {
         WorkExternalUserIdToPendingIdResponse, WorkFromServiceExternalUserIdRequest,
         WorkFromServiceExternalUserIdResponse, WorkInvoiceCardRequest,
         WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse, WorkInvoiceStatusBatchRequest,
-        WorkInvoiceStatusRequest, WorkIpListResponse, WorkMenuButton, WorkMenuRequest,
-        WorkMenuResponse, WorkMessage, WorkMiniProgramSessionResponse,
-        WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
-        WorkOpenUserIdToUserIdResponse, WorkPstnccCallResponse, WorkPstnccGetStatesResponse,
-        WorkUnionIdToExternalUserIdRequest, WorkUnionIdToExternalUserIdResponse,
-        WorkUploadMediaResponse, WorkUserIdToOpenUserIdResponse,
+        WorkInvoiceStatusRequest, WorkIpListResponse, WorkJournalRecordDetailResponse,
+        WorkJournalRecordListRequest, WorkJournalRecordListResponse, WorkJournalStatListRequest,
+        WorkJournalStatListResponse, WorkMenuButton, WorkMenuRequest, WorkMenuResponse,
+        WorkMessage, WorkMiniProgramSessionResponse, WorkOauthAuthorizeUrlRequest,
+        WorkOpenUserIdToUserIdRequest, WorkOpenUserIdToUserIdResponse, WorkPstnccCallResponse,
+        WorkPstnccGetStatesResponse, WorkScheduleAddRequest, WorkScheduleAddResponse,
+        WorkScheduleGetResponse, WorkUnionIdToExternalUserIdRequest,
+        WorkUnionIdToExternalUserIdResponse, WorkUploadMediaResponse,
+        WorkUserIdToOpenUserIdResponse,
     };
 
     #[test]
@@ -2342,6 +2585,112 @@ mod tests {
         .unwrap();
         assert_eq!(states.istalked, Some(1));
         assert_eq!(states.reason, Some(0));
+    }
+
+    #[test]
+    fn serializes_work_oa_approval_journal_and_schedule_requests() {
+        let approval_create = serde_json::to_value(WorkApprovalCreateTemplateRequest {
+            template_name: vec![json!({ "text": "Leave", "lang": "zh_CN" })],
+            template_content: json!({
+                "controls": [{
+                    "property": {
+                        "control": "Text",
+                        "id": "Text-1",
+                        "title": [{ "text": "Reason", "lang": "zh_CN" }],
+                        "placeholder": [{ "text": "Input", "lang": "zh_CN" }],
+                        "require": 1,
+                        "un_print": 0
+                    },
+                    "config": {}
+                }]
+            }),
+        })
+        .unwrap();
+        assert_eq!(approval_create["template_name"][0]["text"], "Leave");
+        assert_eq!(
+            approval_create["template_content"]["controls"][0]["property"]["id"],
+            "Text-1"
+        );
+
+        let approval_update = serde_json::to_value(WorkApprovalUpdateTemplateRequest {
+            template_id: "template-1".to_string(),
+            template_name: vec![json!({ "text": "Leave", "lang": "zh_CN" })],
+            template_content: json!({ "controls": [] }),
+        })
+        .unwrap();
+        assert_eq!(approval_update["template_id"], "template-1");
+
+        let journal = serde_json::to_value(WorkJournalRecordListRequest {
+            starttime: "1800000000".to_string(),
+            endtime: "1800086400".to_string(),
+            cursor: "0".to_string(),
+            limit: 100,
+            filters: vec![json!({ "key": "template_id", "value": "template-1" })],
+        })
+        .unwrap();
+        assert_eq!(journal["starttime"], "1800000000");
+        assert_eq!(journal["filters"][0]["key"], "template_id");
+
+        let stat = serde_json::to_value(WorkJournalStatListRequest {
+            template_id: "template-1".to_string(),
+            starttime: "1800000000".to_string(),
+            endtime: "1800086400".to_string(),
+        })
+        .unwrap();
+        assert_eq!(stat["template_id"], "template-1");
+
+        let schedule = serde_json::to_value(WorkScheduleAddRequest {
+            schedule: json!({
+                "organizer": "user",
+                "start_time": 1_800_000_000,
+                "end_time": 1_800_003_600
+            }),
+            agentid: 100001,
+        })
+        .unwrap();
+        assert_eq!(schedule["agentid"], 100001);
+        assert_eq!(schedule["schedule"]["organizer"], "user");
+    }
+
+    #[test]
+    fn deserializes_work_oa_approval_journal_and_schedule_responses() {
+        let approval: WorkApprovalCreateTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "template_id": "template-1"
+        }))
+        .unwrap();
+        assert_eq!(approval.template_id.as_deref(), Some("template-1"));
+
+        let records: WorkJournalRecordListResponse = serde_json::from_value(json!({
+            "journaluuid_list": ["journal-1"],
+            "next_cursor": 10,
+            "endflag": false
+        }))
+        .unwrap();
+        assert_eq!(records.journaluuid_list[0], "journal-1");
+        assert_eq!(records.next_cursor, Some(10));
+
+        let detail: WorkJournalRecordDetailResponse = serde_json::from_value(json!({
+            "info": { "journaluuid": "journal-1", "template_id": "template-1" }
+        }))
+        .unwrap();
+        assert_eq!(detail.info.unwrap()["journaluuid"], "journal-1");
+
+        let stats: WorkJournalStatListResponse = serde_json::from_value(json!({
+            "stat_list": { "summary": [{ "userid": "user", "count": 3 }] }
+        }))
+        .unwrap();
+        assert_eq!(stats.stat_list.unwrap()["summary"][0]["count"], 3);
+
+        let schedule_add: WorkScheduleAddResponse =
+            serde_json::from_value(json!({ "schedule_id": "schedule-1" })).unwrap();
+        assert_eq!(schedule_add.schedule_id.as_deref(), Some("schedule-1"));
+
+        let schedule_get: WorkScheduleGetResponse = serde_json::from_value(json!({
+            "schedule_list": [{ "schedule_id": "schedule-1", "summary": "Daily" }]
+        }))
+        .unwrap();
+        assert_eq!(schedule_get.schedule_list[0]["summary"], "Daily");
     }
 
     #[test]
