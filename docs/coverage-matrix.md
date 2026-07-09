@@ -97,7 +97,9 @@ Status values:
 | Work | department/user/tag | `work::contact` | tested |
 | Work | externalContact | `work::external_contact` | tested |
 | Work | groupRobot | `work::group_robot` | tested |
+| Work | idConvert | `work::id_convert` | tested |
 | Work | jssdk | `work::jssdk` | tested |
+| Work | menu | `work::menu` | tested |
 | Work | media | `work::media` | tested |
 | Work | message | `work::message` | tested |
 | Work | msgAudit | `work::msg_audit` | tested |

@@ -222,6 +222,94 @@ impl Work {
             .await
     }
 
+    pub fn id_convert(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.id_convert")
+    }
+
+    pub async fn union_id_to_external_user_id(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUnionIdToExternalUserIdRequest,
+    ) -> Result<WorkUnionIdToExternalUserIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/idconvert/unionid_to_external_userid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn external_user_id_to_pending_id(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkExternalUserIdToPendingIdRequest,
+    ) -> Result<WorkExternalUserIdToPendingIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/idconvert/batch/external_userid_to_pending_id",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn batch_user_id_to_open_user_id(
+        &self,
+        access_token: impl Into<String>,
+        user_id_list: Vec<String>,
+    ) -> Result<WorkUserIdToOpenUserIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/batch/userid_to_openuserid",
+                Some(access_token.into()),
+                json!({ "userid_list": user_id_list }),
+            )
+            .await
+    }
+
+    pub async fn open_user_id_to_user_id(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkOpenUserIdToUserIdRequest,
+    ) -> Result<WorkOpenUserIdToUserIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/batch/openuserid_to_userid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn external_tag_id_to_open_external_tag_id(
+        &self,
+        access_token: impl Into<String>,
+        external_tag_id_list: Vec<String>,
+    ) -> Result<WorkExternalTagIdToOpenExternalTagIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/idconvert/external_tagid",
+                Some(access_token.into()),
+                json!({ "external_tagid_list": external_tag_id_list }),
+            )
+            .await
+    }
+
+    pub async fn from_service_external_user_id(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkFromServiceExternalUserIdRequest,
+    ) -> Result<WorkFromServiceExternalUserIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/from_service_external_userid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn external_contact(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.external_contact")
     }
@@ -541,6 +629,55 @@ impl Work {
             .await
     }
 
+    pub fn menu(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.menu")
+    }
+
+    pub async fn get_menu(
+        &self,
+        access_token: impl Into<String>,
+        agent_id: i64,
+    ) -> Result<WorkMenuResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/menu/get",
+                Some(access_token.into()),
+                vec![("agentid".to_string(), agent_id.to_string())],
+            )
+            .await
+    }
+
+    pub async fn create_menu(
+        &self,
+        access_token: impl Into<String>,
+        agent_id: i64,
+        request: WorkMenuRequest,
+    ) -> Result<WorkMenuCreateResponse> {
+        self.inner
+            .post_json_with_access_token_query(
+                "cgi-bin/menu/create",
+                Some(access_token.into()),
+                vec![("agentid".to_string(), agent_id.to_string())],
+                serde_json::to_value(request).expect("work menu request serializes"),
+                Vec::new(),
+            )
+            .await
+    }
+
+    pub async fn delete_menu(
+        &self,
+        access_token: impl Into<String>,
+        agent_id: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/menu/delete",
+                Some(access_token.into()),
+                vec![("agentid".to_string(), agent_id.to_string())],
+            )
+            .await
+    }
+
     pub fn msg_audit(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.msg_audit")
     }
@@ -764,6 +901,131 @@ pub struct OpenIdToUserIdResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUnionIdToExternalUserIdRequest {
+    pub unionid: String,
+    pub openid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_type: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUnionIdToExternalUserIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub pending_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalUserIdToPendingIdRequest {
+    pub external_userid: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chat_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalUserIdToPendingIdItem {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub pending_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalUserIdToPendingIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub result: Vec<WorkExternalUserIdToPendingIdItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserIdToOpenUserIdItem {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserIdToOpenUserIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub open_userid_list: Vec<WorkUserIdToOpenUserIdItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkOpenUserIdToUserIdRequest {
+    pub source_agentid: i64,
+    pub open_userid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkOpenUserIdToUserIdItem {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkOpenUserIdToUserIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid_list: Vec<WorkOpenUserIdToUserIdItem>,
+    #[serde(default)]
+    pub invalid_userid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalTagIdToOpenExternalTagIdItem {
+    #[serde(default)]
+    pub external_tagid: Option<String>,
+    #[serde(default)]
+    pub open_external_tagid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalTagIdToOpenExternalTagIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub items: Vec<WorkExternalTagIdToOpenExternalTagIdItem>,
+    #[serde(default)]
+    pub invalid_tagid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkFromServiceExternalUserIdRequest {
+    pub external_userid: String,
+    pub source_agentid: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkFromServiceExternalUserIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkStatusResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -839,6 +1101,48 @@ pub struct MessageSendResponse {
     pub msgid: Option<String>,
     #[serde(default)]
     pub response_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMenuRequest {
+    pub button: Vec<WorkMenuButton>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMenuButton {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagepath: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub appid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sub_button: Vec<WorkMenuButton>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMenuResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub button: Vec<WorkMenuButton>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMenuCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub button: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -991,8 +1295,14 @@ mod tests {
         AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
         DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
         OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
-        UserIdToOpenIdResponse, Work, WorkMessage, WorkOauthAuthorizeUrlRequest,
-        WorkUploadMediaResponse,
+        UserIdToOpenIdResponse, Work, WorkExternalTagIdToOpenExternalTagIdResponse,
+        WorkExternalUserIdToPendingIdRequest, WorkExternalUserIdToPendingIdResponse,
+        WorkFromServiceExternalUserIdRequest, WorkFromServiceExternalUserIdResponse,
+        WorkMenuButton, WorkMenuRequest, WorkMenuResponse, WorkMessage,
+        WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
+        WorkOpenUserIdToUserIdResponse, WorkUnionIdToExternalUserIdRequest,
+        WorkUnionIdToExternalUserIdResponse, WorkUploadMediaResponse,
+        WorkUserIdToOpenUserIdResponse,
     };
 
     #[test]
@@ -1026,6 +1336,66 @@ mod tests {
 
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["mentioned_list"][0], "@all");
+    }
+
+    #[test]
+    fn serializes_work_menu_request() {
+        let value = serde_json::to_value(WorkMenuRequest {
+            button: vec![
+                WorkMenuButton {
+                    kind: Some("click".to_string()),
+                    name: "Today".to_string(),
+                    key: Some("today".to_string()),
+                    pagepath: None,
+                    appid: None,
+                    url: None,
+                    sub_button: Vec::new(),
+                },
+                WorkMenuButton {
+                    kind: None,
+                    name: "More".to_string(),
+                    key: None,
+                    pagepath: None,
+                    appid: None,
+                    url: None,
+                    sub_button: vec![WorkMenuButton {
+                        kind: Some("view".to_string()),
+                        name: "Docs".to_string(),
+                        key: None,
+                        pagepath: None,
+                        appid: None,
+                        url: Some("https://example.com".to_string()),
+                        sub_button: Vec::new(),
+                    }],
+                },
+            ],
+        })
+        .unwrap();
+
+        assert_eq!(value["button"][0]["type"], "click");
+        assert_eq!(value["button"][0]["key"], "today");
+        assert_eq!(
+            value["button"][1]["sub_button"][0]["url"],
+            "https://example.com"
+        );
+        assert!(value["button"][1].get("type").is_none());
+    }
+
+    #[test]
+    fn deserializes_work_menu_response() {
+        let menu: WorkMenuResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "button": [{
+                "type": "click",
+                "name": "Today",
+                "key": "today",
+                "sub_button": []
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(menu.button[0].kind.as_deref(), Some("click"));
+        assert_eq!(menu.button[0].key.as_deref(), Some("today"));
     }
 
     #[test]
@@ -1092,6 +1462,40 @@ mod tests {
     }
 
     #[test]
+    fn serializes_id_convert_requests() {
+        let union = serde_json::to_value(WorkUnionIdToExternalUserIdRequest {
+            unionid: "union".to_string(),
+            openid: "openid".to_string(),
+            subject_type: Some(1),
+        })
+        .unwrap();
+        assert_eq!(union["unionid"], "union");
+        assert_eq!(union["subject_type"], 1);
+
+        let pending = serde_json::to_value(WorkExternalUserIdToPendingIdRequest {
+            external_userid: vec!["external".to_string()],
+            chat_id: None,
+        })
+        .unwrap();
+        assert_eq!(pending, json!({ "external_userid": ["external"] }));
+
+        let open_to_user = serde_json::to_value(WorkOpenUserIdToUserIdRequest {
+            source_agentid: 100001,
+            open_userid_list: vec!["open-user".to_string()],
+        })
+        .unwrap();
+        assert_eq!(open_to_user["source_agentid"], 100001);
+        assert_eq!(open_to_user["open_userid_list"][0], "open-user");
+
+        let from_service = serde_json::to_value(WorkFromServiceExternalUserIdRequest {
+            external_userid: "service-external".to_string(),
+            source_agentid: 100001,
+        })
+        .unwrap();
+        assert_eq!(from_service["external_userid"], "service-external");
+    }
+
+    #[test]
     fn deserializes_user_id_openid_conversion_responses() {
         let to_openid: UserIdToOpenIdResponse =
             serde_json::from_value(json!({ "openid": "openid", "appid": "wxappid" })).unwrap();
@@ -1101,6 +1505,54 @@ mod tests {
         assert_eq!(to_openid.openid.as_deref(), Some("openid"));
         assert_eq!(to_openid.appid.as_deref(), Some("wxappid"));
         assert_eq!(to_userid.userid.as_deref(), Some("user"));
+    }
+
+    #[test]
+    fn deserializes_id_convert_responses() {
+        let union: WorkUnionIdToExternalUserIdResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "external_userid": "external",
+            "pending_id": "pending"
+        }))
+        .unwrap();
+        assert_eq!(union.external_userid.as_deref(), Some("external"));
+
+        let pending: WorkExternalUserIdToPendingIdResponse = serde_json::from_value(json!({
+            "result": [{ "external_userid": "external", "pending_id": "pending" }]
+        }))
+        .unwrap();
+        assert_eq!(pending.result[0].pending_id.as_deref(), Some("pending"));
+
+        let user_to_open: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
+            "open_userid_list": [{ "userid": "user", "open_userid": "open-user" }]
+        }))
+        .unwrap();
+        assert_eq!(
+            user_to_open.open_userid_list[0].open_userid.as_deref(),
+            Some("open-user")
+        );
+
+        let open_to_user: WorkOpenUserIdToUserIdResponse = serde_json::from_value(json!({
+            "userid_list": [{ "userid": "user", "open_userid": "open-user" }],
+            "invalid_userid_list": ["bad-open-user"]
+        }))
+        .unwrap();
+        assert_eq!(open_to_user.userid_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(open_to_user.invalid_userid_list[0], "bad-open-user");
+
+        let tag: WorkExternalTagIdToOpenExternalTagIdResponse = serde_json::from_value(json!({
+            "items": [{ "external_tagid": "tag", "open_external_tagid": "open-tag" }],
+            "invalid_tagid_list": []
+        }))
+        .unwrap();
+        assert_eq!(
+            tag.items[0].open_external_tagid.as_deref(),
+            Some("open-tag")
+        );
+
+        let from_service: WorkFromServiceExternalUserIdResponse =
+            serde_json::from_value(json!({ "external_userid": "external" })).unwrap();
+        assert_eq!(from_service.external_userid.as_deref(), Some("external"));
     }
 
     #[test]
