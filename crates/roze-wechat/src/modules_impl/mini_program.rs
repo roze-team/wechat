@@ -927,6 +927,10 @@ impl MiniProgram {
             .await
     }
 
+    pub fn server(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.server")
+    }
+
     pub fn search(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.search")
     }

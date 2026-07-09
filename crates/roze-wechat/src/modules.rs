@@ -95,6 +95,7 @@ mod tests {
             wechat.mini_program().operation().name(),
             "mini_program.operation"
         );
+        assert_eq!(wechat.mini_program().server().name(), "mini_program.server");
         assert_eq!(wechat.mini_program().search().name(), "mini_program.search");
         assert_eq!(
             wechat.mini_program().nearby_poi().name(),

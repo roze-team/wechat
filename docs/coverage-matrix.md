@@ -35,6 +35,7 @@ Status values:
 | Mini Program | riskControl | `mini_program::risk_control` | tested |
 | Mini Program | search | `mini_program::search` | tested |
 | Mini Program | security | `mini_program::security` | tested |
+| Mini Program | server | `mini_program::server` | tested |
 | Mini Program | serviceMarket | `mini_program::service_market` | tested |
 | Mini Program | soter | `mini_program::soter` | tested |
 | Mini Program | subscribe/uniform/updatable messages | `mini_program::messages` | tested |

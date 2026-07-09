@@ -83,6 +83,8 @@ pub struct CallbackMessage {
     pub event_key: Option<String>,
     #[serde(default, rename = "MsgId")]
     pub msg_id: Option<i64>,
+    #[serde(default, rename = "AgentID")]
+    pub agent_id: Option<i64>,
     #[serde(default, rename = "Content")]
     pub content: Option<String>,
     #[serde(default, rename = "PicUrl")]
@@ -103,6 +105,8 @@ pub struct CallbackMessage {
     pub scale: Option<i64>,
     #[serde(default, rename = "Label")]
     pub label: Option<String>,
+    #[serde(default, rename = "AppType")]
+    pub app_type: Option<String>,
     #[serde(default, rename = "Title")]
     pub title: Option<String>,
     #[serde(default, rename = "Description")]
@@ -127,6 +131,20 @@ pub struct CallbackMessage {
     pub suite_ticket: Option<String>,
     #[serde(default, rename = "AuthCorpId")]
     pub auth_corp_id: Option<String>,
+    #[serde(default, rename = "appid")]
+    pub appid: Option<String>,
+    #[serde(default, rename = "trace_id")]
+    pub trace_id: Option<String>,
+    #[serde(default, rename = "version")]
+    pub version: Option<i64>,
+    #[serde(default, rename = "detail")]
+    pub detail: Vec<MediaCheckDetail>,
+    #[serde(default, rename = "errCode")]
+    pub err_code: Option<i64>,
+    #[serde(default, rename = "errMsg")]
+    pub err_msg: Option<String>,
+    #[serde(default, rename = "result")]
+    pub result: Option<MediaCheckResult>,
 }
 
 impl CallbackMessage {
@@ -140,6 +158,28 @@ impl CallbackMessage {
             .as_deref()
             .is_some_and(|value| !value.is_empty())
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaCheckDetail {
+    #[serde(default)]
+    pub strategy: Option<String>,
+    #[serde(default, rename = "errCode")]
+    pub err_code: Option<i64>,
+    #[serde(default)]
+    pub suggest: Option<String>,
+    #[serde(default)]
+    pub label: Option<i64>,
+    #[serde(default)]
+    pub prob: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaCheckResult {
+    #[serde(default)]
+    pub suggest: Option<String>,
+    #[serde(default)]
+    pub label: Option<i64>,
 }
 
 #[cfg(test)]
@@ -215,6 +255,106 @@ mod tests {
         assert_eq!(message.event.as_deref(), Some("CLICK"));
         assert_eq!(message.event_key.as_deref(), Some("MENU_KEY"));
         assert!(message.is_encrypted());
+    }
+
+    #[test]
+    fn parses_mini_program_server_message_xml() {
+        let image = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[image]]></MsgType>
+                <PicUrl><![CDATA[https://example.com/a.jpg]]></PicUrl>
+                <MediaId><![CDATA[media-id]]></MediaId>
+                <MsgId>123</MsgId>
+                <AgentID>42</AgentID>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(image.msg_type.as_deref(), Some("image"));
+        assert_eq!(image.pic_url.as_deref(), Some("https://example.com/a.jpg"));
+        assert_eq!(image.media_id.as_deref(), Some("media-id"));
+        assert_eq!(image.agent_id, Some(42));
+
+        let location = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[location]]></MsgType>
+                <Location_X>23.134521</Location_X>
+                <Location_Y>113.358803</Location_Y>
+                <Scale>20</Scale>
+                <Label><![CDATA[label]]></Label>
+                <AppType><![CDATA[wxamini]]></AppType>
+                <MsgId>456</MsgId>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(location.location_x, Some(23.134521));
+        assert_eq!(location.location_y, Some(113.358803));
+        assert_eq!(location.scale, Some(20));
+        assert_eq!(location.app_type.as_deref(), Some("wxamini"));
+
+        let link = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[link]]></MsgType>
+                <Title><![CDATA[title]]></Title>
+                <Description><![CDATA[desc]]></Description>
+                <Url><![CDATA[https://example.com]]></Url>
+                <PicUrl><![CDATA[https://example.com/pic.jpg]]></PicUrl>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(link.title.as_deref(), Some("title"));
+        assert_eq!(link.description.as_deref(), Some("desc"));
+        assert_eq!(link.url.as_deref(), Some("https://example.com"));
+    }
+
+    #[test]
+    fn parses_mini_program_media_check_async_xml() {
+        let message = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[to]]></ToUserName>
+                <FromUserName><![CDATA[from]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[event]]></MsgType>
+                <Event><![CDATA[wxa_media_check]]></Event>
+                <appid><![CDATA[wxappid]]></appid>
+                <trace_id><![CDATA[trace-id]]></trace_id>
+                <version>2</version>
+                <detail>
+                    <strategy><![CDATA[content_model]]></strategy>
+                    <errCode>0</errCode>
+                    <suggest><![CDATA[pass]]></suggest>
+                    <label>100</label>
+                    <prob>90</prob>
+                </detail>
+                <errCode>0</errCode>
+                <errMsg><![CDATA[ok]]></errMsg>
+                <result>
+                    <suggest><![CDATA[pass]]></suggest>
+                    <label>100</label>
+                </result>
+            </xml>"#,
+        )
+        .unwrap();
+
+        assert_eq!(message.event.as_deref(), Some("wxa_media_check"));
+        assert_eq!(message.appid.as_deref(), Some("wxappid"));
+        assert_eq!(message.trace_id.as_deref(), Some("trace-id"));
+        assert_eq!(message.version, Some(2));
+        assert_eq!(message.err_code, Some(0));
+        assert_eq!(message.detail[0].strategy.as_deref(), Some("content_model"));
+        assert_eq!(message.detail[0].prob, Some(90));
+        assert_eq!(
+            message.result.expect("result").suggest.as_deref(),
+            Some("pass")
+        );
     }
 
     #[test]
