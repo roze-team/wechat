@@ -147,8 +147,277 @@ impl OpenWork {
         DomainModule::new(self.inner.clone(), "open_work.external_contact")
     }
 
+    pub async fn union_id_to_external_user_id_3rd(
+        &self,
+        provider_access_token: impl Into<String>,
+        union_id: impl Into<String>,
+        open_id: impl Into<String>,
+        corp_id: Option<String>,
+    ) -> Result<OpenWorkUnionIdToExternalUserId3rdResponse> {
+        let mut query = vec![
+            ("unionid".to_string(), union_id.into()),
+            ("openid".to_string(), open_id.into()),
+        ];
+        if let Some(corp_id) = corp_id {
+            query.push(("corpid".to_string(), corp_id));
+        }
+        self.inner
+            .get_with_query(
+                "cgi-bin/externalcontact/unionid_to_external_userid_3rd",
+                Some(provider_access_token.into()),
+                query,
+            )
+            .await
+    }
+
     pub fn license(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "open_work.license")
+    }
+
+    pub async fn create_license_new_order(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseCreateNewOrderRequest,
+    ) -> Result<OpenWorkLicenseOrderIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/create_new_order",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn create_license_renew_order_job(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseCreateRenewOrderJobRequest,
+    ) -> Result<OpenWorkLicenseCreateRenewOrderJobResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/create_renew_order_job",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn submit_license_order_job(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseSubmitOrderJobRequest,
+    ) -> Result<OpenWorkLicenseOrderIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/submit_order_job",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_license_order(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseListOrderRequest,
+    ) -> Result<OpenWorkLicenseListOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/list_order",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_license_order(
+        &self,
+        provider_access_token: impl Into<String>,
+        order_id: impl Into<String>,
+    ) -> Result<OpenWorkLicenseOrderResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/get_order",
+                Some(provider_access_token.into()),
+                json!({ "order_id": order_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn list_license_order_account(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseListOrderAccountRequest,
+    ) -> Result<OpenWorkLicenseListAccountResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/list_order_account",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn cancel_license_order(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        order_id: impl Into<String>,
+    ) -> Result<OpenWorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/cancel_order",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "order_id": order_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn activate_license_account(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseActiveInfo,
+    ) -> Result<OpenWorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/active_account",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn batch_activate_license_account(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        active_list: Vec<OpenWorkLicenseActiveInfo>,
+    ) -> Result<OpenWorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/batch_active_account",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "active_list": active_list }),
+            )
+            .await
+    }
+
+    pub async fn get_license_active_info_by_code(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        active_code: impl Into<String>,
+    ) -> Result<OpenWorkLicenseActiveInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/get_active_info_by_code",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "active_code": active_code.into() }),
+            )
+            .await
+    }
+
+    pub async fn batch_get_license_active_info_by_code(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        active_code_list: Vec<String>,
+    ) -> Result<OpenWorkLicenseActiveInfoListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/batch_get_active_info_by_code",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "active_code_list": active_code_list }),
+            )
+            .await
+    }
+
+    pub async fn list_license_activated_account(
+        &self,
+        provider_access_token: impl Into<String>,
+        request: OpenWorkLicenseListActivatedAccountRequest,
+    ) -> Result<OpenWorkLicenseListAccountResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/list_activated_account",
+                Some(provider_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_license_active_info_by_user(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<OpenWorkLicenseUserActiveInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/get_active_info_by_user",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "userid": user_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn batch_transfer_license(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        transfer_list: Vec<OpenWorkLicenseTransferInfo>,
+    ) -> Result<OpenWorkLicenseTransferResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/batch_transfer_license",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "transfer_list": transfer_list }),
+            )
+            .await
+    }
+
+    pub async fn get_app_license_info(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        suite_id: impl Into<String>,
+    ) -> Result<OpenWorkLicenseInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/get_app_license_info",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "suite_id": suite_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn set_license_auto_active_status(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+        auto_active_status: i64,
+    ) -> Result<OpenWorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/set_auto_active_status",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into(), "auto_active_status": auto_active_status }),
+            )
+            .await
+    }
+
+    pub async fn get_license_auto_active_status(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+    ) -> Result<OpenWorkLicenseAutoActiveStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/license/get_auto_active_status",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into() }),
+            )
+            .await
     }
 
     pub fn server(&self) -> DomainModule {
@@ -237,14 +506,279 @@ pub struct OpenWorkUserInfo3rdByUserTicketResponse {
     pub qrcode: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkExternalUserIdInfo {
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkUnionIdToExternalUserId3rdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub external_userid_info: Vec<OpenWorkExternalUserIdInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseAccountCount {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_count: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_contact_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseAccountDuration {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub month: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub days: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_expire_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseCreateNewOrderRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corpid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buyer_userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_count: Option<OpenWorkLicenseAccountCount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_duration: Option<OpenWorkLicenseAccountDuration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseCreateRenewOrderJobRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corpid: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub account_list: Vec<OpenWorkLicenseActiveInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jobid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseSubmitOrderJobRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jobid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buyer_userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_duration: Option<OpenWorkLicenseAccountDuration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseListOrderRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corpid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseListOrderAccountRequest {
+    pub order_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseListActivatedAccountRequest {
+    pub corpid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseActiveInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corpid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "type")]
+    pub account_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub create_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expire_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_info: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub share_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseTransferInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handover_userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub takeover_userid: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseOrderIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseCreateRenewOrderJobResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub jobid: Option<String>,
+    #[serde(default)]
+    pub invalid_account_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseListOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub has_more: Option<i64>,
+    #[serde(default)]
+    pub order_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub order: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseListAccountResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub has_more: Option<i64>,
+    #[serde(default)]
+    pub account_list: Vec<OpenWorkLicenseActiveInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseActiveInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub active_info: Option<OpenWorkLicenseActiveInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseActiveInfoListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub active_info_list: Vec<OpenWorkLicenseActiveInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseUserActiveInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub active_status: Option<i64>,
+    #[serde(default)]
+    pub active_info_list: Vec<OpenWorkLicenseActiveInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseTransferResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub transfer_result: Vec<OpenWorkLicenseTransferInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub license_status: Option<i64>,
+    #[serde(default)]
+    pub license_check_time: Option<i64>,
+    #[serde(default)]
+    pub trail_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseAutoActiveStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub auto_active_status: Option<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
-    use super::{
-        OpenWorkUserInfo3rdByCodeResponse, OpenWorkUserInfo3rdByUserTicketResponse,
-        ProviderTokenRequest, ProviderTokenResponse, SuiteTokenRequest, SuiteTokenResponse,
-    };
+    use super::*;
 
     #[test]
     fn serializes_provider_token_request() {
@@ -329,5 +863,160 @@ mod tests {
         assert_eq!(by_ticket.mobile.as_deref(), Some("13800000000"));
         assert_eq!(by_ticket.gender, Some(1));
         assert_eq!(by_ticket.email.as_deref(), Some("user@example.com"));
+    }
+
+    #[test]
+    fn deserializes_open_work_external_contact_response() {
+        let response: OpenWorkUnionIdToExternalUserId3rdResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "external_userid_info": [{
+                "corpid": "corp",
+                "external_userid": "external-user"
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(
+            response.external_userid_info[0].external_userid.as_deref(),
+            Some("external-user")
+        );
+    }
+
+    #[test]
+    fn serializes_open_work_license_requests() {
+        let new_order = serde_json::to_value(OpenWorkLicenseCreateNewOrderRequest {
+            corpid: Some("corp".to_string()),
+            buyer_userid: Some("buyer".to_string()),
+            account_count: Some(OpenWorkLicenseAccountCount {
+                base_count: Some(10),
+                external_contact_count: None,
+            }),
+            account_duration: Some(OpenWorkLicenseAccountDuration {
+                month: Some(12),
+                days: None,
+                new_expire_time: None,
+            }),
+        })
+        .unwrap();
+        assert_eq!(new_order["corpid"], "corp");
+        assert_eq!(new_order["account_count"]["base_count"], 10);
+        assert!(new_order["account_count"]
+            .get("external_contact_count")
+            .is_none());
+
+        let renew = serde_json::to_value(OpenWorkLicenseCreateRenewOrderJobRequest {
+            corpid: Some("corp".to_string()),
+            account_list: vec![OpenWorkLicenseActiveInfo {
+                active_code: Some("active-code".to_string()),
+                userid: Some("user".to_string()),
+                corpid: None,
+                account_type: Some(1),
+                status: None,
+                create_time: None,
+                active_time: None,
+                expire_time: None,
+                merge_info: None,
+                share_info: None,
+            }],
+            jobid: None,
+        })
+        .unwrap();
+        assert_eq!(renew["account_list"][0]["active_code"], "active-code");
+        assert_eq!(renew["account_list"][0]["type"], 1);
+        assert!(renew.get("jobid").is_none());
+
+        let list = serde_json::to_value(OpenWorkLicenseListOrderRequest {
+            corpid: Some("corp".to_string()),
+            start_time: Some("2026-07-01".to_string()),
+            end_time: Some("2026-07-09".to_string()),
+            cursor: None,
+            limit: Some(100),
+        })
+        .unwrap();
+        assert_eq!(list["limit"], 100);
+        assert!(list.get("cursor").is_none());
+
+        let transfer = serde_json::to_value(OpenWorkLicenseTransferInfo {
+            handover_userid: Some("old-user".to_string()),
+            takeover_userid: Some("new-user".to_string()),
+            errcode: None,
+        })
+        .unwrap();
+        assert_eq!(transfer["handover_userid"], "old-user");
+        assert_eq!(transfer["takeover_userid"], "new-user");
+    }
+
+    #[test]
+    fn deserializes_open_work_license_responses() {
+        let order_id: OpenWorkLicenseOrderIdResponse =
+            serde_json::from_value(json!({ "errcode": 0, "order_id": "order-id" })).unwrap();
+        assert_eq!(order_id.order_id.as_deref(), Some("order-id"));
+
+        let job: OpenWorkLicenseCreateRenewOrderJobResponse = serde_json::from_value(json!({
+            "jobid": "job-id",
+            "invalid_account_list": [{ "userid": "bad-user", "errcode": 40001 }]
+        }))
+        .unwrap();
+        assert_eq!(job.jobid.as_deref(), Some("job-id"));
+        assert_eq!(job.invalid_account_list[0]["userid"], "bad-user");
+
+        let orders: OpenWorkLicenseListOrderResponse = serde_json::from_value(json!({
+            "next_cursor": "cursor",
+            "has_more": 1,
+            "order_list": [{ "order_id": "order-id", "order_status": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(orders.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(orders.order_list[0]["order_id"], "order-id");
+
+        let accounts: OpenWorkLicenseListAccountResponse = serde_json::from_value(json!({
+            "account_list": [{
+                "active_code": "active-code",
+                "userid": "user",
+                "type": 1,
+                "status": 2
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            accounts.account_list[0].active_code.as_deref(),
+            Some("active-code")
+        );
+        assert_eq!(accounts.account_list[0].account_type, Some(1));
+
+        let active: OpenWorkLicenseActiveInfoResponse = serde_json::from_value(json!({
+            "active_info": { "active_code": "active-code", "userid": "user" }
+        }))
+        .unwrap();
+        assert_eq!(
+            active.active_info.expect("active_info").userid.as_deref(),
+            Some("user")
+        );
+
+        let transfer: OpenWorkLicenseTransferResponse = serde_json::from_value(json!({
+            "transfer_result": [{
+                "handover_userid": "old-user",
+                "takeover_userid": "new-user",
+                "errcode": 0
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            transfer.transfer_result[0].takeover_userid.as_deref(),
+            Some("new-user")
+        );
+
+        let license: OpenWorkLicenseInfoResponse = serde_json::from_value(json!({
+            "license_status": 1,
+            "license_check_time": 1800000000,
+            "trail_info": { "start_time": 1800000000, "end_time": 1807776000 }
+        }))
+        .unwrap();
+        assert_eq!(license.license_status, Some(1));
+        assert_eq!(license.trail_info.unwrap()["end_time"], 1_807_776_000);
+
+        let auto_active: OpenWorkLicenseAutoActiveStatusResponse =
+            serde_json::from_value(json!({ "auto_active_status": 1 })).unwrap();
+        assert_eq!(auto_active.auto_active_status, Some(1));
     }
 }
