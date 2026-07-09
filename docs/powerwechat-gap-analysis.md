@@ -20,9 +20,9 @@ entries, request/response DTOs, and tests.
 | Open Platform | 6 | 6 | 0 |
 | Open Work | 8 | 8 | 0 |
 | Payment | 20 | 20 | 0 |
-| Work | 33 | 27 | 7 |
+| Work | 33 | 30 | 4 |
 
-Total remaining PowerWeChat submodule gaps: 17.
+Total remaining PowerWeChat submodule gaps: 14.
 
 ## Remaining Gaps
 
@@ -44,9 +44,6 @@ Total remaining PowerWeChat submodule gaps: 17.
 - `accountService`
 - `aibot`
 - `oa/living`
-- `oa/meeting`
-- `oa/meetingroom`
-- `oa/wedoc`
 - `oa/wedrive`
 
 ## Implementation Priority

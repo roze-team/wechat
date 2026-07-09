@@ -1203,6 +1203,192 @@ impl Work {
             .await
     }
 
+    pub fn oa_meeting(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.meeting")
+    }
+
+    pub async fn create_meeting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingCreateRequest,
+    ) -> Result<WorkMeetingCreateResponse> {
+        self.inner
+            .post("cgi-bin/meeting/create", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn update_meeting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/meeting/update", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn cancel_meeting(
+        &self,
+        access_token: impl Into<String>,
+        meeting_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/meeting/cancel",
+                Some(access_token.into()),
+                json!({ "meetingid": meeting_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_user_meeting_ids(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingGetUserMeetingIdRequest,
+    ) -> Result<WorkMeetingGetUserMeetingIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/meeting/get_user_meetingid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_meeting_info(
+        &self,
+        access_token: impl Into<String>,
+        meeting_id: impl Into<String>,
+    ) -> Result<WorkMeetingGetInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/meeting/get_info",
+                Some(access_token.into()),
+                json!({ "meetingid": meeting_id.into() }),
+            )
+            .await
+    }
+
+    pub fn oa_meetingroom(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.meetingroom")
+    }
+
+    pub async fn add_meeting_room(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomAddRequest,
+    ) -> Result<WorkMeetingRoomAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_meeting_rooms(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomListRequest,
+    ) -> Result<WorkMeetingRoomListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_meeting_room(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomEditRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/edit",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_meeting_room(
+        &self,
+        access_token: impl Into<String>,
+        meetingroom_id: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/del",
+                Some(access_token.into()),
+                json!({ "meetingroom_id": meetingroom_id }),
+            )
+            .await
+    }
+
+    pub async fn get_meeting_room_booking_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomGetBookingInfoRequest,
+    ) -> Result<WorkMeetingRoomGetBookingInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/get_booking_info",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn book_meeting_room(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomBookRequest,
+    ) -> Result<WorkMeetingRoomBookResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/book",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn cancel_meeting_room_book(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomCancelBookRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/cancel_book",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn oa_wedoc(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.wedoc")
+    }
+
+    pub async fn create_wedoc_form(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocCreateFormRequest,
+    ) -> Result<WorkWeDocCreateFormResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/create_form",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn appchat_create(
         &self,
         access_token: impl Into<String>,
@@ -2017,6 +2203,212 @@ pub struct WorkPstnccGetStatesResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingCreateRequest {
+    pub creator_userid: String,
+    pub title: String,
+    pub meeting_start: i64,
+    pub meeting_duration: i64,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub meeting_type: i64,
+    pub remind_time: i64,
+    pub agentid: i64,
+    pub attendees: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingUpdateRequest {
+    pub meetingid: String,
+    pub title: String,
+    pub meeting_start: i64,
+    pub meeting_duration: i64,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub meeting_type: i64,
+    pub remind_time: i64,
+    pub attendees: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingGetUserMeetingIdRequest {
+    pub userid: String,
+    pub cursor: String,
+    pub begin_time: i64,
+    pub end_time: i64,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub meetingid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingGetUserMeetingIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub meetingid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingGetInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub creator_userid: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub reserve_meeting_start: Option<i64>,
+    #[serde(default)]
+    pub reserve_meeting_duration: Option<i64>,
+    #[serde(default)]
+    pub meeting_start: Option<i64>,
+    #[serde(default)]
+    pub meeting_duration: Option<i64>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub main_department: Option<i64>,
+    #[serde(default, rename = "type")]
+    pub meeting_type: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub remind_time: Option<i64>,
+    #[serde(default)]
+    pub attendees: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomAddRequest {
+    pub name: String,
+    pub capacity: i64,
+    pub city: String,
+    pub building: String,
+    pub floor: String,
+    pub equipment: Vec<i64>,
+    pub coordinate: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomEditRequest {
+    pub meetingroom_id: i64,
+    pub name: String,
+    pub capacity: i64,
+    pub city: String,
+    pub building: String,
+    pub floor: String,
+    pub equipment: Vec<i64>,
+    pub coordinate: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomListRequest {
+    pub city: String,
+    pub building: String,
+    pub floor: String,
+    pub equipment: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomGetBookingInfoRequest {
+    pub meetingroom_id: i64,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub city: String,
+    pub building: String,
+    pub floor: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookRequest {
+    pub meetingroom_id: i64,
+    pub subject: String,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub booker: String,
+    pub attendees: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomCancelBookRequest {
+    pub meeting_id: String,
+    pub keep_schedule: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub meetingroom_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub meetingroom_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomGetBookingInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub booking_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub meeting_id: Option<i64>,
+    #[serde(default)]
+    pub schedule_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocCreateFormRequest {
+    pub spaceid: String,
+    pub fatherid: String,
+    pub form_info: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocCreateFormResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub formid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleAddRequest {
     pub schedule: Value,
     pub agentid: i64,
@@ -2107,13 +2499,20 @@ mod tests {
         WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse, WorkInvoiceStatusBatchRequest,
         WorkInvoiceStatusRequest, WorkIpListResponse, WorkJournalRecordDetailResponse,
         WorkJournalRecordListRequest, WorkJournalRecordListResponse, WorkJournalStatListRequest,
-        WorkJournalStatListResponse, WorkMenuButton, WorkMenuRequest, WorkMenuResponse,
-        WorkMessage, WorkMiniProgramSessionResponse, WorkOauthAuthorizeUrlRequest,
-        WorkOpenUserIdToUserIdRequest, WorkOpenUserIdToUserIdResponse, WorkPstnccCallResponse,
-        WorkPstnccGetStatesResponse, WorkScheduleAddRequest, WorkScheduleAddResponse,
-        WorkScheduleGetResponse, WorkUnionIdToExternalUserIdRequest,
-        WorkUnionIdToExternalUserIdResponse, WorkUploadMediaResponse,
-        WorkUserIdToOpenUserIdResponse,
+        WorkJournalStatListResponse, WorkMeetingCreateRequest, WorkMeetingCreateResponse,
+        WorkMeetingGetInfoResponse, WorkMeetingGetUserMeetingIdRequest,
+        WorkMeetingGetUserMeetingIdResponse, WorkMeetingRoomAddRequest, WorkMeetingRoomAddResponse,
+        WorkMeetingRoomBookRequest, WorkMeetingRoomBookResponse, WorkMeetingRoomCancelBookRequest,
+        WorkMeetingRoomEditRequest, WorkMeetingRoomGetBookingInfoRequest,
+        WorkMeetingRoomGetBookingInfoResponse, WorkMeetingRoomListRequest,
+        WorkMeetingRoomListResponse, WorkMeetingUpdateRequest, WorkMenuButton, WorkMenuRequest,
+        WorkMenuResponse, WorkMessage, WorkMiniProgramSessionResponse,
+        WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
+        WorkOpenUserIdToUserIdResponse, WorkPstnccCallResponse, WorkPstnccGetStatesResponse,
+        WorkScheduleAddRequest, WorkScheduleAddResponse, WorkScheduleGetResponse,
+        WorkUnionIdToExternalUserIdRequest, WorkUnionIdToExternalUserIdResponse,
+        WorkUploadMediaResponse, WorkUserIdToOpenUserIdResponse, WorkWeDocCreateFormRequest,
+        WorkWeDocCreateFormResponse,
     };
 
     #[test]
@@ -2691,6 +3090,187 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(schedule_get.schedule_list[0]["summary"], "Daily");
+    }
+
+    #[test]
+    fn serializes_work_oa_meeting_meetingroom_and_wedoc_requests() {
+        let meeting = serde_json::to_value(WorkMeetingCreateRequest {
+            creator_userid: "creator".to_string(),
+            title: "Weekly".to_string(),
+            meeting_start: 1_800_000_000,
+            meeting_duration: 60,
+            description: "sync".to_string(),
+            meeting_type: 1,
+            remind_time: 15,
+            agentid: 100001,
+            attendees: json!({ "userids": ["user"] }),
+        })
+        .unwrap();
+        assert_eq!(meeting["creator_userid"], "creator");
+        assert_eq!(meeting["type"], 1);
+        assert_eq!(meeting["attendees"]["userids"][0], "user");
+
+        let update = serde_json::to_value(WorkMeetingUpdateRequest {
+            meetingid: "123".to_string(),
+            title: "Weekly updated".to_string(),
+            meeting_start: 1_800_000_300,
+            meeting_duration: 30,
+            description: "sync".to_string(),
+            meeting_type: 1,
+            remind_time: 10,
+            attendees: json!({ "userids": ["user"] }),
+        })
+        .unwrap();
+        assert_eq!(update["meetingid"], "123");
+        assert_eq!(update["meeting_duration"], 30);
+
+        let query = serde_json::to_value(WorkMeetingGetUserMeetingIdRequest {
+            userid: "user".to_string(),
+            cursor: "cursor".to_string(),
+            begin_time: 1_800_000_000,
+            end_time: 1_800_086_400,
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(query["userid"], "user");
+        assert_eq!(query["begin_time"], 1_800_000_000);
+
+        let room = serde_json::to_value(WorkMeetingRoomAddRequest {
+            name: "Room A".to_string(),
+            capacity: 8,
+            city: "Shanghai".to_string(),
+            building: "HQ".to_string(),
+            floor: "3".to_string(),
+            equipment: vec![1, 2],
+            coordinate: json!({ "longitude": "121.5", "latitude": "31.2" }),
+        })
+        .unwrap();
+        assert_eq!(room["name"], "Room A");
+        assert_eq!(room["coordinate"]["longitude"], "121.5");
+
+        let room_edit = serde_json::to_value(WorkMeetingRoomEditRequest {
+            meetingroom_id: 7,
+            name: "Room B".to_string(),
+            capacity: 10,
+            city: "Shanghai".to_string(),
+            building: "HQ".to_string(),
+            floor: "4".to_string(),
+            equipment: vec![1],
+            coordinate: json!({ "longitude": "121.5" }),
+        })
+        .unwrap();
+        assert_eq!(room_edit["meetingroom_id"], 7);
+        assert_eq!(room_edit["capacity"], 10);
+
+        let room_list = serde_json::to_value(WorkMeetingRoomListRequest {
+            city: "Shanghai".to_string(),
+            building: "HQ".to_string(),
+            floor: "3".to_string(),
+            equipment: vec![1],
+        })
+        .unwrap();
+        assert_eq!(room_list["equipment"][0], 1);
+
+        let booking_info = serde_json::to_value(WorkMeetingRoomGetBookingInfoRequest {
+            meetingroom_id: 7,
+            start_time: 1_800_000_000,
+            end_time: 1_800_003_600,
+            city: "Shanghai".to_string(),
+            building: "HQ".to_string(),
+            floor: "3".to_string(),
+        })
+        .unwrap();
+        assert_eq!(booking_info["meetingroom_id"], 7);
+
+        let book = serde_json::to_value(WorkMeetingRoomBookRequest {
+            meetingroom_id: 7,
+            subject: "Weekly".to_string(),
+            start_time: 1_800_000_000,
+            end_time: 1_800_003_600,
+            booker: "user".to_string(),
+            attendees: vec!["user".to_string()],
+        })
+        .unwrap();
+        assert_eq!(book["subject"], "Weekly");
+        assert_eq!(book["attendees"][0], "user");
+
+        let cancel = serde_json::to_value(WorkMeetingRoomCancelBookRequest {
+            meeting_id: "meeting-1".to_string(),
+            keep_schedule: 1,
+        })
+        .unwrap();
+        assert_eq!(cancel["meeting_id"], "meeting-1");
+
+        let form = serde_json::to_value(WorkWeDocCreateFormRequest {
+            spaceid: "space".to_string(),
+            fatherid: "father".to_string(),
+            form_info: json!({
+                "form_title": "Survey",
+                "form_question": { "items": [] }
+            }),
+        })
+        .unwrap();
+        assert_eq!(form["spaceid"], "space");
+        assert_eq!(form["form_info"]["form_title"], "Survey");
+    }
+
+    #[test]
+    fn deserializes_work_oa_meeting_meetingroom_and_wedoc_responses() {
+        let meeting_create: WorkMeetingCreateResponse =
+            serde_json::from_value(json!({ "meetingid": 123 })).unwrap();
+        assert_eq!(meeting_create.meetingid, Some(123));
+
+        let meeting_ids: WorkMeetingGetUserMeetingIdResponse = serde_json::from_value(json!({
+            "next_cursor": "next",
+            "meetingid_list": ["123"]
+        }))
+        .unwrap();
+        assert_eq!(meeting_ids.next_cursor.as_deref(), Some("next"));
+        assert_eq!(meeting_ids.meetingid_list[0], "123");
+
+        let meeting_info: WorkMeetingGetInfoResponse = serde_json::from_value(json!({
+            "creator_userid": "creator",
+            "title": "Weekly",
+            "reserve_meeting_start": 1_800_000_000,
+            "reserve_meeting_duration": 60,
+            "meeting_start": 1_800_000_000,
+            "meeting_duration": 60,
+            "description": "sync",
+            "main_department": 1,
+            "type": 1,
+            "status": 2,
+            "remind_time": 15,
+            "attendees": { "userids": ["user"] }
+        }))
+        .unwrap();
+        assert_eq!(meeting_info.creator_userid.as_deref(), Some("creator"));
+        assert_eq!(meeting_info.meeting_type, Some(1));
+        assert_eq!(meeting_info.attendees.unwrap()["userids"][0], "user");
+
+        let room_add: WorkMeetingRoomAddResponse =
+            serde_json::from_value(json!({ "meetingroom_id": 7 })).unwrap();
+        assert_eq!(room_add.meetingroom_id, Some(7));
+
+        let room_list: WorkMeetingRoomListResponse = serde_json::from_value(json!({
+            "meetingroom_list": [{ "meetingroom_id": 7, "name": "Room A" }]
+        }))
+        .unwrap();
+        assert_eq!(room_list.meetingroom_list[0]["name"], "Room A");
+
+        let room_booking: WorkMeetingRoomGetBookingInfoResponse = serde_json::from_value(json!({
+            "booking_list": [{ "meeting_id": 123, "subject": "Weekly" }]
+        }))
+        .unwrap();
+        assert_eq!(room_booking.booking_list[0]["subject"], "Weekly");
+
+        let room_book: WorkMeetingRoomBookResponse =
+            serde_json::from_value(json!({ "meeting_id": 123, "schedule_id": 456 })).unwrap();
+        assert_eq!(room_book.meeting_id, Some(123));
+        assert_eq!(room_book.schedule_id, Some(456));
+
+        let form: WorkWeDocCreateFormResponse =
+            serde_json::from_value(json!({ "formid": "form-1" })).unwrap();
+        assert_eq!(form.formid.as_deref(), Some("form-1"));
     }
 
     #[test]
