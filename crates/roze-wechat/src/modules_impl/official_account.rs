@@ -1137,6 +1137,115 @@ impl OfficialAccount {
             .await
     }
 
+    pub fn auto_reply(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.auto_reply")
+    }
+
+    pub async fn get_current_auto_reply_info(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialAutoReplyInfoResponse> {
+        self.inner
+            .get(
+                "cgi-bin/get_current_autoreply_info",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub fn semantic(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.semantic")
+    }
+
+    pub async fn semantic_query(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialSemanticQueryRequest,
+    ) -> Result<Value> {
+        self.inner
+            .post(
+                "semantic/semproxy/search",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn poi(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.poi")
+    }
+
+    pub async fn poi_get(
+        &self,
+        access_token: impl Into<String>,
+        poi_id: i64,
+    ) -> Result<OfficialPoiGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/poi/getpoi",
+                Some(access_token.into()),
+                json!({ "poi_id": poi_id }),
+            )
+            .await
+    }
+
+    pub async fn poi_list(
+        &self,
+        access_token: impl Into<String>,
+        begin: i64,
+        limit: i64,
+    ) -> Result<OfficialPoiListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/poi/getpoilist",
+                Some(access_token.into()),
+                json!({ "begin": begin, "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn poi_create(
+        &self,
+        access_token: impl Into<String>,
+        base_info: Value,
+    ) -> Result<OfficialPoiMutationResponse> {
+        self.inner
+            .post(
+                "cgi-bin/poi/addpoi",
+                Some(access_token.into()),
+                json!({ "business": { "base_info": base_info } }),
+            )
+            .await
+    }
+
+    pub async fn poi_update(
+        &self,
+        access_token: impl Into<String>,
+        base_info: Value,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/poi/updatepoi",
+                Some(access_token.into()),
+                json!({ "business": { "base_info": base_info } }),
+            )
+            .await
+    }
+
+    pub async fn poi_delete(
+        &self,
+        access_token: impl Into<String>,
+        poi_id: i64,
+    ) -> Result<OfficialPoiGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/poi/delpoi",
+                Some(access_token.into()),
+                json!({ "poi_id": poi_id }),
+            )
+            .await
+    }
+
     pub fn server(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.server")
     }
@@ -1444,6 +1553,65 @@ pub struct MassSendOpenIdsRequest {
     pub message: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_ignore_reprint: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialAutoReplyInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub is_add_friend_reply_open: Option<i64>,
+    #[serde(default)]
+    pub is_autoreply_open: Option<i64>,
+    #[serde(default)]
+    pub add_friend_autoreply_info: Option<Value>,
+    #[serde(default)]
+    pub message_default_autoreply_info: Option<Value>,
+    #[serde(default)]
+    pub keyword_autoreply_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialSemanticQueryRequest {
+    pub query: String,
+    pub category: String,
+    pub appid: String,
+    #[serde(flatten)]
+    pub optional: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialPoiMutationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub poi_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialPoiGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub business: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialPoiListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub business_list: Vec<Value>,
+    #[serde(default)]
+    pub total_count: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1978,19 +2146,7 @@ mod tests {
 
     use crate::{config::Platform, Client, WechatConfig};
 
-    use super::{
-        BatchGetUserInfoRequest, CardCodeDecryptRequest, CardCodeDecryptResponse, CardCodeRequest,
-        CardCodeResponse, CardCreateRequest, CardCreateResponse, CardIdRequest, CardQrCodeRequest,
-        CardQrCodeResponse, CommentListRequest, CommentListResponse, CommentOperateRequest,
-        CommentReplyRequest, CustomerServiceMessage, DataCubeCardDetailRequest,
-        DataCubeCardSummaryRequest, DataCubeDateRangeRequest, DataCubeListResponse, JsapiConfig,
-        MassSendAllRequest, MassSendFilter, MaterialListRequest, MenuButton,
-        OauthAuthorizeUrlRequest, OfficialAccount, PublishArticle, PublishArticleResponse,
-        PublishBatchGetRequest, PublishBatchGetResponse, PublishDraftAddRequest,
-        PublishDraftAddResponse, PublishDraftGetResponse, PublishDraftSwitchStatusResponse,
-        PublishDraftUpdateRequest, PublishStatusResponse, PublishSubmitResponse,
-        TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
-    };
+    use super::*;
 
     #[test]
     fn serializes_menu_button_wire_names() {
@@ -2058,6 +2214,93 @@ mod tests {
 
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.card_id.as_deref(), Some("card"));
+    }
+
+    #[test]
+    fn serializes_official_semantic_query_request() {
+        let value = serde_json::to_value(OfficialSemanticQueryRequest {
+            query: "nearby coffee".to_string(),
+            category: "map".to_string(),
+            appid: "wx123".to_string(),
+            optional: json!({
+                "uid": "openid",
+                "city": "Shanghai",
+                "latitude": 31.2,
+                "longitude": 121.5
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(value["query"], "nearby coffee");
+        assert_eq!(value["category"], "map");
+        assert_eq!(value["appid"], "wx123");
+        assert_eq!(value["uid"], "openid");
+        assert_eq!(value["city"], "Shanghai");
+    }
+
+    #[test]
+    fn deserializes_official_auto_reply_response() {
+        let response: OfficialAutoReplyInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "is_add_friend_reply_open": 1,
+            "is_autoreply_open": 1,
+            "add_friend_autoreply_info": { "type": "text", "content": "hello" },
+            "message_default_autoreply_info": { "type": "text", "content": "default" },
+            "keyword_autoreply_info": {
+                "list": [{
+                    "rule_name": "rule",
+                    "reply_mode": "reply_all",
+                    "keyword_list_info": [{ "type": "text", "match_mode": "contain", "content": "hi" }],
+                    "reply_list_info": [{ "type": "text", "content": "hello" }]
+                }]
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(response.is_autoreply_open, Some(1));
+        assert_eq!(
+            response.add_friend_autoreply_info.unwrap()["content"],
+            "hello"
+        );
+        assert_eq!(
+            response.keyword_autoreply_info.unwrap()["list"][0]["rule_name"],
+            "rule"
+        );
+    }
+
+    #[test]
+    fn deserializes_official_poi_responses() {
+        let created: OfficialPoiMutationResponse =
+            serde_json::from_value(json!({ "errcode": 0, "poi_id": 100 })).unwrap();
+        assert_eq!(created.poi_id, Some(100));
+
+        let get: OfficialPoiGetResponse = serde_json::from_value(json!({
+            "business": {
+                "base_info": {
+                    "poi_id": "100",
+                    "business_name": "Roze Store",
+                    "city": "Shanghai"
+                }
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            get.business.unwrap()["base_info"]["business_name"],
+            "Roze Store"
+        );
+
+        let list: OfficialPoiListResponse = serde_json::from_value(json!({
+            "business_list": [{
+                "base_info": { "poi_id": "100", "business_name": "Roze Store" }
+            }],
+            "total_count": "1"
+        }))
+        .unwrap();
+        assert_eq!(list.total_count.as_deref(), Some("1"));
+        assert_eq!(
+            list.business_list[0]["base_info"]["business_name"],
+            "Roze Store"
+        );
     }
 
     #[test]

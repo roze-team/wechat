@@ -47,6 +47,7 @@ Status values:
 | Mini Program | wxaCode | `mini_program::wxa_code` | tested |
 | Mini Program | wxa/sec/order | `mini_program::wxa_sec_order` | tested |
 | Official Account | auth/oauth | `official_account::oauth` | tested |
+| Official Account | autoReply | `official_account::auto_reply` | tested |
 | Official Account | base | `official_account::base` | tested |
 | Official Account | broadcasting | `official_account::broadcasting` | tested |
 | Official Account | card | `official_account::card` | tested |
@@ -56,7 +57,9 @@ Status values:
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
+| Official Account | poi | `official_account::poi` | tested |
 | Official Account | publish | `official_account::publish` | tested |
+| Official Account | semantic | `official_account::semantic` | tested |
 | Official Account | server | `official_account::server` | tested |
 | Official Account | templateMessage | `official_account::template_message` | tested |
 | Official Account | user/tag | `official_account::user` | tested |
