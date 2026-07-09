@@ -95,6 +95,8 @@ Status values:
 | Payment | tax | `payment::tax` | tested |
 | Payment | transfer | `payment::transfer` | tested |
 | Work | agent | `work::agent` | tested |
+| Work | accountService | `work::account_service` | tested |
+| Work | aibot | `work::aibot` | tested |
 | Work | auth/oauth | `work::oauth` | tested |
 | Work | base | `work::base` | tested |
 | Work | corpgroup | `work::corpgroup` | tested |

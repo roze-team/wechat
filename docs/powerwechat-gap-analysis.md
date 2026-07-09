@@ -20,9 +20,9 @@ entries, request/response DTOs, and tests.
 | Open Platform | 6 | 6 | 0 |
 | Open Work | 8 | 8 | 0 |
 | Payment | 20 | 20 | 0 |
-| Work | 33 | 32 | 2 |
+| Work | 33 | 33 | 0 |
 
-Total remaining PowerWeChat submodule gaps: 12.
+Total remaining PowerWeChat submodule gaps: 10.
 
 ## Remaining Gaps
 
@@ -39,16 +39,9 @@ Total remaining PowerWeChat submodule gaps: 12.
 - `store`
 - `wifi`
 
-### Work
-
-- `accountService`
-- `aibot`
-
 ## Implementation Priority
 
-1. Work enterprise service surface:
-   `accountService`, `oa/approval`, `oa/meeting`, `oa/wedoc`, `oa/wedrive`.
-2. Official Account long-tail modules:
+1. Official Account long-tail modules:
    `guide`, `semantic`, `shakeAround`, `store`, `wifi`, `poi`, `device`,
    `goods`, `autoReply`, `ocr`.
 Each completed submodule should add:

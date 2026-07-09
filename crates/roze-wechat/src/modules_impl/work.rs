@@ -1783,6 +1783,430 @@ impl Work {
             .await
     }
 
+    pub fn account_service(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.accountService")
+    }
+
+    pub async fn account_service_account_add(
+        &self,
+        access_token: impl Into<String>,
+        name: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<WorkAccountServiceAccountAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/account/add",
+                Some(access_token.into()),
+                json!({ "name": name.into(), "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn account_service_account_delete(
+        &self,
+        access_token: impl Into<String>,
+        open_kfid: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/account/del",
+                Some(access_token.into()),
+                json!({ "open_kfid": open_kfid.into() }),
+            )
+            .await
+    }
+
+    pub async fn account_service_account_update(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceAccountUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/account/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn account_service_account_list(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkAccountServiceAccountListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/account/list",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn account_service_add_contact_way(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceAddContactWayRequest,
+    ) -> Result<WorkAccountServiceAddContactWayResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/add_contact_way",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn account_service_customer(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.accountService.customer")
+    }
+
+    pub async fn account_service_customer_batch_get(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceCustomerBatchGetRequest,
+    ) -> Result<WorkAccountServiceCustomerBatchGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/customer/batchget",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn account_service_customer_get_upgrade_service_config(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkAccountServiceCustomerUpgradeServiceConfigResponse> {
+        self.inner
+            .get(
+                "cgi-bin/kf/customer/get_upgrade_service_config",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn account_service_customer_upgrade_service(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceCustomerUpgradeServiceRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/customer/upgrade_service",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn account_service_customer_cancel_upgrade_service(
+        &self,
+        access_token: impl Into<String>,
+        open_kfid: impl Into<String>,
+        external_userid: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/customer/cancel_upgrade_service",
+                Some(access_token.into()),
+                json!({ "open_kfid": open_kfid.into(), "external_userid": external_userid.into() }),
+            )
+            .await
+    }
+
+    pub fn account_service_message(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.accountService.message")
+    }
+
+    pub async fn account_service_sync_msg(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceSyncMsgRequest,
+    ) -> Result<WorkAccountServiceSyncMsgResponse> {
+        self.inner
+            .post("cgi-bin/kf/sync_msg", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn account_service_send_msg(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceSendMsgRequest,
+    ) -> Result<WorkAccountServiceSendMsgResponse> {
+        self.inner
+            .post("cgi-bin/kf/send_msg", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn account_service_send_msg_on_event(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceSendMsgOnEventRequest,
+    ) -> Result<WorkAccountServiceSendMsgResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/send_msg_on_event",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn account_service_servicer(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.accountService.servicer")
+    }
+
+    pub async fn account_service_servicer_add(
+        &self,
+        access_token: impl Into<String>,
+        open_kfid: impl Into<String>,
+        userid_list: Vec<String>,
+    ) -> Result<WorkAccountServiceServicerResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/servicer/add",
+                Some(access_token.into()),
+                json!({ "open_kfid": open_kfid.into(), "userid_list": userid_list }),
+            )
+            .await
+    }
+
+    pub async fn account_service_servicer_delete(
+        &self,
+        access_token: impl Into<String>,
+        open_kfid: impl Into<String>,
+        userid_list: Vec<String>,
+    ) -> Result<WorkAccountServiceServicerResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/servicer/del",
+                Some(access_token.into()),
+                json!({ "open_kfid": open_kfid.into(), "userid_list": userid_list }),
+            )
+            .await
+    }
+
+    pub async fn account_service_servicer_list(
+        &self,
+        access_token: impl Into<String>,
+        open_kfid: impl Into<String>,
+    ) -> Result<WorkAccountServiceServicerListResponse> {
+        self.inner
+            .post_json_with_access_token_query(
+                "cgi-bin/kf/servicer/list",
+                Some(access_token.into()),
+                vec![("open_kfid".to_string(), open_kfid.into())],
+                json!({}),
+                Vec::new(),
+            )
+            .await
+    }
+
+    pub fn account_service_state(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.accountService.serviceState")
+    }
+
+    pub async fn account_service_state_get(
+        &self,
+        access_token: impl Into<String>,
+        open_kfid: impl Into<String>,
+        external_userid: impl Into<String>,
+    ) -> Result<WorkAccountServiceStateGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/service_state/get",
+                Some(access_token.into()),
+                json!({ "open_kfid": open_kfid.into(), "external_userid": external_userid.into() }),
+            )
+            .await
+    }
+
+    pub async fn account_service_state_trans(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceStateTransRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/service_state/trans",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn account_service_tag(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.accountService.tag")
+    }
+
+    pub async fn account_service_tag_create(
+        &self,
+        access_token: impl Into<String>,
+        tagname: impl Into<String>,
+        tagid: i64,
+    ) -> Result<WorkAccountServiceTagCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tag/create",
+                Some(access_token.into()),
+                json!({ "tagname": tagname.into(), "tagid": tagid }),
+            )
+            .await
+    }
+
+    pub async fn account_service_tag_update(
+        &self,
+        access_token: impl Into<String>,
+        tagname: impl Into<String>,
+        tagid: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tag/update",
+                Some(access_token.into()),
+                json!({ "tagname": tagname.into(), "tagid": tagid }),
+            )
+            .await
+    }
+
+    pub async fn account_service_tag_delete(
+        &self,
+        access_token: impl Into<String>,
+        tagid: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/tag/delete",
+                Some(access_token.into()),
+                vec![("tagid".to_string(), tagid.into())],
+            )
+            .await
+    }
+
+    pub async fn account_service_tag_get(
+        &self,
+        access_token: impl Into<String>,
+        tagid: impl Into<String>,
+    ) -> Result<WorkAccountServiceTagDetailResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/tag/get",
+                Some(access_token.into()),
+                vec![("tagid".to_string(), tagid.into())],
+            )
+            .await
+    }
+
+    pub async fn account_service_tag_users(
+        &self,
+        access_token: impl Into<String>,
+        tagid: i64,
+        userlist: Vec<String>,
+    ) -> Result<WorkAccountServiceTagUserResultResponse> {
+        self.account_service_tag_or_untag_users(
+            access_token,
+            "cgi-bin/tag/addtagusers",
+            tagid,
+            userlist,
+            Vec::new(),
+        )
+        .await
+    }
+
+    pub async fn account_service_tag_departments(
+        &self,
+        access_token: impl Into<String>,
+        tagid: i64,
+        partylist: Vec<String>,
+    ) -> Result<WorkAccountServiceTagUserResultResponse> {
+        self.account_service_tag_or_untag_users(
+            access_token,
+            "cgi-bin/tag/addtagusers",
+            tagid,
+            Vec::new(),
+            partylist,
+        )
+        .await
+    }
+
+    pub async fn account_service_tag_or_untag_users(
+        &self,
+        access_token: impl Into<String>,
+        endpoint: impl Into<String>,
+        tagid: i64,
+        userlist: Vec<String>,
+        partylist: Vec<String>,
+    ) -> Result<WorkAccountServiceTagUserResultResponse> {
+        self.inner
+            .post(
+                endpoint.into(),
+                Some(access_token.into()),
+                json!({ "tagid": tagid, "userlist": userlist, "partylist": partylist }),
+            )
+            .await
+    }
+
+    pub async fn account_service_tag_list(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkAccountServiceTagListResponse> {
+        self.inner
+            .get("cgi-bin/tag/list", Some(access_token.into()))
+            .await
+    }
+
+    pub fn aibot(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.aibot")
+    }
+
+    pub fn aibot_long_connection_url(endpoint: Option<&str>) -> String {
+        endpoint
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("wss://openws.work.weixin.qq.com")
+            .to_string()
+    }
+
+    pub fn aibot_subscribe_request(
+        bot_id: impl Into<String>,
+        secret: impl Into<String>,
+        req_id: impl Into<String>,
+    ) -> WorkAiBotLongConnectionRequest {
+        WorkAiBotLongConnectionRequest {
+            cmd: WORK_AIBOT_CMD_SUBSCRIBE.to_string(),
+            headers: Some(WorkAiBotLongConnectionHeaders {
+                req_id: Some(req_id.into()),
+            }),
+            body: Some(json!({ "bot_id": bot_id.into(), "secret": secret.into() })),
+        }
+    }
+
+    pub fn aibot_ping_request(req_id: impl Into<String>) -> WorkAiBotLongConnectionRequest {
+        WorkAiBotLongConnectionRequest {
+            cmd: WORK_AIBOT_CMD_PING.to_string(),
+            headers: Some(WorkAiBotLongConnectionHeaders {
+                req_id: Some(req_id.into()),
+            }),
+            body: None,
+        }
+    }
+
+    pub fn aibot_command_request(
+        cmd: impl Into<String>,
+        req_id: Option<String>,
+        body: Option<Value>,
+    ) -> WorkAiBotLongConnectionRequest {
+        WorkAiBotLongConnectionRequest {
+            cmd: cmd.into().trim().to_string(),
+            headers: req_id.map(|req_id| WorkAiBotLongConnectionHeaders {
+                req_id: Some(req_id),
+            }),
+            body,
+        }
+    }
+
     pub async fn appchat_create(
         &self,
         access_token: impl Into<String>,
@@ -2441,6 +2865,294 @@ pub struct MsgAuditChatDataRequest {
     pub passwd: Option<String>,
     #[serde(default)]
     pub timeout: i64,
+}
+
+pub const WORK_AIBOT_CMD_SUBSCRIBE: &str = "aibot_subscribe";
+pub const WORK_AIBOT_CMD_PING: &str = "ping";
+pub const WORK_AIBOT_CMD_RESPOND_WELCOME: &str = "aibot_respond_welcome_msg";
+pub const WORK_AIBOT_CMD_RESPOND_MESSAGE: &str = "aibot_respond_msg";
+pub const WORK_AIBOT_CMD_RESPOND_UPDATE_MESSAGE: &str = "aibot_respond_update_msg";
+pub const WORK_AIBOT_CMD_SEND_MESSAGE: &str = "aibot_send_msg";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAiBotLongConnectionHeaders {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub req_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAiBotLongConnectionRequest {
+    pub cmd: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headers: Option<WorkAiBotLongConnectionHeaders>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAiBotLongConnectionResponse {
+    #[serde(default)]
+    pub cmd: Option<String>,
+    #[serde(default)]
+    pub headers: Option<WorkAiBotLongConnectionHeaders>,
+    #[serde(default)]
+    pub body: Option<Value>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+}
+
+impl WorkAiBotLongConnectionResponse {
+    pub fn is_error(&self) -> bool {
+        self.errcode.unwrap_or_default() != 0
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceAccountUpdateRequest {
+    pub open_kfid: String,
+    pub name: String,
+    pub media_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceAddContactWayRequest {
+    pub open_kfid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceAccountAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub open_kfid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceAccountListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub account_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceAddContactWayResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceCustomerBatchGetRequest {
+    pub external_userid_list: Vec<String>,
+    pub need_enter_session_context: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceCustomerBatchGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub customer_list: Vec<Value>,
+    #[serde(default)]
+    pub invalid_external_userid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceCustomerUpgradeServiceConfigResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub member_range: Option<Value>,
+    #[serde(default)]
+    pub groupchat_range: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceCustomerUpgradeServiceRequest {
+    pub open_kfid: String,
+    pub external_userid: String,
+    #[serde(rename = "type")]
+    pub upgrade_type: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub groupchat: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceSyncMsgRequest {
+    pub cursor: String,
+    pub token: String,
+    pub limit: i64,
+    pub voice_format: i64,
+    pub open_kfid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceSyncMsgResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub has_more: Option<i64>,
+    #[serde(default)]
+    pub msg_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceSendMsgRequest {
+    pub touser: String,
+    pub open_kfid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msgid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub msgtype: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voice: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub miniprogram: Option<Value>,
+    #[serde(default, rename = "msgmenu", skip_serializing_if = "Option::is_none")]
+    pub menu: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ca_link: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceSendMsgOnEventRequest {
+    pub code: String,
+    pub msgid: String,
+    pub msgtype: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(default, rename = "msgmenu", skip_serializing_if = "Option::is_none")]
+    pub menu: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceSendMsgResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msgid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceServicerResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub result_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceServicerListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub servicer_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceStateGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub service_state: Option<i64>,
+    #[serde(default)]
+    pub servicer_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceStateTransRequest {
+    pub open_kfid: String,
+    pub external_userid: String,
+    pub service_state: i64,
+    pub servicer_userid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTagCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tagid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTagDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tagname: Option<String>,
+    #[serde(default)]
+    pub userlist: Vec<Value>,
+    #[serde(default)]
+    pub partylist: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTagUserResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub invalidlist: Option<String>,
+    #[serde(default)]
+    pub invalidparty: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTagListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub taglist: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3198,49 +3910,7 @@ pub struct WorkOauthAuthorizeUrlRequest {
 mod tests {
     use serde_json::json;
 
-    use super::{
-        AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
-        DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
-        OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
-        UserIdToOpenIdResponse, Work, WorkApprovalCreateTemplateRequest,
-        WorkApprovalCreateTemplateResponse, WorkApprovalUpdateTemplateRequest,
-        WorkCalendarAddRequest, WorkCalendarAddResponse, WorkCalendarGetResponse,
-        WorkCorpGroupAppShareInfoResponse, WorkCorpGroupTokenResponse,
-        WorkCorpGroupTransferSessionResponse, WorkDialRecordRequest, WorkDialRecordResponse,
-        WorkExternalPayBillListRequest, WorkExternalPayBillListResponse,
-        WorkExternalPayMerchantResponse, WorkExternalPaySetMerchantUseScopeRequest,
-        WorkExternalTagIdToOpenExternalTagIdResponse, WorkExternalUserIdToPendingIdRequest,
-        WorkExternalUserIdToPendingIdResponse, WorkFromServiceExternalUserIdRequest,
-        WorkFromServiceExternalUserIdResponse, WorkInvoiceCardRequest,
-        WorkInvoiceInfoBatchResponse, WorkInvoiceInfoResponse, WorkInvoiceStatusBatchRequest,
-        WorkInvoiceStatusRequest, WorkIpListResponse, WorkJournalRecordDetailResponse,
-        WorkJournalRecordListRequest, WorkJournalRecordListResponse, WorkJournalStatListRequest,
-        WorkJournalStatListResponse, WorkLivingCodeResponse, WorkLivingCreateRequest,
-        WorkLivingCreateResponse, WorkLivingGetUserAllLivingIdRequest,
-        WorkLivingGetUserAllLivingIdResponse, WorkLivingInfoResponse, WorkLivingModifyRequest,
-        WorkLivingShareInfoResponse, WorkLivingWatchStatResponse, WorkMeetingCreateRequest,
-        WorkMeetingCreateResponse, WorkMeetingGetInfoResponse, WorkMeetingGetUserMeetingIdRequest,
-        WorkMeetingGetUserMeetingIdResponse, WorkMeetingRoomAddRequest, WorkMeetingRoomAddResponse,
-        WorkMeetingRoomBookRequest, WorkMeetingRoomBookResponse, WorkMeetingRoomCancelBookRequest,
-        WorkMeetingRoomEditRequest, WorkMeetingRoomGetBookingInfoRequest,
-        WorkMeetingRoomGetBookingInfoResponse, WorkMeetingRoomListRequest,
-        WorkMeetingRoomListResponse, WorkMeetingUpdateRequest, WorkMenuButton, WorkMenuRequest,
-        WorkMenuResponse, WorkMessage, WorkMiniProgramSessionResponse,
-        WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
-        WorkOpenUserIdToUserIdResponse, WorkPstnccCallResponse, WorkPstnccGetStatesResponse,
-        WorkScheduleAddRequest, WorkScheduleAddResponse, WorkScheduleGetResponse,
-        WorkUnionIdToExternalUserIdRequest, WorkUnionIdToExternalUserIdResponse,
-        WorkUploadMediaResponse, WorkUserIdToOpenUserIdResponse, WorkWeDocCreateFormRequest,
-        WorkWeDocCreateFormResponse, WorkWeDriveFileAclRequest, WorkWeDriveFileCreateRequest,
-        WorkWeDriveFileCreateResponse, WorkWeDriveFileDownloadResponse, WorkWeDriveFileIdRequest,
-        WorkWeDriveFileListRequest, WorkWeDriveFileListResponse, WorkWeDriveFileMoveRequest,
-        WorkWeDriveFileMoveResponse, WorkWeDriveFileRenameRequest, WorkWeDriveFileRenameResponse,
-        WorkWeDriveFileSettingRequest, WorkWeDriveFileShareResponse, WorkWeDriveFileUploadRequest,
-        WorkWeDriveFileUploadResponse, WorkWeDriveSpaceAclRequest, WorkWeDriveSpaceCreateRequest,
-        WorkWeDriveSpaceCreateResponse, WorkWeDriveSpaceIdRequest, WorkWeDriveSpaceInfoResponse,
-        WorkWeDriveSpaceRenameRequest, WorkWeDriveSpaceSettingRequest,
-        WorkWeDriveSpaceShareResponse,
-    };
+    use super::*;
 
     #[test]
     fn serializes_text_message_shape() {
@@ -4268,6 +4938,221 @@ mod tests {
             share.share_url.as_deref(),
             Some("https://example.com/share")
         );
+    }
+
+    #[test]
+    fn serializes_work_account_service_and_aibot_requests() {
+        let account = serde_json::to_value(WorkAccountServiceAccountUpdateRequest {
+            open_kfid: "kf".to_string(),
+            name: "Support".to_string(),
+            media_id: "media".to_string(),
+        })
+        .unwrap();
+        assert_eq!(account["open_kfid"], "kf");
+        assert_eq!(account["media_id"], "media");
+
+        let contact_way = serde_json::to_value(WorkAccountServiceAddContactWayRequest {
+            open_kfid: "kf".to_string(),
+            scene: Some("scene".to_string()),
+        })
+        .unwrap();
+        assert_eq!(contact_way["scene"], "scene");
+
+        let batch = serde_json::to_value(WorkAccountServiceCustomerBatchGetRequest {
+            external_userid_list: vec!["external".to_string()],
+            need_enter_session_context: 1,
+        })
+        .unwrap();
+        assert_eq!(batch["external_userid_list"][0], "external");
+
+        let upgrade = serde_json::to_value(WorkAccountServiceCustomerUpgradeServiceRequest {
+            open_kfid: "kf".to_string(),
+            external_userid: "external".to_string(),
+            upgrade_type: 1,
+            member: Some(json!({ "userid": "servicer", "wording": "hello" })),
+            groupchat: None,
+        })
+        .unwrap();
+        assert_eq!(upgrade["type"], 1);
+        assert_eq!(upgrade["member"]["userid"], "servicer");
+        assert!(upgrade.get("groupchat").is_none());
+
+        let sync = serde_json::to_value(WorkAccountServiceSyncMsgRequest {
+            cursor: "cursor".to_string(),
+            token: "token".to_string(),
+            limit: 100,
+            voice_format: 0,
+            open_kfid: "kf".to_string(),
+        })
+        .unwrap();
+        assert_eq!(sync["open_kfid"], "kf");
+
+        let send = serde_json::to_value(WorkAccountServiceSendMsgRequest {
+            touser: "external".to_string(),
+            open_kfid: "kf".to_string(),
+            msgid: Some("msg".to_string()),
+            msgtype: Some("text".to_string()),
+            text: Some(json!({ "content": "hello" })),
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            link: None,
+            miniprogram: None,
+            menu: Some(json!({ "head_content": "choose", "list": [] })),
+            location: None,
+            ca_link: None,
+        })
+        .unwrap();
+        assert_eq!(send["msgmenu"]["head_content"], "choose");
+        assert!(send.get("image").is_none());
+
+        let on_event = serde_json::to_value(WorkAccountServiceSendMsgOnEventRequest {
+            code: "code".to_string(),
+            msgid: "msg".to_string(),
+            msgtype: "text".to_string(),
+            text: Some(json!({ "content": "hello" })),
+            menu: None,
+        })
+        .unwrap();
+        assert_eq!(on_event["code"], "code");
+
+        let state = serde_json::to_value(WorkAccountServiceStateTransRequest {
+            open_kfid: "kf".to_string(),
+            external_userid: "external".to_string(),
+            service_state: 2,
+            servicer_userid: "servicer".to_string(),
+        })
+        .unwrap();
+        assert_eq!(state["service_state"], 2);
+
+        let subscribe =
+            serde_json::to_value(Work::aibot_subscribe_request("bot", "secret", "req-1")).unwrap();
+        assert_eq!(subscribe["cmd"], WORK_AIBOT_CMD_SUBSCRIBE);
+        assert_eq!(subscribe["headers"]["req_id"], "req-1");
+        assert_eq!(subscribe["body"]["bot_id"], "bot");
+
+        let ping = serde_json::to_value(Work::aibot_ping_request("req-2")).unwrap();
+        assert_eq!(ping["cmd"], WORK_AIBOT_CMD_PING);
+        assert!(ping.get("body").is_none());
+
+        let command = serde_json::to_value(Work::aibot_command_request(
+            WORK_AIBOT_CMD_SEND_MESSAGE,
+            Some("req-3".to_string()),
+            Some(json!({ "content": "hello" })),
+        ))
+        .unwrap();
+        assert_eq!(command["cmd"], WORK_AIBOT_CMD_SEND_MESSAGE);
+        assert_eq!(command["body"]["content"], "hello");
+        assert_eq!(
+            Work::aibot_long_connection_url(None),
+            "wss://openws.work.weixin.qq.com"
+        );
+    }
+
+    #[test]
+    fn deserializes_work_account_service_and_aibot_responses() {
+        let account_add: WorkAccountServiceAccountAddResponse =
+            serde_json::from_value(json!({ "open_kfid": "kf" })).unwrap();
+        assert_eq!(account_add.open_kfid.as_deref(), Some("kf"));
+
+        let accounts: WorkAccountServiceAccountListResponse = serde_json::from_value(json!({
+            "account_list": [{ "open_kfid": "kf", "name": "Support" }]
+        }))
+        .unwrap();
+        assert_eq!(accounts.account_list[0]["name"], "Support");
+
+        let contact_way: WorkAccountServiceAddContactWayResponse =
+            serde_json::from_value(json!({ "url": "https://example.com/kf" })).unwrap();
+        assert_eq!(contact_way.url.as_deref(), Some("https://example.com/kf"));
+
+        let customers: WorkAccountServiceCustomerBatchGetResponse = serde_json::from_value(json!({
+            "customer_list": [{ "external_userid": "external" }],
+            "invalid_external_userid": ["bad"]
+        }))
+        .unwrap();
+        assert_eq!(customers.customer_list[0]["external_userid"], "external");
+
+        let config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
+            serde_json::from_value(json!({
+                "member_range": { "userid": ["servicer"] },
+                "groupchat_range": { "chat_id": ["chat"] }
+            }))
+            .unwrap();
+        assert_eq!(config.member_range.unwrap()["userid"][0], "servicer");
+
+        let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
+            "next_cursor": "next",
+            "has_more": 1,
+            "msg_list": [{ "msgid": "msg" }]
+        }))
+        .unwrap();
+        assert_eq!(sync.next_cursor.as_deref(), Some("next"));
+        assert_eq!(sync.msg_list[0]["msgid"], "msg");
+
+        let send: WorkAccountServiceSendMsgResponse =
+            serde_json::from_value(json!({ "msgid": "msg" })).unwrap();
+        assert_eq!(send.msgid.as_deref(), Some("msg"));
+
+        let servicer_result: WorkAccountServiceServicerResultResponse =
+            serde_json::from_value(json!({
+                "result_list": [{ "userid": "servicer", "errcode": 0 }]
+            }))
+            .unwrap();
+        assert_eq!(servicer_result.result_list[0]["userid"], "servicer");
+
+        let servicers: WorkAccountServiceServicerListResponse = serde_json::from_value(json!({
+            "servicer_list": [{ "userid": "servicer" }]
+        }))
+        .unwrap();
+        assert_eq!(servicers.servicer_list[0]["userid"], "servicer");
+
+        let state: WorkAccountServiceStateGetResponse = serde_json::from_value(json!({
+            "service_state": 2,
+            "servicer_userid": "servicer"
+        }))
+        .unwrap();
+        assert_eq!(state.service_state, Some(2));
+
+        let tag_create: WorkAccountServiceTagCreateResponse =
+            serde_json::from_value(json!({ "tagid": 1 })).unwrap();
+        assert_eq!(tag_create.tagid, Some(1));
+
+        let tag_detail: WorkAccountServiceTagDetailResponse = serde_json::from_value(json!({
+            "tagname": "tag",
+            "userlist": [{ "userid": "user" }],
+            "partylist": [1]
+        }))
+        .unwrap();
+        assert_eq!(tag_detail.tagname.as_deref(), Some("tag"));
+        assert_eq!(tag_detail.partylist[0], 1);
+
+        let tag_user: WorkAccountServiceTagUserResultResponse = serde_json::from_value(json!({
+            "invalidlist": "bad",
+            "invalidparty": [2]
+        }))
+        .unwrap();
+        assert_eq!(tag_user.invalidparty[0], 2);
+
+        let tags: WorkAccountServiceTagListResponse = serde_json::from_value(json!({
+            "taglist": [{ "tagid": 1, "tagname": "tag" }]
+        }))
+        .unwrap();
+        assert_eq!(tags.taglist[0]["tagname"], "tag");
+
+        let ok: WorkAiBotLongConnectionResponse = serde_json::from_value(json!({
+            "cmd": "pong",
+            "headers": { "req_id": "req-1" },
+            "body": { "ok": true }
+        }))
+        .unwrap();
+        assert!(!ok.is_error());
+        assert_eq!(ok.headers.unwrap().req_id.as_deref(), Some("req-1"));
+
+        let err: WorkAiBotLongConnectionResponse =
+            serde_json::from_value(json!({ "errcode": 40001, "errmsg": "invalid" })).unwrap();
+        assert!(err.is_error());
+        assert_eq!(err.errmsg.as_deref(), Some("invalid"));
     }
 
     #[test]
