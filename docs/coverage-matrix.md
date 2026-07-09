@@ -54,9 +54,12 @@ Status values:
 | Official Account | comment | `official_account::comment` | tested |
 | Official Account | customerService | `official_account::customer_service` | tested |
 | Official Account | dataCube | `official_account::data_cube` | tested |
+| Official Account | device | `official_account::device` | tested |
+| Official Account | goods | `official_account::goods` | tested |
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
+| Official Account | ocr | `official_account::ocr` | tested |
 | Official Account | poi | `official_account::poi` | tested |
 | Official Account | publish | `official_account::publish` | tested |
 | Official Account | semantic | `official_account::semantic` | tested |

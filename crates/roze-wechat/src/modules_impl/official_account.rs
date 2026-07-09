@@ -1246,6 +1246,275 @@ impl OfficialAccount {
             .await
     }
 
+    pub fn device(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.device")
+    }
+
+    pub async fn device_message(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialDeviceMessageRequest,
+    ) -> Result<OfficialDeviceMessageResponse> {
+        self.inner
+            .post("device/transmsg", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn device_qrcode(
+        &self,
+        access_token: impl Into<String>,
+        device_id_list: Vec<String>,
+    ) -> Result<OfficialDeviceCreateQrCodeResponse> {
+        let device_num = device_id_list.len();
+        self.inner
+            .post(
+                "device/create_qrcode",
+                Some(access_token.into()),
+                json!({ "device_num": device_num, "device_id_list": device_id_list }),
+            )
+            .await
+    }
+
+    pub async fn device_authorize(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialDeviceAuthorizeRequest,
+    ) -> Result<OfficialDeviceAuthorizeResponse> {
+        self.inner
+            .post(
+                "device/authorize_device",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn device_create_id(
+        &self,
+        access_token: impl Into<String>,
+        product_id: impl Into<String>,
+    ) -> Result<OfficialDeviceCreateIdResponse> {
+        self.inner
+            .post(
+                "device/authorize_device",
+                Some(access_token.into()),
+                json!({ "product_id": product_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn device_bind(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialDeviceBindRequest,
+    ) -> Result<OfficialDeviceBindResponse> {
+        self.inner
+            .post("device/bind", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn device_unbind(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialDeviceBindRequest,
+    ) -> Result<OfficialDeviceBindResponse> {
+        self.inner
+            .post("device/unbind", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn device_force_bind(
+        &self,
+        access_token: impl Into<String>,
+        openid: impl Into<String>,
+        device_id: impl Into<String>,
+    ) -> Result<OfficialDeviceBindResponse> {
+        self.inner
+            .post(
+                "device/compel_bind",
+                Some(access_token.into()),
+                json!({ "openid": openid.into(), "device_id": device_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn device_force_unbind(
+        &self,
+        access_token: impl Into<String>,
+        openid: impl Into<String>,
+        device_id: impl Into<String>,
+    ) -> Result<OfficialDeviceBindResponse> {
+        self.inner
+            .post(
+                "device/compel_unbind",
+                Some(access_token.into()),
+                json!({ "openid": openid.into(), "device_id": device_id.into() }),
+            )
+            .await
+    }
+
+    pub fn goods(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.goods")
+    }
+
+    pub async fn goods_add(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGoodsProductRequest,
+    ) -> Result<OfficialGoodsProductAddResponse> {
+        self.inner
+            .post("scan/product/v2/add", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn goods_update(
+        &self,
+        access_token: impl Into<String>,
+        request: OfficialGoodsProductRequest,
+    ) -> Result<OfficialGoodsProductAddResponse> {
+        self.inner
+            .post("scan/product/v2/add", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn goods_status(
+        &self,
+        access_token: impl Into<String>,
+        status_ticket: impl Into<String>,
+    ) -> Result<OfficialGoodsProductStatusResponse> {
+        self.inner
+            .post(
+                "scan/product/v2/status",
+                Some(access_token.into()),
+                json!({ "status_ticket": status_ticket.into() }),
+            )
+            .await
+    }
+
+    pub async fn goods_get(
+        &self,
+        access_token: impl Into<String>,
+        pid: impl Into<String>,
+    ) -> Result<OfficialGoodsProductGetResponse> {
+        self.inner
+            .post(
+                "scan/product/v2/getinfo",
+                Some(access_token.into()),
+                json!({ "product": { "pid": pid.into() } }),
+            )
+            .await
+    }
+
+    pub async fn goods_list(
+        &self,
+        access_token: impl Into<String>,
+        page_context: impl Into<String>,
+        page_num: i64,
+        page_size: i64,
+    ) -> Result<OfficialGoodsProductGetResponse> {
+        self.inner
+            .post(
+                "scan/product/v2/getinfobypage",
+                Some(access_token.into()),
+                json!({
+                    "page_context": page_context.into(),
+                    "page_num": page_num,
+                    "page_size": page_size
+                }),
+            )
+            .await
+    }
+
+    pub fn ocr(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.ocr")
+    }
+
+    pub async fn ocr_id_card(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+        id_type: impl Into<String>,
+    ) -> Result<OfficialOcrIdCardResponse> {
+        self.inner
+            .post(
+                "cv/ocr/idcard",
+                Some(access_token.into()),
+                json!({ "img_url": img_url.into(), "type": id_type.into() }),
+            )
+            .await
+    }
+
+    pub async fn ocr_bank_card(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OfficialOcrBankCardResponse> {
+        self.ocr_image(access_token, "cv/ocr/bankcard", img_url)
+            .await
+    }
+
+    pub async fn ocr_vehicle_license(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OfficialOcrVehicleLicenseResponse> {
+        self.ocr_image(access_token, "cv/ocr/drivinglicense", img_url)
+            .await
+    }
+
+    pub async fn ocr_driving(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OfficialOcrVehicleLicenseResponse> {
+        self.ocr_image(access_token, "cv/ocr/driving", img_url)
+            .await
+    }
+
+    pub async fn ocr_biz_license(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OfficialOcrBizLicenseResponse> {
+        self.ocr_image(access_token, "cv/ocr/bizlicense", img_url)
+            .await
+    }
+
+    pub async fn ocr_common(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OfficialOcrCommonResponse> {
+        self.ocr_image(access_token, "cv/ocr/comm", img_url).await
+    }
+
+    pub async fn ocr_plate_number(
+        &self,
+        access_token: impl Into<String>,
+        img_url: impl Into<String>,
+    ) -> Result<OfficialOcrPlateNumberResponse> {
+        self.ocr_image(access_token, "cv/ocr/platenum", img_url)
+            .await
+    }
+
+    async fn ocr_image<R>(
+        &self,
+        access_token: impl Into<String>,
+        path: &'static str,
+        img_url: impl Into<String>,
+    ) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        self.inner
+            .post(
+                path,
+                Some(access_token.into()),
+                json!({ "img_url": img_url.into() }),
+            )
+            .await
+    }
+
     pub fn server(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.server")
     }
@@ -1612,6 +1881,232 @@ pub struct OfficialPoiListResponse {
     pub business_list: Vec<Value>,
     #[serde(default)]
     pub total_count: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceMessageRequest {
+    pub device_type: String,
+    pub device_id: String,
+    pub open_id: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceAuthorizeRequest {
+    pub device_num: String,
+    pub device_list: Vec<Value>,
+    pub op_type: String,
+    pub product_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceBindRequest {
+    pub ticket: String,
+    pub device_id: String,
+    pub openid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceMessageResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ret: Option<i64>,
+    #[serde(default)]
+    pub ret_info: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceCreateQrCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub device_num: Option<i64>,
+    #[serde(default)]
+    pub code_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceAuthorizeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub resp: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceCreateIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub resp_msg: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialDeviceBindResponse {
+    #[serde(default)]
+    pub base_resp: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGoodsProductRequest {
+    pub product: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGoodsProductAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status_ticket: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGoodsProductStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub result: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialGoodsProductGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub product: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialOcrIdCardResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "type")]
+    pub id_type: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub addr: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub nationality: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialOcrBankCardResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub number: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialOcrVehicleLicenseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub id_num: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub sex: Option<String>,
+    #[serde(default)]
+    pub nationality: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub birth_date: Option<String>,
+    #[serde(default)]
+    pub issue_date: Option<String>,
+    #[serde(default)]
+    pub car_class: Option<String>,
+    #[serde(default)]
+    pub valid_from: Option<String>,
+    #[serde(default)]
+    pub valid_to: Option<String>,
+    #[serde(default)]
+    pub official_seal: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialOcrBizLicenseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub reg_num: Option<String>,
+    #[serde(default)]
+    pub serial: Option<String>,
+    #[serde(default)]
+    pub legal_representative: Option<String>,
+    #[serde(default)]
+    pub enterprise_name: Option<String>,
+    #[serde(default)]
+    pub type_of_organization: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub type_of_enterprise: Option<String>,
+    #[serde(default)]
+    pub business_scope: Option<String>,
+    #[serde(default)]
+    pub registered_capital: Option<String>,
+    #[serde(default)]
+    pub paid_in_capital: Option<String>,
+    #[serde(default)]
+    pub valid_period: Option<String>,
+    #[serde(default)]
+    pub registered_date: Option<String>,
+    #[serde(default)]
+    pub cert_position: Option<Value>,
+    #[serde(default)]
+    pub img_size: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialOcrCommonResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub items: Vec<Value>,
+    #[serde(default)]
+    pub img_size: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialOcrPlateNumberResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub number: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2301,6 +2796,144 @@ mod tests {
             list.business_list[0]["base_info"]["business_name"],
             "Roze Store"
         );
+    }
+
+    #[test]
+    fn serializes_official_device_and_goods_requests() {
+        let device_message = serde_json::to_value(OfficialDeviceMessageRequest {
+            device_type: "gh_device".to_string(),
+            device_id: "device".to_string(),
+            open_id: "openid".to_string(),
+            content: "hello".to_string(),
+        })
+        .unwrap();
+        assert_eq!(device_message["device_id"], "device");
+        assert_eq!(device_message["open_id"], "openid");
+
+        let authorize = serde_json::to_value(OfficialDeviceAuthorizeRequest {
+            device_num: "1".to_string(),
+            device_list: vec![json!({
+                "id": "device",
+                "mac": "00:11",
+                "connect_protocol": "3",
+                "auth_key": "key"
+            })],
+            op_type: "1".to_string(),
+            product_id: "product".to_string(),
+        })
+        .unwrap();
+        assert_eq!(authorize["device_num"], "1");
+        assert_eq!(authorize["device_list"][0]["id"], "device");
+
+        let bind = serde_json::to_value(OfficialDeviceBindRequest {
+            ticket: "ticket".to_string(),
+            device_id: "device".to_string(),
+            openid: "openid".to_string(),
+        })
+        .unwrap();
+        assert_eq!(bind["ticket"], "ticket");
+
+        let goods = serde_json::to_value(OfficialGoodsProductRequest {
+            product: vec![json!({
+                "pid": "pid",
+                "title": "Product",
+                "sku_info": { "sku_item": [] }
+            })],
+        })
+        .unwrap();
+        assert_eq!(goods["product"][0]["pid"], "pid");
+        assert_eq!(goods["product"][0]["title"], "Product");
+    }
+
+    #[test]
+    fn deserializes_official_device_goods_and_ocr_responses() {
+        let message: OfficialDeviceMessageResponse =
+            serde_json::from_value(json!({ "ret": 0, "ret_info": "ok" })).unwrap();
+        assert_eq!(message.ret, Some(0));
+        assert_eq!(message.ret_info.as_deref(), Some("ok"));
+
+        let qrcode: OfficialDeviceCreateQrCodeResponse = serde_json::from_value(json!({
+            "device_num": 1,
+            "code_list": [{ "device_id": "device", "ticket": "ticket" }]
+        }))
+        .unwrap();
+        assert_eq!(qrcode.device_num, Some(1));
+        assert_eq!(qrcode.code_list[0]["ticket"], "ticket");
+
+        let authorized: OfficialDeviceAuthorizeResponse = serde_json::from_value(json!({
+            "resp": [{ "base_info": { "device_id": "device" }, "errcode": 0 }]
+        }))
+        .unwrap();
+        assert_eq!(authorized.resp[0]["base_info"]["device_id"], "device");
+
+        let create_id: OfficialDeviceCreateIdResponse = serde_json::from_value(json!({
+            "resp_msg": { "ret_code": 0, "error_info": "ok" }
+        }))
+        .unwrap();
+        assert_eq!(create_id.resp_msg.unwrap()["ret_code"], 0);
+
+        let bind: OfficialDeviceBindResponse =
+            serde_json::from_value(json!({ "base_resp": { "errcode": 0, "errmsg": "ok" } }))
+                .unwrap();
+        assert_eq!(bind.base_resp.unwrap()["errmsg"], "ok");
+
+        let add: OfficialGoodsProductAddResponse =
+            serde_json::from_value(json!({ "status_ticket": "ticket" })).unwrap();
+        assert_eq!(add.status_ticket.as_deref(), Some("ticket"));
+
+        let status: OfficialGoodsProductStatusResponse = serde_json::from_value(json!({
+            "result": { "succ_cnt": 1, "fail_cnt": 0, "progress": "100%" }
+        }))
+        .unwrap();
+        assert_eq!(status.result.unwrap()["succ_cnt"], 1);
+
+        let product: OfficialGoodsProductGetResponse = serde_json::from_value(json!({
+            "product": { "pid": "pid", "title": "Product" }
+        }))
+        .unwrap();
+        assert_eq!(product.product.unwrap()["pid"], "pid");
+
+        let id_card: OfficialOcrIdCardResponse = serde_json::from_value(json!({
+            "type": "Front",
+            "name": "Alice",
+            "id": "123",
+            "addr": "Shanghai"
+        }))
+        .unwrap();
+        assert_eq!(id_card.id_type.as_deref(), Some("Front"));
+        assert_eq!(id_card.name.as_deref(), Some("Alice"));
+
+        let bank: OfficialOcrBankCardResponse =
+            serde_json::from_value(json!({ "number": "6222" })).unwrap();
+        assert_eq!(bank.number.as_deref(), Some("6222"));
+
+        let vehicle: OfficialOcrVehicleLicenseResponse = serde_json::from_value(json!({
+            "id_num": "id",
+            "name": "Alice",
+            "car_class": "C1"
+        }))
+        .unwrap();
+        assert_eq!(vehicle.car_class.as_deref(), Some("C1"));
+
+        let biz: OfficialOcrBizLicenseResponse = serde_json::from_value(json!({
+            "reg_num": "reg",
+            "enterprise_name": "Roze",
+            "img_size": { "w": 100, "h": 80 }
+        }))
+        .unwrap();
+        assert_eq!(biz.enterprise_name.as_deref(), Some("Roze"));
+        assert_eq!(biz.img_size.unwrap()["w"], 100);
+
+        let common: OfficialOcrCommonResponse = serde_json::from_value(json!({
+            "items": [{ "text": "hello" }],
+            "img_size": { "w": 100, "h": 80 }
+        }))
+        .unwrap();
+        assert_eq!(common.items[0]["text"], "hello");
+
+        let plate: OfficialOcrPlateNumberResponse =
+            serde_json::from_value(json!({ "number": "PLATE123" })).unwrap();
+        assert_eq!(plate.number.as_deref(), Some("PLATE123"));
     }
 
     #[test]
