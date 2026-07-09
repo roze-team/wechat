@@ -85,11 +85,38 @@ impl OpenWork {
             .await
     }
 
+    pub async fn pre_auth_code_typed(
+        &self,
+        suite_access_token: impl Into<String>,
+    ) -> Result<OpenWorkPreAuthCodeResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/service/get_pre_auth_code",
+                Some(suite_access_token.into()),
+                Vec::new(),
+            )
+            .await
+    }
+
     pub async fn permanent_code(
         &self,
         suite_access_token: impl Into<String>,
         auth_code: impl Into<String>,
     ) -> Result<Value> {
+        self.inner
+            .post(
+                "cgi-bin/service/get_permanent_code",
+                Some(suite_access_token.into()),
+                json!({ "auth_code": auth_code.into() }),
+            )
+            .await
+    }
+
+    pub async fn permanent_code_typed(
+        &self,
+        suite_access_token: impl Into<String>,
+        auth_code: impl Into<String>,
+    ) -> Result<OpenWorkPermanentCodeResponse> {
         self.inner
             .post(
                 "cgi-bin/service/get_permanent_code",
@@ -149,6 +176,24 @@ impl OpenWork {
             .await
     }
 
+    pub async fn auth_info_typed(
+        &self,
+        suite_access_token: impl Into<String>,
+        auth_corpid: impl Into<String>,
+        permanent_code: impl Into<String>,
+    ) -> Result<OpenWorkPermanentCodeResponse> {
+        self.inner
+            .post(
+                "cgi-bin/service/get_auth_info",
+                Some(suite_access_token.into()),
+                json!({
+                    "auth_corpid": auth_corpid.into(),
+                    "permanent_code": permanent_code.into(),
+                }),
+            )
+            .await
+    }
+
     pub async fn auth_info_v2(
         &self,
         suite_access_token: impl Into<String>,
@@ -173,6 +218,24 @@ impl OpenWork {
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
     ) -> Result<Value> {
+        self.inner
+            .post(
+                "cgi-bin/service/get_corp_token",
+                Some(suite_access_token.into()),
+                json!({
+                    "auth_corpid": auth_corpid.into(),
+                    "permanent_code": permanent_code.into(),
+                }),
+            )
+            .await
+    }
+
+    pub async fn corp_token_typed(
+        &self,
+        suite_access_token: impl Into<String>,
+        auth_corpid: impl Into<String>,
+        permanent_code: impl Into<String>,
+    ) -> Result<OpenWorkCorpTokenResponse> {
         self.inner
             .post(
                 "cgi-bin/service/get_corp_token",
@@ -577,6 +640,18 @@ pub struct SuiteTokenResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkPreAuthCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub pre_auth_code: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkSetSessionInfoRequest {
     pub pre_auth_code: String,
     pub session_info: OpenWorkSessionInfo,
@@ -614,6 +689,18 @@ pub struct OpenWorkPermanentCodeResponse {
     pub state: Option<String>,
     #[serde(default)]
     pub dealer_corp_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkCorpTokenResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub access_token: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1085,6 +1172,49 @@ mod tests {
             convert.open_userid_list[0].open_userid.as_deref(),
             Some("open-user")
         );
+    }
+
+    #[test]
+    fn deserializes_open_work_auth_typed_responses() {
+        let pre_auth: OpenWorkPreAuthCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "pre_auth_code": "pre-auth",
+            "expires_in": 1200
+        }))
+        .unwrap();
+        assert_eq!(pre_auth.pre_auth_code.as_deref(), Some("pre-auth"));
+        assert_eq!(pre_auth.expires_in, Some(1200));
+
+        let permanent: OpenWorkPermanentCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "access_token": "access-token",
+            "expires_in": 7200,
+            "permanent_code": "permanent",
+            "auth_corp_info": { "corpid": "corp" },
+            "auth_info": { "agent": [] },
+            "auth_user_info": { "userid": "admin" }
+        }))
+        .unwrap();
+        assert_eq!(permanent.permanent_code.as_deref(), Some("permanent"));
+        assert_eq!(permanent.auth_user_info.unwrap()["userid"], "admin");
+
+        let corp_token: OpenWorkCorpTokenResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "access_token": "corp-access-token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert_eq!(
+            corp_token.access_token.as_deref(),
+            Some("corp-access-token")
+        );
+
+        let status: OpenWorkStatusResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok"
+        }))
+        .unwrap();
+        assert_eq!(status.errmsg.as_deref(), Some("ok"));
     }
 
     #[test]
