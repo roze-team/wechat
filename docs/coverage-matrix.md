@@ -111,6 +111,9 @@ Status values:
 | Work | miniProgram | `work::mini_program` | tested |
 | Work | msgAudit | `work::msg_audit` | tested |
 | Work | oa | `work::oa` | tested |
+| Work | oa/calendar | `work::oa_calendar` | tested |
+| Work | oa/dial | `work::oa_dial` | tested |
+| Work | oa/pstncc | `work::oa_pstncc` | tested |
 | Work | server | `work::server` | tested |
 
 The generic `PlatformClient` can call every WeChat endpoint before a typed

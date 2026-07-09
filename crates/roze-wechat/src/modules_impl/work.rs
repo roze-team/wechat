@@ -954,6 +954,117 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.oa")
     }
 
+    pub fn oa_calendar(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.calendar")
+    }
+
+    pub async fn add_calendar(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCalendarAddRequest,
+    ) -> Result<WorkCalendarAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/calendar/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_calendar(
+        &self,
+        access_token: impl Into<String>,
+        calendar: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/calendar/update",
+                Some(access_token.into()),
+                json!({ "calendar": calendar }),
+            )
+            .await
+    }
+
+    pub async fn get_calendar(
+        &self,
+        access_token: impl Into<String>,
+        cal_id_list: Vec<String>,
+    ) -> Result<WorkCalendarGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/calendar/get",
+                Some(access_token.into()),
+                json!({ "cal_id_list": cal_id_list }),
+            )
+            .await
+    }
+
+    pub async fn delete_calendar(
+        &self,
+        access_token: impl Into<String>,
+        cal_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/calendar/del",
+                Some(access_token.into()),
+                json!({ "cal_id": cal_id.into() }),
+            )
+            .await
+    }
+
+    pub fn oa_dial(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.dial")
+    }
+
+    pub async fn get_dial_record(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkDialRecordRequest,
+    ) -> Result<WorkDialRecordResponse> {
+        self.inner
+            .post(
+                "cgi-bin/dial/get_dial_record",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn oa_pstncc(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.oa.pstncc")
+    }
+
+    pub async fn pstncc_call(
+        &self,
+        access_token: impl Into<String>,
+        callee_userid: Vec<String>,
+    ) -> Result<WorkPstnccCallResponse> {
+        self.inner
+            .post(
+                "cgi-bin/pstncc/call",
+                Some(access_token.into()),
+                json!({ "callee_userid": callee_userid }),
+            )
+            .await
+    }
+
+    pub async fn pstncc_get_states(
+        &self,
+        access_token: impl Into<String>,
+        callee_userid: impl Into<String>,
+        call_id: impl Into<String>,
+    ) -> Result<WorkPstnccGetStatesResponse> {
+        self.inner
+            .post(
+                "cgi-bin/pstncc/getstates",
+                Some(access_token.into()),
+                json!({ "callee_userid": callee_userid.into(), "callid": call_id.into() }),
+            )
+            .await
+    }
+
     pub async fn appchat_create(
         &self,
         access_token: impl Into<String>,
@@ -1624,6 +1735,76 @@ pub struct AppChatCreateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarAddRequest {
+    pub calendar: Value,
+    pub agentid: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub cal_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub calendar_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDialRecordRequest {
+    pub start_time: i64,
+    pub end_time: i64,
+    pub offset: i64,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDialRecordResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub record: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkPstnccCallResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub states: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkPstnccGetStatesResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub istalked: Option<i64>,
+    #[serde(default)]
+    pub calltime: Option<i64>,
+    #[serde(default)]
+    pub talktime: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppChatUpdateRequest {
     pub chatid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1675,8 +1856,9 @@ mod tests {
         AgentUpdateRequest, AppChatCreateRequest, AppChatMessage, ContactWayRequest,
         DepartmentCreateResponse, DepartmentRequest, MsgAuditChatDataRequest,
         OpenIdToUserIdRequest, OpenIdToUserIdResponse, UserIdToOpenIdRequest,
-        UserIdToOpenIdResponse, Work, WorkCorpGroupAppShareInfoResponse,
-        WorkCorpGroupTokenResponse, WorkCorpGroupTransferSessionResponse,
+        UserIdToOpenIdResponse, Work, WorkCalendarAddRequest, WorkCalendarAddResponse,
+        WorkCalendarGetResponse, WorkCorpGroupAppShareInfoResponse, WorkCorpGroupTokenResponse,
+        WorkCorpGroupTransferSessionResponse, WorkDialRecordRequest, WorkDialRecordResponse,
         WorkExternalPayBillListRequest, WorkExternalPayBillListResponse,
         WorkExternalPayMerchantResponse, WorkExternalPaySetMerchantUseScopeRequest,
         WorkExternalTagIdToOpenExternalTagIdResponse, WorkExternalUserIdToPendingIdRequest,
@@ -1686,9 +1868,9 @@ mod tests {
         WorkInvoiceStatusRequest, WorkIpListResponse, WorkMenuButton, WorkMenuRequest,
         WorkMenuResponse, WorkMessage, WorkMiniProgramSessionResponse,
         WorkOauthAuthorizeUrlRequest, WorkOpenUserIdToUserIdRequest,
-        WorkOpenUserIdToUserIdResponse, WorkUnionIdToExternalUserIdRequest,
-        WorkUnionIdToExternalUserIdResponse, WorkUploadMediaResponse,
-        WorkUserIdToOpenUserIdResponse,
+        WorkOpenUserIdToUserIdResponse, WorkPstnccCallResponse, WorkPstnccGetStatesResponse,
+        WorkUnionIdToExternalUserIdRequest, WorkUnionIdToExternalUserIdResponse,
+        WorkUploadMediaResponse, WorkUserIdToOpenUserIdResponse,
     };
 
     #[test]
@@ -2100,6 +2282,66 @@ mod tests {
 
         assert_eq!(response.media_id.as_deref(), Some("mid"));
         assert_eq!(response.media_type.as_deref(), Some("image"));
+    }
+
+    #[test]
+    fn serializes_work_oa_calendar_and_dial_requests() {
+        let calendar = serde_json::to_value(WorkCalendarAddRequest {
+            calendar: json!({
+                "organizer": "user",
+                "readonly": 0,
+                "summary": "Team"
+            }),
+            agentid: 100001,
+        })
+        .unwrap();
+        assert_eq!(calendar["agentid"], 100001);
+        assert_eq!(calendar["calendar"]["summary"], "Team");
+
+        let dial = serde_json::to_value(WorkDialRecordRequest {
+            start_time: 1_800_000_000,
+            end_time: 1_800_086_400,
+            offset: 0,
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(dial["start_time"], 1_800_000_000);
+        assert_eq!(dial["limit"], 100);
+    }
+
+    #[test]
+    fn deserializes_work_oa_calendar_dial_and_pstncc_responses() {
+        let calendar_add: WorkCalendarAddResponse =
+            serde_json::from_value(json!({ "errcode": 0, "cal_id": "wc100" })).unwrap();
+        assert_eq!(calendar_add.cal_id.as_deref(), Some("wc100"));
+
+        let calendar_get: WorkCalendarGetResponse = serde_json::from_value(json!({
+            "calendar_list": [{ "cal_id": "wc100", "summary": "Team" }]
+        }))
+        .unwrap();
+        assert_eq!(calendar_get.calendar_list[0]["summary"], "Team");
+
+        let dial: WorkDialRecordResponse = serde_json::from_value(json!({
+            "record": [{ "callee": "user", "duration": 60 }]
+        }))
+        .unwrap();
+        assert_eq!(dial.record[0]["callee"], "user");
+
+        let call: WorkPstnccCallResponse = serde_json::from_value(json!({
+            "states": [{ "callee_userid": "user", "callid": "call-1" }]
+        }))
+        .unwrap();
+        assert_eq!(call.states[0]["callid"], "call-1");
+
+        let states: WorkPstnccGetStatesResponse = serde_json::from_value(json!({
+            "istalked": 1,
+            "calltime": 1_800_000_000,
+            "talktime": 30,
+            "reason": 0
+        }))
+        .unwrap();
+        assert_eq!(states.istalked, Some(1));
+        assert_eq!(states.reason, Some(0));
     }
 
     #[test]
