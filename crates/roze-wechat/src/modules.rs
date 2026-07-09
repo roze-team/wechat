@@ -90,6 +90,7 @@ mod tests {
         );
         assert_eq!(wechat.mini_program().ocr().name(), "mini_program.ocr");
         assert_eq!(wechat.mini_program().image().name(), "mini_program.image");
+        assert_eq!(wechat.mini_program().device().name(), "mini_program.device");
         assert_eq!(wechat.mini_program().search().name(), "mini_program.search");
         assert_eq!(
             wechat.mini_program().nearby_poi().name(),

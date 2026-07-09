@@ -652,6 +652,132 @@ impl MiniProgram {
             .await
     }
 
+    pub fn device(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.device")
+    }
+
+    pub async fn send_hardware_device_message(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceSubscribeMessageRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/device/subscribe/send",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_device_sn_ticket(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceSnTicketRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post("wxa/getsnticket", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn create_iot_group_id(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceCreateIotGroupRequest,
+    ) -> Result<DeviceCreateIotGroupResponse> {
+        self.inner
+            .post(
+                "wxa/business/group/createid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_iot_group_info(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceGetIotGroupInfoRequest,
+    ) -> Result<DeviceGetIotGroupInfoResponse> {
+        self.inner
+            .post(
+                "wxa/business/group/getinfo",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_iot_group_device(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceGroupDeviceListRequest,
+    ) -> Result<DeviceGroupOperationResponse> {
+        self.inner
+            .post(
+                "wxa/business/group/adddevice",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn remove_iot_group_device(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceGroupDeviceListRequest,
+    ) -> Result<DeviceGroupOperationResponse> {
+        self.inner
+            .post(
+                "wxa/business/group/removedevice",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_device_license_pkg_list(
+        &self,
+        access_token: impl Into<String>,
+        pkg_type: i64,
+    ) -> Result<DeviceLicensePkgListResponse> {
+        self.inner
+            .post(
+                "wxa/business/license/getpkglist",
+                Some(access_token.into()),
+                json!({ "pkg_type": pkg_type }),
+            )
+            .await
+    }
+
+    pub async fn active_device_license(
+        &self,
+        access_token: impl Into<String>,
+        request: DeviceActiveLicenseRequest,
+    ) -> Result<DeviceActiveLicenseResponse> {
+        self.inner
+            .post(
+                "wxa/business/license/activedevice",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_device_license_info(
+        &self,
+        access_token: impl Into<String>,
+        device_list: Vec<DeviceInfo>,
+    ) -> Result<DeviceLicenseInfoResponse> {
+        self.inner
+            .post(
+                "wxa/business/license/getdeviceinfo",
+                Some(access_token.into()),
+                json!({ "device_list": device_list }),
+            )
+            .await
+    }
+
     pub fn search(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.search")
     }
@@ -1934,6 +2060,161 @@ pub struct InternetUserEncryptKeyInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceSubscribeMessageRequest {
+    pub to_openid_list: Vec<String>,
+    pub sn: String,
+    pub template_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceSnTicketRequest {
+    pub model_id: String,
+    pub sn: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceCreateIotGroupRequest {
+    pub group_name: String,
+    pub model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceGetIotGroupInfoRequest {
+    pub group_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceInfo {
+    pub model_id: String,
+    pub sn: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceGroupDeviceListRequest {
+    pub group_id: String,
+    pub device_list: Vec<DeviceInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceActiveLicenseRequest {
+    pub pkg_type: i64,
+    pub device_list: Vec<DeviceInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceCreateIotGroupResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub group_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceGetIotGroupInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub group_name: Option<String>,
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub model_type: Option<String>,
+    #[serde(default)]
+    pub device_list: Vec<DeviceInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceOperationItem {
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub sn: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceGroupOperationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub device_list: Vec<DeviceOperationItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceLicensePkgListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub pkg_list: Vec<DeviceLicensePkg>,
+    #[serde(default)]
+    pub max_active_number: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceLicensePkg {
+    #[serde(default)]
+    pub pkg_id: Option<String>,
+    #[serde(default)]
+    pub pkg_type: Option<i64>,
+    #[serde(default)]
+    pub start_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub pkg_status: Option<i64>,
+    #[serde(default)]
+    pub used: Option<i64>,
+    #[serde(default)]
+    pub all: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceActiveLicenseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub device_list: Vec<DeviceInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceLicenseInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub device_list: Vec<DeviceLicenseInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceLicenseInfo {
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub sn: Option<String>,
+    #[serde(default)]
+    pub expire_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchImageSearchRequest {
     pub img: Vec<Value>,
 }
@@ -2856,30 +3137,35 @@ mod tests {
 
     use super::{
         virtual_payment_order_post_body, Code2SessionResponse, CreateQrCodeRequest,
-        CustomerServiceMessage, DataCubeDateRange, ExpressAccountListResponse,
-        ExpressAddOrderResponse, ExpressBatchOrderListResponse, ExpressBindAccountRequest,
-        ExpressCancelOrderResponse, ExpressDeliveryListResponse, ExpressGetContactResponse,
-        ExpressGetOrderRequest, ExpressGetOrderResponse, ExpressGetPathResponse,
-        ExpressGetPrinterResponse, ExpressGetQuotaResponse, ExpressOrderRequest,
-        ExpressPreviewTemplateResponse, ExpressRequest, ExpressTestUpdateOrderRequest,
-        ExpressUpdatePrinterRequest, ImageAiCropResponse, ImageScanQrCodeResponse,
-        ImageSuperResolutionResponse, ImmediateDeliveryBindAccountResponse,
-        ImmediateDeliveryCancelOrderResponse, ImmediateDeliveryDeliveryListResponse,
-        ImmediateDeliveryGetOrderRequest, ImmediateDeliveryGetOrderResponse,
-        ImmediateDeliveryPreAddOrderResponse, ImmediateDeliveryPreCancelOrderResponse,
-        ImmediateDeliveryReOrderResponse, ImmediateDeliveryRequest,
-        InternetGetUserEncryptKeyRequest, InternetGetUserEncryptKeyResponse, JumpWxa,
-        LiveInfoRequest, LiveRoomRequest, NearbyPoiAddRequest, NearbyPoiAddResponse,
-        NearbyPoiListResponse, NearbyPoiShowStatusRequest, OcrBankcardResponse,
-        OcrBusinessLicenseResponse, OcrDrivingLicenseResponse, OcrIdCardResponse,
-        OcrPrintedTextResponse, OcrVehicleLicenseResponse, PhoneNumberResponse,
-        PluginActionRequest, PluginDevApplyListRequest, PluginDevApplyListResponse,
-        PluginDevApplyStatusRequest, PluginListResponse, RiskControlGetUserRiskRankRequest,
-        RiskControlGetUserRiskRankResponse, SearchImageSearchRequest, SearchImageSearchResponse,
-        SearchSiteSearchRequest, SearchSiteSearchResponse, SearchSubmitPagesRequest,
-        SecurityMsgSecCheckRequest, ServiceMarketInvokeRequest, ServiceMarketInvokeResponse,
-        SoterVerifySignatureRequest, SoterVerifySignatureResponse, SubscribeMessageRequest,
-        UrlSchemeGenerateRequest, VirtualPaymentGoodItem, VirtualPaymentOrderRequest,
+        CustomerServiceMessage, DataCubeDateRange, DeviceActiveLicenseRequest,
+        DeviceActiveLicenseResponse, DeviceCreateIotGroupRequest, DeviceCreateIotGroupResponse,
+        DeviceGetIotGroupInfoRequest, DeviceGetIotGroupInfoResponse, DeviceGroupDeviceListRequest,
+        DeviceGroupOperationResponse, DeviceInfo, DeviceLicenseInfoResponse,
+        DeviceLicensePkgListResponse, DeviceSnTicketRequest, DeviceSubscribeMessageRequest,
+        ExpressAccountListResponse, ExpressAddOrderResponse, ExpressBatchOrderListResponse,
+        ExpressBindAccountRequest, ExpressCancelOrderResponse, ExpressDeliveryListResponse,
+        ExpressGetContactResponse, ExpressGetOrderRequest, ExpressGetOrderResponse,
+        ExpressGetPathResponse, ExpressGetPrinterResponse, ExpressGetQuotaResponse,
+        ExpressOrderRequest, ExpressPreviewTemplateResponse, ExpressRequest,
+        ExpressTestUpdateOrderRequest, ExpressUpdatePrinterRequest, ImageAiCropResponse,
+        ImageScanQrCodeResponse, ImageSuperResolutionResponse,
+        ImmediateDeliveryBindAccountResponse, ImmediateDeliveryCancelOrderResponse,
+        ImmediateDeliveryDeliveryListResponse, ImmediateDeliveryGetOrderRequest,
+        ImmediateDeliveryGetOrderResponse, ImmediateDeliveryPreAddOrderResponse,
+        ImmediateDeliveryPreCancelOrderResponse, ImmediateDeliveryReOrderResponse,
+        ImmediateDeliveryRequest, InternetGetUserEncryptKeyRequest,
+        InternetGetUserEncryptKeyResponse, JumpWxa, LiveInfoRequest, LiveRoomRequest,
+        NearbyPoiAddRequest, NearbyPoiAddResponse, NearbyPoiListResponse,
+        NearbyPoiShowStatusRequest, OcrBankcardResponse, OcrBusinessLicenseResponse,
+        OcrDrivingLicenseResponse, OcrIdCardResponse, OcrPrintedTextResponse,
+        OcrVehicleLicenseResponse, PhoneNumberResponse, PluginActionRequest,
+        PluginDevApplyListRequest, PluginDevApplyListResponse, PluginDevApplyStatusRequest,
+        PluginListResponse, RiskControlGetUserRiskRankRequest, RiskControlGetUserRiskRankResponse,
+        SearchImageSearchRequest, SearchImageSearchResponse, SearchSiteSearchRequest,
+        SearchSiteSearchResponse, SearchSubmitPagesRequest, SecurityMsgSecCheckRequest,
+        ServiceMarketInvokeRequest, ServiceMarketInvokeResponse, SoterVerifySignatureRequest,
+        SoterVerifySignatureResponse, SubscribeMessageRequest, UrlSchemeGenerateRequest,
+        VirtualPaymentGoodItem, VirtualPaymentOrderRequest,
         VirtualPaymentUploadProductSearchResponse, VirtualPaymentUploadProductsRequest,
         WxaSecConfirmReceiveRequest, WxaSecOrderKey, WxaSecOrderListRequest,
         WxaSecOrderListResponse, WxaSecOrderQuery, WxaSecOrderResponse, WxaSecPayTimeRange,
@@ -3095,6 +3381,129 @@ mod tests {
         );
         assert_eq!(encrypt_key.key_info_list[0].version, Some(1));
         assert_eq!(encrypt_key.key_info_list[0].expire_in, Some(7200));
+    }
+
+    #[test]
+    fn serializes_device_requests() {
+        let message = serde_json::to_value(DeviceSubscribeMessageRequest {
+            to_openid_list: vec!["openid".to_string()],
+            sn: "sn".to_string(),
+            template_id: "template-id".to_string(),
+            page: Some("pages/device".to_string()),
+            miniprogram_state: Some("formal".to_string()),
+            lang: Some("zh_CN".to_string()),
+            data: json!({
+                "thing1": { "value": "online" }
+            }),
+        })
+        .unwrap();
+        assert_eq!(message["to_openid_list"][0], "openid");
+        assert_eq!(message["template_id"], "template-id");
+        assert_eq!(message["data"]["thing1"]["value"], "online");
+
+        let ticket = serde_json::to_value(DeviceSnTicketRequest {
+            model_id: "model-id".to_string(),
+            sn: "sn".to_string(),
+        })
+        .unwrap();
+        assert_eq!(ticket["model_id"], "model-id");
+        assert_eq!(ticket["sn"], "sn");
+
+        let create_group = serde_json::to_value(DeviceCreateIotGroupRequest {
+            group_name: "Living Room".to_string(),
+            model_id: "model-id".to_string(),
+        })
+        .unwrap();
+        assert_eq!(create_group["group_name"], "Living Room");
+
+        let get_group = serde_json::to_value(DeviceGetIotGroupInfoRequest {
+            group_id: "group-id".to_string(),
+        })
+        .unwrap();
+        assert_eq!(get_group["group_id"], "group-id");
+
+        let device = DeviceInfo {
+            model_id: "model-id".to_string(),
+            sn: "sn".to_string(),
+        };
+        let group_devices = serde_json::to_value(DeviceGroupDeviceListRequest {
+            group_id: "group-id".to_string(),
+            device_list: vec![device.clone()],
+        })
+        .unwrap();
+        assert_eq!(group_devices["device_list"][0]["model_id"], "model-id");
+
+        let active_license = serde_json::to_value(DeviceActiveLicenseRequest {
+            pkg_type: 1,
+            device_list: vec![device],
+        })
+        .unwrap();
+        assert_eq!(active_license["pkg_type"], 1);
+        assert_eq!(active_license["device_list"][0]["sn"], "sn");
+    }
+
+    #[test]
+    fn deserializes_device_responses() {
+        let create_group: DeviceCreateIotGroupResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "group_id": "group-id"
+        }))
+        .unwrap();
+        assert_eq!(create_group.group_id.as_deref(), Some("group-id"));
+
+        let group_info: DeviceGetIotGroupInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "group_name": "Living Room",
+            "model_id": "model-id",
+            "model_type": "device",
+            "device_list": [{ "model_id": "model-id", "sn": "sn" }]
+        }))
+        .unwrap();
+        assert_eq!(group_info.group_name.as_deref(), Some("Living Room"));
+        assert_eq!(group_info.device_list[0].sn, "sn");
+
+        let add: DeviceGroupOperationResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "device_list": [{ "model_id": "model-id", "sn": "sn", "errcode": 0 }]
+        }))
+        .unwrap();
+        assert_eq!(add.device_list[0].errcode, Some(0));
+
+        let pkg: DeviceLicensePkgListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "max_active_number": 100,
+            "pkg_list": [{
+                "pkg_id": "pkg-id",
+                "pkg_type": 1,
+                "start_time": 1800000000,
+                "end_time": 1800100000,
+                "pkg_status": 1,
+                "used": 2,
+                "all": 10
+            }]
+        }))
+        .unwrap();
+        assert_eq!(pkg.max_active_number, Some(100));
+        assert_eq!(pkg.pkg_list[0].pkg_id.as_deref(), Some("pkg-id"));
+        assert_eq!(pkg.pkg_list[0].all, Some(10));
+
+        let active: DeviceActiveLicenseResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "device_list": [{ "model_id": "model-id", "sn": "sn" }]
+        }))
+        .unwrap();
+        assert_eq!(active.device_list[0].model_id, "model-id");
+
+        let info: DeviceLicenseInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "device_list": [{
+                "model_id": "model-id",
+                "sn": "sn",
+                "expire_time": 1800100000
+            }]
+        }))
+        .unwrap();
+        assert_eq!(info.device_list[0].expire_time, Some(1_800_100_000));
     }
 
     #[test]
