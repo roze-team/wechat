@@ -1141,6 +1141,172 @@ impl MiniProgram {
             .await
     }
 
+    pub fn b2b(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.b2b")
+    }
+
+    pub fn build_b2b_payment(
+        &self,
+        session_key: impl AsRef<[u8]>,
+        app_key: impl AsRef<[u8]>,
+        data: Value,
+    ) -> Result<B2bPaymentResponse> {
+        let sign_data = serde_json::to_string(&data)?;
+        Ok(B2bPaymentResponse {
+            sign_data: sign_data.clone(),
+            mode: "retail_pay_goods".to_string(),
+            signature: crypto::hmac_sha256_hex(session_key.as_ref(), sign_data.as_bytes())?,
+            pay_sig: crypto::hmac_sha256_hex(
+                app_key.as_ref(),
+                format!("requestCommonPayment&{sign_data}").as_bytes(),
+            )?,
+        })
+    }
+
+    pub async fn get_b2b_order(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bGetOrderRequest,
+    ) -> Result<B2bGetOrderResponse> {
+        self.post_b2b("/retail/B2b/getorder", app_key, request)
+            .await
+    }
+
+    pub async fn refund_b2b_order(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bRefundRequest,
+    ) -> Result<B2bRefundResponse> {
+        self.post_b2b("/retail/B2b/refund", app_key, request).await
+    }
+
+    pub async fn get_b2b_refund(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bGetRefundRequest,
+    ) -> Result<B2bGetRefundResponse> {
+        self.post_b2b("/retail/B2b/getrefund", app_key, request)
+            .await
+    }
+
+    pub async fn add_b2b_profit_sharing_account(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bAddProfitSharingAccountRequest,
+    ) -> Result<B2bStatusResponse> {
+        self.post_b2b("/retail/B2b/addprofitsharingaccount", app_key, request)
+            .await
+    }
+
+    pub async fn delete_b2b_profit_sharing_account(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bDeleteProfitSharingAccountRequest,
+    ) -> Result<B2bStatusResponse> {
+        self.post_b2b("/retail/B2b/delprofitsharingaccount", app_key, request)
+            .await
+    }
+
+    pub async fn query_b2b_profit_sharing_account(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bQueryProfitSharingAccountRequest,
+    ) -> Result<B2bQueryProfitSharingAccountResponse> {
+        self.post_b2b("/retail/B2b/queryprofitsharingaccount", app_key, request)
+            .await
+    }
+
+    pub async fn create_b2b_profit_sharing_order(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bCreateProfitSharingOrderRequest,
+    ) -> Result<B2bStatusResponse> {
+        self.post_b2b("/retail/B2b/createprofitsharingorder", app_key, request)
+            .await
+    }
+
+    pub async fn query_b2b_profit_sharing_order(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bQueryProfitSharingOrderRequest,
+    ) -> Result<B2bProfitSharingOrderResponse> {
+        self.post_b2b("/retail/B2b/queryprofitsharingorder", app_key, request)
+            .await
+    }
+
+    pub async fn query_b2b_profit_sharing_remain_amount(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bQueryProfitSharingRemainAmountRequest,
+    ) -> Result<B2bProfitSharingRemainAmountResponse> {
+        self.post_b2b("/retail/B2b/queryprofitsharingremainamt", app_key, request)
+            .await
+    }
+
+    pub async fn finish_b2b_profit_sharing_order(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bFinishProfitSharingOrderRequest,
+    ) -> Result<B2bStatusResponse> {
+        self.post_b2b("/retail/B2b/finishprofitsharingorder", app_key, request)
+            .await
+    }
+
+    pub async fn refund_b2b_profit_sharing(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bRefundProfitSharingRequest,
+    ) -> Result<B2bStatusResponse> {
+        self.post_b2b("/retail/B2b/refundprofitsharing", app_key, request)
+            .await
+    }
+
+    pub async fn query_b2b_refund_profit_sharing_order(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bQueryRefundProfitSharingOrderRequest,
+    ) -> Result<B2bProfitSharingOrderResponse> {
+        self.post_b2b(
+            "/retail/B2b/queryrefundprofitsharingorder",
+            app_key,
+            request,
+        )
+        .await
+    }
+
+    pub async fn download_b2b_bill(
+        &self,
+        app_key: impl AsRef<[u8]>,
+        request: B2bDownloadBillRequest,
+    ) -> Result<B2bDownloadBillResponse> {
+        self.post_b2b("/retail/B2b/downloadbill", app_key, request)
+            .await
+    }
+
+    async fn post_b2b<B, R>(
+        &self,
+        path: &'static str,
+        app_key: impl AsRef<[u8]>,
+        request: B,
+    ) -> Result<R>
+    where
+        B: Serialize,
+        R: for<'de> Deserialize<'de>,
+    {
+        let body = serde_json::to_string(&request)?;
+        let pay_sig =
+            crypto::hmac_sha256_hex(app_key.as_ref(), format!("{path}&{body}").as_bytes())?;
+        self.inner
+            .post_raw_json(
+                path,
+                vec![("pay_sig".to_string(), pay_sig)],
+                "application/json".to_string(),
+                body.into_bytes(),
+                Vec::new(),
+            )
+            .await
+    }
+
     pub fn immediate_delivery(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.immediate_delivery")
     }
@@ -2665,6 +2831,14 @@ pub struct VirtualPaymentOrderResponse {
     pub signature: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bPaymentResponse {
+    pub sign_data: String,
+    pub mode: String,
+    pub signature: String,
+    pub pay_sig: String,
+}
+
 fn virtual_payment_order_post_body(offer_id: &str, request: &VirtualPaymentOrderRequest) -> String {
     format!(
         r#"{{"offerId":"{}","buyQuantity":1,"env":0,"currencyType":"CNY","platform":"android","productId":"{}","goodsPrice":{},"outTradeNo":"{}","attach":"{}"}}"#,
@@ -2732,6 +2906,284 @@ pub struct VirtualPaymentUploadItem {
     pub upload_status: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bGetOrderRequest {
+    pub mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_trade_no: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bRefundRequest {
+    pub mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_trade_no: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    pub out_refund_no: String,
+    pub refund_amount: i64,
+    pub refund_from: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refund_reason: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bGetRefundRequest {
+    pub mchid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_refund_no: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refund_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bAddProfitSharingAccountRequest {
+    pub profit_sharing_relation_type: String,
+    pub payee_type: String,
+    pub payee_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payee_name: Option<String>,
+    pub env: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bDeleteProfitSharingAccountRequest {
+    pub payee_type: String,
+    pub payee_id: String,
+    pub env: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bQueryProfitSharingAccountRequest {
+    pub offset: i64,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bCreateProfitSharingOrderRequest {
+    pub mchid: String,
+    pub out_trade_no: String,
+    pub profit_fee: i64,
+    pub receiver_type: String,
+    pub receiver_account: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bQueryProfitSharingOrderRequest {
+    pub mchid: String,
+    pub out_trade_no: String,
+    pub receiver_type: String,
+    pub receiver_account: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bQueryProfitSharingRemainAmountRequest {
+    pub mchid: String,
+    pub out_trade_no: String,
+    pub env: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bFinishProfitSharingOrderRequest {
+    pub mchid: String,
+    pub out_trade_no: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bRefundProfitSharingRequest {
+    pub mchid: String,
+    pub out_trade_no: String,
+    pub out_refund_no: String,
+    pub payee_type: String,
+    pub payee_id: String,
+    pub refund_amt: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bQueryRefundProfitSharingOrderRequest {
+    pub mchid: String,
+    pub out_trade_no: String,
+    pub out_refund_no: String,
+    pub payee_type: String,
+    pub payee_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bDownloadBillRequest {
+    pub mchid: String,
+    pub bill_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bAmount {
+    #[serde(default)]
+    pub order_amount: Option<i64>,
+    #[serde(default)]
+    pub payer_amount: Option<i64>,
+    #[serde(default)]
+    pub refund_amount: Option<i64>,
+    #[serde(default)]
+    pub currency: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bGetOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub mchid: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub pay_status: Option<String>,
+    #[serde(default)]
+    pub pay_time: Option<String>,
+    #[serde(default)]
+    pub attach: Option<String>,
+    #[serde(default)]
+    pub payer_openid: Option<String>,
+    #[serde(default)]
+    pub amount: Option<B2bAmount>,
+    #[serde(default)]
+    pub wxpay_transaction_id: Option<String>,
+    #[serde(default)]
+    pub env: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bRefundResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub refund_id: Option<String>,
+    #[serde(default)]
+    pub out_refund_no: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bGetRefundResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub refund_id: Option<String>,
+    #[serde(default)]
+    pub out_refund_no: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<String>,
+    #[serde(default)]
+    pub refund_time: Option<String>,
+    #[serde(default)]
+    pub refund_status: Option<String>,
+    #[serde(default)]
+    pub refund_desc: Option<String>,
+    #[serde(default)]
+    pub amount: Option<B2bAmount>,
+    #[serde(default)]
+    pub wxpay_refund_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bProfitSharingAccountInfo {
+    #[serde(default)]
+    pub sharing_account_type: Option<String>,
+    #[serde(default)]
+    pub sharing_account: Option<String>,
+    #[serde(default)]
+    pub add_time: Option<String>,
+    #[serde(default)]
+    pub update_time: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bQueryProfitSharingAccountResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub account_list: Vec<B2bProfitSharingAccountInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bProfitSharingOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub order_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bProfitSharingRemainAmountResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub remain_amt: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct B2bDownloadBillResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub success_bill_url: Option<String>,
+    #[serde(default)]
+    pub refund_bill_url: Option<String>,
+    #[serde(default)]
+    pub all_bill_url: Option<String>,
+    #[serde(default)]
+    pub fund_bill_url: Option<String>,
+    #[serde(default)]
+    pub ended_day_avail_amt: Option<i64>,
+    #[serde(default)]
+    pub ended_day_frozen_amt: Option<i64>,
+    #[serde(default)]
+    pub ended_day_total_amt: Option<i64>,
+    #[serde(default)]
+    pub profit_sharing_bill_url: Option<String>,
+    #[serde(default)]
+    pub profit_refund_bill_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3429,7 +3881,11 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        virtual_payment_order_post_body, Code2SessionResponse, CreateQrCodeRequest,
+        virtual_payment_order_post_body, B2bAddProfitSharingAccountRequest, B2bDownloadBillRequest,
+        B2bDownloadBillResponse, B2bGetOrderRequest, B2bGetOrderResponse, B2bGetRefundRequest,
+        B2bGetRefundResponse, B2bProfitSharingOrderResponse, B2bProfitSharingRemainAmountResponse,
+        B2bQueryProfitSharingAccountRequest, B2bQueryProfitSharingAccountResponse,
+        B2bRefundRequest, B2bRefundResponse, Code2SessionResponse, CreateQrCodeRequest,
         CustomerServiceMessage, DataCubeDateRange, DeviceActiveLicenseRequest,
         DeviceActiveLicenseResponse, DeviceCreateIotGroupRequest, DeviceCreateIotGroupResponse,
         DeviceGetIotGroupInfoRequest, DeviceGetIotGroupInfoResponse, DeviceGroupDeviceListRequest,
@@ -4146,6 +4602,189 @@ mod tests {
         assert_eq!(response.status, Some(2));
         assert_eq!(response.upload_item[0].id.as_deref(), Some("coins_100"));
         assert_eq!(response.upload_item[0].upload_status, Some(0));
+    }
+
+    #[test]
+    fn builds_b2b_payment_and_signatures() {
+        let client = crate::Client::new(crate::WechatConfig::default()).unwrap();
+        let mini_program = super::MiniProgram::new(client, crate::config::Platform::MiniProgram);
+        let data = json!({
+            "mchid": "mchid",
+            "out_trade_no": "trade-no",
+            "amount": 100
+        });
+
+        let payment = mini_program
+            .build_b2b_payment(b"session-key", b"app-key", data.clone())
+            .unwrap();
+
+        assert_eq!(payment.mode, "retail_pay_goods");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&payment.sign_data).unwrap(),
+            data
+        );
+        assert_eq!(
+            payment.signature,
+            crate::crypto::hmac_sha256_hex(b"session-key", payment.sign_data.as_bytes()).unwrap()
+        );
+        assert_eq!(
+            payment.pay_sig,
+            crate::crypto::hmac_sha256_hex(
+                b"app-key",
+                format!("requestCommonPayment&{}", payment.sign_data).as_bytes()
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn serializes_b2b_requests() {
+        let get_order = serde_json::to_value(B2bGetOrderRequest {
+            mchid: "mchid".to_string(),
+            out_trade_no: Some("trade-no".to_string()),
+            order_id: None,
+        })
+        .unwrap();
+        assert_eq!(get_order["mchid"], "mchid");
+        assert_eq!(get_order["out_trade_no"], "trade-no");
+        assert!(get_order.get("order_id").is_none());
+
+        let refund = serde_json::to_value(B2bRefundRequest {
+            mchid: "mchid".to_string(),
+            out_trade_no: Some("trade-no".to_string()),
+            order_id: None,
+            out_refund_no: "refund-no".to_string(),
+            refund_amount: 50,
+            refund_from: "UNSETTLED".to_string(),
+            refund_reason: None,
+        })
+        .unwrap();
+        assert_eq!(refund["refund_amount"], 50);
+        assert_eq!(refund["refund_from"], "UNSETTLED");
+        assert!(refund.get("refund_reason").is_none());
+
+        let get_refund = serde_json::to_value(B2bGetRefundRequest {
+            mchid: "mchid".to_string(),
+            out_refund_no: Some("refund-no".to_string()),
+            refund_id: None,
+        })
+        .unwrap();
+        assert_eq!(get_refund["out_refund_no"], "refund-no");
+        assert!(get_refund.get("refund_id").is_none());
+
+        let add_account = serde_json::to_value(B2bAddProfitSharingAccountRequest {
+            profit_sharing_relation_type: "SERVICE_PROVIDER".to_string(),
+            payee_type: "PERSONAL_OPENID".to_string(),
+            payee_id: "openid".to_string(),
+            payee_name: None,
+            env: 0,
+        })
+        .unwrap();
+        assert_eq!(
+            add_account["profit_sharing_relation_type"],
+            "SERVICE_PROVIDER"
+        );
+        assert!(add_account.get("payee_name").is_none());
+
+        let query_account = serde_json::to_value(B2bQueryProfitSharingAccountRequest {
+            offset: 0,
+            limit: 20,
+        })
+        .unwrap();
+        assert_eq!(query_account["limit"], 20);
+
+        let bill = serde_json::to_value(B2bDownloadBillRequest {
+            mchid: "mchid".to_string(),
+            bill_date: "20260709".to_string(),
+        })
+        .unwrap();
+        assert_eq!(bill["bill_date"], "20260709");
+    }
+
+    #[test]
+    fn deserializes_b2b_responses() {
+        let order: B2bGetOrderResponse = serde_json::from_value(json!({
+            "appid": "wxappid",
+            "mchid": "mchid",
+            "out_trade_no": "trade-no",
+            "order_id": "order-id",
+            "pay_status": "SUCCESS",
+            "pay_time": "2026-07-09T12:00:00+08:00",
+            "attach": "attach",
+            "payer_openid": "openid",
+            "amount": { "order_amount": 100, "payer_amount": 100, "currency": "CNY" },
+            "wxpay_transaction_id": "wxpay-id",
+            "env": 0
+        }))
+        .unwrap();
+        assert_eq!(order.pay_status.as_deref(), Some("SUCCESS"));
+        assert_eq!(order.amount.unwrap().order_amount, Some(100));
+
+        let refund: B2bRefundResponse = serde_json::from_value(json!({
+            "refund_id": "refund-id",
+            "out_refund_no": "refund-no",
+            "order_id": "order-id",
+            "out_trade_no": "trade-no"
+        }))
+        .unwrap();
+        assert_eq!(refund.refund_id.as_deref(), Some("refund-id"));
+
+        let refund_detail: B2bGetRefundResponse = serde_json::from_value(json!({
+            "refund_id": "refund-id",
+            "out_refund_no": "refund-no",
+            "order_id": "order-id",
+            "out_trade_no": "trade-no",
+            "create_time": "2026-07-09T12:00:00+08:00",
+            "refund_time": "2026-07-09T12:05:00+08:00",
+            "refund_status": "SUCCESS",
+            "refund_desc": "ok",
+            "amount": { "order_amount": 100, "refund_amount": 50, "currency": "CNY" },
+            "wxpay_refund_id": "wx-refund-id"
+        }))
+        .unwrap();
+        assert_eq!(refund_detail.refund_status.as_deref(), Some("SUCCESS"));
+        assert_eq!(refund_detail.amount.unwrap().refund_amount, Some(50));
+
+        let accounts: B2bQueryProfitSharingAccountResponse = serde_json::from_value(json!({
+            "account_list": [{
+                "sharing_account_type": "PERSONAL_OPENID",
+                "sharing_account": "openid",
+                "add_time": "2026-07-09T12:00:00+08:00",
+                "update_time": "2026-07-09T12:00:00+08:00",
+                "name": "receiver"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            accounts.account_list[0].sharing_account.as_deref(),
+            Some("openid")
+        );
+
+        let sharing: B2bProfitSharingOrderResponse =
+            serde_json::from_value(json!({ "order_status": "FINISHED" })).unwrap();
+        assert_eq!(sharing.order_status.as_deref(), Some("FINISHED"));
+
+        let remain: B2bProfitSharingRemainAmountResponse =
+            serde_json::from_value(json!({ "remain_amt": 70 })).unwrap();
+        assert_eq!(remain.remain_amt, Some(70));
+
+        let bill: B2bDownloadBillResponse = serde_json::from_value(json!({
+            "success_bill_url": "https://example.com/success.csv",
+            "refund_bill_url": "https://example.com/refund.csv",
+            "all_bill_url": "https://example.com/all.csv",
+            "fund_bill_url": "https://example.com/fund.csv",
+            "ended_day_avail_amt": 100,
+            "ended_day_frozen_amt": 10,
+            "ended_day_total_amt": 110,
+            "profit_sharing_bill_url": "https://example.com/profit.csv",
+            "profit_refund_bill_url": "https://example.com/profit-refund.csv"
+        }))
+        .unwrap();
+        assert_eq!(bill.ended_day_total_amt, Some(110));
+        assert_eq!(
+            bill.profit_refund_bill_url.as_deref(),
+            Some("https://example.com/profit-refund.csv")
+        );
     }
 
     #[test]

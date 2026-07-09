@@ -106,6 +106,7 @@ mod tests {
             wechat.mini_program().virtual_payment().name(),
             "mini_program.virtual_payment"
         );
+        assert_eq!(wechat.mini_program().b2b().name(), "mini_program.b2b");
         assert_eq!(
             wechat.mini_program().immediate_delivery().name(),
             "mini_program.immediate_delivery"

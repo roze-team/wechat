@@ -19,6 +19,7 @@ Status values:
 | Channels | eCommerce | `channels::e_commerce` | tested |
 | Mini Program | auth | `mini_program::auth` | tested |
 | Mini Program | base | `mini_program::base` | tested |
+| Mini Program | b2b | `mini_program::b2b` | tested |
 | Mini Program | customerServiceMessage | `mini_program::customer_service_message` | tested |
 | Mini Program | dataCube | `mini_program::data_cube` | tested |
 | Mini Program | device | `mini_program::device` | tested |
