@@ -54,6 +54,7 @@ Status values:
 | Official Account | jssdk | `official_account::jssdk` | tested |
 | Official Account | material | `official_account::material` | tested |
 | Official Account | menu | `official_account::menu` | tested |
+| Official Account | publish | `official_account::publish` | tested |
 | Official Account | server | `official_account::server` | tested |
 | Official Account | templateMessage | `official_account::template_message` | tested |
 | Official Account | user/tag | `official_account::user` | tested |

@@ -16,13 +16,13 @@ entries, request/response DTOs, and tests.
 | Basic Service | 6 | 6 | 0 |
 | Channels | 2 | 2 | 0 |
 | Mini Program | 32 | 32 | 0 |
-| Official Account | 24 | 12 | 13 |
+| Official Account | 24 | 13 | 12 |
 | Open Platform | 6 | 6 | 0 |
 | Open Work | 8 | 8 | 0 |
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 33.
+Total remaining PowerWeChat submodule gaps: 32.
 
 ## Remaining Gaps
 
@@ -36,7 +36,6 @@ Total remaining PowerWeChat submodule gaps: 33.
 - `guide`
 - `ocr`
 - `poi`
-- `publish`
 - `semantic`
 - `shakeAround`
 - `store`
@@ -71,8 +70,8 @@ Total remaining PowerWeChat submodule gaps: 33.
    `accountService`, `externalPay`, `invoice`, `idConvert`, `menu`,
    `oa/approval`, `oa/meeting`, `oa/wedoc`, `oa/wedrive`.
 2. Official Account long-tail modules:
-   `publish`, `comment`, `dataCube`, `guide`, `semantic`, `shakeAround`,
-   `store`, `wifi`, `poi`, `device`, `goods`, `autoReply`, `ocr`.
+   `comment`, `dataCube`, `guide`, `semantic`, `shakeAround`, `store`,
+   `wifi`, `poi`, `device`, `goods`, `autoReply`, `ocr`.
 Each completed submodule should add:
 
 - a public `DomainModule` entry when the boundary is new;

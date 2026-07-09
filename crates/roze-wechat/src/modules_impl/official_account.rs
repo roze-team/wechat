@@ -588,6 +588,172 @@ impl OfficialAccount {
             .await
     }
 
+    pub fn publish(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "official_account.publish")
+    }
+
+    pub async fn draft_add(
+        &self,
+        access_token: impl Into<String>,
+        request: PublishDraftAddRequest,
+    ) -> Result<PublishDraftAddResponse> {
+        self.inner
+            .post("cgi-bin/draft/add", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn draft_get(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<PublishDraftGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/draft/get",
+                Some(access_token.into()),
+                json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn draft_delete(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/draft/delete",
+                Some(access_token.into()),
+                json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn draft_update(
+        &self,
+        access_token: impl Into<String>,
+        request: PublishDraftUpdateRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post("cgi-bin/draft/update", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn draft_count(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<PublishDraftCountResponse> {
+        self.inner
+            .get("cgi-bin/draft/count", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn draft_batch_get(
+        &self,
+        access_token: impl Into<String>,
+        request: PublishBatchGetRequest,
+    ) -> Result<PublishBatchGetResponse> {
+        self.inner
+            .post("cgi-bin/draft/batchget", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn draft_switch(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post("cgi-bin/draft/switch", Some(access_token.into()), json!({}))
+            .await
+    }
+
+    pub async fn draft_check_switch(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<PublishDraftSwitchStatusResponse> {
+        self.inner
+            .post_json_with_access_token_query(
+                "cgi-bin/draft/switch",
+                Some(access_token.into()),
+                vec![("checkonly".to_string(), "1".to_string())],
+                json!({}),
+                Vec::new(),
+            )
+            .await
+    }
+
+    pub async fn publish_submit(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<PublishSubmitResponse> {
+        self.inner
+            .post(
+                "cgi-bin/freepublish/submit",
+                Some(access_token.into()),
+                json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn publish_get(
+        &self,
+        access_token: impl Into<String>,
+        publish_id: u64,
+    ) -> Result<PublishStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/freepublish/get",
+                Some(access_token.into()),
+                json!({ "publish_id": publish_id }),
+            )
+            .await
+    }
+
+    pub async fn publish_delete(
+        &self,
+        access_token: impl Into<String>,
+        article_id: impl Into<String>,
+        index: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/freepublish/delete",
+                Some(access_token.into()),
+                json!({ "article_id": article_id.into(), "index": index }),
+            )
+            .await
+    }
+
+    pub async fn publish_get_article(
+        &self,
+        access_token: impl Into<String>,
+        article_id: impl Into<String>,
+    ) -> Result<PublishArticleResponse> {
+        self.inner
+            .post(
+                "cgi-bin/freepublish/getarticle",
+                Some(access_token.into()),
+                json!({ "article_id": article_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn publish_batch_get(
+        &self,
+        access_token: impl Into<String>,
+        request: PublishBatchGetRequest,
+    ) -> Result<PublishBatchGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/freepublish/batchget",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn menu(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.menu")
     }
@@ -1158,6 +1324,205 @@ pub struct Article {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishArticle {
+    pub title: String,
+    pub author: String,
+    pub digest: String,
+    pub content: String,
+    pub content_source_url: String,
+    pub thumb_media_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub need_open_comment: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub only_fans_can_comment: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishDraftAddRequest {
+    pub articles: Vec<PublishArticle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishDraftUpdateRequest {
+    pub media_id: String,
+    pub index: i64,
+    pub articles: PublishArticle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishBatchGetRequest {
+    pub offset: i64,
+    pub count: i64,
+    pub no_content: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishDraftAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishNewsItem {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub digest: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub content_source_url: Option<String>,
+    #[serde(default)]
+    pub thumb_media_id: Option<String>,
+    #[serde(default)]
+    pub thumb_url: Option<String>,
+    #[serde(default)]
+    pub show_cover_pic: Option<i64>,
+    #[serde(default)]
+    pub need_open_comment: Option<i64>,
+    #[serde(default)]
+    pub only_fans_can_comment: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub is_deleted: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishDraftGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub news_item: Vec<PublishNewsItem>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishDraftCountResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishContent {
+    #[serde(default)]
+    pub news_item: Vec<PublishNewsItem>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishBatchItem {
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub article_id: Option<String>,
+    #[serde(default)]
+    pub content: Option<PublishContent>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishBatchGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub item_count: Option<i64>,
+    #[serde(default)]
+    pub item: Vec<PublishBatchItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishDraftSwitchStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub item_count: Option<i64>,
+    #[serde(default)]
+    pub is_open: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishSubmitResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub publish_id: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishArticleItem {
+    #[serde(default)]
+    pub idx: Option<i64>,
+    #[serde(default)]
+    pub article_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishArticleDetail {
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub item: Vec<PublishArticleItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub publish_id: Option<u64>,
+    #[serde(default)]
+    pub publish_status: Option<i64>,
+    #[serde(default)]
+    pub article_id: Option<Value>,
+    #[serde(default)]
+    pub article_detail: Option<PublishArticleDetail>,
+    #[serde(default)]
+    pub fail_idx: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishArticleResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub news_item: Vec<PublishNewsItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaterialMediaResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -1224,7 +1589,10 @@ mod tests {
         CardCodeResponse, CardCreateRequest, CardCreateResponse, CardIdRequest, CardQrCodeRequest,
         CardQrCodeResponse, CustomerServiceMessage, JsapiConfig, MassSendAllRequest,
         MassSendFilter, MaterialListRequest, MenuButton, OauthAuthorizeUrlRequest, OfficialAccount,
-        TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
+        PublishArticle, PublishArticleResponse, PublishBatchGetRequest, PublishBatchGetResponse,
+        PublishDraftAddRequest, PublishDraftAddResponse, PublishDraftGetResponse,
+        PublishDraftSwitchStatusResponse, PublishDraftUpdateRequest, PublishStatusResponse,
+        PublishSubmitResponse, TemplateMessageRequest, TemplateMiniProgram, UserInfoQuery,
     };
 
     #[test]
@@ -1394,6 +1762,122 @@ mod tests {
         })
         .unwrap();
         assert_eq!(value, json!({ "type": "news", "offset": 0, "count": 20 }));
+    }
+
+    #[test]
+    fn serializes_publish_requests() {
+        let article = PublishArticle {
+            title: "Title".to_string(),
+            author: "Roze".to_string(),
+            digest: "Digest".to_string(),
+            content: "<p>Hello</p>".to_string(),
+            content_source_url: "https://example.com/source".to_string(),
+            thumb_media_id: "thumb".to_string(),
+            need_open_comment: Some(1),
+            only_fans_can_comment: Some(0),
+        };
+
+        let add = serde_json::to_value(PublishDraftAddRequest {
+            articles: vec![article.clone()],
+        })
+        .unwrap();
+        assert_eq!(add["articles"][0]["title"], "Title");
+        assert_eq!(add["articles"][0]["need_open_comment"], 1);
+
+        let update = serde_json::to_value(PublishDraftUpdateRequest {
+            media_id: "media".to_string(),
+            index: 0,
+            articles: article,
+        })
+        .unwrap();
+        assert_eq!(update["media_id"], "media");
+        assert_eq!(update["articles"]["thumb_media_id"], "thumb");
+
+        let batch = serde_json::to_value(PublishBatchGetRequest {
+            offset: 0,
+            count: 20,
+            no_content: 1,
+        })
+        .unwrap();
+        assert_eq!(batch, json!({ "offset": 0, "count": 20, "no_content": 1 }));
+    }
+
+    #[test]
+    fn deserializes_publish_responses() {
+        let add: PublishDraftAddResponse =
+            serde_json::from_value(json!({ "errcode": 0, "media_id": "media" })).unwrap();
+        assert_eq!(add.media_id.as_deref(), Some("media"));
+
+        let draft: PublishDraftGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "news_item": [{
+                "title": "Title",
+                "author": "Roze",
+                "thumb_media_id": "thumb",
+                "url": "https://example.com/article"
+            }],
+            "create_time": 1,
+            "update_time": 2
+        }))
+        .unwrap();
+        assert_eq!(draft.news_item[0].title.as_deref(), Some("Title"));
+        assert_eq!(draft.update_time, Some(2));
+
+        let list: PublishBatchGetResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "item_count": 1,
+            "item": [{
+                "media_id": "media",
+                "article_id": "article",
+                "content": { "news_item": [{ "title": "Title" }] },
+                "update_time": 2
+            }]
+        }))
+        .unwrap();
+        assert_eq!(list.item[0].article_id.as_deref(), Some("article"));
+        assert_eq!(
+            list.item[0].content.as_ref().expect("content").news_item[0]
+                .title
+                .as_deref(),
+            Some("Title")
+        );
+
+        let switch_status: PublishDraftSwitchStatusResponse = serde_json::from_value(json!({
+            "is_open": 1,
+            "total_count": 3,
+            "item_count": 2
+        }))
+        .unwrap();
+        assert_eq!(switch_status.is_open, Some(1));
+
+        let submit: PublishSubmitResponse =
+            serde_json::from_value(json!({ "publish_id": 10001 })).unwrap();
+        assert_eq!(submit.publish_id, Some(10001));
+
+        let status: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 10001,
+            "publish_status": 0,
+            "article_id": "article",
+            "article_detail": {
+                "count": 1,
+                "item": [{ "idx": 1, "article_url": "https://example.com/article" }]
+            },
+            "fail_idx": []
+        }))
+        .unwrap();
+        assert_eq!(status.publish_status, Some(0));
+        assert_eq!(
+            status.article_detail.expect("article_detail").item[0]
+                .article_url
+                .as_deref(),
+            Some("https://example.com/article")
+        );
+
+        let article: PublishArticleResponse = serde_json::from_value(json!({
+            "news_item": [{ "title": "Published", "url": "https://example.com/published" }]
+        }))
+        .unwrap();
+        assert_eq!(article.news_item[0].title.as_deref(), Some("Published"));
     }
 
     #[test]
