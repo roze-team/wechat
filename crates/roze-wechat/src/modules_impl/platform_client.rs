@@ -245,6 +245,27 @@ impl PlatformClient {
         self.client.execute_multipart(endpoint, query, form).await
     }
 
+    pub async fn post_multipart_with_headers<R>(
+        &self,
+        path: impl Into<String>,
+        access_token: Option<String>,
+        query: Vec<(String, String)>,
+        form: multipart::Form,
+        headers: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: DeserializeOwned,
+    {
+        let mut endpoint = Endpoint::post(path);
+        if let Some(token) = access_token {
+            endpoint = endpoint.with_access_token(token);
+        }
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client.execute_multipart(endpoint, query, form).await
+    }
+
     pub async fn post_xml<R>(&self, path: impl Into<String>, body: String) -> Result<R>
     where
         R: DeserializeOwned,

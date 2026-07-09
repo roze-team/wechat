@@ -108,6 +108,10 @@ mod tests {
         );
         assert_eq!(wechat.mini_program().b2b().name(), "mini_program.b2b");
         assert_eq!(
+            wechat.mini_program().industry_mini_drama_vod().name(),
+            "mini_program.industry_mini_drama_vod"
+        );
+        assert_eq!(
             wechat.mini_program().immediate_delivery().name(),
             "mini_program.immediate_delivery"
         );

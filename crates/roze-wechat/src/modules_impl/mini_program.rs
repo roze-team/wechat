@@ -1307,6 +1307,432 @@ impl MiniProgram {
             .await
     }
 
+    pub fn industry_mini_drama_vod(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.industry_mini_drama_vod")
+    }
+
+    pub async fn upload_mini_drama_video_by_url(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaVideoMediaUploadByUrlRequest,
+    ) -> Result<MiniDramaVideoMediaUploadByUrlResponse> {
+        self.inner
+            .post("wxa/sec/vod/pullupload", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn upload_mini_drama_video_by_file_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaVideoMediaUploadByFileRequest,
+    ) -> Result<MiniDramaVideoMediaUploadByFileResponse> {
+        let form = reqwest::multipart::Form::new()
+            .part(
+                "media_data",
+                reqwest::multipart::Part::bytes(request.media_data)
+                    .file_name(request.media_name.clone()),
+            )
+            .part(
+                "cover_data",
+                reqwest::multipart::Part::bytes(request.cover_data.unwrap_or_default())
+                    .file_name("cover"),
+            );
+        self.inner
+            .post_multipart_with_headers(
+                "wxa/sec/vod/singlefileupload",
+                Some(access_token.into()),
+                Vec::new(),
+                form,
+                vec![
+                    ("media_type".to_string(), request.media_type),
+                    ("cover_type".to_string(), request.cover_type),
+                    ("media_name".to_string(), request.media_name),
+                ],
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_upload_task(
+        &self,
+        access_token: impl Into<String>,
+        task_id: i64,
+    ) -> Result<MiniDramaVideoMediaTaskResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/gettask",
+                Some(access_token.into()),
+                json!({ "task_id": task_id }),
+            )
+            .await
+    }
+
+    pub async fn apply_mini_drama_chunk_upload(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaVideoApplyChunkUploadRequest,
+    ) -> Result<MiniDramaVideoApplyChunkUploadResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/applyupload",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn upload_mini_drama_chunk_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaVideoChunkUploadRequest,
+    ) -> Result<MiniDramaVideoChunkUploadResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "data",
+            reqwest::multipart::Part::bytes(request.data).file_name("chunk"),
+        );
+        self.inner
+            .post_multipart_with_headers(
+                "wxa/sec/vod/singlefileupload",
+                Some(access_token.into()),
+                Vec::new(),
+                form,
+                vec![
+                    (
+                        "resource_type".to_string(),
+                        request.resource_type.to_string(),
+                    ),
+                    ("part_number".to_string(), request.part_number.to_string()),
+                    ("upload_id".to_string(), request.upload_id),
+                ],
+            )
+            .await
+    }
+
+    pub async fn complete_mini_drama_chunk_upload(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaVideoChunkUploadCompleteRequest,
+    ) -> Result<MiniDramaVideoChunkUploadCompleteResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/commitupload",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_media_list(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaMediaListRequest,
+    ) -> Result<MiniDramaMediaListResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/listmedia",
+                Some(access_token.into()),
+                request.normalized(),
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_media_info(
+        &self,
+        access_token: impl Into<String>,
+        media_id: i64,
+    ) -> Result<MiniDramaMediaInfoResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getmedia",
+                Some(access_token.into()),
+                json!({ "media_id": media_id }),
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_media_link(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaMediaLinkRequest,
+    ) -> Result<MiniDramaMediaLinkResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getmedialink",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_mini_drama_media(
+        &self,
+        access_token: impl Into<String>,
+        media_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/deletemedia",
+                Some(access_token.into()),
+                json!({ "media_id": media_id }),
+            )
+            .await
+    }
+
+    pub async fn submit_mini_drama_audit(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaSubmitAuditRequest,
+    ) -> Result<MiniDramaSubmitAuditResponse> {
+        self.inner
+            .post("wxa/sec/vod/auditdrama", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_mini_drama_list(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaListRequest,
+    ) -> Result<MiniDramaListResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/listdramas",
+                Some(access_token.into()),
+                request.normalized(),
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_info(
+        &self,
+        access_token: impl Into<String>,
+        drama_id: i64,
+    ) -> Result<MiniDramaInfoResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getdrama",
+                Some(access_token.into()),
+                json!({ "drama_id": drama_id }),
+            )
+            .await
+    }
+
+    pub async fn submit_replace_mini_drama_audit(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaSubmitReplaceAuditRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/submitreplacedramamedias",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn replace_audited_mini_drama_media(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaReplaceAuditedMediaRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/replacedramamedia",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_mini_drama_info(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaUpdateInfoRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/modifydramabasicinfo",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_latest_audit_info(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAuditInfoRequest,
+    ) -> Result<MiniDramaAuditInfoResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getdramalatestauditinfo",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_cdn_usage(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaCdnInfoRequest,
+    ) -> Result<MiniDramaCdnUsageResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getcdnusagedata",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_mini_drama_cdn_logs(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaCdnInfoRequest,
+    ) -> Result<MiniDramaCdnLogsResponse> {
+        self.inner
+            .post("wxa/sec/vod/getcdnlogs", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn list_mini_drama_packages(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaListRequest,
+    ) -> Result<MiniDramaPackageListResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/listpackages",
+                Some(access_token.into()),
+                request.normalized(),
+            )
+            .await
+    }
+
+    pub async fn add_mini_drama_authorization(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAuthorizationRequest,
+    ) -> Result<MiniDramaAuthorizationResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/authorizedrama",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn remove_mini_drama_authorization(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAuthorizationRequest,
+    ) -> Result<MiniDramaAuthorizationResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/deauthorizedrama",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn search_mini_drama_authorization(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAuthorizationSearchRequest,
+    ) -> Result<MiniDramaAuthorizationSearchResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getauthorizeobjects",
+                Some(access_token.into()),
+                request.normalized(),
+            )
+            .await
+    }
+
+    pub async fn search_mini_drama_authorized_by(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAuthorizedBySearchRequest,
+    ) -> Result<MiniDramaAuthorizationSearchResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getauthorizedobjects",
+                Some(access_token.into()),
+                request.normalized(),
+            )
+            .await
+    }
+
+    pub async fn add_mini_drama_account_authorization(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAccountAuthorizationRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/authorizeapp",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn remove_mini_drama_account_authorization(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaAccountAuthorizationRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/deauthorizeapp",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn search_mini_drama_account_authorization(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<MiniDramaAccountAuthorizationSearchResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getauthorizeapps",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn search_mini_drama_account_authorized_by(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<MiniDramaAccountAuthorizationSearchResponse> {
+        self.inner
+            .post(
+                "wxa/sec/vod/getauthorizedapps",
+                Some(access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn set_flush_drama(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniDramaSetFlushDramaRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxadrama/developersetflushdrama",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn immediate_delivery(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.immediate_delivery")
     }
@@ -3187,6 +3613,498 @@ pub struct B2bDownloadBillResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoMediaUploadByUrlRequest {
+    pub media_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_url: Option<String>,
+    pub media_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_context: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MiniDramaVideoMediaUploadByFileRequest {
+    pub media_name: String,
+    pub media_type: String,
+    pub media_data: Vec<u8>,
+    pub cover_type: String,
+    pub cover_data: Option<Vec<u8>>,
+}
+
+impl MiniDramaVideoMediaUploadByFileRequest {
+    pub fn new(media_name: impl Into<String>, media_data: Vec<u8>) -> Self {
+        Self {
+            media_name: media_name.into(),
+            media_type: "MP4".to_string(),
+            media_data,
+            cover_type: "JPEG".to_string(),
+            cover_data: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MiniDramaVideoChunkUploadRequest {
+    pub upload_id: String,
+    pub part_number: i64,
+    pub resource_type: i64,
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoApplyChunkUploadRequest {
+    pub media_name: String,
+    pub media_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_context: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaPartInfo {
+    pub part_number: i64,
+    pub etag: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoChunkUploadCompleteRequest {
+    pub upload_id: String,
+    pub media_part_infos: Vec<MiniDramaPartInfo>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub cover_part_infos: Vec<MiniDramaPartInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MiniDramaMediaListRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drama_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+}
+
+impl MiniDramaMediaListRequest {
+    fn normalized(mut self) -> Self {
+        if let Some(limit) = self.limit {
+            if limit > 100 {
+                self.limit = Some(100);
+            }
+        }
+        if let Some(offset) = self.offset {
+            if offset < 0 {
+                self.offset = Some(0);
+            }
+        }
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaMediaLinkRequest {
+    pub media_id: i64,
+    pub t: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub us: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expr: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rlimit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "whref")]
+    pub href: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bkref: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaSubmitAuditRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drama_id: Option<i64>,
+    pub name: String,
+    pub media_count: i64,
+    pub media_id_list: Vec<i64>,
+    pub description: String,
+    pub recommendations: String,
+    pub cover_material_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub promotion_poster_material_id: Option<String>,
+    pub producer: String,
+    pub authorized_material_id: String,
+    pub qualification_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registration_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qualification_certificate_material_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_commitment_letter_material_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_of_production: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expedited: Option<i64>,
+    pub actor_list: MiniDramaActorList,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub replace_media_list: Vec<MiniDramaReplaceInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaReplaceInfo {
+    pub old: i64,
+    pub new: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MiniDramaListRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+}
+
+impl MiniDramaListRequest {
+    fn normalized(mut self) -> Self {
+        if let Some(limit) = self.limit {
+            if limit > 100 {
+                self.limit = Some(100);
+            }
+        }
+        if let Some(offset) = self.offset {
+            if offset < 0 {
+                self.offset = Some(0);
+            }
+        }
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaSubmitReplaceAuditRequest {
+    pub drama_id: i64,
+    pub replace_media_list: Vec<MiniDramaReplaceInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaReplaceAuditedMediaRequest {
+    pub drama_id: i64,
+    pub old_media_id: i64,
+    pub new_media_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaUpdateInfoRequest {
+    pub drama_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_material_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommendations: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub promotion_poster_material_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alternate_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_list: Option<MiniDramaActorList>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qualification_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qualification_certificate_material_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registration_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_of_production: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_commitment_letter_material_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaActorList {
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub actor: Vec<MiniDramaActor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaActor {
+    pub name: String,
+    pub photo_material_id: String,
+    pub role: String,
+    pub profile: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuditInfoRequest {
+    pub drama_id: i64,
+    pub audit_type: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaCdnInfoRequest {
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_interval: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizationRequest {
+    pub authorized_appid: String,
+    pub drama_id: Vec<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authz_expire_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizationSearchRequest {
+    pub drama_id: i64,
+    #[serde(flatten)]
+    pub page: MiniDramaListRequest,
+}
+
+impl MiniDramaAuthorizationSearchRequest {
+    fn normalized(mut self) -> Self {
+        self.page = self.page.normalized();
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizedBySearchRequest {
+    pub authorizer_appid: String,
+    #[serde(flatten)]
+    pub page: MiniDramaListRequest,
+}
+
+impl MiniDramaAuthorizedBySearchRequest {
+    fn normalized(mut self) -> Self {
+        self.page = self.page.normalized();
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAccountAuthorizationRequest {
+    pub authorized_appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authz_expire_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaSetFlushDramaRequest {
+    pub list: Vec<MiniDramaFlushDramaInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaFlushDramaInfo {
+    pub src_appid: String,
+    pub drama_id: String,
+    pub drama_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoMediaUploadByUrlResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub task_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoMediaUploadByFileResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoMediaTaskResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub task_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoApplyChunkUploadResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub upload_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoChunkUploadResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub etag: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoChunkUploadCompleteResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaMediaListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_info_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaMediaInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaMediaLinkResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaSubmitAuditResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub drama_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub drama_info_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub drama_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuditInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub audit_detail: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaCdnUsageResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data_interval: Option<i64>,
+    #[serde(default)]
+    pub item_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaCdnLogsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub domestic_cdn_logs: Vec<Value>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaPackageListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub package_list: Vec<Value>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub result: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizationSearchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub objects: Vec<Value>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAccountAuthorizationSearchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub objects: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImmediateDeliveryRequest {
     #[serde(flatten)]
     pub payload: Value,
@@ -3880,6 +4798,7 @@ fn default_wxa_code_width() -> i64 {
 mod tests {
     use serde_json::json;
 
+    use super::*;
     use super::{
         virtual_payment_order_post_body, B2bAddProfitSharingAccountRequest, B2bDownloadBillRequest,
         B2bDownloadBillResponse, B2bGetOrderRequest, B2bGetOrderResponse, B2bGetRefundRequest,
@@ -4785,6 +5704,230 @@ mod tests {
             bill.profit_refund_bill_url.as_deref(),
             Some("https://example.com/profit-refund.csv")
         );
+    }
+
+    #[test]
+    fn serializes_mini_drama_vod_requests() {
+        let upload = serde_json::to_value(MiniDramaVideoMediaUploadByUrlRequest {
+            media_url: "https://example.com/video.mp4".to_string(),
+            cover_url: None,
+            media_name: "Drama - EP01".to_string(),
+            source_context: Some("trace-1".to_string()),
+        })
+        .unwrap();
+        assert_eq!(upload["media_url"], "https://example.com/video.mp4");
+        assert!(upload.get("cover_url").is_none());
+        assert_eq!(upload["source_context"], "trace-1");
+
+        let apply = serde_json::to_value(MiniDramaVideoApplyChunkUploadRequest {
+            media_name: "Drama - EP01".to_string(),
+            media_type: "MP4".to_string(),
+            cover_type: Some("JPEG".to_string()),
+            source_context: None,
+        })
+        .unwrap();
+        assert_eq!(apply["media_type"], "MP4");
+        assert!(apply.get("source_context").is_none());
+
+        let complete = serde_json::to_value(MiniDramaVideoChunkUploadCompleteRequest {
+            upload_id: "upload-id".to_string(),
+            media_part_infos: vec![MiniDramaPartInfo {
+                part_number: 1,
+                etag: "etag".to_string(),
+            }],
+            cover_part_infos: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(complete["upload_id"], "upload-id");
+        assert_eq!(complete["media_part_infos"][0]["part_number"], 1);
+        assert!(complete.get("cover_part_infos").is_none());
+
+        let media_list = serde_json::to_value(
+            MiniDramaMediaListRequest {
+                drama_id: Some(100),
+                media_name: Some("Drama%".to_string()),
+                start_time: Some(1_800_000_000),
+                end_time: Some(1_800_086_400),
+                limit: Some(200),
+                offset: Some(-1),
+            }
+            .normalized(),
+        )
+        .unwrap();
+        assert_eq!(media_list["limit"], 100);
+        assert_eq!(media_list["offset"], 0);
+
+        let link = serde_json::to_value(MiniDramaMediaLinkRequest {
+            media_id: 123,
+            t: 1_800_086_400,
+            us: Some("channel".to_string()),
+            expr: Some(60),
+            rlimit: Some(9),
+            href: Some("example.com".to_string()),
+            bkref: None,
+        })
+        .unwrap();
+        assert_eq!(link["media_id"], 123);
+        assert_eq!(link["whref"], "example.com");
+        assert!(link.get("bkref").is_none());
+
+        let flush = serde_json::to_value(MiniDramaSetFlushDramaRequest {
+            list: vec![MiniDramaFlushDramaInfo {
+                src_appid: "wxsource".to_string(),
+                drama_id: "100".to_string(),
+                drama_name: "Drama".to_string(),
+            }],
+        })
+        .unwrap();
+        assert_eq!(flush["list"][0]["src_appid"], "wxsource");
+    }
+
+    #[test]
+    fn serializes_mini_drama_audit_and_authorization_requests() {
+        let actor = MiniDramaActor {
+            name: "Actor".to_string(),
+            photo_material_id: "photo-id".to_string(),
+            role: "Hero".to_string(),
+            profile: "profile with enough details".to_string(),
+        };
+        let audit = serde_json::to_value(MiniDramaSubmitAuditRequest {
+            drama_id: None,
+            name: "Drama".to_string(),
+            media_count: 1,
+            media_id_list: vec![10],
+            description: "description".to_string(),
+            recommendations: "recommend".to_string(),
+            cover_material_id: "cover-id".to_string(),
+            promotion_poster_material_id: None,
+            producer: "producer".to_string(),
+            authorized_material_id: "auth-id".to_string(),
+            qualification_type: 2,
+            registration_number: None,
+            qualification_certificate_material_id: None,
+            cost_commitment_letter_material_id: Some("cost-id".to_string()),
+            cost_of_production: Some(20),
+            expedited: Some(1),
+            actor_list: MiniDramaActorList { actor: vec![actor] },
+            replace_media_list: vec![MiniDramaReplaceInfo { old: 1, new: 2 }],
+        })
+        .unwrap();
+        assert!(audit.get("drama_id").is_none());
+        assert_eq!(audit["media_id_list"][0], 10);
+        assert_eq!(
+            audit["actor_list"]["actor"][0]["photo_material_id"],
+            "photo-id"
+        );
+        assert_eq!(audit["replace_media_list"][0]["new"], 2);
+
+        let replace = serde_json::to_value(MiniDramaReplaceAuditedMediaRequest {
+            drama_id: 100,
+            old_media_id: 1,
+            new_media_id: 2,
+        })
+        .unwrap();
+        assert_eq!(replace["old_media_id"], 1);
+
+        let update = serde_json::to_value(MiniDramaUpdateInfoRequest {
+            drama_id: 100,
+            description: Some("new description".to_string()),
+            cover_material_id: None,
+            recommendations: None,
+            promotion_poster_material_id: None,
+            alternate_name: Some("Alias".to_string()),
+            actor_list: None,
+            qualification_type: None,
+            qualification_certificate_material_id: None,
+            registration_number: None,
+            cost_of_production: None,
+            cost_commitment_letter_material_id: None,
+        })
+        .unwrap();
+        assert_eq!(update["alternate_name"], "Alias");
+        assert!(update.get("cover_material_id").is_none());
+
+        let search = serde_json::to_value(
+            MiniDramaAuthorizationSearchRequest {
+                drama_id: 100,
+                page: MiniDramaListRequest {
+                    limit: Some(150),
+                    offset: Some(-3),
+                },
+            }
+            .normalized(),
+        )
+        .unwrap();
+        assert_eq!(search["limit"], 100);
+        assert_eq!(search["offset"], 0);
+
+        let account = serde_json::to_value(MiniDramaAccountAuthorizationRequest {
+            authorized_appid: "wxauth".to_string(),
+            authz_expire_time: None,
+        })
+        .unwrap();
+        assert_eq!(account["authorized_appid"], "wxauth");
+        assert!(account.get("authz_expire_time").is_none());
+    }
+
+    #[test]
+    fn deserializes_mini_drama_vod_responses() {
+        let upload: MiniDramaVideoMediaUploadByUrlResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "task_id": 123
+        }))
+        .unwrap();
+        assert_eq!(upload.task_id, Some(123));
+
+        let task: MiniDramaVideoMediaTaskResponse = serde_json::from_value(json!({
+            "task_info": { "id": 123, "status": 3, "media_id": 456 }
+        }))
+        .unwrap();
+        assert_eq!(task.task_info.unwrap()["media_id"], 456);
+
+        let file: MiniDramaVideoMediaUploadByFileResponse =
+            serde_json::from_value(json!({ "media_id": 456 })).unwrap();
+        assert_eq!(file.media_id, Some(456));
+
+        let apply: MiniDramaVideoApplyChunkUploadResponse =
+            serde_json::from_value(json!({ "upload_id": "upload-id" })).unwrap();
+        assert_eq!(apply.upload_id.as_deref(), Some("upload-id"));
+
+        let chunk: MiniDramaVideoChunkUploadResponse =
+            serde_json::from_value(json!({ "etag": "etag" })).unwrap();
+        assert_eq!(chunk.etag.as_deref(), Some("etag"));
+
+        let media_list: MiniDramaMediaListResponse = serde_json::from_value(json!({
+            "media_info_list": [{ "media_id": 1, "name": "Drama - EP01" }]
+        }))
+        .unwrap();
+        assert_eq!(media_list.media_info_list[0]["media_id"], 1);
+
+        let drama: MiniDramaInfoResponse = serde_json::from_value(json!({
+            "drama_info": { "drama_id": 100, "name": "Drama" }
+        }))
+        .unwrap();
+        assert_eq!(drama.drama_info.unwrap()["name"], "Drama");
+
+        let cdn: MiniDramaCdnUsageResponse = serde_json::from_value(json!({
+            "data_interval": 3600,
+            "item_list": [{ "time": 1800000000, "value": 1024 }]
+        }))
+        .unwrap();
+        assert_eq!(cdn.data_interval, Some(3600));
+        assert_eq!(cdn.item_list[0]["value"], 1024);
+
+        let auth: MiniDramaAuthorizationSearchResponse = serde_json::from_value(json!({
+            "objects": [{ "drama_id": 100, "authorized_appid": "wxauth" }],
+            "total_count": 1
+        }))
+        .unwrap();
+        assert_eq!(auth.total_count, Some(1));
+        assert_eq!(auth.objects[0]["authorized_appid"], "wxauth");
+
+        let account: MiniDramaAccountAuthorizationSearchResponse = serde_json::from_value(json!({
+            "objects": [{ "authorized_appid": "wxauth", "authorized_time": 1800000000 }]
+        }))
+        .unwrap();
+        assert_eq!(account.objects[0]["authorized_appid"], "wxauth");
     }
 
     #[test]

@@ -25,6 +25,7 @@ Status values:
 | Mini Program | device | `mini_program::device` | tested |
 | Mini Program | express | `mini_program::express` | tested |
 | Mini Program | image | `mini_program::image` | tested |
+| Mini Program | industry/miniDrama/vod | `mini_program::industry_mini_drama_vod` | tested |
 | Mini Program | immediateDelivery | `mini_program::immediate_delivery` | tested |
 | Mini Program | internet | `mini_program::internet` | tested |
 | Mini Program | liveBroadcast | `mini_program::live_broadcast` | tested |
