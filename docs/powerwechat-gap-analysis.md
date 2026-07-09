@@ -14,7 +14,7 @@ entries, request/response DTOs, and tests.
 | Family | PowerWeChat submodules | Explicit Roze typed/tested coverage | Remaining gaps |
 | --- | ---: | ---: | ---: |
 | Basic Service | 6 | 6 | 0 |
-| Channels | 2 | 1 | 1 |
+| Channels | 2 | 2 | 0 |
 | Mini Program | 32 | 32 | 0 |
 | Official Account | 24 | 12 | 13 |
 | Open Platform | 6 | 6 | 0 |
@@ -22,13 +22,9 @@ entries, request/response DTOs, and tests.
 | Payment | 20 | 20 | 0 |
 | Work | 33 | 14 | 20 |
 
-Total remaining PowerWeChat submodule gaps: 34.
+Total remaining PowerWeChat submodule gaps: 33.
 
 ## Remaining Gaps
-
-### Channels
-
-- `eCommerce/store`
 
 ### Official Account
 
@@ -77,9 +73,6 @@ Total remaining PowerWeChat submodule gaps: 34.
 2. Official Account long-tail modules:
    `publish`, `comment`, `dataCube`, `guide`, `semantic`, `shakeAround`,
    `store`, `wifi`, `poi`, `device`, `goods`, `autoReply`, `ocr`.
-3. Remaining Channels wrapper:
-   `eCommerce/store`.
-
 Each completed submodule should add:
 
 - a public `DomainModule` entry when the boundary is new;

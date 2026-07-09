@@ -17,6 +17,7 @@ Status values:
 | Basic Service | subscribeMessage | `basic_service::subscribe_message` | tested |
 | Basic Service | url | `basic_service::url` | tested |
 | Channels | eCommerce | `channels::e_commerce` | tested |
+| Channels | eCommerce/store | `channels::e_commerce::store` | tested |
 | Mini Program | auth | `mini_program::auth` | tested |
 | Mini Program | base | `mini_program::base` | tested |
 | Mini Program | b2b | `mini_program::b2b` | tested |
