@@ -1,6 +1,6 @@
 # PowerWeChat Method-Depth Audit
 
-Audit date: 2026-07-09.
+Audit date: 2026-07-10.
 
 The submodule-level coverage matrix is currently green. This means every
 PowerWeChat product submodule has an explicit Roze WeChat boundary and tested
@@ -54,6 +54,51 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 6. Open Work depth:
    `license`, `suitAuth`, and `server` should be expanded toward PowerWeChat's
    method surface.
+
+## Endpoint Audit
+
+The following exact endpoint comparison was generated from the latest
+PowerWeChat checkout on 2026-07-10. It is intentionally conservative: dynamic
+paths can be reported as missing when PowerWeChat uses `%s` formatting and Roze
+uses Rust `format!` placeholders.
+
+| Family | PowerWeChat endpoints found | Exact endpoints not found in Roze | Highest-impact update areas |
+| --- | ---: | ---: | --- |
+| Work | 261 | 129 | external contact, check-in, department/user batch/export, message variants, OA |
+| Mini Program | 151 | 41 | live broadcast goods/roles/room operations, uniform/updatable messages, business/security paths |
+| Open Platform | 48 | 36 | authorizer mini-program code/audit/privacy/domain/tester/account flows |
+| Official Account | 200 | 22 | user tags, customer-service sessions/message records, card update/list, base callback/quota |
+| Basic Service | 12 | 7 | subscribe message template management |
+| Open Work | 35 | 7 | component authorizer management and quota paths |
+| Channels | 2 | 0 | none from exact endpoint scan |
+
+Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
+separate path scan rather than the generic `HttpPostJson` endpoint extractor.
+The approximate payment scan found 69 payment paths and 37 paths that still
+need review. Some are formatting false positives, but the real update areas are:
+
+- legacy transfer: `gettransferinfo`, `promotion/transfers`, `query_bank`;
+- Work redpack and mini-program redpack paths;
+- partner combine app transaction and partner transaction-id query;
+- payment codepay;
+- profit sharing return orders, unfreeze, bills, transaction amount query, and
+  legacy `secapi/pay/profitsharingreturn`;
+- merchant fund balance;
+- remaining fund-app transfer-bill and electronic-sign query variants.
+
+## Concrete Next Batch
+
+Recommended implementation order:
+
+1. Payment `profitSharing` and `transfer` depth, because these touch money
+   movement and need stronger typed DTOs plus signing tests.
+2. Work `externalContact` depth, especially contact way, customer acquisition,
+   group chat, group message, tag, moment, strategy, and transfer endpoints.
+3. Open Platform `authorizer` depth for mini-program release/audit/domain and
+   privacy operations.
+4. Mini Program `liveBroadcast` depth, especially goods, room assistant,
+   sub-anchor, role, replay/comment/KF toggles, and follower/message helpers.
+5. Official Account `user/tag` and `customerService` depth.
 
 ## Documentation Update Needed
 
