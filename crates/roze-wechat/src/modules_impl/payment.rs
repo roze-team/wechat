@@ -585,6 +585,78 @@ impl Payment {
         .await
     }
 
+    pub async fn create_profit_sharing_return_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ProfitSharingReturnOrderRequest,
+    ) -> Result<ProfitSharingResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/profitsharing/return-orders",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_profit_sharing_return_order(
+        &self,
+        credentials: &PaymentCredentials,
+        out_return_no: impl AsRef<str>,
+        query: ProfitSharingReturnOrderQuery,
+    ) -> Result<ProfitSharingResponse> {
+        let path = format!("/v3/profitsharing/return-orders/{}", out_return_no.as_ref());
+        self.get_v3(credentials, &path, query.into_query()).await
+    }
+
+    pub async fn unfreeze_profit_sharing_order(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ProfitSharingUnfreezeRequest,
+    ) -> Result<ProfitSharingResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/profitsharing/orders/unfreeze",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_profit_sharing_transaction_amounts(
+        &self,
+        credentials: &PaymentCredentials,
+        transaction_id: impl AsRef<str>,
+    ) -> Result<ProfitSharingResponse> {
+        let path = format!(
+            "/v3/profitsharing/transactions/{}/amounts",
+            transaction_id.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
+    pub async fn profit_sharing_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ProfitSharingBillRequest,
+    ) -> Result<ProfitSharingResponse> {
+        self.get_v3(credentials, "/v3/profitsharing/bills", request.into_query())
+            .await
+    }
+
+    pub async fn legacy_profit_sharing_return(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: LegacyProfitSharingReturnRequest,
+    ) -> Result<LegacyProfitSharingReturnResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/secapi/pay/profitsharingreturn",
+            request.into_params(),
+        )
+        .await
+    }
+
     pub fn refund(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.refund")
     }
@@ -638,6 +710,51 @@ impl Payment {
         .await
     }
 
+    pub async fn send_work_redpack(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: WorkRedpackRequest,
+    ) -> Result<RedpackResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/sendworkwxredpack",
+            request.into_params(),
+        )
+        .await
+    }
+
+    pub async fn query_work_redpack(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: QueryWorkRedpackRequest,
+    ) -> Result<RedpackInfoResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/queryworkwxredpack",
+            request.into_params(),
+        )
+        .await
+    }
+
+    pub async fn send_mini_program_redpack(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: MiniProgramRedpackRequest,
+    ) -> Result<RedpackResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/sendminiprogramhb",
+            request.into_params(),
+        )
+        .await
+    }
+
     pub async fn create_refund(
         &self,
         credentials: &PaymentCredentials,
@@ -666,6 +783,54 @@ impl Payment {
 
     pub fn transfer(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.transfer")
+    }
+
+    pub async fn query_balance_transfer_order(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        appid: impl Into<String>,
+        partner_trade_no: impl Into<String>,
+    ) -> Result<LegacyTransferInfoResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/gettransferinfo",
+            vec![
+                ("appid".to_string(), appid.into()),
+                ("partner_trade_no".to_string(), partner_trade_no.into()),
+            ],
+        )
+        .await
+    }
+
+    pub async fn transfer_to_balance(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        request: TransferToBalanceRequest,
+    ) -> Result<TransferToBalanceResponse> {
+        self.post_legacy_xml_raw(
+            api_key.as_ref(),
+            "/mmpaymkttransfers/promotion/transfers",
+            request.into_params(credentials),
+        )
+        .await
+    }
+
+    pub async fn query_bank_card_transfer_order(
+        &self,
+        credentials: &PaymentCredentials,
+        api_key: impl AsRef<str>,
+        partner_trade_no: impl Into<String>,
+    ) -> Result<LegacyTransferInfoResponse> {
+        self.post_legacy_xml(
+            credentials,
+            api_key.as_ref(),
+            "/mmpaymkttransfers/query_bank",
+            vec![("partner_trade_no".to_string(), partner_trade_no.into())],
+        )
+        .await
     }
 
     pub fn merchant_service(&self) -> DomainModule {
@@ -1070,6 +1235,23 @@ impl Payment {
         R: serde::de::DeserializeOwned,
     {
         params.push(("mch_id".to_string(), credentials.mch_id.clone()));
+        params.push(("nonce_str".to_string(), crypto::nonce_string(32)));
+        let sign = crypto::payment_legacy_sign(&params, api_key);
+        params.push(("sign".to_string(), sign));
+        self.inner
+            .post_xml(path, crypto::payment_legacy_xml(&params))
+            .await
+    }
+
+    async fn post_legacy_xml_raw<R>(
+        &self,
+        api_key: &str,
+        path: &str,
+        mut params: Vec<(String, String)>,
+    ) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
         params.push(("nonce_str".to_string(), crypto::nonce_string(32)));
         let sign = crypto::payment_legacy_sign(&params, api_key);
         params.push(("sign".to_string(), sign));
@@ -1649,6 +1831,95 @@ impl QueryRedpackRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkRedpackRequest {
+    pub mch_billno: String,
+    pub wxappid: String,
+    pub sender_name: String,
+    pub sender_header_media_id: String,
+    pub re_openid: String,
+    pub total_amount: i64,
+    pub wishing: String,
+    pub act_name: String,
+    pub remark: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workwx_sign: Option<String>,
+}
+
+impl WorkRedpackRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        let mut params = vec![
+            ("mch_billno".to_string(), self.mch_billno),
+            ("wxappid".to_string(), self.wxappid),
+            ("sender_name".to_string(), self.sender_name),
+            (
+                "sender_header_media_id".to_string(),
+                self.sender_header_media_id,
+            ),
+            ("re_openid".to_string(), self.re_openid),
+            ("total_amount".to_string(), self.total_amount.to_string()),
+            ("wishing".to_string(), self.wishing),
+            ("act_name".to_string(), self.act_name),
+            ("remark".to_string(), self.remark),
+        ];
+        push_optional_param(&mut params, "scene_id", self.scene_id);
+        push_optional_param(&mut params, "workwx_sign", self.workwx_sign);
+        params
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryWorkRedpackRequest {
+    pub mch_billno: String,
+    pub appid: String,
+}
+
+impl QueryWorkRedpackRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        vec![
+            ("mch_billno".to_string(), self.mch_billno),
+            ("appid".to_string(), self.appid),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramRedpackRequest {
+    pub mch_billno: String,
+    pub wxappid: String,
+    pub send_name: String,
+    pub re_openid: String,
+    pub total_amount: i64,
+    pub total_num: i64,
+    pub wishing: String,
+    pub act_name: String,
+    pub remark: String,
+    pub notify_way: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_id: Option<String>,
+}
+
+impl MiniProgramRedpackRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        let mut params = vec![
+            ("mch_billno".to_string(), self.mch_billno),
+            ("wxappid".to_string(), self.wxappid),
+            ("send_name".to_string(), self.send_name),
+            ("re_openid".to_string(), self.re_openid),
+            ("total_amount".to_string(), self.total_amount.to_string()),
+            ("total_num".to_string(), self.total_num.to_string()),
+            ("wishing".to_string(), self.wishing),
+            ("act_name".to_string(), self.act_name),
+            ("remark".to_string(), self.remark),
+            ("notify_way".to_string(), self.notify_way),
+        ];
+        push_optional_param(&mut params, "scene_id", self.scene_id);
+        params
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedpackResponse {
     #[serde(rename = "return_code")]
     pub return_code: String,
@@ -1769,6 +2040,109 @@ pub struct ProfitSharingReceiver {
 pub struct ProfitSharingResponse {
     #[serde(flatten)]
     pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfitSharingReturnOrderRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_mchid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_order_no: Option<String>,
+    pub out_return_no: String,
+    pub return_mchid: String,
+    pub amount: i64,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfitSharingReturnOrderQuery {
+    pub out_order_no: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_mchid: Option<String>,
+}
+
+impl ProfitSharingReturnOrderQuery {
+    fn into_query(self) -> Vec<(String, String)> {
+        let mut query = vec![("out_order_no".to_string(), self.out_order_no)];
+        push_optional_query(&mut query, "sub_mchid", self.sub_mchid);
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfitSharingUnfreezeRequest {
+    pub transaction_id: String,
+    pub out_order_no: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_mchid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfitSharingBillRequest {
+    pub bill_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tar_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_mchid: Option<String>,
+}
+
+impl ProfitSharingBillRequest {
+    fn into_query(self) -> Vec<(String, String)> {
+        let mut query = vec![("bill_date".to_string(), self.bill_date)];
+        push_optional_query(&mut query, "tar_type", self.tar_type);
+        push_optional_query(&mut query, "sub_mchid", self.sub_mchid);
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyProfitSharingReturnRequest {
+    pub appid: String,
+    pub out_order_no: String,
+    pub out_return_no: String,
+    pub return_account_type: String,
+    pub return_account: String,
+    pub return_amount: String,
+    pub description: String,
+}
+
+impl LegacyProfitSharingReturnRequest {
+    fn into_params(self) -> Vec<(String, String)> {
+        vec![
+            ("appid".to_string(), self.appid),
+            ("out_order_no".to_string(), self.out_order_no),
+            ("out_return_no".to_string(), self.out_return_no),
+            ("return_account_type".to_string(), self.return_account_type),
+            ("return_account".to_string(), self.return_account),
+            ("return_amount".to_string(), self.return_amount),
+            ("description".to_string(), self.description),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyProfitSharingReturnResponse {
+    #[serde(rename = "return_code")]
+    pub return_code: String,
+    #[serde(default, rename = "return_msg")]
+    pub return_msg: Option<String>,
+    #[serde(default, rename = "mch_id")]
+    pub mch_id: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default, rename = "order_id")]
+    pub order_id: Option<String>,
+    #[serde(default, rename = "out_order_no")]
+    pub out_order_no: Option<String>,
+    #[serde(default, rename = "out_return_no")]
+    pub out_return_no: Option<String>,
+    #[serde(default, rename = "return_no")]
+    pub return_no: Option<String>,
+    #[serde(default)]
+    pub result: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1904,6 +2278,108 @@ pub struct UserCouponListResponse {
 pub struct UserCouponResponse {
     #[serde(flatten)]
     pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferToBalanceRequest {
+    pub mch_appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_info: Option<String>,
+    pub partner_trade_no: String,
+    pub openid: String,
+    pub check_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub re_user_name: Option<String>,
+    pub amount: i64,
+    pub desc: String,
+    pub spbill_create_ip: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub brand_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finder_template_id: Option<String>,
+}
+
+impl TransferToBalanceRequest {
+    fn into_params(self, credentials: &PaymentCredentials) -> Vec<(String, String)> {
+        let mut params = vec![
+            ("mch_appid".to_string(), self.mch_appid),
+            ("mchid".to_string(), credentials.mch_id.clone()),
+            ("partner_trade_no".to_string(), self.partner_trade_no),
+            ("openid".to_string(), self.openid),
+            ("check_name".to_string(), self.check_name),
+            ("amount".to_string(), self.amount.to_string()),
+            ("desc".to_string(), self.desc),
+            ("spbill_create_ip".to_string(), self.spbill_create_ip),
+        ];
+        push_optional_param(&mut params, "device_info", self.device_info);
+        push_optional_param(&mut params, "re_user_name", self.re_user_name);
+        push_optional_param(&mut params, "scene", self.scene);
+        if let Some(brand_id) = self.brand_id {
+            params.push(("brand_id".to_string(), brand_id.to_string()));
+        }
+        push_optional_param(&mut params, "finder_template_id", self.finder_template_id);
+        params
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyTransferInfoResponse {
+    #[serde(rename = "return_code")]
+    pub return_code: String,
+    #[serde(default, rename = "return_msg")]
+    pub return_msg: Option<String>,
+    #[serde(default, rename = "result_code")]
+    pub result_code: Option<String>,
+    #[serde(default, rename = "err_code")]
+    pub err_code: Option<String>,
+    #[serde(default, rename = "err_code_des")]
+    pub err_code_des: Option<String>,
+    #[serde(default, rename = "mch_id")]
+    pub mch_id: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default, rename = "detail_id")]
+    pub detail_id: Option<String>,
+    #[serde(default, rename = "partner_trade_no")]
+    pub partner_trade_no: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default, rename = "payment_amount")]
+    pub payment_amount: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default, rename = "transfer_time")]
+    pub transfer_time: Option<String>,
+    #[serde(default, rename = "transfer_name")]
+    pub transfer_name: Option<String>,
+    #[serde(default)]
+    pub desc: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferToBalanceResponse {
+    #[serde(rename = "return_code")]
+    pub return_code: String,
+    #[serde(default, rename = "return_msg")]
+    pub return_msg: Option<String>,
+    #[serde(default, rename = "result_code")]
+    pub result_code: Option<String>,
+    #[serde(default, rename = "err_code")]
+    pub err_code: Option<String>,
+    #[serde(default, rename = "err_code_des")]
+    pub err_code_des: Option<String>,
+    #[serde(default, rename = "mch_appid")]
+    pub mch_appid: Option<String>,
+    #[serde(default, rename = "mchid")]
+    pub mchid: Option<String>,
+    #[serde(default, rename = "partner_trade_no")]
+    pub partner_trade_no: Option<String>,
+    #[serde(default, rename = "payment_no")]
+    pub payment_no: Option<String>,
+    #[serde(default, rename = "payment_time")]
+    pub payment_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2378,18 +2854,22 @@ mod tests {
         ComplaintRefundProgressRequest, ComplaintReplyRequest, CouponStockCreateRequest,
         CouponStockListRequest, CouponStockListResponse, CouponStockOperationRequest,
         CouponStockResponse, FundAppElecSignResponse, FundAppTransferBillRequest,
-        FundAppTransferBillResponse, JsapiPayParams, MerchantMediaUploadRequest,
-        MerchantMediaUploadResponse, MicropayRequest, NativePrepayRequest,
-        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
-        PartnerOrderQuery, PartnerPayer, PayScoreRiskFund, PayScoreServiceOrderQuery,
-        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
-        PaymentResource, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, QueryRedpackRequest, RedpackInfoResponse, RedpackResponse,
-        RefundAmount, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
-        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
-        TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo, UserCouponListRequest,
-        UserCouponListResponse, UserCouponResponse,
+        FundAppTransferBillResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
+        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantMediaUploadRequest,
+        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
+        NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
+        PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PayScoreRiskFund,
+        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreTimeRange,
+        PaymentCredentials, PaymentNotification, PaymentResource, ProfitSharingBillRequest,
+        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
+        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
+        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
+        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundRequest, ReverseOrderRequest,
+        SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest,
+        SendRedpackRequest, TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell,
+        TransferBatchQuery, TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
+        TransferToBalanceRequest, TransferToBalanceResponse, UserCouponListRequest,
+        UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
     };
 
     #[test]
@@ -2739,6 +3219,104 @@ mod tests {
     }
 
     #[test]
+    fn builds_work_and_mini_program_redpack_params() {
+        let work = WorkRedpackRequest {
+            mch_billno: "bill-1".to_string(),
+            wxappid: "wx-app".to_string(),
+            sender_name: "merchant".to_string(),
+            sender_header_media_id: "media".to_string(),
+            re_openid: "openid".to_string(),
+            total_amount: 100,
+            wishing: "thanks".to_string(),
+            act_name: "campaign".to_string(),
+            remark: "remark".to_string(),
+            scene_id: Some("PRODUCT_2".to_string()),
+            workwx_sign: Some("work-sign".to_string()),
+        }
+        .into_params();
+        assert!(work.contains(&("sender_header_media_id".to_string(), "media".to_string())));
+        assert!(work.contains(&("workwx_sign".to_string(), "work-sign".to_string())));
+
+        let query = QueryWorkRedpackRequest {
+            mch_billno: "bill-1".to_string(),
+            appid: "wx-app".to_string(),
+        }
+        .into_params();
+        assert_eq!(
+            query,
+            vec![
+                ("mch_billno".to_string(), "bill-1".to_string()),
+                ("appid".to_string(), "wx-app".to_string())
+            ]
+        );
+
+        let mini = MiniProgramRedpackRequest {
+            mch_billno: "bill-2".to_string(),
+            wxappid: "wx-mini".to_string(),
+            send_name: "merchant".to_string(),
+            re_openid: "openid".to_string(),
+            total_amount: 200,
+            total_num: 1,
+            wishing: "thanks".to_string(),
+            act_name: "campaign".to_string(),
+            remark: "remark".to_string(),
+            notify_way: "MINI_PROGRAM_JSAPI".to_string(),
+            scene_id: None,
+        }
+        .into_params();
+        assert!(mini.contains(&("notify_way".to_string(), "MINI_PROGRAM_JSAPI".to_string())));
+        assert!(!mini.iter().any(|(key, _)| key == "scene_id"));
+    }
+
+    #[test]
+    fn builds_transfer_to_balance_params() {
+        let credentials = PaymentCredentials {
+            mch_id: "1900000109".to_string(),
+            serial_no: "serial".to_string(),
+            private_key_pem: "pem".to_string(),
+        };
+        let params = TransferToBalanceRequest {
+            mch_appid: "wx-app".to_string(),
+            device_info: None,
+            partner_trade_no: "partner-1".to_string(),
+            openid: "openid".to_string(),
+            check_name: "FORCE_CHECK".to_string(),
+            re_user_name: Some("Alice".to_string()),
+            amount: 100,
+            desc: "bonus".to_string(),
+            spbill_create_ip: "127.0.0.1".to_string(),
+            scene: Some("PRODUCT_2".to_string()),
+            brand_id: Some(1000),
+            finder_template_id: None,
+        }
+        .into_params(&credentials);
+
+        assert!(params.contains(&("mch_appid".to_string(), "wx-app".to_string())));
+        assert!(params.contains(&("mchid".to_string(), "1900000109".to_string())));
+        assert!(params.contains(&("partner_trade_no".to_string(), "partner-1".to_string())));
+        assert!(params.contains(&("re_user_name".to_string(), "Alice".to_string())));
+        assert!(params.contains(&("brand_id".to_string(), "1000".to_string())));
+        assert!(!params.iter().any(|(key, _)| key == "mch_id"));
+    }
+
+    #[test]
+    fn parses_legacy_transfer_responses() {
+        let queried: LegacyTransferInfoResponse = quick_xml::de::from_str(
+            "<xml><return_code>SUCCESS</return_code><result_code>SUCCESS</result_code><mch_id>1900000109</mch_id><appid>wx-app</appid><detail_id>detail-1</detail_id><partner_trade_no>partner-1</partner_trade_no><status>SUCCESS</status><payment_amount>100</payment_amount><openid>openid</openid><transfer_time>2026-07-10 10:00:00</transfer_time><transfer_name>Alice</transfer_name><desc>bonus</desc></xml>",
+        )
+        .unwrap();
+        assert_eq!(queried.status.as_deref(), Some("SUCCESS"));
+        assert_eq!(queried.payment_amount.as_deref(), Some("100"));
+
+        let created: TransferToBalanceResponse = quick_xml::de::from_str(
+            "<xml><return_code>SUCCESS</return_code><result_code>SUCCESS</result_code><mch_appid>wx-app</mch_appid><mchid>1900000109</mchid><partner_trade_no>partner-1</partner_trade_no><payment_no>pay-1</payment_no><payment_time>2026-07-10 10:00:00</payment_time></xml>",
+        )
+        .unwrap();
+        assert_eq!(created.payment_no.as_deref(), Some("pay-1"));
+        assert_eq!(created.mchid.as_deref(), Some("1900000109"));
+    }
+
+    #[test]
     fn parses_redpack_response_xml() {
         let response: RedpackResponse = quick_xml::de::from_str(
             "<xml><return_code><![CDATA[SUCCESS]]></return_code><result_code><![CDATA[SUCCESS]]></result_code><mch_billno><![CDATA[bill-1]]></mch_billno><mch_id><![CDATA[1900000109]]></mch_id><wxappid><![CDATA[wx-app]]></wxappid><re_openid><![CDATA[openid]]></re_openid><total_amount>100</total_amount><send_listid><![CDATA[list-1]]></send_listid></xml>",
@@ -3056,6 +3634,92 @@ mod tests {
         assert_eq!(value["receivers"][0]["type"], "PERSONAL_OPENID");
         assert_eq!(value["receivers"][0]["amount"], 30);
         assert_eq!(value["unfreeze_unsplit"], true);
+    }
+
+    #[test]
+    fn serializes_profit_sharing_return_and_unfreeze_requests() {
+        let returns = serde_json::to_value(ProfitSharingReturnOrderRequest {
+            sub_mchid: Some("sub-mch".to_string()),
+            order_id: None,
+            out_order_no: Some("share-1".to_string()),
+            out_return_no: "return-1".to_string(),
+            return_mchid: "1900000109".to_string(),
+            amount: 30,
+            description: "return commission".to_string(),
+        })
+        .unwrap();
+        assert_eq!(returns["sub_mchid"], "sub-mch");
+        assert_eq!(returns["out_order_no"], "share-1");
+        assert_eq!(returns["out_return_no"], "return-1");
+        assert!(returns.get("order_id").is_none());
+
+        let unfreeze = serde_json::to_value(ProfitSharingUnfreezeRequest {
+            transaction_id: "4200000000".to_string(),
+            out_order_no: "share-1".to_string(),
+            description: "finish sharing".to_string(),
+            sub_mchid: None,
+        })
+        .unwrap();
+        assert_eq!(unfreeze["transaction_id"], "4200000000");
+        assert_eq!(unfreeze["description"], "finish sharing");
+        assert!(unfreeze.get("sub_mchid").is_none());
+    }
+
+    #[test]
+    fn builds_profit_sharing_queries_and_legacy_return_params() {
+        let query = ProfitSharingReturnOrderQuery {
+            out_order_no: "share-1".to_string(),
+            sub_mchid: Some("sub-mch".to_string()),
+        }
+        .into_query();
+        assert_eq!(
+            query,
+            vec![
+                ("out_order_no".to_string(), "share-1".to_string()),
+                ("sub_mchid".to_string(), "sub-mch".to_string())
+            ]
+        );
+
+        let bill = ProfitSharingBillRequest {
+            bill_date: "2026-07-10".to_string(),
+            tar_type: Some("GZIP".to_string()),
+            sub_mchid: None,
+        }
+        .into_query();
+        assert_eq!(
+            bill,
+            vec![
+                ("bill_date".to_string(), "2026-07-10".to_string()),
+                ("tar_type".to_string(), "GZIP".to_string())
+            ]
+        );
+
+        let legacy = LegacyProfitSharingReturnRequest {
+            appid: "wxappid".to_string(),
+            out_order_no: "share-1".to_string(),
+            out_return_no: "return-1".to_string(),
+            return_account_type: "MERCHANT_ID".to_string(),
+            return_account: "1900000109".to_string(),
+            return_amount: "30".to_string(),
+            description: "return commission".to_string(),
+        }
+        .into_params();
+        assert!(legacy.contains(&("appid".to_string(), "wxappid".to_string())));
+        assert!(legacy.contains(&("return_amount".to_string(), "30".to_string())));
+        assert!(!legacy.iter().any(|(key, _)| key == "mch_id"));
+        assert!(!legacy.iter().any(|(key, _)| key == "nonce_str"));
+    }
+
+    #[test]
+    fn parses_legacy_profit_sharing_return_response() {
+        let response: LegacyProfitSharingReturnResponse = quick_xml::de::from_str(
+            "<xml><return_code>SUCCESS</return_code><mch_id>1900000109</mch_id><appid>wxappid</appid><order_id>order-1</order_id><out_order_no>share-1</out_order_no><out_return_no>return-1</out_return_no><return_no>wechat-return-1</return_no><result>SUCCESS</result></xml>",
+        )
+        .unwrap();
+
+        assert_eq!(response.return_code, "SUCCESS");
+        assert_eq!(response.out_return_no.as_deref(), Some("return-1"));
+        assert_eq!(response.result.as_deref(), Some("SUCCESS"));
     }
 
     #[test]
