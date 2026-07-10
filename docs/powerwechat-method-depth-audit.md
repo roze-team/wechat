@@ -15,7 +15,7 @@ but these areas should be expanded for stricter production parity.
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
 | Work | 363 | 144 | high |
-| Payment | 165 | 86 | high |
+| Payment | 165 | 93 | high |
 | Open Platform | 76 | 23 | high |
 | Mini Program | 214 | 165 | medium |
 | Official Account | 283 | 222 | medium |
@@ -33,7 +33,7 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    largest endpoint surface compared with current Roze wrappers.
 
 2. Payment method-depth parity:
-   continue expanding `partner`, `merchantService`, `notify`, `order`, and
+   continue expanding `merchantService`, `notify`, `order`, and remaining
    download/statement helper variants. These are production-sensitive and
    should keep strong typed request/response DTOs plus signature/decryption
    tests where applicable.
@@ -78,8 +78,8 @@ separate path scan rather than the generic `HttpPostJson` endpoint extractor.
 The approximate payment scan found 69 payment paths and 37 paths that still
 need review. Some are formatting false positives, but the real update areas are:
 
-- remaining payment download/statement helpers and deeper refund/partner
-  response DTO normalization;
+- remaining payment stream-download helpers, statement helpers, and deeper
+  merchant-service response DTO normalization;
 
 Implemented on 2026-07-10 in Roze WeChat payment depth:
 
@@ -92,12 +92,14 @@ Implemented on 2026-07-10 in Roze WeChat payment depth:
   codepay;
 - merchant fund balance;
 - fund-app electronic-sign transfer-bill-no apply/query variants.
+- typed refund detail responses, partner out-refund query, and transfer bill
+  receipt/electronic receipt apply/query wrappers.
 
 ## Concrete Next Batch
 
 Recommended implementation order:
 
-1. Payment remaining download/statement/refund detail depth, because these
+1. Payment remaining stream-download/statement helper depth, because these
    touch money movement and need stronger typed DTOs plus signing tests.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.

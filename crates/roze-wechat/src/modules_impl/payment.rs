@@ -452,6 +452,15 @@ impl Payment {
         self.get_v3(credentials, &path, request.into_query()).await
     }
 
+    pub async fn partner_query_refund_by_out_refund_no(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerRefundQuery,
+    ) -> Result<PartnerRefundDetailResponse> {
+        let path = format!("/v3/refund/domestic/refunds/{}", request.out_refund_no);
+        self.get_v3(credentials, &path, request.into_query()).await
+    }
+
     pub async fn partner_combine_app_transaction(
         &self,
         credentials: &PaymentCredentials,
@@ -845,6 +854,28 @@ impl Payment {
         self.get_v3(credentials, &path, Vec::new()).await
     }
 
+    pub async fn create_refund_detail(
+        &self,
+        credentials: &PaymentCredentials,
+        request: RefundRequest,
+    ) -> Result<RefundDetailResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/refund/domestic/refunds",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_refund_detail(
+        &self,
+        credentials: &PaymentCredentials,
+        out_refund_no: impl AsRef<str>,
+    ) -> Result<RefundDetailResponse> {
+        let path = format!("/v3/refund/domestic/refunds/{}", out_refund_no.as_ref());
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
     pub fn reverse(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.reverse")
     }
@@ -1212,6 +1243,56 @@ impl Payment {
         self.get_v3(credentials, &path, Vec::new()).await
     }
 
+    pub async fn create_transfer_bill_receipt(
+        &self,
+        credentials: &PaymentCredentials,
+        out_batch_no: impl Into<String>,
+    ) -> Result<TransferBillReceiptResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/transfer/bill-receipt",
+            serde_json::json!({ "out_batch_no": out_batch_no.into() }),
+        )
+        .await
+    }
+
+    pub async fn query_transfer_bill_receipt(
+        &self,
+        credentials: &PaymentCredentials,
+        out_batch_no: impl AsRef<str>,
+    ) -> Result<TransferBillReceiptResponse> {
+        let path = format!("/v3/transfer/bill-receipt/{}", out_batch_no.as_ref());
+        self.post_v3(credentials, &path, serde_json::json!({}))
+            .await
+    }
+
+    pub async fn create_transfer_detail_receipt(
+        &self,
+        credentials: &PaymentCredentials,
+        request: TransferDetailReceiptRequest,
+    ) -> Result<TransferDetailReceiptResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/transfer-detail/electronic-receipts",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn query_transfer_detail_receipt(
+        &self,
+        credentials: &PaymentCredentials,
+        request: TransferDetailReceiptQuery,
+    ) -> Result<TransferDetailReceiptResponse> {
+        self.post_v3_with_query(
+            credentials,
+            "/v3/transfer-detail/electronic-receipts",
+            request.into_query(),
+            serde_json::json!({}),
+        )
+        .await
+    }
+
     pub async fn trade_bill(
         &self,
         credentials: &PaymentCredentials,
@@ -1245,6 +1326,27 @@ impl Payment {
             credentials.authorization("POST", path, &body_text)?,
         )];
         self.inner.post_json(path, None, body, headers).await
+    }
+
+    async fn post_v3_with_query<R>(
+        &self,
+        credentials: &PaymentCredentials,
+        path: &str,
+        query: Vec<(String, String)>,
+        body: Value,
+    ) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        let body_text = body.to_string();
+        let path_query = path_with_query(path, &query);
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization("POST", &path_query, &body_text)?,
+        )];
+        self.inner
+            .post_json_with_query(path, query, body, headers)
+            .await
     }
 
     async fn put_v3<R>(
@@ -1284,16 +1386,7 @@ impl Payment {
     where
         R: serde::de::DeserializeOwned,
     {
-        let path_query = if query.is_empty() {
-            path.to_string()
-        } else {
-            let query_text = query
-                .iter()
-                .map(|(key, value)| format!("{key}={value}"))
-                .collect::<Vec<_>>()
-                .join("&");
-            format!("{path}?{query_text}")
-        };
+        let path_query = path_with_query(path, &query);
         let headers = vec![(
             "authorization".to_string(),
             credentials.authorization("GET", &path_query, "")?,
@@ -1335,6 +1428,19 @@ impl Payment {
         self.inner
             .post_xml(path, crypto::payment_legacy_xml(&params))
             .await
+    }
+}
+
+fn path_with_query(path: &str, query: &[(String, String)]) -> String {
+    if query.is_empty() {
+        path.to_string()
+    } else {
+        let query_text = query
+            .iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect::<Vec<_>>()
+            .join("&");
+        format!("{path}?{query_text}")
     }
 }
 
@@ -1779,6 +1885,20 @@ impl PartnerTransactionQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerRefundQuery {
+    pub out_refund_no: String,
+    pub sub_mchid: String,
+}
+
+impl PartnerRefundQuery {
+    fn into_query(self) -> Vec<(String, String)> {
+        vec![("sub_mchid".to_string(), self.sub_mchid)]
+    }
+}
+
+pub type PartnerRefundDetailResponse = RefundDetailResponse;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartnerCloseOrderRequest {
     pub out_trade_no: String,
     pub sp_mchid: String,
@@ -1955,6 +2075,77 @@ pub struct RefundAmount {
 pub struct RefundResponse {
     #[serde(flatten)]
     pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundDetailResponse {
+    pub refund_id: String,
+    pub out_refund_no: String,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    pub channel: String,
+    pub user_received_account: String,
+    #[serde(default)]
+    pub success_time: Option<String>,
+    pub create_time: String,
+    pub status: String,
+    #[serde(default)]
+    pub funds_account: Option<String>,
+    pub amount: RefundDetailAmount,
+    #[serde(default)]
+    pub promotion_detail: Vec<RefundPromotionDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundDetailAmount {
+    pub refund: i64,
+    pub total: i64,
+    #[serde(default = "default_cny")]
+    pub currency: String,
+    #[serde(default)]
+    pub from: Vec<RefundAmountFrom>,
+    #[serde(default)]
+    pub payer_total: Option<i64>,
+    #[serde(default)]
+    pub payer_refund: Option<i64>,
+    #[serde(default)]
+    pub settlement_refund: Option<i64>,
+    #[serde(default)]
+    pub settlement_total: Option<i64>,
+    #[serde(default)]
+    pub discount_refund: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundAmountFrom {
+    pub account: String,
+    pub amount: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundPromotionDetail {
+    pub promotion_id: String,
+    pub scope: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub amount: i64,
+    pub refund_amount: i64,
+    #[serde(default)]
+    pub goods_detail: Vec<RefundGoodsDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundGoodsDetail {
+    pub merchant_goods_id: String,
+    #[serde(default)]
+    pub wechatpay_goods_id: Option<String>,
+    #[serde(default)]
+    pub goods_name: Option<String>,
+    pub unit_price: i64,
+    pub refund_amount: i64,
+    pub refund_quantity: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2680,6 +2871,62 @@ pub struct TransferDetailResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferBillReceiptResponse {
+    pub out_batch_no: String,
+    #[serde(default)]
+    pub signature_no: Option<String>,
+    pub signature_status: String,
+    #[serde(default)]
+    pub hash_type: Option<String>,
+    #[serde(default)]
+    pub hash_value: Option<String>,
+    #[serde(default)]
+    pub download_url: Option<String>,
+    pub create_time: String,
+    pub update_time: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferDetailReceiptRequest {
+    pub accept_type: String,
+    pub out_batch_no: String,
+    pub out_detail_no: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferDetailReceiptQuery {
+    pub accept_type: String,
+    pub out_batch_no: String,
+    pub out_detail_no: String,
+}
+
+impl TransferDetailReceiptQuery {
+    fn into_query(self) -> Vec<(String, String)> {
+        vec![
+            ("accept_type".to_string(), self.accept_type),
+            ("out_batch_no".to_string(), self.out_batch_no),
+            ("out_detail_no".to_string(), self.out_detail_no),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferDetailReceiptResponse {
+    pub accept_type: String,
+    pub out_batch_no: String,
+    pub out_detail_no: String,
+    #[serde(default)]
+    pub signature_no: Option<String>,
+    pub signature_status: String,
+    #[serde(default)]
+    pub hash_type: Option<String>,
+    #[serde(default)]
+    pub hash_value: Option<String>,
+    #[serde(default)]
+    pub download_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillRequest {
     pub bill_date: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3095,18 +3342,19 @@ mod tests {
         MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
         MiniProgramRedpackRequest, NativePrepayRequest, PartnerCloseOrderRequest,
         PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
-        PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
+        PartnerRefundQuery, PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
         PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
         PaymentResource, ProfitSharingBillRequest, ProfitSharingOrderRequest,
         ProfitSharingReceiver, ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
-        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount, RefundRequest,
-        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
-        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
-        TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
-        TransferDetailInput, TransferSceneReportInfo, TransferToBalanceRequest,
-        TransferToBalanceResponse, UserCouponListRequest, UserCouponListResponse,
-        UserCouponResponse, WorkRedpackRequest,
+        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
+        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
+        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
+        TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
+        UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
     };
 
     #[test]
@@ -3848,6 +4096,20 @@ mod tests {
     }
 
     #[test]
+    fn builds_partner_refund_query() {
+        let query = PartnerRefundQuery {
+            out_refund_no: "refund-1".to_string(),
+            sub_mchid: "sub_mchid".to_string(),
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![("sub_mchid".to_string(), "sub_mchid".to_string())]
+        );
+    }
+
+    #[test]
     fn serializes_partner_close_order_request() {
         let value = serde_json::to_value(PartnerCloseOrderRequest {
             out_trade_no: "out".to_string(),
@@ -3924,6 +4186,60 @@ mod tests {
         assert_eq!(value["amount"]["refund"], 50);
         assert_eq!(value["amount"]["total"], 100);
         assert_eq!(value["amount"]["currency"], "CNY");
+    }
+
+    #[test]
+    fn deserializes_refund_detail_response() {
+        let response: RefundDetailResponse = serde_json::from_value(json!({
+            "refund_id": "refund-id",
+            "out_refund_no": "refund-1",
+            "transaction_id": "transaction-1",
+            "out_trade_no": "order-1",
+            "channel": "ORIGINAL",
+            "user_received_account": "零钱",
+            "success_time": "2026-07-10T10:00:00+08:00",
+            "create_time": "2026-07-10T09:59:00+08:00",
+            "status": "SUCCESS",
+            "funds_account": "AVAILABLE",
+            "amount": {
+                "refund": 50,
+                "total": 100,
+                "currency": "CNY",
+                "from": [{ "account": "AVAILABLE", "amount": 50 }],
+                "payer_total": 100,
+                "payer_refund": 50,
+                "settlement_refund": 50,
+                "settlement_total": 100,
+                "discount_refund": 0
+            },
+            "promotion_detail": [{
+                "promotion_id": "promo-1",
+                "scope": "GLOBAL",
+                "type": "COUPON",
+                "amount": 10,
+                "refund_amount": 5,
+                "goods_detail": [{
+                    "merchant_goods_id": "sku-1",
+                    "wechatpay_goods_id": "wx-sku-1",
+                    "goods_name": "product",
+                    "unit_price": 100,
+                    "refund_amount": 5,
+                    "refund_quantity": 1
+                }]
+            }]
+        }))
+        .unwrap();
+
+        assert_eq!(response.refund_id, "refund-id");
+        assert_eq!(response.amount.from[0].account, "AVAILABLE");
+        assert_eq!(response.amount.payer_refund, Some(50));
+        assert_eq!(response.promotion_detail[0].kind, "COUPON");
+        assert_eq!(
+            response.promotion_detail[0].goods_detail[0]
+                .wechatpay_goods_id
+                .as_deref(),
+            Some("wx-sku-1")
+        );
     }
 
     #[test]
@@ -4101,6 +4417,70 @@ mod tests {
                 ("detail_status".to_string(), "SUCCESS".to_string())
             ]
         );
+    }
+
+    #[test]
+    fn serializes_transfer_detail_receipt_request_and_query() {
+        let value = serde_json::to_value(TransferDetailReceiptRequest {
+            accept_type: "BATCH_TRANSFER".to_string(),
+            out_batch_no: "batch-1".to_string(),
+            out_detail_no: "detail-1".to_string(),
+        })
+        .unwrap();
+
+        assert_eq!(value["accept_type"], "BATCH_TRANSFER");
+        assert_eq!(value["out_batch_no"], "batch-1");
+        assert_eq!(value["out_detail_no"], "detail-1");
+
+        let query = TransferDetailReceiptQuery {
+            accept_type: "BATCH_TRANSFER".to_string(),
+            out_batch_no: "batch-1".to_string(),
+            out_detail_no: "detail-1".to_string(),
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![
+                ("accept_type".to_string(), "BATCH_TRANSFER".to_string()),
+                ("out_batch_no".to_string(), "batch-1".to_string()),
+                ("out_detail_no".to_string(), "detail-1".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn deserializes_transfer_receipt_responses() {
+        let bill: TransferBillReceiptResponse = serde_json::from_value(json!({
+            "out_batch_no": "batch-1",
+            "signature_no": "signature-1",
+            "signature_status": "FINISHED",
+            "hash_type": "SHA256",
+            "hash_value": "hash",
+            "download_url": "https://example.com/receipt.pdf",
+            "create_time": "2026-07-10T10:00:00+08:00",
+            "update_time": "2026-07-10T10:01:00+08:00"
+        }))
+        .unwrap();
+        assert_eq!(bill.signature_status, "FINISHED");
+        assert_eq!(
+            bill.download_url.as_deref(),
+            Some("https://example.com/receipt.pdf")
+        );
+
+        let detail: TransferDetailReceiptResponse = serde_json::from_value(json!({
+            "accept_type": "BATCH_TRANSFER",
+            "out_batch_no": "batch-1",
+            "out_detail_no": "detail-1",
+            "signature_no": "signature-2",
+            "signature_status": "PROCESSING",
+            "hash_type": "SHA256",
+            "hash_value": "hash",
+            "download_url": "https://example.com/detail.pdf"
+        }))
+        .unwrap();
+        assert_eq!(detail.out_detail_no, "detail-1");
+        assert_eq!(detail.signature_no.as_deref(), Some("signature-2"));
     }
 
     #[test]
