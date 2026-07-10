@@ -104,6 +104,31 @@ impl Payment {
         self.get_v3(credentials, &path, Vec::new()).await
     }
 
+    pub async fn apply_fund_app_elec_sign_by_transfer_bill_no(
+        &self,
+        credentials: &PaymentCredentials,
+        transfer_bill_no: impl Into<String>,
+    ) -> Result<FundAppElecSignApplyResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/fund-app/mch-transfer/elecsign/transfer-bill-no",
+            serde_json::json!({ "transfer_bill_no": transfer_bill_no.into() }),
+        )
+        .await
+    }
+
+    pub async fn query_fund_app_elec_sign_by_transfer_bill_no(
+        &self,
+        credentials: &PaymentCredentials,
+        transfer_bill_no: impl AsRef<str>,
+    ) -> Result<FundAppElecSignResponse> {
+        let path = format!(
+            "/v3/fund-app/mch-transfer/elecsign/transfer-bill-no/{}",
+            transfer_bill_no.as_ref()
+        );
+        self.get_v3(credentials, &path, Vec::new()).await
+    }
+
     pub fn jssdk(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.jssdk")
     }
@@ -263,6 +288,32 @@ impl Payment {
         .await
     }
 
+    pub async fn combine_app_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: CombineAppPrepayRequest,
+    ) -> Result<PrepayResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/combine-transactions/app",
+            to_value(request)?,
+        )
+        .await
+    }
+
+    pub async fn codepay_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: CodepayRequest,
+    ) -> Result<PaymentOrderResponse> {
+        self.post_v3(
+            credentials,
+            "/v3/pay/transactions/codepay",
+            to_value(request)?,
+        )
+        .await
+    }
+
     pub async fn query_by_transaction_id(
         &self,
         credentials: &PaymentCredentials,
@@ -390,6 +441,23 @@ impl Payment {
             request.out_trade_no
         );
         self.get_v3(credentials, &path, request.into_query()).await
+    }
+
+    pub async fn partner_query_by_transaction_id(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PartnerTransactionQuery,
+    ) -> Result<PaymentOrderResponse> {
+        let path = format!("/v3/pay/partner/transactions/id/{}", request.transaction_id);
+        self.get_v3(credentials, &path, request.into_query()).await
+    }
+
+    pub async fn partner_combine_app_transaction(
+        &self,
+        credentials: &PaymentCredentials,
+        request: CombineAppPrepayRequest,
+    ) -> Result<PrepayResponse> {
+        self.combine_app_transaction(credentials, request).await
     }
 
     pub async fn partner_close_order(
@@ -835,6 +903,15 @@ impl Payment {
 
     pub fn merchant_service(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "payment.merchant_service")
+    }
+
+    pub async fn merchant_fund_balance(
+        &self,
+        credentials: &PaymentCredentials,
+        account_type: impl AsRef<str>,
+    ) -> Result<MerchantFundBalanceResponse> {
+        let path = format!("/v3/merchant/fund/balance/{}", account_type.as_ref());
+        self.get_v3(credentials, &path, Vec::new()).await
     }
 
     pub fn merchant(&self) -> DomainModule {
@@ -1427,6 +1504,141 @@ pub struct NativePrepayRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombineAppPrepayRequest {
+    pub combine_appid: String,
+    pub combine_mchid: String,
+    pub combine_out_trade_no: String,
+    pub notify_url: String,
+    pub sub_orders: Vec<CombineSubOrder>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_info: Option<CombineSceneInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub combine_payer_info: Option<CombinePayerInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_expire: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombineSceneInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+    pub payer_client_ip: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombineSubOrder {
+    pub mchid: String,
+    pub out_trade_no: String,
+    pub description: String,
+    pub amount: CombineAmount,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attach: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_info: Option<CombineSettleInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombineAmount {
+    pub total_amount: i64,
+    #[serde(default = "default_cny")]
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombineSettleInfo {
+    pub profit_sharing: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subsidy_amount: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombinePayerInfo {
+    pub openid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepayRequest {
+    pub appid: String,
+    pub mchid: String,
+    pub description: String,
+    pub out_trade_no: String,
+    pub attach: String,
+    pub payer: CodepayPayer,
+    pub amount: CodepayAmount,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub support_fapiao: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_info: Option<CodepaySceneInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<CodepayDetail>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_info: Option<CodepaySettleInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepayPayer {
+    pub auth_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepayAmount {
+    pub total: i64,
+    #[serde(default = "default_cny")]
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepaySceneInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub store_info: Option<CodepayStoreInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_ip: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepayStoreInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepayDetail {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_price: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invoice_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_detail: Option<Vec<CodepayGoodsDetail>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepayGoodsDetail {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merchant_goods_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wxpay_goods_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_name: Option<String>,
+    pub quantity: i64,
+    pub unit_price: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodepaySettleInfo {
+    pub profit_sharing: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartnerJsapiPrepayRequest {
     pub sp_appid: String,
     pub sp_mchid: String,
@@ -1542,6 +1754,22 @@ pub struct PartnerOrderQuery {
 }
 
 impl PartnerOrderQuery {
+    fn into_query(self) -> Vec<(String, String)> {
+        vec![
+            ("sp_mchid".to_string(), self.sp_mchid),
+            ("sub_mchid".to_string(), self.sub_mchid),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerTransactionQuery {
+    pub transaction_id: String,
+    pub sp_mchid: String,
+    pub sub_mchid: String,
+}
+
+impl PartnerTransactionQuery {
     fn into_query(self) -> Vec<(String, String)> {
         vec![
             ("sp_mchid".to_string(), self.sp_mchid),
@@ -2545,6 +2773,12 @@ pub struct FundAppElecSignResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerchantFundBalanceResponse {
+    pub available_amount: i64,
+    pub pending_amount: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SandboxSignKeyResponse {
     #[serde(rename = "return_code")]
     pub return_code: String,
@@ -2848,28 +3082,31 @@ mod tests {
     use super::{
         build_merchant_media_upload_body, build_sandbox_sign_key_xml, multipart_quoted, Amount,
         AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
-        BillRequest, CertificateListResponse, ComplaintListRequest,
+        BillRequest, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
+        CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
+        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintListRequest,
         ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
         ComplaintNotificationRequest, ComplaintNotificationResponse,
         ComplaintRefundProgressRequest, ComplaintReplyRequest, CouponStockCreateRequest,
         CouponStockListRequest, CouponStockListResponse, CouponStockOperationRequest,
         CouponStockResponse, FundAppElecSignResponse, FundAppTransferBillRequest,
         FundAppTransferBillResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
-        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantMediaUploadRequest,
-        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
-        NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
-        PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PayScoreRiskFund,
-        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreTimeRange,
-        PaymentCredentials, PaymentNotification, PaymentResource, ProfitSharingBillRequest,
-        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
-        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
-        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundRequest, ReverseOrderRequest,
-        SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest,
-        SendRedpackRequest, TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell,
-        TransferBatchQuery, TransferBatchRequest, TransferDetailInput, TransferSceneReportInfo,
-        TransferToBalanceRequest, TransferToBalanceResponse, UserCouponListRequest,
-        UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
+        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
+        MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
+        MiniProgramRedpackRequest, NativePrepayRequest, PartnerCloseOrderRequest,
+        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
+        PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
+        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
+        PaymentResource, ProfitSharingBillRequest, ProfitSharingOrderRequest,
+        ProfitSharingReceiver, ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
+        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
+        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount, RefundRequest,
+        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
+        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
+        TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
+        TransferDetailInput, TransferSceneReportInfo, TransferToBalanceRequest,
+        TransferToBalanceResponse, UserCouponListRequest, UserCouponListResponse,
+        UserCouponResponse, WorkRedpackRequest,
     };
 
     #[test]
@@ -3498,9 +3735,104 @@ mod tests {
     }
 
     #[test]
+    fn serializes_combine_app_transaction_request() {
+        let value = serde_json::to_value(CombineAppPrepayRequest {
+            combine_appid: "wx-combine".to_string(),
+            combine_mchid: "combine-mch".to_string(),
+            combine_out_trade_no: "combine-out".to_string(),
+            notify_url: "https://example.com/notify".to_string(),
+            scene_info: Some(CombineSceneInfo {
+                device_id: None,
+                payer_client_ip: "127.0.0.1".to_string(),
+            }),
+            sub_orders: vec![CombineSubOrder {
+                mchid: "sub-mch".to_string(),
+                out_trade_no: "sub-out".to_string(),
+                description: "desc".to_string(),
+                amount: CombineAmount {
+                    total_amount: 100,
+                    currency: "CNY".to_string(),
+                },
+                attach: None,
+                goods_tag: Some("goods".to_string()),
+                settle_info: Some(CombineSettleInfo {
+                    profit_sharing: true,
+                    subsidy_amount: Some(10),
+                }),
+            }],
+            combine_payer_info: Some(CombinePayerInfo {
+                openid: "openid".to_string(),
+            }),
+            time_start: None,
+            time_expire: None,
+        })
+        .unwrap();
+
+        assert_eq!(value["combine_appid"], "wx-combine");
+        assert_eq!(value["sub_orders"][0]["amount"]["total_amount"], 100);
+        assert_eq!(value["sub_orders"][0]["amount"]["currency"], "CNY");
+        assert_eq!(
+            value["sub_orders"][0]["settle_info"]["profit_sharing"],
+            true
+        );
+        assert_eq!(value["combine_payer_info"]["openid"], "openid");
+        assert!(value["scene_info"].get("device_id").is_none());
+    }
+
+    #[test]
+    fn serializes_codepay_transaction_request() {
+        let value = serde_json::to_value(CodepayRequest {
+            appid: "wx-app".to_string(),
+            mchid: "mch".to_string(),
+            description: "desc".to_string(),
+            out_trade_no: "out".to_string(),
+            attach: "attach".to_string(),
+            payer: CodepayPayer {
+                auth_code: "auth-code".to_string(),
+            },
+            amount: CodepayAmount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            goods_tag: None,
+            support_fapiao: Some(true),
+            scene_info: None,
+            detail: None,
+            settle_info: Some(CodepaySettleInfo {
+                profit_sharing: true,
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(value["payer"]["auth_code"], "auth-code");
+        assert_eq!(value["amount"]["currency"], "CNY");
+        assert_eq!(value["support_fapiao"], true);
+        assert_eq!(value["settle_info"]["profit_sharing"], true);
+        assert!(value.get("goods_tag").is_none());
+    }
+
+    #[test]
     fn builds_partner_order_query() {
         let query = PartnerOrderQuery {
             out_trade_no: "out".to_string(),
+            sp_mchid: "sp_mchid".to_string(),
+            sub_mchid: "sub_mchid".to_string(),
+        }
+        .into_query();
+
+        assert_eq!(
+            query,
+            vec![
+                ("sp_mchid".to_string(), "sp_mchid".to_string()),
+                ("sub_mchid".to_string(), "sub_mchid".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn builds_partner_transaction_query() {
+        let query = PartnerTransactionQuery {
+            transaction_id: "transaction".to_string(),
             sp_mchid: "sp_mchid".to_string(),
             sub_mchid: "sub_mchid".to_string(),
         }
@@ -4027,6 +4359,18 @@ mod tests {
         assert_eq!(response.state, "FINISHED");
         assert_eq!(response.hash_type, "SHA256");
         assert_eq!(response.download_url, "https://example.com/sign.pdf");
+    }
+
+    #[test]
+    fn deserializes_merchant_fund_balance_response() {
+        let response: MerchantFundBalanceResponse = serde_json::from_value(json!({
+            "available_amount": 1000,
+            "pending_amount": 200
+        }))
+        .unwrap();
+
+        assert_eq!(response.available_amount, 1000);
+        assert_eq!(response.pending_amount, 200);
     }
 
     #[test]

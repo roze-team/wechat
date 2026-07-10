@@ -15,7 +15,7 @@ but these areas should be expanded for stricter production parity.
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
 | Work | 363 | 144 | high |
-| Payment | 165 | 79 | high |
+| Payment | 165 | 86 | high |
 | Open Platform | 76 | 23 | high |
 | Mini Program | 214 | 165 | medium |
 | Official Account | 283 | 222 | medium |
@@ -33,10 +33,10 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    largest endpoint surface compared with current Roze wrappers.
 
 2. Payment method-depth parity:
-   continue expanding `partner`, `merchantService`, `notify`, `order`, and the
-   remaining transfer variants. These are production-sensitive and should keep
-   strong typed request/response DTOs plus signature/decryption tests where
-   applicable.
+   continue expanding `partner`, `merchantService`, `notify`, `order`, and
+   download/statement helper variants. These are production-sensitive and
+   should keep strong typed request/response DTOs plus signature/decryption
+   tests where applicable.
 
 3. Open Platform authorizer depth:
    PowerWeChat has many authorizer mini-program/official-account aggregate
@@ -78,10 +78,8 @@ separate path scan rather than the generic `HttpPostJson` endpoint extractor.
 The approximate payment scan found 69 payment paths and 37 paths that still
 need review. Some are formatting false positives, but the real update areas are:
 
-- partner combine app transaction and partner transaction-id query;
-- payment codepay;
-- merchant fund balance;
-- remaining fund-app transfer-bill and electronic-sign query variants.
+- remaining payment download/statement helpers and deeper refund/partner
+  response DTO normalization;
 
 Implemented on 2026-07-10 in Roze WeChat payment depth:
 
@@ -90,13 +88,17 @@ Implemented on 2026-07-10 in Roze WeChat payment depth:
 - Work redpack and mini-program redpack paths;
 - profit sharing return orders, unfreeze, bills, transaction amount query, and
   legacy `secapi/pay/profitsharingreturn`.
+- partner combine app transaction, partner transaction-id query, and payment
+  codepay;
+- merchant fund balance;
+- fund-app electronic-sign transfer-bill-no apply/query variants.
 
 ## Concrete Next Batch
 
 Recommended implementation order:
 
-1. Payment remaining partner/codepay/merchant-fund depth, because these touch
-   money movement and need stronger typed DTOs plus signing tests.
+1. Payment remaining download/statement/refund detail depth, because these
+   touch money movement and need stronger typed DTOs plus signing tests.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
 3. Open Platform `authorizer` depth for mini-program release/audit/domain and
