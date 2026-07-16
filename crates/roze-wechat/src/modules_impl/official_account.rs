@@ -3656,11 +3656,27 @@ pub struct MenuGetResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub menu: Option<Value>,
+    pub menu: Option<OfficialMenuInfo>,
     #[serde(default)]
-    pub conditionalmenu: Vec<Value>,
+    pub conditionalmenu: Vec<OfficialConditionalMenuInfo>,
     #[serde(flatten)]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialMenuInfo {
+    #[serde(default)]
+    pub button: Vec<MenuButton>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialConditionalMenuInfo {
+    #[serde(default)]
+    pub button: Vec<MenuButton>,
+    #[serde(default)]
+    pub matchrule: Option<MatchRule>,
+    #[serde(default)]
+    pub menuid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3672,7 +3688,7 @@ pub struct CurrentSelfMenuResponse {
     #[serde(default)]
     pub is_menu_open: Option<i64>,
     #[serde(default)]
-    pub selfmenu_info: Option<Value>,
+    pub selfmenu_info: Option<OfficialMenuInfo>,
     #[serde(flatten)]
     pub extra: Value,
 }
@@ -3684,7 +3700,7 @@ pub struct MenuTryMatchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub button: Vec<Value>,
+    pub button: Vec<MenuButton>,
     #[serde(flatten)]
     pub extra: Value,
 }
@@ -5913,22 +5929,45 @@ mod tests {
         assert_eq!(stats.news_count, Some(4));
 
         let menu: MenuGetResponse = serde_json::from_value(json!({
-            "menu": { "button": [{ "name": "Open", "type": "view" }] },
-            "conditionalmenu": [{ "button": [] }]
+            "menu": { "button": [{ "name": "Open", "type": "view", "url": "https://example.com" }] },
+            "conditionalmenu": [{
+                "button": [{ "name": "VIP", "type": "click", "key": "vip" }],
+                "matchrule": { "tag_id": "2" },
+                "menuid": "menu-1"
+            }]
         }))
         .unwrap();
         assert_eq!(menu.conditionalmenu.len(), 1);
+        assert_eq!(
+            menu.menu.as_ref().unwrap().button[0].url.as_deref(),
+            Some("https://example.com")
+        );
+        assert_eq!(
+            menu.conditionalmenu[0].button[0].key.as_deref(),
+            Some("vip")
+        );
+        assert_eq!(
+            menu.conditionalmenu[0]
+                .matchrule
+                .as_ref()
+                .and_then(|rule| rule.tag_id.as_deref()),
+            Some("2")
+        );
 
         let current: CurrentSelfMenuResponse = serde_json::from_value(json!({
             "is_menu_open": 1,
-            "selfmenu_info": { "button": [] }
+            "selfmenu_info": { "button": [{ "name": "Current", "type": "view" }] }
         }))
         .unwrap();
         assert_eq!(current.is_menu_open, Some(1));
+        assert_eq!(
+            current.selfmenu_info.as_ref().unwrap().button[0].name,
+            "Current"
+        );
 
         let matched: MenuTryMatchResponse =
             serde_json::from_value(json!({ "button": [{ "name": "Open" }] })).unwrap();
-        assert_eq!(matched.button[0]["name"], "Open");
+        assert_eq!(matched.button[0].name, "Open");
 
         let semantic: OfficialSemanticQueryResponse = serde_json::from_value(json!({
             "query": "weather",

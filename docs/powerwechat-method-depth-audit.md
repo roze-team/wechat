@@ -228,6 +228,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   menu, semantic, template-message, user-list, and blacklist paths now return
   explicit typed response DTOs with compatibility extension fields where the
   upstream payload remains open-ended.
+- Official Account menu get/current/try-match responses now expose typed menu
+  and button DTOs instead of raw JSON values, including conditional-menu
+  match-rule metadata.
 - Official Account mass-preview now accepts a typed request DTO with explicit
   preview recipient and message type fields.
 
