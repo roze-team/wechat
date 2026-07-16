@@ -118,6 +118,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   template-card update wrapper, msg-audit agree/robot-info wrappers, tag user
   removal wrapper, group robot send/upload wrappers, and Work access-token
   wrapper.
+- Work agent list/detail and department list/simple-list/detail responses now
+  expose typed agent, allow-scope, department, and department-leader DTOs.
 - typed Work message audience and helper wrappers for markdown, image, voice,
   file, video, text-card, news, mpnews, and mini-program notice sends.
 - external-contact contact-way add/get/list responses and conclusions are now

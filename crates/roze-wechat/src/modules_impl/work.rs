@@ -61,13 +61,20 @@ impl Work {
             .await
     }
 
-    pub async fn list_agents(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn list_agents(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkAgentListResponse> {
         self.inner
             .get("cgi-bin/agent/list", Some(access_token.into()))
             .await
     }
 
-    pub async fn get_agent(&self, access_token: impl Into<String>, agent_id: i64) -> Result<Value> {
+    pub async fn get_agent(
+        &self,
+        access_token: impl Into<String>,
+        agent_id: i64,
+    ) -> Result<WorkAgentDetailResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/agent/get",
@@ -193,7 +200,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         id: Option<i64>,
-    ) -> Result<Value> {
+    ) -> Result<WorkDepartmentListResponse> {
         let query = id
             .map(|id| vec![("id".to_string(), id.to_string())])
             .unwrap_or_default();
@@ -206,7 +213,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         id: Option<i64>,
-    ) -> Result<Value> {
+    ) -> Result<WorkDepartmentSimpleListResponse> {
         let query = id
             .map(|id| vec![("id".to_string(), id.to_string())])
             .unwrap_or_default();
@@ -219,7 +226,11 @@ impl Work {
             .await
     }
 
-    pub async fn get_department(&self, access_token: impl Into<String>, id: i64) -> Result<Value> {
+    pub async fn get_department(
+        &self,
+        access_token: impl Into<String>,
+        id: i64,
+    ) -> Result<WorkDepartmentDetailResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/department/get",
@@ -4285,6 +4296,88 @@ impl Work {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub agentlist: Vec<WorkAgentSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentSummary {
+    #[serde(default)]
+    pub agentid: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub square_logo_url: Option<String>,
+    #[serde(default)]
+    pub round_logo_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub agentid: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub square_logo_url: Option<String>,
+    #[serde(default)]
+    pub round_logo_url: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub allow_userinfos: Option<WorkAgentAllowUsers>,
+    #[serde(default)]
+    pub allow_partys: Option<WorkAgentAllowParties>,
+    #[serde(default)]
+    pub allow_tags: Option<WorkAgentAllowTags>,
+    #[serde(default)]
+    pub close: Option<i64>,
+    #[serde(default)]
+    pub redirect_domain: Option<String>,
+    #[serde(default)]
+    pub report_location_flag: Option<i64>,
+    #[serde(default)]
+    pub isreportenter: Option<i64>,
+    #[serde(default)]
+    pub home_url: Option<String>,
+    #[serde(default)]
+    pub customized_publish_status: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentAllowUsers {
+    #[serde(default)]
+    pub user: Vec<WorkAgentAllowUser>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentAllowUser {
+    #[serde(default)]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentAllowParties {
+    #[serde(default)]
+    pub partyid: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentAllowTags {
+    #[serde(default)]
+    pub tagid: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentUpdateRequest {
     pub agentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4323,6 +4416,64 @@ pub struct DepartmentCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub department: Vec<WorkDepartment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentSimpleListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub department_id: Vec<WorkDepartmentSimple>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(flatten)]
+    pub department: WorkDepartment,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkDepartment {
+    #[serde(default)]
+    pub id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub name_en: Option<String>,
+    #[serde(default)]
+    pub parentid: Option<i64>,
+    #[serde(default)]
+    pub order: Option<i64>,
+    #[serde(default)]
+    pub department_leader: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentSimple {
+    #[serde(default)]
+    pub id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub parentid: Option<i64>,
+    #[serde(default)]
+    pub order: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10177,6 +10328,91 @@ mod tests {
 
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.id, Some(42));
+
+        let departments: WorkDepartmentListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "department": [{
+                "id": 1,
+                "name": "Engineering",
+                "name_en": "Engineering",
+                "parentid": 0,
+                "order": 10,
+                "department_leader": ["leader"]
+            }]
+        }))
+        .unwrap();
+        assert_eq!(departments.department[0].id, Some(1));
+        assert_eq!(
+            departments.department[0].name.as_deref(),
+            Some("Engineering")
+        );
+        assert_eq!(departments.department[0].department_leader[0], "leader");
+
+        let simple: WorkDepartmentSimpleListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "department_id": [{
+                "id": 1,
+                "name": "Engineering",
+                "parentid": 0,
+                "order": 10
+            }]
+        }))
+        .unwrap();
+        assert_eq!(simple.department_id[0].id, Some(1));
+        assert_eq!(simple.department_id[0].parentid, Some(0));
+
+        let detail: WorkDepartmentDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "id": 1,
+            "name": "Engineering",
+            "parentid": 0,
+            "department_leader": ["leader"]
+        }))
+        .unwrap();
+        assert_eq!(detail.department.id, Some(1));
+        assert_eq!(detail.department.department_leader[0], "leader");
+    }
+
+    #[test]
+    fn deserializes_work_agent_responses() {
+        let list: WorkAgentListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "agentlist": [{
+                "agentid": 100001,
+                "name": "App",
+                "square_logo_url": "https://example.com/logo.png",
+                "round_logo_url": "https://example.com/round.png"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(list.agentlist[0].agentid, Some(100001));
+        assert_eq!(list.agentlist[0].name.as_deref(), Some("App"));
+
+        let detail: WorkAgentDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "agentid": 100001,
+            "name": "App",
+            "description": "Work app",
+            "allow_userinfos": { "user": [{ "userid": "user" }] },
+            "allow_partys": { "partyid": [1] },
+            "allow_tags": { "tagid": [2] },
+            "close": 0,
+            "redirect_domain": "example.com",
+            "report_location_flag": 1,
+            "isreportenter": 0,
+            "home_url": "https://example.com/home",
+            "customized_publish_status": 1
+        }))
+        .unwrap();
+        assert_eq!(detail.agentid, Some(100001));
+        assert_eq!(
+            detail.allow_userinfos.as_ref().unwrap().user[0]
+                .userid
+                .as_deref(),
+            Some("user")
+        );
+        assert_eq!(detail.allow_partys.as_ref().unwrap().partyid[0], 1);
+        assert_eq!(detail.allow_tags.as_ref().unwrap().tagid[0], 2);
     }
 
     #[test]
