@@ -5787,7 +5787,7 @@ pub struct ExternalContactMessageTemplateResponse {
     #[serde(default)]
     pub msgid: Option<String>,
     #[serde(default)]
-    pub fail_list: Vec<Value>,
+    pub fail_list: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5811,9 +5811,91 @@ pub struct ExternalContactGroupMessageListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub group_msg_list: Vec<Value>,
+    pub group_msg_list: Vec<ExternalContactGroupMessage>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessage {
+    #[serde(default)]
+    pub msgid: Option<String>,
+    #[serde(default)]
+    pub creator: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub create_type: Option<i64>,
+    #[serde(default)]
+    pub text: Option<ExternalContactMessageText>,
+    #[serde(default)]
+    pub attachments: Vec<ExternalContactMessageAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageText {
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageAttachment {
+    #[serde(default)]
+    pub msgtype: Option<String>,
+    #[serde(default)]
+    pub image: Option<ExternalContactMessageImage>,
+    #[serde(default)]
+    pub link: Option<ExternalContactMessageLink>,
+    #[serde(default)]
+    pub miniprogram: Option<ExternalContactMessageMiniProgram>,
+    #[serde(default)]
+    pub video: Option<ExternalContactMessageVideo>,
+    #[serde(default)]
+    pub file: Option<ExternalContactMessageFile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageImage {
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub pic_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageLink {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub picurl: Option<String>,
+    #[serde(default)]
+    pub desc: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageMiniProgram {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub pic_media_id: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub page: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageVideo {
+    #[serde(default)]
+    pub media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageFile {
+    #[serde(default)]
+    pub media_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5823,9 +5905,19 @@ pub struct ExternalContactGroupMessageTaskResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub task_list: Vec<Value>,
+    pub task_list: Vec<ExternalContactGroupMessageTask>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageTask {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub send_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5835,9 +5927,23 @@ pub struct ExternalContactGroupMessageSendResultResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub send_list: Vec<Value>,
+    pub send_list: Vec<ExternalContactGroupMessageSendResult>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageSendResult {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub chat_id: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub send_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8124,36 +8230,76 @@ mod tests {
         let added: ExternalContactMessageTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
             "msgid": "msg",
-            "fail_list": [{ "external_userid": "bad" }]
+            "fail_list": ["bad"]
         }))
         .unwrap();
         assert_eq!(added.msgid.as_deref(), Some("msg"));
-        assert_eq!(added.fail_list[0]["external_userid"], "bad");
+        assert_eq!(added.fail_list[0], "bad");
 
         let messages: ExternalContactGroupMessageListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "group_msg_list": [{ "msgid": "msg" }],
+            "group_msg_list": [{
+                "msgid": "msg",
+                "creator": "creator",
+                "create_time": 1_720_000_000,
+                "create_type": 1,
+                "text": { "content": "hello" },
+                "attachments": [{
+                    "msgtype": "link",
+                    "link": {
+                        "title": "title",
+                        "picurl": "https://example.com/pic.png",
+                        "desc": "desc",
+                        "url": "https://example.com"
+                    }
+                }]
+            }],
             "next_cursor": "cursor"
         }))
         .unwrap();
-        assert_eq!(messages.group_msg_list[0]["msgid"], "msg");
+        assert_eq!(messages.group_msg_list[0].msgid.as_deref(), Some("msg"));
+        assert_eq!(
+            messages.group_msg_list[0]
+                .text
+                .as_ref()
+                .and_then(|text| text.content.as_deref()),
+            Some("hello")
+        );
+        assert_eq!(
+            messages.group_msg_list[0].attachments[0]
+                .link
+                .as_ref()
+                .and_then(|link| link.url.as_deref()),
+            Some("https://example.com")
+        );
         assert_eq!(messages.next_cursor.as_deref(), Some("cursor"));
 
         let tasks: ExternalContactGroupMessageTaskResponse = serde_json::from_value(json!({
-            "task_list": [{ "userid": "user", "status": 1 }],
+            "task_list": [{ "userid": "user", "status": 1, "send_time": 1_720_000_001 }],
             "next_cursor": "task-cursor"
         }))
         .unwrap();
-        assert_eq!(tasks.task_list[0]["userid"], "user");
+        assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(tasks.task_list[0].send_time, Some(1_720_000_001));
         assert_eq!(tasks.next_cursor.as_deref(), Some("task-cursor"));
 
         let send_result: ExternalContactGroupMessageSendResultResponse =
             serde_json::from_value(json!({
-                "send_list": [{ "external_userid": "external", "status": 1 }],
+                "send_list": [{
+                    "external_userid": "external",
+                    "chat_id": "chat",
+                    "userid": "user",
+                    "status": 1,
+                    "send_time": 1_720_000_002
+                }],
                 "next_cursor": "send-cursor"
             }))
             .unwrap();
-        assert_eq!(send_result.send_list[0]["external_userid"], "external");
+        assert_eq!(
+            send_result.send_list[0].external_userid.as_deref(),
+            Some("external")
+        );
+        assert_eq!(send_result.send_list[0].chat_id.as_deref(), Some("chat"));
     }
 
     #[test]
