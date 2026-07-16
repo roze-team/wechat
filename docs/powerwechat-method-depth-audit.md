@@ -122,6 +122,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   expose typed agent, allow-scope, department, and department-leader DTOs.
 - Work appchat create/get and OAuth/Auth user info/detail responses now expose
   typed chat, user-ticket, identity, and profile DTOs.
+- Work msg-audit permit-user, chat-data, room, agree-status, and robot-info
+  responses now expose typed audit metadata DTOs.
 - typed Work message audience and helper wrappers for markdown, image, voice,
   file, video, text-card, news, mpnews, and mini-program notice sends.
 - external-contact contact-way add/get/list responses and conclusions are now

@@ -2517,7 +2517,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         kind: Option<i64>,
-    ) -> Result<Value> {
+    ) -> Result<WorkMsgAuditPermitUsersResponse> {
         let mut query = Vec::new();
         if let Some(kind) = kind {
             query.push(("type".to_string(), kind.to_string()));
@@ -2535,7 +2535,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         request: MsgAuditChatDataRequest,
-    ) -> Result<Value> {
+    ) -> Result<WorkMsgAuditChatDataResponse> {
         self.inner
             .post(
                 "cgi-bin/msgaudit/get_chatdata",
@@ -2549,7 +2549,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         room_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkMsgAuditRoomResponse> {
         self.inner
             .post(
                 "cgi-bin/msgaudit/groupchat/get",
@@ -2563,7 +2563,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         info: Vec<Value>,
-    ) -> Result<Value> {
+    ) -> Result<WorkMsgAuditAgreeResponse> {
         self.inner
             .post(
                 "cgi-bin/msgaudit/check_single_agree",
@@ -2577,7 +2577,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         room_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkMsgAuditAgreeResponse> {
         self.inner
             .post(
                 "cgi-bin/msgaudit/check_room_agree",
@@ -2591,7 +2591,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         robot_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkMsgAuditRobotInfoResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/msgaudit/get_robot_info",
@@ -7176,6 +7176,106 @@ pub struct MsgAuditChatDataRequest {
     pub passwd: Option<String>,
     #[serde(default)]
     pub timeout: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditPermitUsersResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditChatDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub chatdata: Vec<WorkMsgAuditChatData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditChatData {
+    #[serde(default)]
+    pub seq: Option<i64>,
+    #[serde(default)]
+    pub msgid: Option<String>,
+    #[serde(default)]
+    pub publickey_ver: Option<i64>,
+    #[serde(default)]
+    pub encrypt_random_key: Option<String>,
+    #[serde(default)]
+    pub encrypt_chat_msg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditRoomResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub roomname: Option<String>,
+    #[serde(default)]
+    pub creator: Option<String>,
+    #[serde(default)]
+    pub room_create_time: Option<i64>,
+    #[serde(default)]
+    pub notice: Option<String>,
+    #[serde(default)]
+    pub members: Vec<WorkMsgAuditRoomMember>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditRoomMember {
+    #[serde(default)]
+    pub memberid: Option<String>,
+    #[serde(default)]
+    pub jointime: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditAgreeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub agreeinfo: Vec<WorkMsgAuditAgreeInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditAgreeInfo {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub exteranalopenid: Option<String>,
+    #[serde(default)]
+    pub agree_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditRobotInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub robot_info: Option<WorkMsgAuditRobotInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditRobotInfo {
+    #[serde(default)]
+    pub robot_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub creator_userid: Option<String>,
 }
 
 pub const WORK_AIBOT_CMD_SUBSCRIBE: &str = "aibot_subscribe";
@@ -12334,6 +12434,70 @@ mod tests {
 
         let room_agree = json!({ "roomid": "room" });
         assert_eq!(room_agree["roomid"], "room");
+
+        let permit: WorkMsgAuditPermitUsersResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "ids": ["user", "external-openid"]
+        }))
+        .unwrap();
+        assert_eq!(permit.ids[0], "user");
+        assert_eq!(permit.ids[1], "external-openid");
+
+        let chat_data: WorkMsgAuditChatDataResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "chatdata": [{
+                "seq": 1,
+                "msgid": "msg",
+                "publickey_ver": 2,
+                "encrypt_random_key": "random",
+                "encrypt_chat_msg": "cipher"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(chat_data.chatdata[0].seq, Some(1));
+        assert_eq!(chat_data.chatdata[0].msgid.as_deref(), Some("msg"));
+        assert_eq!(chat_data.chatdata[0].publickey_ver, Some(2));
+
+        let room: WorkMsgAuditRoomResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "roomname": "room",
+            "creator": "creator",
+            "room_create_time": 1_720_000_000,
+            "notice": "notice",
+            "members": [{ "memberid": "user", "jointime": 1_720_000_001 }]
+        }))
+        .unwrap();
+        assert_eq!(room.roomname.as_deref(), Some("room"));
+        assert_eq!(room.members[0].memberid.as_deref(), Some("user"));
+
+        let agree: WorkMsgAuditAgreeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "agreeinfo": [{
+                "userid": "user",
+                "exteranalopenid": "openid",
+                "agree_status": "Agree"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(agree.agreeinfo[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            agree.agreeinfo[0].exteranalopenid.as_deref(),
+            Some("openid")
+        );
+        assert_eq!(agree.agreeinfo[0].agree_status.as_deref(), Some("Agree"));
+
+        let robot: WorkMsgAuditRobotInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "robot_info": {
+                "robot_id": "robot",
+                "name": "Robot",
+                "creator_userid": "creator"
+            }
+        }))
+        .unwrap();
+        let robot_info = robot.robot_info.unwrap();
+        assert_eq!(robot_info.robot_id.as_deref(), Some("robot"));
+        assert_eq!(robot_info.creator_userid.as_deref(), Some("creator"));
     }
 
     #[test]
