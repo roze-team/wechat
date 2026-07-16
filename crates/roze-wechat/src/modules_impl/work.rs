@@ -1515,6 +1515,34 @@ impl Work {
             .await
     }
 
+    pub async fn send_linked_corp_message(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkLinkedCorpMessageSendResponse> {
+        self.inner
+            .post(
+                "cgi-bin/linkedcorp/message/send",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn send_external_contact_school_message(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkExternalContactSchoolMessageSendResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/message/send",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn menu(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.menu")
     }
@@ -3401,6 +3429,36 @@ pub struct MessageSendResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpMessageSendResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub invaliduser: Vec<String>,
+    #[serde(default)]
+    pub invalidparty: Vec<String>,
+    #[serde(default)]
+    pub invalidtag: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalContactSchoolMessageSendResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub invalid_external_user: Vec<String>,
+    #[serde(default)]
+    pub invalid_parent_userid: Vec<String>,
+    #[serde(default)]
+    pub invalid_student_userid: Vec<String>,
+    #[serde(default)]
+    pub invalid_party: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMenuRequest {
     pub button: Vec<WorkMenuButton>,
 }
@@ -5255,6 +5313,56 @@ mod tests {
         assert_eq!(value["touser"], "user");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+    }
+
+    #[test]
+    fn serializes_linked_corp_and_school_message_responses() {
+        let linked_body = json!({
+            "touser": ["Corp/user"],
+            "toparty": ["Corp/party"],
+            "totag": ["Corp/tag"],
+            "msgtype": "text",
+            "agentid": 100001,
+            "text": { "content": "hello" }
+        });
+        assert_eq!(linked_body["touser"][0], "Corp/user");
+        assert_eq!(linked_body["text"]["content"], "hello");
+
+        let linked_response: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "invaliduser": ["Corp/bad-user"],
+            "invalidparty": ["Corp/bad-party"],
+            "invalidtag": ["Corp/bad-tag"]
+        }))
+        .unwrap();
+        assert_eq!(linked_response.invaliduser[0], "Corp/bad-user");
+        assert_eq!(linked_response.invalidparty[0], "Corp/bad-party");
+        assert_eq!(linked_response.invalidtag[0], "Corp/bad-tag");
+
+        let school_body = json!({
+            "recv_scope": 0,
+            "to_parent_userid": ["parent"],
+            "to_student_userid": ["student"],
+            "to_party": ["party"],
+            "msgtype": "text",
+            "agentid": 100001,
+            "text": { "content": "notice" }
+        });
+        assert_eq!(school_body["to_parent_userid"][0], "parent");
+        assert_eq!(school_body["to_student_userid"][0], "student");
+
+        let school_response: WorkExternalContactSchoolMessageSendResponse =
+            serde_json::from_value(json!({
+                "invalid_external_user": ["external"],
+                "invalid_parent_userid": ["parent"],
+                "invalid_student_userid": ["student"],
+                "invalid_party": ["party"]
+            }))
+            .unwrap();
+        assert_eq!(school_response.invalid_external_user[0], "external");
+        assert_eq!(school_response.invalid_parent_userid[0], "parent");
+        assert_eq!(school_response.invalid_student_userid[0], "student");
+        assert_eq!(school_response.invalid_party[0], "party");
     }
 
     #[test]
