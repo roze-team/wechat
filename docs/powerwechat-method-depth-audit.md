@@ -209,6 +209,8 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   responses now expose typed room/goods/replay/follower DTOs.
 - express order, account, delivery, waybill, path, and contact responses now
   expose typed logistics DTOs.
+- express batch order query requests now use typed order-id/openid/delivery-id
+  and waybill-id DTOs instead of raw JSON order entries.
 - immediateDelivery bind-account, provider-list, and order-detail responses now
   expose typed shop/provider/order DTOs instead of raw JSON arrays.
 - operation feedback, gray-release, JS-error, scene, client-version, and

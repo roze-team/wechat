@@ -2170,7 +2170,7 @@ impl MiniProgram {
     pub async fn batch_get_express_order(
         &self,
         access_token: impl Into<String>,
-        order_list: Vec<Value>,
+        order_list: Vec<ExpressBatchGetOrderItem>,
     ) -> Result<ExpressBatchOrderListResponse> {
         self.inner
             .post(
@@ -4896,6 +4896,14 @@ pub struct ExpressGetOrderRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressBatchGetOrderItem {
+    pub order_id: String,
+    pub openid: String,
+    pub delivery_id: String,
+    pub waybill_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressTestUpdateOrderRequest {
     pub biz_id: String,
     pub order_id: String,
@@ -7232,6 +7240,16 @@ mod tests {
         })
         .unwrap();
         assert_eq!(get_order["print_type"], 1);
+
+        let batch_item = serde_json::to_value(ExpressBatchGetOrderItem {
+            order_id: "order-id".to_string(),
+            openid: "openid".to_string(),
+            delivery_id: "delivery-id".to_string(),
+            waybill_id: "waybill-id".to_string(),
+        })
+        .unwrap();
+        assert_eq!(batch_item["order_id"], "order-id");
+        assert_eq!(batch_item["waybill_id"], "waybill-id");
 
         let update = serde_json::to_value(ExpressTestUpdateOrderRequest {
             biz_id: "biz-id".to_string(),
