@@ -3329,6 +3329,24 @@ fn clean_payment_bill_cell(cell: String) -> String {
         .to_string()
 }
 
+fn deserialize_complaint_media_list<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<ComplaintMedia>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    if value.is_null() {
+        return Ok(Vec::new());
+    }
+    if value.is_array() {
+        return serde_json::from_value(value).map_err(serde::de::Error::custom);
+    }
+    serde_json::from_value(value)
+        .map(|media| vec![media])
+        .map_err(serde::de::Error::custom)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FundAppTransferBillRequest {
     pub appid: String,
@@ -3513,7 +3531,7 @@ pub struct ComplaintDetailResponse {
     pub incoming_user_response: Option<bool>,
     #[serde(default)]
     pub user_complaint_times: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_complaint_media_list")]
     pub complaint_media_list: Vec<ComplaintMedia>,
     #[serde(default)]
     pub problem_description: Option<String>,
@@ -3626,8 +3644,8 @@ pub struct ComplaintNegotiationHistoryRecord {
     pub operate_details: Option<String>,
     #[serde(default)]
     pub image_list: Vec<String>,
-    #[serde(default)]
-    pub complaint_media_list: Option<ComplaintMedia>,
+    #[serde(default, deserialize_with = "deserialize_complaint_media_list")]
+    pub complaint_media_list: Vec<ComplaintMedia>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5644,6 +5662,19 @@ mod tests {
             detail.complaint_media_list[0].media_url[0],
             "https://example.com/image.jpg"
         );
+        let single_media_detail: ComplaintDetailResponse = serde_json::from_value(json!({
+            "complaint_media_list": {
+                "media_type": "VIDEO",
+                "media_url": ["https://example.com/video.mp4"]
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            single_media_detail.complaint_media_list[0]
+                .media_type
+                .as_deref(),
+            Some("VIDEO")
+        );
         assert_eq!(
             detail
                 .additional_info
@@ -5772,7 +5803,11 @@ mod tests {
             "data": [{
                 "log_id": "log-1",
                 "operator": "MERCHANT",
-                "operate_type": "RESPONSE"
+                "operate_type": "RESPONSE",
+                "complaint_media_list": [{
+                    "media_type": "IMAGE",
+                    "media_url": ["https://example.com/history.jpg"]
+                }]
             }]
         }))
         .unwrap();
@@ -5780,6 +5815,16 @@ mod tests {
         assert_eq!(response.total_count, Some(1));
         assert_eq!(response.data[0].log_id.as_deref(), Some("log-1"));
         assert_eq!(response.data[0].operate_type.as_deref(), Some("RESPONSE"));
+        assert_eq!(
+            response.data[0].complaint_media_list[0]
+                .media_type
+                .as_deref(),
+            Some("IMAGE")
+        );
+        assert_eq!(
+            response.data[0].complaint_media_list[0].media_url[0],
+            "https://example.com/history.jpg"
+        );
     }
 
     #[test]
