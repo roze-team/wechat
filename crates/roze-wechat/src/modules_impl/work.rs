@@ -611,6 +611,191 @@ impl Work {
             .await
     }
 
+    pub async fn list_contact_way(
+        &self,
+        access_token: impl Into<String>,
+        request: ContactWayListRequest,
+    ) -> Result<ContactWayListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/list_contact_way",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_contact_way(
+        &self,
+        access_token: impl Into<String>,
+        request: ContactWayUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/update_contact_way",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_contact_way(
+        &self,
+        access_token: impl Into<String>,
+        config_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/del_contact_way",
+                Some(access_token.into()),
+                json!({ "config_id": config_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn close_external_temp_chat(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+        external_userid: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/close_temp_chat",
+                Some(access_token.into()),
+                json!({ "userid": user_id.into(), "external_userid": external_userid.into() }),
+            )
+            .await
+    }
+
+    pub async fn remark_external_contact(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactRemarkRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/remark",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_corp_tag_list(
+        &self,
+        access_token: impl Into<String>,
+        request: CorpTagListRequest,
+    ) -> Result<CorpTagListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_corp_tag_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_corp_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: CorpTagAddRequest,
+    ) -> Result<CorpTagAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/add_corp_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_corp_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: CorpTagEditRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/edit_corp_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_corp_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: CorpTagDeleteRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/del_corp_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn mark_external_contact_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactMarkTagRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/mark_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_external_group_chats(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupChatListRequest,
+    ) -> Result<ExternalGroupChatListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_group_chat(
+        &self,
+        access_token: impl Into<String>,
+        chat_id: impl Into<String>,
+        need_name: i64,
+    ) -> Result<ExternalGroupChatGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/get",
+                Some(access_token.into()),
+                json!({ "chat_id": chat_id.into(), "need_name": need_name }),
+            )
+            .await
+    }
+
+    pub async fn transfer_external_group_chat(
+        &self,
+        access_token: impl Into<String>,
+        chat_id_list: Vec<String>,
+        new_owner: impl Into<String>,
+    ) -> Result<ExternalGroupChatTransferResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/transfer",
+                Some(access_token.into()),
+                json!({ "chat_id_list": chat_id_list, "new_owner": new_owner.into() }),
+            )
+            .await
+    }
+
     pub fn group_robot(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.group_robot")
     }
@@ -2813,6 +2998,188 @@ pub struct ContactWayRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayListRequest {
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub contact_way: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayUpdateRequest {
+    pub config_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skip_verify: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub party: Option<Vec<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_expires_in: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unionid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conclusions: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactRemarkRequest {
+    pub userid: String,
+    pub external_userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark_company: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark_mobiles: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark_pic_mediaid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagListRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag_id: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group_id: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tag_group: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagAddRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<String>,
+    pub group_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<i64>,
+    pub tag: Vec<CorpTagAddItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agentid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagAddItem {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tag_group: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagEditRequest {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agentid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpTagDeleteRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag_id: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group_id: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agentid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMarkTagRequest {
+    pub userid: String,
+    pub external_userid: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub add_tag: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remove_tag: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatListRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_filter: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_filter: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub group_chat_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub group_chat: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatTransferResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub failed_chat_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotMessage {
     pub msgtype: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4024,6 +4391,129 @@ mod tests {
 
         assert_eq!(value["type"], 1);
         assert_eq!(value["user"][0], "user");
+    }
+
+    #[test]
+    fn serializes_external_contact_way_depth_requests() {
+        let list = serde_json::to_value(ContactWayListRequest {
+            start_time: 1_720_000_000,
+            end_time: 1_720_086_400,
+            cursor: None,
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(list["start_time"], 1_720_000_000);
+        assert!(list.get("cursor").is_none());
+
+        let update = serde_json::to_value(ContactWayUpdateRequest {
+            config_id: "config".to_string(),
+            remark: Some("remark".to_string()),
+            skip_verify: Some(true),
+            style: Some(1),
+            state: None,
+            user: Some(vec!["user".to_string()]),
+            party: None,
+            expires_in: None,
+            chat_expires_in: Some(3600),
+            unionid: None,
+            conclusions: Some(json!({ "text": { "content": "hello" } })),
+        })
+        .unwrap();
+        assert_eq!(update["config_id"], "config");
+        assert_eq!(update["skip_verify"], true);
+        assert_eq!(update["chat_expires_in"], 3600);
+        assert_eq!(update["conclusions"]["text"]["content"], "hello");
+        assert!(update.get("state").is_none());
+
+        let response: ContactWayListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "contact_way": [{ "config_id": "config" }],
+            "next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(response.contact_way[0]["config_id"], "config");
+        assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
+    }
+
+    #[test]
+    fn serializes_external_contact_remark_and_tag_requests() {
+        let remark = serde_json::to_value(ExternalContactRemarkRequest {
+            userid: "user".to_string(),
+            external_userid: "external".to_string(),
+            remark: Some("name".to_string()),
+            description: Some("description".to_string()),
+            remark_company: None,
+            remark_mobiles: Some(vec!["13800138000".to_string()]),
+            remark_pic_mediaid: None,
+        })
+        .unwrap();
+        assert_eq!(remark["userid"], "user");
+        assert_eq!(remark["external_userid"], "external");
+        assert_eq!(remark["remark_mobiles"][0], "13800138000");
+        assert!(remark.get("remark_company").is_none());
+
+        let add = serde_json::to_value(CorpTagAddRequest {
+            group_id: None,
+            group_name: "level".to_string(),
+            order: Some(1),
+            tag: vec![CorpTagAddItem {
+                name: "vip".to_string(),
+                order: None,
+            }],
+            agentid: Some(100001),
+        })
+        .unwrap();
+        assert_eq!(add["group_name"], "level");
+        assert_eq!(add["tag"][0]["name"], "vip");
+        assert_eq!(add["agentid"], 100001);
+        assert!(add.get("group_id").is_none());
+
+        let mark = serde_json::to_value(ExternalContactMarkTagRequest {
+            userid: "user".to_string(),
+            external_userid: "external".to_string(),
+            add_tag: vec!["tag-add".to_string()],
+            remove_tag: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(mark["add_tag"][0], "tag-add");
+        assert!(mark.get("remove_tag").is_none());
+    }
+
+    #[test]
+    fn serializes_external_group_chat_requests_and_responses() {
+        let list = serde_json::to_value(ExternalGroupChatListRequest {
+            status_filter: Some(0),
+            owner_filter: Some(json!({ "userid_list": ["user"] })),
+            cursor: None,
+            limit: 50,
+        })
+        .unwrap();
+        assert_eq!(list["status_filter"], 0);
+        assert_eq!(list["owner_filter"]["userid_list"][0], "user");
+        assert!(list.get("cursor").is_none());
+
+        let chats: ExternalGroupChatListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "group_chat_list": [{ "chat_id": "chat" }],
+            "next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(chats.group_chat_list[0]["chat_id"], "chat");
+        assert_eq!(chats.next_cursor.as_deref(), Some("cursor"));
+
+        let detail: ExternalGroupChatGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "group_chat": { "chat_id": "chat", "name": "group" }
+        }))
+        .unwrap();
+        assert_eq!(detail.group_chat.unwrap()["name"], "group");
+
+        let transfer: ExternalGroupChatTransferResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "failed_chat_list": [{ "chat_id": "bad", "errcode": 40003 }]
+        }))
+        .unwrap();
+        assert_eq!(transfer.failed_chat_list[0]["chat_id"], "bad");
     }
 
     #[test]

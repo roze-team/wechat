@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 144 | high |
+| Work | 363 | 157 | high |
 | Payment | 165 | 93 | high |
 | Open Platform | 76 | 23 | high |
 | Mini Program | 214 | 165 | medium |
@@ -29,8 +29,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 ## Priority Updates
 
 1. Work method-depth parity:
-   `externalContact`, `oa`, `user`, `message`, and `media` still have the
-   largest endpoint surface compared with current Roze wrappers.
+   continue expanding `externalContact`, `oa`, `user`, `message`, and `media`.
+   These still have the largest endpoint surface compared with current Roze
+   wrappers.
 
 2. Payment method-depth parity:
    continue expanding `merchantService`, `notify`, `order`, and remaining
@@ -72,6 +73,13 @@ uses Rust `format!` placeholders.
 | Basic Service | 12 | 7 | subscribe message template management |
 | Open Work | 35 | 7 | component authorizer management and quota paths |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
+
+- contact-way list/update/delete and temporary-chat close wrappers;
+- external contact remark wrapper;
+- corp-tag list/add/edit/delete and customer tag-mark wrappers;
+- external group-chat list/get/transfer wrappers.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.
