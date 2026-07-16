@@ -1064,7 +1064,7 @@ impl Payment {
     pub async fn delete_complaint_notification(
         &self,
         credentials: &PaymentCredentials,
-    ) -> Result<PaymentStatusResponse> {
+    ) -> Result<ComplaintNotificationDeleteResponse> {
         self.delete_v3(credentials, "/v3/merchant-service/complaint-notifications")
             .await
     }
@@ -1074,7 +1074,7 @@ impl Payment {
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
         request: ComplaintReplyRequest,
-    ) -> Result<PaymentStatusResponse> {
+    ) -> Result<ComplaintReplyResponse> {
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/response",
             complaint_id.as_ref()
@@ -1086,7 +1086,7 @@ impl Payment {
         &self,
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
-    ) -> Result<PaymentStatusResponse> {
+    ) -> Result<ComplaintCompleteResponse> {
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/complete",
             complaint_id.as_ref()
@@ -1100,7 +1100,7 @@ impl Payment {
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
         request: ComplaintRefundProgressRequest,
-    ) -> Result<PaymentStatusResponse> {
+    ) -> Result<ComplaintRefundProgressResponse> {
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/update-refund-progress",
             complaint_id.as_ref()
@@ -3488,6 +3488,18 @@ pub struct ComplaintNotificationResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNotificationDeleteResponse {
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default, rename = "mchid")]
+    pub mch_id: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintReplyRequest {
     pub complainted_mchid: String,
     pub response_content: String,
@@ -3497,6 +3509,34 @@ pub struct ComplaintReplyRequest {
     pub jump_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump_url_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintReplyResponse {
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub complaint_id: Option<String>,
+    #[serde(default)]
+    pub response_result: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintCompleteResponse {
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub complaint_id: Option<String>,
+    #[serde(default)]
+    pub complaint_state: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3510,6 +3550,22 @@ pub struct ComplaintRefundProgressRequest {
     pub reject_media_list: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remark: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintRefundProgressResponse {
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub complaint_id: Option<String>,
+    #[serde(default)]
+    pub action: Option<String>,
+    #[serde(default)]
+    pub refund_progress: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3877,10 +3933,12 @@ mod tests {
         Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse, BillRequest,
         BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
         CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
-        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintDetailResponse,
-        ComplaintListRequest, ComplaintListResponse, ComplaintNegotiationHistoryRequest,
-        ComplaintNegotiationHistoryResponse, ComplaintNotificationRequest,
-        ComplaintNotificationResponse, ComplaintRefundProgressRequest, ComplaintReplyRequest,
+        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintCompleteResponse,
+        ComplaintDetailResponse, ComplaintListRequest, ComplaintListResponse,
+        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
+        ComplaintNotificationDeleteResponse, ComplaintNotificationRequest,
+        ComplaintNotificationResponse, ComplaintRefundProgressRequest,
+        ComplaintRefundProgressResponse, ComplaintReplyRequest, ComplaintReplyResponse,
         CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
         CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
         FundAppTransferBillRequest, FundAppTransferBillResponse, JsapiPayParams,
@@ -5385,6 +5443,47 @@ mod tests {
 
         assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
         assert_eq!(response.url, "https://example.com/complaints");
+    }
+
+    #[test]
+    fn deserializes_complaint_action_responses() {
+        let deleted: ComplaintNotificationDeleteResponse = serde_json::from_value(json!({
+            "mchid": "1900000109"
+        }))
+        .unwrap();
+        assert_eq!(deleted.mch_id.as_deref(), Some("1900000109"));
+
+        let reply: ComplaintReplyResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-1",
+            "response_result": "SUCCESS"
+        }))
+        .unwrap();
+        assert_eq!(reply.complaint_id.as_deref(), Some("complaint-1"));
+        assert_eq!(reply.response_result.as_deref(), Some("SUCCESS"));
+
+        let completed: ComplaintCompleteResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-1",
+            "complaint_state": "COMPLETED"
+        }))
+        .unwrap();
+        assert_eq!(completed.complaint_state.as_deref(), Some("COMPLETED"));
+
+        let progress: ComplaintRefundProgressResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-1",
+            "action": "APPROVE",
+            "refund_progress": "REFUNDING"
+        }))
+        .unwrap();
+        assert_eq!(progress.action.as_deref(), Some("APPROVE"));
+        assert_eq!(progress.refund_progress.as_deref(), Some("REFUNDING"));
+
+        let error: ComplaintReplyResponse = serde_json::from_value(json!({
+            "code": "INVALID_REQUEST",
+            "message": "bad request"
+        }))
+        .unwrap();
+        assert_eq!(error.code.as_deref(), Some("INVALID_REQUEST"));
+        assert_eq!(error.message.as_deref(), Some("bad request"));
     }
 
     #[test]

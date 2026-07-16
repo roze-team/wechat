@@ -255,6 +255,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 - structured merchant-service complaint list/detail/negotiation DTOs covering
   order info, media lists, service-order info, user tags, refund amount, and
   additional shared-power return details.
+- merchant-service complaint notification delete, user reply, completion, and
+  refund-progress mutation paths now return dedicated response DTOs instead of
+  the generic payment status response.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 
