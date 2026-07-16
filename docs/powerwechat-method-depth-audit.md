@@ -321,6 +321,8 @@ Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
   payload DTOs for production webhook handlers;
 - typed PayScore service-order response covering state, post-payment/discount,
   risk-fund, time-range, location, order id, and package fields.
+- PayScore service-order request/response location payloads now share a typed
+  location DTO with coordinate/address fields and extension support.
 
 Implemented on 2026-07-10 in Roze WeChat payment depth:
 

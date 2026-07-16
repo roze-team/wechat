@@ -3758,7 +3758,7 @@ pub struct PayScoreServiceOrderRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub post_discounts: Option<Vec<PayScorePostDiscount>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub location: Option<Value>,
+    pub location: Option<PayScoreLocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attach: Option<String>,
 }
@@ -3863,6 +3863,20 @@ pub struct PayScoreLocation {
     pub start_location: Option<String>,
     #[serde(default)]
     pub end_location: Option<String>,
+    #[serde(default)]
+    pub start_latitude: Option<f64>,
+    #[serde(default)]
+    pub start_longitude: Option<f64>,
+    #[serde(default)]
+    pub end_latitude: Option<f64>,
+    #[serde(default)]
+    pub end_longitude: Option<f64>,
+    #[serde(default)]
+    pub start_address: Option<String>,
+    #[serde(default)]
+    pub end_address: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4120,7 +4134,7 @@ mod tests {
         MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
         NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
         PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PartnerRefundQuery,
-        PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
+        PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery,
         PayScoreServiceOrderRequest, PayScoreServiceOrderResponse, PayScoreTimeRange,
         PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill, PaymentNotification,
         PaymentRefundNotification, PaymentResource, PaymentTransactionNotification,
@@ -4273,7 +4287,10 @@ mod tests {
             },
             "location": {
                 "start_location": "A",
-                "end_location": "B"
+                "end_location": "B",
+                "start_latitude": 31.2304,
+                "start_longitude": 121.4737,
+                "poi_id": "poi-1"
             },
             "order_id": "order-id",
             "package": "prepay_id=xxx"
@@ -4282,10 +4299,10 @@ mod tests {
 
         assert_eq!(response.state.as_deref(), Some("CREATED"));
         assert_eq!(response.post_payments[0].name, "fee");
-        assert_eq!(
-            response.location.unwrap().end_location.as_deref(),
-            Some("B")
-        );
+        let location = response.location.unwrap();
+        assert_eq!(location.end_location.as_deref(), Some("B"));
+        assert_eq!(location.start_latitude, Some(31.2304));
+        assert_eq!(location.extra["poi_id"], "poi-1");
         assert_eq!(response.package_info.as_deref(), Some("prepay_id=xxx"));
     }
 
@@ -5850,7 +5867,17 @@ mod tests {
             need_user_confirm: Some(true),
             post_payments: None,
             post_discounts: None,
-            location: None,
+            location: Some(PayScoreLocation {
+                start_location: Some("A".to_string()),
+                end_location: Some("B".to_string()),
+                start_latitude: Some(31.2304),
+                start_longitude: Some(121.4737),
+                end_latitude: None,
+                end_longitude: None,
+                start_address: Some("Start address".to_string()),
+                end_address: None,
+                extra: serde_json::Value::Null,
+            }),
             attach: None,
         })
         .unwrap();
@@ -5861,6 +5888,9 @@ mod tests {
         assert_eq!(value["time_range"]["start_time_remark"], "start");
         assert_eq!(value["risk_fund"]["amount"], 100);
         assert_eq!(value["need_user_confirm"], true);
+        assert_eq!(value["location"]["start_location"], "A");
+        assert_eq!(value["location"]["start_latitude"], 31.2304);
+        assert_eq!(value["location"]["start_address"], "Start address");
         assert!(value.get("attach").is_none());
     }
 
