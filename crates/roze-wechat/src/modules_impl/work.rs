@@ -1975,12 +1975,234 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.oa")
     }
 
+    pub async fn get_corp_checkin_option(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkCheckinCorpOptionResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/getcorpcheckinoption",
+                Some(access_token.into()),
+                Value::Null,
+            )
+            .await
+    }
+
+    pub async fn get_checkin_option(
+        &self,
+        access_token: impl Into<String>,
+        datetime: i64,
+        user_id_list: Vec<String>,
+    ) -> Result<WorkCheckinOptionResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/getcheckinoption",
+                Some(access_token.into()),
+                json!({ "datetime": datetime.to_string(), "useridlist": user_id_list }),
+            )
+            .await
+    }
+
+    pub async fn get_checkin_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCheckinDataRequest,
+    ) -> Result<WorkCheckinRecordResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/getcheckindata",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_checkin_day_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCheckinDateRangeRequest,
+    ) -> Result<WorkCheckinDataResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/getcheckin_daydata",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_checkin_month_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCheckinDateRangeRequest,
+    ) -> Result<WorkCheckinDataResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/getcheckin_monthdata",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_checkin_schedule_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCheckinDateRangeRequest,
+    ) -> Result<WorkCheckinScheduleListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/getcheckinschedulist",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn set_checkin_schedule_list(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCheckinSetScheduleListRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/setcheckinschedulist",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_checkin_user_face(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+        user_face: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/addcheckinuserface",
+                Some(access_token.into()),
+                json!({ "userID": user_id.into(), "userface": user_face.into() }),
+            )
+            .await
+    }
+
+    pub async fn add_checkin_option(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/add_checkin_option",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_checkin_option(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/update_checkin_option",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_checkin_option(
+        &self,
+        access_token: impl Into<String>,
+        group_id: i64,
+        effective_now: bool,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/checkin/del_checkin_option",
+                Some(access_token.into()),
+                json!({ "groupid": group_id, "effective_now": effective_now }),
+            )
+            .await
+    }
+
     pub fn oa_calendar(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.oa.calendar")
     }
 
     pub fn oa_approval(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.oa.approval")
+    }
+
+    pub async fn get_approval_template_detail(
+        &self,
+        access_token: impl Into<String>,
+        template_id: impl Into<String>,
+    ) -> Result<WorkApprovalTemplateDetailResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/gettemplatedetail",
+                Some(access_token.into()),
+                json!({ "template_id": template_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn create_approval_apply_event(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkApprovalApplyEventResponse> {
+        self.inner
+            .post("cgi-bin/oa/applyevent", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_approval_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkApprovalInfoRequest,
+    ) -> Result<WorkApprovalInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/getapprovalinfo",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_approval_detail(
+        &self,
+        access_token: impl Into<String>,
+        sp_no: impl Into<String>,
+    ) -> Result<WorkApprovalDetailResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/getapprovaldetail",
+                Some(access_token.into()),
+                json!({ "sp_no": sp_no.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_approval_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkApprovalDataRequest,
+    ) -> Result<WorkApprovalDataResponse> {
+        self.inner
+            .post(
+                "cgi-bin/corp/getapprovaldata",
+                Some(access_token.into()),
+                request,
+            )
+            .await
     }
 
     pub async fn create_approval_template(
@@ -2160,6 +2382,43 @@ impl Work {
                 "cgi-bin/pstncc/getstates",
                 Some(access_token.into()),
                 json!({ "callee_userid": callee_userid.into(), "callid": call_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_corp_vacation_config(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkVacationConfigResponse> {
+        self.inner
+            .get("cgi-bin/oa/vacation/getcorpconf", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn get_user_vacation_quota(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<WorkVacationQuotaResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/vacation/getuservacationquota",
+                Some(access_token.into()),
+                json!({ "userid": user_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn set_one_user_vacation_quota(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/vacation/setoneuserquota",
+                Some(access_token.into()),
+                request,
             )
             .await
     }
@@ -5060,6 +5319,168 @@ pub struct AppChatCreateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDataRequest {
+    pub opencheckindatatype: i64,
+    pub starttime: i64,
+    pub endtime: i64,
+    pub useridlist: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDateRangeRequest {
+    pub starttime: i64,
+    pub endtime: i64,
+    pub useridlist: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinSetScheduleListRequest {
+    pub groupid: i64,
+    pub items: Vec<Value>,
+    pub yearmonth: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinCorpOptionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub group: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOptionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub info: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinRecordResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub checkindata: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub datas: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinScheduleListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub schedule_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalTemplateDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_names: Vec<Value>,
+    #[serde(default)]
+    pub template_content: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalApplyEventResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub sp_no: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalInfoRequest {
+    pub starttime: i64,
+    pub endtime: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_cursor: Option<String>,
+    pub size: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub sp_no_list: Vec<String>,
+    #[serde(default)]
+    pub new_next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDataRequest {
+    pub starttime: i64,
+    pub endtime: i64,
+    pub next_spnum: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub next_spnum: Option<i64>,
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationConfigResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub lists: Vec<Value>,
+}
+
+pub type WorkVacationQuotaResponse = WorkVacationConfigResponse;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalCreateTemplateRequest {
     pub template_name: Vec<Value>,
     pub template_content: Value,
@@ -7082,6 +7503,55 @@ mod tests {
     }
 
     #[test]
+    fn serializes_work_oa_checkin_approval_and_vacation_requests() {
+        let checkin = serde_json::to_value(WorkCheckinDataRequest {
+            opencheckindatatype: 3,
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
+            useridlist: vec!["user".to_string()],
+        })
+        .unwrap();
+        assert_eq!(checkin["opencheckindatatype"], 3);
+        assert_eq!(checkin["useridlist"][0], "user");
+
+        let range = serde_json::to_value(WorkCheckinDateRangeRequest {
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
+            useridlist: vec!["user".to_string()],
+        })
+        .unwrap();
+        assert_eq!(range["starttime"], 1_800_000_000);
+
+        let schedule = serde_json::to_value(WorkCheckinSetScheduleListRequest {
+            groupid: 1,
+            items: vec![json!({ "userid": "user", "day": 20260716 })],
+            yearmonth: 202607,
+        })
+        .unwrap();
+        assert_eq!(schedule["groupid"], 1);
+        assert_eq!(schedule["items"][0]["userid"], "user");
+
+        let info = serde_json::to_value(WorkApprovalInfoRequest {
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
+            new_cursor: None,
+            size: 100,
+            filters: vec![json!({ "key": "template_id", "value": "template" })],
+        })
+        .unwrap();
+        assert!(info.get("new_cursor").is_none());
+        assert_eq!(info["filters"][0]["key"], "template_id");
+
+        let data = serde_json::to_value(WorkApprovalDataRequest {
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
+            next_spnum: 10,
+        })
+        .unwrap();
+        assert_eq!(data["next_spnum"], 10);
+    }
+
+    #[test]
     fn deserializes_work_oa_approval_journal_and_schedule_responses() {
         let approval: WorkApprovalCreateTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -7120,6 +7590,78 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(schedule_get.schedule_list[0]["summary"], "Daily");
+    }
+
+    #[test]
+    fn deserializes_work_oa_checkin_approval_and_vacation_responses() {
+        let corp_option: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
+            "group": [{ "groupid": 1, "groupname": "Default" }]
+        }))
+        .unwrap();
+        assert_eq!(corp_option.group[0]["groupid"], 1);
+
+        let option: WorkCheckinOptionResponse = serde_json::from_value(json!({
+            "info": [{ "userid": "user", "groupid": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(option.info[0]["userid"], "user");
+
+        let record: WorkCheckinRecordResponse = serde_json::from_value(json!({
+            "checkindata": [{ "userid": "user", "checkin_type": "上班打卡" }]
+        }))
+        .unwrap();
+        assert_eq!(record.checkindata[0]["userid"], "user");
+
+        let day: WorkCheckinDataResponse = serde_json::from_value(json!({
+            "datas": [{ "userid": "user", "base_info": {} }]
+        }))
+        .unwrap();
+        assert_eq!(day.datas[0]["userid"], "user");
+
+        let schedule: WorkCheckinScheduleListResponse = serde_json::from_value(json!({
+            "schedule_list": [{ "userid": "user", "schedule_id": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(schedule.schedule_list[0]["schedule_id"], 1);
+
+        let template: WorkApprovalTemplateDetailResponse = serde_json::from_value(json!({
+            "template_names": [{ "text": "Leave", "lang": "zh_CN" }],
+            "template_content": { "controls": [] }
+        }))
+        .unwrap();
+        assert_eq!(template.template_names[0]["text"], "Leave");
+
+        let apply: WorkApprovalApplyEventResponse =
+            serde_json::from_value(json!({ "sp_no": "202607160001" })).unwrap();
+        assert_eq!(apply.sp_no.as_deref(), Some("202607160001"));
+
+        let info: WorkApprovalInfoResponse = serde_json::from_value(json!({
+            "sp_no_list": ["202607160001"],
+            "new_next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(info.sp_no_list[0], "202607160001");
+
+        let detail: WorkApprovalDetailResponse = serde_json::from_value(json!({
+            "info": { "sp_no": "202607160001" }
+        }))
+        .unwrap();
+        assert_eq!(detail.info.unwrap()["sp_no"], "202607160001");
+
+        let data: WorkApprovalDataResponse = serde_json::from_value(json!({
+            "count": 1,
+            "total": 1,
+            "next_spnum": 2,
+            "data": { "sp_no": "1" }
+        }))
+        .unwrap();
+        assert_eq!(data.next_spnum, Some(2));
+
+        let vacation: WorkVacationConfigResponse = serde_json::from_value(json!({
+            "lists": [{ "id": 1, "name": "Annual Leave" }]
+        }))
+        .unwrap();
+        assert_eq!(vacation.lists[0]["name"], "Annual Leave");
     }
 
     #[test]

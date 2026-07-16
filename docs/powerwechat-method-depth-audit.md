@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 217 | high |
+| Work | 363 | 236 | high |
 | Payment | 165 | 93 | high |
 | Open Platform | 76 | 23 | high |
 | Mini Program | 214 | 165 | medium |
@@ -66,7 +66,7 @@ uses Rust `format!` placeholders.
 
 | Family | PowerWeChat endpoints found | Exact endpoints not found in Roze | Highest-impact update areas |
 | --- | ---: | ---: | --- |
-| Work | 261 | 86 | external contact, check-in, department/user batch/export, message variants, OA |
+| Work | 261 | 67 | external contact, check-in, department/user batch/export, message variants, OA |
 | Mini Program | 151 | 41 | live broadcast goods/roles/room operations, uniform/updatable messages, business/security paths |
 | Open Platform | 48 | 36 | authorizer mini-program code/audit/privacy/domain/tester/account flows |
 | Official Account | 200 | 22 | user tags, customer-service sessions/message records, card update/list, base callback/quota |
@@ -97,6 +97,10 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   invite, join-qrcode, and active-stat wrappers.
 - linked-corp permission, user detail, user simple/detail list, and department
   list wrappers.
+- OA check-in corp/user option, record, day/month data, schedule list/set,
+  face, option add/update/delete wrappers;
+- OA approval template/detail/list/data/apply wrappers and vacation
+  config/quota/update wrappers.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.
