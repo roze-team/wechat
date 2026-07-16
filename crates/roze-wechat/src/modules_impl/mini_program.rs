@@ -3276,9 +3276,27 @@ pub struct OperationFeedbackResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub list: Vec<Value>,
+    pub list: Vec<OperationFeedbackItem>,
     #[serde(default)]
     pub total_num: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationFeedbackItem {
+    #[serde(default)]
+    pub record_id: Option<i64>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub system_info: Option<String>,
+    #[serde(default)]
+    pub media_id: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3288,7 +3306,19 @@ pub struct OperationGrayReleasePlanResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub gray_release_plan: Option<Value>,
+    pub gray_release_plan: Option<OperationGrayReleasePlan>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationGrayReleasePlan {
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub gray_percentage: Option<i64>,
+    #[serde(default)]
+    pub support_experiencer_first: Option<bool>,
+    #[serde(default)]
+    pub support_debuger_first: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3302,7 +3332,25 @@ pub struct OperationJsErrDetailResponse {
     #[serde(default)]
     pub openid: Option<String>,
     #[serde(default)]
-    pub data: Vec<Value>,
+    pub data: Vec<OperationJsErrDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrDetail {
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub stack: Option<String>,
+    #[serde(default)]
+    pub time: Option<i64>,
+    #[serde(default)]
+    pub app_version: Option<String>,
+    #[serde(default)]
+    pub sdk_version: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub device: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3316,9 +3364,27 @@ pub struct OperationJsErrListResponse {
     #[serde(default)]
     pub openid: Option<String>,
     #[serde(default)]
-    pub data: Vec<Value>,
+    pub data: Vec<OperationJsErrSummary>,
     #[serde(default, rename = "totalCount")]
     pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrSummary {
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub app_version: Option<String>,
+    #[serde(default)]
+    pub sdk_version: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub first_time: Option<i64>,
+    #[serde(default)]
+    pub last_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3328,9 +3394,15 @@ pub struct OperationJsErrSearchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub results: Option<Value>,
+    pub results: Option<OperationJsErrSearchResults>,
     #[serde(default)]
     pub total: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrSearchResults {
+    #[serde(default)]
+    pub items: Vec<OperationJsErrDetail>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3352,7 +3424,15 @@ pub struct OperationSceneListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub scene: Vec<Value>,
+    pub scene: Vec<OperationScene>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationScene {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub value: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3362,7 +3442,15 @@ pub struct OperationVersionListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub cvlist: Vec<Value>,
+    pub cvlist: Vec<OperationClientVersion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationClientVersion {
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub percentage: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3372,9 +3460,33 @@ pub struct OperationRealTimeLogSearchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub data: Option<Value>,
+    pub data: Option<OperationRealTimeLogData>,
     #[serde(default)]
-    pub list: Vec<Value>,
+    pub list: Vec<OperationRealTimeLogItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationRealTimeLogData {
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub has_next_page: Option<bool>,
+    #[serde(default)]
+    pub page: Option<i64>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationRealTimeLogItem {
+    #[serde(default)]
+    pub level: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub timestamp: Option<i64>,
+    #[serde(default)]
+    pub trace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5766,43 +5878,75 @@ mod tests {
 
         let feedback: OperationFeedbackResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "list": [{ "record_id": 1, "content": "feedback" }],
+            "list": [{
+                "record_id": 1,
+                "content": "feedback",
+                "phone": "13800000000",
+                "openid": "openid",
+                "create_time": 1_800_000_000,
+                "system_info": "iOS",
+                "media_id": ["media-id"]
+            }],
             "total_num": 1
         }))
         .unwrap();
         assert_eq!(feedback.total_num, Some(1));
-        assert_eq!(feedback.list[0]["content"], "feedback");
+        assert_eq!(feedback.list[0].content.as_deref(), Some("feedback"));
+        assert_eq!(feedback.list[0].media_id[0], "media-id");
 
         let gray: OperationGrayReleasePlanResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "gray_release_plan": { "status": 1, "gray_percentage": 30 }
+            "gray_release_plan": {
+                "status": 1,
+                "gray_percentage": 30,
+                "support_experiencer_first": true,
+                "support_debuger_first": false
+            }
         }))
         .unwrap();
         assert_eq!(
-            gray.gray_release_plan.expect("gray_release_plan")["gray_percentage"],
-            30
+            gray.gray_release_plan
+                .expect("gray_release_plan")
+                .gray_percentage,
+            Some(30)
         );
 
         let detail: OperationJsErrDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
             "success": true,
             "openid": "openid",
-            "data": [{ "message": "TypeError" }]
+            "data": [{
+                "message": "TypeError",
+                "stack": "stack",
+                "time": 1_800_000_000,
+                "app_version": "1.0.0",
+                "sdk_version": "3.7.0",
+                "client_version": "8.0.0",
+                "device": "iPhone"
+            }]
         }))
         .unwrap();
         assert_eq!(detail.success, Some(true));
-        assert_eq!(detail.data[0]["message"], "TypeError");
+        assert_eq!(detail.data[0].message.as_deref(), Some("TypeError"));
+        assert_eq!(detail.data[0].device.as_deref(), Some("iPhone"));
 
         let list: OperationJsErrListResponse = serde_json::from_value(json!({
             "errcode": 0,
             "success": true,
             "openid": "openid",
-            "data": [{ "count": 3 }],
+            "data": [{
+                "message": "TypeError",
+                "count": 3,
+                "app_version": "1.0.0",
+                "first_time": 1_800_000_000,
+                "last_time": 1_800_000_100
+            }],
             "totalCount": 3
         }))
         .unwrap();
         assert_eq!(list.total_count, Some(3));
-        assert_eq!(list.data[0]["count"], 3);
+        assert_eq!(list.data[0].count, Some(3));
+        assert_eq!(list.data[0].message.as_deref(), Some("TypeError"));
 
         let search: OperationJsErrSearchResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -5812,8 +5956,8 @@ mod tests {
         .unwrap();
         assert_eq!(search.total, Some(1));
         assert_eq!(
-            search.results.expect("results")["items"][0]["message"],
-            "TypeError"
+            search.results.expect("results").items[0].message.as_deref(),
+            Some("TypeError")
         );
 
         let performance: OperationPerformanceResponse = serde_json::from_value(json!({
@@ -5829,23 +5973,36 @@ mod tests {
             "scene": [{ "name": "chat", "value": 1007 }]
         }))
         .unwrap();
-        assert_eq!(scene.scene[0]["value"], 1007);
+        assert_eq!(scene.scene[0].name.as_deref(), Some("chat"));
+        assert_eq!(scene.scene[0].value, Some(1007));
 
         let version: OperationVersionListResponse = serde_json::from_value(json!({
             "errcode": 0,
             "cvlist": [{ "version": "8.0.0", "percentage": 50 }]
         }))
         .unwrap();
-        assert_eq!(version.cvlist[0]["version"], "8.0.0");
+        assert_eq!(version.cvlist[0].version.as_deref(), Some("8.0.0"));
+        assert_eq!(version.cvlist[0].percentage, Some(50));
 
         let real_time: OperationRealTimeLogSearchResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "data": { "total": 1 },
-            "list": [{ "level": "error", "message": "failed" }]
+            "data": {
+                "total": 1,
+                "has_next_page": false,
+                "page": 1,
+                "limit": 20
+            },
+            "list": [{
+                "level": "error",
+                "message": "failed",
+                "timestamp": 1_800_000_000,
+                "trace_id": "trace"
+            }]
         }))
         .unwrap();
-        assert_eq!(real_time.data.expect("data")["total"], 1);
-        assert_eq!(real_time.list[0]["level"], "error");
+        assert_eq!(real_time.data.expect("data").total, Some(1));
+        assert_eq!(real_time.list[0].level.as_deref(), Some("error"));
+        assert_eq!(real_time.list[0].trace_id.as_deref(), Some("trace"));
     }
 
     #[test]

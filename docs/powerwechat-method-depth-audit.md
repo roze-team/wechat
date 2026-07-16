@@ -176,6 +176,8 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   expose typed logistics DTOs.
 - immediateDelivery bind-account, provider-list, and order-detail responses now
   expose typed shop/provider/order DTOs instead of raw JSON arrays.
+- operation feedback, gray-release, JS-error, scene, client-version, and
+  real-time-log responses now expose typed operation DTOs.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and
