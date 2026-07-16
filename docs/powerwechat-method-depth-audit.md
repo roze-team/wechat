@@ -268,6 +268,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 - structured downloaded-bill wrapper exposing verified bytes, UTF-8 text,
   non-empty line count, header, summary, and data-row iteration for statement
   ingestion code;
+- downloaded bill statements now expose structured header-keyed records with
+  CSV quote handling and WeChat/Excel cell-prefix cleanup for production
+  ingestion;
 - shared signed bytes GET support in `PlatformClient`;
 - structured merchant-service complaint list/detail/negotiation DTOs covering
   order info, media lists, service-order info, user tags, refund amount, and

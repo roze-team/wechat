@@ -3138,6 +3138,20 @@ pub struct PaymentDownloadedBill {
     pub summary: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PaymentBillRecord {
+    pub raw: String,
+    pub fields: Vec<(String, String)>,
+}
+
+impl PaymentBillRecord {
+    pub fn get(&self, name: &str) -> Option<&str> {
+        self.fields
+            .iter()
+            .find_map(|(key, value)| (key == name).then_some(value.as_str()))
+    }
+}
+
 impl PaymentDownloadedBill {
     pub fn from_verified_bytes(
         bytes: Bytes,
@@ -3172,6 +3186,73 @@ impl PaymentDownloadedBill {
             .enumerate()
             .filter_map(|(index, line)| (index > 0 && index + 1 < self.line_count).then_some(line))
     }
+
+    pub fn data_records(&self) -> Result<Vec<PaymentBillRecord>> {
+        let header = self
+            .header
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("payment bill header is missing".to_string()))?;
+        let headers = parse_payment_bill_csv_line(header)?
+            .into_iter()
+            .map(clean_payment_bill_cell)
+            .collect::<Vec<_>>();
+        self.data_rows()
+            .map(|row| {
+                let values = parse_payment_bill_csv_line(row)?
+                    .into_iter()
+                    .map(clean_payment_bill_cell)
+                    .collect::<Vec<_>>();
+                if values.len() != headers.len() {
+                    return Err(WechatError::Config(format!(
+                        "payment bill row field count mismatch: expected {}, got {}",
+                        headers.len(),
+                        values.len()
+                    )));
+                }
+                Ok(PaymentBillRecord {
+                    raw: row.to_string(),
+                    fields: headers.iter().cloned().zip(values).collect(),
+                })
+            })
+            .collect()
+    }
+}
+
+fn parse_payment_bill_csv_line(line: &str) -> Result<Vec<String>> {
+    let mut cells = Vec::new();
+    let mut current = String::new();
+    let mut chars = line.chars().peekable();
+    let mut in_quotes = false;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' if in_quotes && chars.peek() == Some(&'"') => {
+                current.push('"');
+                chars.next();
+            }
+            '"' => in_quotes = !in_quotes,
+            ',' if !in_quotes => {
+                cells.push(current);
+                current = String::new();
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if in_quotes {
+        return Err(WechatError::Config(
+            "payment bill CSV row has an unterminated quoted field".to_string(),
+        ));
+    }
+
+    cells.push(current);
+    Ok(cells)
+}
+
+fn clean_payment_bill_cell(cell: String) -> String {
+    cell.trim_start_matches('\u{feff}')
+        .trim_start_matches('`')
+        .to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4974,8 +5055,60 @@ mod tests {
             bill.data_rows().collect::<Vec<_>>(),
             vec!["4200001,order-1,100"]
         );
+        let records = bill.data_records().unwrap();
+        assert_eq!(records[0].get("transaction_id"), Some("4200001"));
+        assert_eq!(records[0].get("out_trade_no"), Some("order-1"));
+        assert_eq!(records[0].get("amount"), Some("100"));
+        assert_eq!(records[0].raw, "4200001,order-1,100");
         assert_eq!(bill.hash_type.as_deref(), Some("SHA256"));
         assert_eq!(bill.bytes.len(), 65);
+    }
+
+    #[test]
+    fn parses_payment_bill_records_with_quoted_and_excel_escaped_cells() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"\xef\xbb\xbftransaction_id,out_trade_no,description\n`4200001,`order-1,\"fee, service\"\nsummary,1,100\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let records = bill.data_records().unwrap();
+        assert_eq!(records[0].get("transaction_id"), Some("4200001"));
+        assert_eq!(records[0].get("out_trade_no"), Some("order-1"));
+        assert_eq!(records[0].get("description"), Some("fee, service"));
+    }
+
+    #[test]
+    fn rejects_payment_bill_record_field_count_mismatch() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(b"a,b\n1\nsum,1\n"),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let err = bill
+            .data_records()
+            .expect_err("mismatched row should be rejected");
+        assert!(err.to_string().contains("field count mismatch"));
+    }
+
+    #[test]
+    fn rejects_payment_bill_record_unterminated_quote() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(b"a,b\n\"1,2\nsum,1\n"),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let err = bill
+            .data_records()
+            .expect_err("unterminated quote should be rejected");
+        assert!(err.to_string().contains("unterminated quoted field"));
     }
 
     #[test]
