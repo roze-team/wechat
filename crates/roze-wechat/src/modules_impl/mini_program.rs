@@ -5088,7 +5088,73 @@ pub struct WxaSecOrderResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub order: Option<Value>,
+    pub order: Option<WxaSecOrder>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrder {
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub merchant_id: Option<String>,
+    #[serde(default)]
+    pub sub_merchant_id: Option<String>,
+    #[serde(default)]
+    pub merchant_trade_no: Option<String>,
+    #[serde(default)]
+    pub order_state: Option<i64>,
+    #[serde(default)]
+    pub order_state_desc: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub pay_time: Option<i64>,
+    #[serde(default)]
+    pub amount: Option<WxaSecOrderAmount>,
+    #[serde(default)]
+    pub shipping: Option<WxaSecOrderShipping>,
+    #[serde(default)]
+    pub receive_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderAmount {
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub payer_total: Option<i64>,
+    #[serde(default)]
+    pub currency: Option<String>,
+    #[serde(default)]
+    pub payer_currency: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderShipping {
+    #[serde(default)]
+    pub logistics_type: Option<i64>,
+    #[serde(default)]
+    pub delivery_mode: Option<i64>,
+    #[serde(default)]
+    pub is_all_delivered: Option<bool>,
+    #[serde(default)]
+    pub shipping_list: Vec<WxaSecOrderShippingItem>,
+    #[serde(default)]
+    pub upload_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaSecOrderShippingItem {
+    #[serde(default)]
+    pub tracking_no: Option<String>,
+    #[serde(default)]
+    pub express_company: Option<String>,
+    #[serde(default)]
+    pub item_desc: Option<String>,
+    #[serde(default)]
+    pub contact: Option<WxaSecShippingContact>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5102,7 +5168,7 @@ pub struct WxaSecOrderListResponse {
     #[serde(default)]
     pub has_more: Option<bool>,
     #[serde(default)]
-    pub order_list: Vec<Value>,
+    pub order_list: Vec<WxaSecOrder>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7115,23 +7181,69 @@ mod tests {
             "errcode": 0,
             "order": {
                 "transaction_id": "tx",
-                "order_state": 2
+                "merchant_id": "mch",
+                "sub_merchant_id": "sub-mch",
+                "merchant_trade_no": "trade-no",
+                "openid": "openid",
+                "description": "goods",
+                "order_state": 2,
+                "order_state_desc": "paid",
+                "pay_time": 1_800_000_000,
+                "amount": {
+                    "total": 100,
+                    "payer_total": 100,
+                    "currency": "CNY",
+                    "payer_currency": "CNY"
+                },
+                "shipping": {
+                    "logistics_type": 1,
+                    "delivery_mode": 1,
+                    "is_all_delivered": true,
+                    "upload_time": "2026-07-16T10:00:00+08:00",
+                    "shipping_list": [{
+                        "tracking_no": "tracking",
+                        "express_company": "SF",
+                        "item_desc": "goods",
+                        "contact": {
+                            "consignor_contact": "13800000000",
+                            "receiver_contact": "13900000000"
+                        }
+                    }]
+                }
             }
         }))
         .unwrap();
         assert_eq!(order.errcode, Some(0));
-        assert_eq!(order.order.expect("order")["transaction_id"], "tx");
+        let order_detail = order.order.expect("order");
+        assert_eq!(order_detail.transaction_id.as_deref(), Some("tx"));
+        assert_eq!(order_detail.merchant_trade_no.as_deref(), Some("trade-no"));
+        assert_eq!(order_detail.amount.expect("amount").total, Some(100));
+        assert_eq!(
+            order_detail.shipping.expect("shipping").shipping_list[0]
+                .tracking_no
+                .as_deref(),
+            Some("tracking")
+        );
 
         let list: WxaSecOrderListResponse = serde_json::from_value(json!({
             "errcode": 0,
             "last_index": "cursor",
             "has_more": true,
-            "order_list": [{ "transaction_id": "tx" }]
+            "order_list": [{
+                "transaction_id": "tx",
+                "order_state": 2,
+                "amount": { "total": 100 }
+            }]
         }))
         .unwrap();
         assert_eq!(list.last_index.as_deref(), Some("cursor"));
         assert_eq!(list.has_more, Some(true));
-        assert_eq!(list.order_list[0]["transaction_id"], "tx");
+        assert_eq!(list.order_list[0].transaction_id.as_deref(), Some("tx"));
+        assert_eq!(list.order_list[0].order_state, Some(2));
+        assert_eq!(
+            list.order_list[0].amount.as_ref().expect("amount").total,
+            Some(100)
+        );
 
         let managed: WxaSecTradeManagedResponse = serde_json::from_value(json!({
             "errcode": 0,
