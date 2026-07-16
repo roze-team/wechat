@@ -132,6 +132,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - account-service responses now expose typed customer-service accounts,
   customers, synchronized messages, servicer operation results, and servicer
   list records.
+- linked-corp user/department responses and user batch/export job results now
+  expose typed user, department, import-result, and export-data DTOs.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 

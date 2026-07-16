@@ -4897,7 +4897,7 @@ pub struct WorkLinkedCorpUserResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub user_info: Option<Value>,
+    pub user_info: Option<WorkLinkedCorpUserInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4907,7 +4907,7 @@ pub struct WorkLinkedCorpUserListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub userlist: Vec<Value>,
+    pub userlist: Vec<WorkLinkedCorpUserInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4917,7 +4917,43 @@ pub struct WorkLinkedCorpDepartmentListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub department_list: Vec<Value>,
+    pub department_list: Vec<WorkLinkedCorpDepartment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpUserInfo {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub department: Vec<String>,
+    #[serde(default)]
+    pub position: Option<String>,
+    #[serde(default)]
+    pub corp_id: Option<String>,
+    #[serde(default)]
+    pub extattr: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpDepartment {
+    #[serde(default)]
+    pub department_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub parentid: Option<String>,
+    #[serde(default)]
+    pub order: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4953,7 +4989,21 @@ pub struct WorkUserBatchJobResultResponse {
     #[serde(default)]
     pub percentage: Option<i64>,
     #[serde(default)]
-    pub result: Vec<Value>,
+    pub result: Vec<WorkUserBatchJobResultItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserBatchJobResultItem {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub action: Option<i64>,
+    #[serde(default)]
+    pub partyid: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4988,7 +5038,27 @@ pub struct WorkUserExportJobResultResponse {
     #[serde(default)]
     pub status: Option<i64>,
     #[serde(default)]
-    pub data_list: Vec<Value>,
+    pub data_list: Vec<WorkUserExportJobData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExportJobData {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub department: Vec<i64>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub tagid: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9180,22 +9250,42 @@ mod tests {
         assert_eq!(perm.userids[0], "Corp/user");
 
         let user: WorkLinkedCorpUserResponse = serde_json::from_value(json!({
-            "user_info": { "userid": "Corp/user", "name": "User" }
+            "user_info": {
+                "userid": "Corp/user",
+                "name": "User",
+                "mobile": "13800000000",
+                "department": ["Corp/department"]
+            }
         }))
         .unwrap();
-        assert_eq!(user.user_info.unwrap()["userid"], "Corp/user");
+        let user_info = user.user_info.unwrap();
+        assert_eq!(user_info.userid.as_deref(), Some("Corp/user"));
+        assert_eq!(user_info.name.as_deref(), Some("User"));
+        assert_eq!(user_info.mobile.as_deref(), Some("13800000000"));
+        assert_eq!(user_info.department[0], "Corp/department");
 
         let simple: WorkLinkedCorpUserListResponse = serde_json::from_value(json!({
-            "userlist": [{ "userid": "Corp/user" }]
+            "userlist": [{ "userid": "Corp/user", "name": "User" }]
         }))
         .unwrap();
-        assert_eq!(simple.userlist[0]["userid"], "Corp/user");
+        assert_eq!(simple.userlist[0].userid.as_deref(), Some("Corp/user"));
+        assert_eq!(simple.userlist[0].name.as_deref(), Some("User"));
 
         let departments: WorkLinkedCorpDepartmentListResponse = serde_json::from_value(json!({
-            "department_list": [{ "department_id": "Corp/department", "name": "Dept" }]
+            "department_list": [{
+                "department_id": "Corp/department",
+                "name": "Dept",
+                "parentid": "Corp/root",
+                "order": 1
+            }]
         }))
         .unwrap();
-        assert_eq!(departments.department_list[0]["name"], "Dept");
+        assert_eq!(
+            departments.department_list[0].department_id.as_deref(),
+            Some("Corp/department")
+        );
+        assert_eq!(departments.department_list[0].name.as_deref(), Some("Dept"));
+        assert_eq!(departments.department_list[0].order, Some(1));
     }
 
     #[test]
@@ -9251,7 +9341,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(batch_result.job_type.as_deref(), Some("sync_user"));
-        assert_eq!(batch_result.result[0]["userid"], "user");
+        assert_eq!(batch_result.result[0].userid.as_deref(), Some("user"));
+        assert_eq!(batch_result.result[0].errcode, Some(0));
 
         let export_job: WorkUserExportJobResponse =
             serde_json::from_value(json!({ "jobid": "export-job" })).unwrap();
@@ -9259,11 +9350,18 @@ mod tests {
 
         let export_result: WorkUserExportJobResultResponse = serde_json::from_value(json!({
             "status": 2,
-            "data_list": [{ "userid": "user" }]
+            "data_list": [{
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "mobile": "13800000000"
+            }]
         }))
         .unwrap();
         assert_eq!(export_result.status, Some(2));
-        assert_eq!(export_result.data_list[0]["userid"], "user");
+        assert_eq!(export_result.data_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(export_result.data_list[0].name.as_deref(), Some("User"));
+        assert_eq!(export_result.data_list[0].department[0], 1);
     }
 
     #[test]
