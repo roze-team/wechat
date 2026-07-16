@@ -108,6 +108,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-contact strategy-tag list/add/edit/delete wrappers, group welcome
   template add/edit/get/delete wrappers, group-chat join-way add/get/update/delete
   wrappers, and opengid-to-chatid wrapper.
+- external-contact list/detail/follow-user/batch-detail responses now expose
+  typed contact, profile, follow-info, and tag DTOs.
 - agent scope/workbench wrappers, auth exact-path user info/detail wrappers,
   department get/simple-list wrappers, external-contact new-id and union-id
   conversion wrappers, moment-strategy list/range/create/edit/delete wrappers,
