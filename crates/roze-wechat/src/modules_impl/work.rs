@@ -443,6 +443,77 @@ impl Work {
             .await
     }
 
+    pub async fn get_linked_corp_perm_list(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkLinkedCorpPermListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/linkedcorp/agent/get_perm_list",
+                Some(access_token.into()),
+                Value::Null,
+            )
+            .await
+    }
+
+    pub async fn get_linked_corp_user(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<WorkLinkedCorpUserResponse> {
+        self.inner
+            .post(
+                "cgi-bin/linkedcorp/user/get",
+                Some(access_token.into()),
+                json!({ "userid": user_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn list_linked_corp_department_users(
+        &self,
+        access_token: impl Into<String>,
+        department_id: impl Into<String>,
+        fetch_child: bool,
+    ) -> Result<WorkLinkedCorpUserListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/linkedcorp/user/simplelist",
+                Some(access_token.into()),
+                json!({ "department_id": department_id.into(), "fetch_child": fetch_child }),
+            )
+            .await
+    }
+
+    pub async fn list_linked_corp_detailed_department_users(
+        &self,
+        access_token: impl Into<String>,
+        department_id: impl Into<String>,
+        fetch_child: bool,
+    ) -> Result<WorkLinkedCorpUserListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/linkedcorp/user/list",
+                Some(access_token.into()),
+                json!({ "department_id": department_id.into(), "fetch_child": fetch_child }),
+            )
+            .await
+    }
+
+    pub async fn list_linked_corp_departments(
+        &self,
+        access_token: impl Into<String>,
+        department_id: impl Into<String>,
+    ) -> Result<WorkLinkedCorpDepartmentListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/linkedcorp/department/list",
+                Some(access_token.into()),
+                json!({ "department_id": department_id.into() }),
+            )
+            .await
+    }
+
     pub async fn user_id_to_openid(
         &self,
         access_token: impl Into<String>,
@@ -3743,6 +3814,48 @@ pub struct WorkUserActiveStatResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpPermListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub department_ids: Vec<String>,
+    #[serde(default)]
+    pub userids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpUserResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub user_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpUserListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userlist: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpDepartmentListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub department_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserBatchJobRequest {
     pub media_id: String,
     pub to_invite: bool,
@@ -6588,6 +6701,35 @@ mod tests {
         let active: WorkUserActiveStatResponse =
             serde_json::from_value(json!({ "active_cnt": "42" })).unwrap();
         assert_eq!(active.active_cnt.as_deref(), Some("42"));
+    }
+
+    #[test]
+    fn deserializes_work_linked_corp_user_responses() {
+        let perm: WorkLinkedCorpPermListResponse = serde_json::from_value(json!({
+            "department_ids": ["Corp/department"],
+            "userids": ["Corp/user"]
+        }))
+        .unwrap();
+        assert_eq!(perm.department_ids[0], "Corp/department");
+        assert_eq!(perm.userids[0], "Corp/user");
+
+        let user: WorkLinkedCorpUserResponse = serde_json::from_value(json!({
+            "user_info": { "userid": "Corp/user", "name": "User" }
+        }))
+        .unwrap();
+        assert_eq!(user.user_info.unwrap()["userid"], "Corp/user");
+
+        let simple: WorkLinkedCorpUserListResponse = serde_json::from_value(json!({
+            "userlist": [{ "userid": "Corp/user" }]
+        }))
+        .unwrap();
+        assert_eq!(simple.userlist[0]["userid"], "Corp/user");
+
+        let departments: WorkLinkedCorpDepartmentListResponse = serde_json::from_value(json!({
+            "department_list": [{ "department_id": "Corp/department", "name": "Dept" }]
+        }))
+        .unwrap();
+        assert_eq!(departments.department_list[0]["name"], "Dept");
     }
 
     #[test]
