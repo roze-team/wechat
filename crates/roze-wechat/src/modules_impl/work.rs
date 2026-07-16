@@ -257,7 +257,7 @@ impl Work {
     pub async fn create_user(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkUserRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post("cgi-bin/user/create", Some(access_token.into()), request)
@@ -267,7 +267,7 @@ impl Work {
     pub async fn update_user(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkUserRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post("cgi-bin/user/update", Some(access_token.into()), request)
@@ -297,7 +297,9 @@ impl Work {
             .post(
                 "cgi-bin/user/batchdelete",
                 Some(access_token.into()),
-                json!({ "useridlist": user_id_list }),
+                WorkUserBatchDeleteRequest {
+                    useridlist: user_id_list,
+                },
             )
             .await
     }
@@ -5266,6 +5268,56 @@ pub struct WorkDepartmentUserDetailListResponse {
     pub userlist: Vec<WorkUserDetail>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserRequest {
+    pub userid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub department: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub order: Vec<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gender: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub biz_mail: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub is_leader_in_dept: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub direct_leader: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub telephone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub main_department: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_invite: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_mediaid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_position: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_profile: Option<WorkUserExternalProfile>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extattr: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserBatchDeleteRequest {
+    pub useridlist: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkUserDetail {
     #[serde(default)]
@@ -5316,47 +5368,47 @@ pub struct WorkUserDetail {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExternalProfile {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_corp_name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub external_attr: Vec<WorkUserExternalAttribute>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExternalAttribute {
-    #[serde(default, rename = "type")]
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
     pub attr_type: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<WorkUserExternalAttributeText>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub web: Option<WorkUserExternalAttributeWeb>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub miniprogram: Option<WorkUserExternalAttributeMiniProgram>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExternalAttributeText {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExternalAttributeWeb {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExternalAttributeMiniProgram {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub appid: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
 }
 
@@ -11004,17 +11056,88 @@ mod tests {
 
     #[test]
     fn serializes_work_user_management_requests_and_responses() {
-        let create = json!({
-            "userid": "user",
-            "name": "User",
-            "mobile": "13800000000",
-            "department": [1],
-            "to_invite": true
-        });
+        let create = serde_json::to_value(WorkUserRequest {
+            userid: "user".to_string(),
+            name: Some("User".to_string()),
+            department: vec![1],
+            order: Vec::new(),
+            position: None,
+            mobile: Some("13800000000".to_string()),
+            gender: None,
+            email: None,
+            biz_mail: None,
+            is_leader_in_dept: Vec::new(),
+            direct_leader: Vec::new(),
+            telephone: None,
+            alias: None,
+            address: None,
+            main_department: None,
+            to_invite: Some(true),
+            enable: None,
+            avatar_mediaid: None,
+            external_position: None,
+            external_profile: Some(WorkUserExternalProfile {
+                external_corp_name: Some("Roze".to_string()),
+                external_attr: vec![WorkUserExternalAttribute {
+                    attr_type: Some(0),
+                    name: Some("site".to_string()),
+                    text: Some(WorkUserExternalAttributeText {
+                        value: Some("hello".to_string()),
+                    }),
+                    web: None,
+                    miniprogram: None,
+                }],
+            }),
+            extattr: None,
+        })
+        .unwrap();
         assert_eq!(create["userid"], "user");
         assert_eq!(create["department"][0], 1);
+        assert_eq!(create["external_profile"]["external_corp_name"], "Roze");
+        assert_eq!(
+            create["external_profile"]["external_attr"][0]["text"]["value"],
+            "hello"
+        );
+        assert!(create.get("email").is_none());
+        assert!(create["external_profile"]["external_attr"][0]
+            .as_object()
+            .unwrap()
+            .get("web")
+            .is_none());
 
-        let batch_delete = json!({ "useridlist": ["user1", "user2"] });
+        let update = serde_json::to_value(WorkUserRequest {
+            userid: "user".to_string(),
+            name: None,
+            department: Vec::new(),
+            order: Vec::new(),
+            position: Some("Engineer".to_string()),
+            mobile: None,
+            gender: None,
+            email: Some("user@example.com".to_string()),
+            biz_mail: None,
+            is_leader_in_dept: Vec::new(),
+            direct_leader: Vec::new(),
+            telephone: None,
+            alias: Some("alias".to_string()),
+            address: None,
+            main_department: None,
+            to_invite: None,
+            enable: Some(1),
+            avatar_mediaid: None,
+            external_position: None,
+            external_profile: None,
+            extattr: None,
+        })
+        .unwrap();
+        assert_eq!(update["position"], "Engineer");
+        assert_eq!(update["email"], "user@example.com");
+        assert_eq!(update["enable"], 1);
+        assert!(update.get("department").is_none());
+
+        let batch_delete = serde_json::to_value(WorkUserBatchDeleteRequest {
+            useridlist: vec!["user1".to_string(), "user2".to_string()],
+        })
+        .unwrap();
         assert_eq!(batch_delete["useridlist"][1], "user2");
 
         let list_id: WorkUserListIdResponse = serde_json::from_value(json!({

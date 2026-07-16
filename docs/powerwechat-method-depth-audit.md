@@ -152,6 +152,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   expose typed user, department, import-result, and export-data DTOs.
 - Work user get/simple-list/detail-list responses now expose typed user,
   department, and external-profile DTOs.
+- Work user create/update and batch-delete mutation paths now use typed request
+  DTOs covering department/order, leader, contact, invite, avatar, external
+  profile, and extended-attribute payloads.
 - invoice info/batch responses and account-service tag detail/list responses
   now expose typed invoice user-info, line-item, invoice batch-item, tag-user,
   and tag DTOs.
