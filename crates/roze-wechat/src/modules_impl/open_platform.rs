@@ -214,6 +214,582 @@ impl OpenPlatform {
         DomainModule::new(self.inner.clone(), "open_platform.authorizer")
     }
 
+    pub fn authorizer_mini_program_code(&self) -> DomainModule {
+        DomainModule::new(
+            self.inner.clone(),
+            "open_platform.authorizer.mini_program.code",
+        )
+    }
+
+    pub async fn commit_authorizer_mini_program_code(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformMiniProgramCommitRequest,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post("wxa/commit", Some(authorizer_access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_qrcode_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Result<bytes::Bytes> {
+        self.inner
+            .get_bytes(
+                "wxa/get_qrcode",
+                Some(authorizer_access_token.into()),
+                vec![("path".to_string(), path.into())],
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_category(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramCategoryResponse> {
+        self.inner
+            .get("wxa/get_category", Some(authorizer_access_token.into()))
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_pages(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramPageResponse> {
+        self.inner
+            .get("wxa/get_page", Some(authorizer_access_token.into()))
+            .await
+    }
+
+    pub async fn submit_authorizer_mini_program_audit(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformMiniProgramSubmitAuditRequest,
+    ) -> Result<OpenPlatformMiniProgramSubmitAuditResponse> {
+        self.inner
+            .post(
+                "wxa/submit_audit",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_audit_status(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        audit_id: i64,
+    ) -> Result<OpenPlatformMiniProgramAuditStatusResponse> {
+        self.inner
+            .post(
+                "wxa/get_auditstatus",
+                Some(authorizer_access_token.into()),
+                json!({ "auditid": audit_id }),
+            )
+            .await
+    }
+
+    pub async fn get_latest_authorizer_mini_program_audit_status(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramLatestAuditStatusResponse> {
+        self.inner
+            .get(
+                "wxa/get_latest_auditstatus",
+                Some(authorizer_access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn release_authorizer_mini_program(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "wxa/release",
+                Some(authorizer_access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn withdraw_authorizer_mini_program_audit(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .get("wxa/undocodeaudit", Some(authorizer_access_token.into()))
+            .await
+    }
+
+    pub async fn rollback_authorizer_mini_program_release(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramRollbackReleaseResponse> {
+        self.inner
+            .get(
+                "wxa/revertcoderelease",
+                Some(authorizer_access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn change_authorizer_mini_program_visit_status(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        action: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "wxa/change_visitstatus",
+                Some(authorizer_access_token.into()),
+                json!({ "action": action.into() }),
+            )
+            .await
+    }
+
+    pub async fn gray_release_authorizer_mini_program(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        gray_percentage: i64,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "wxa/grayrelease",
+                Some(authorizer_access_token.into()),
+                json!({ "gray_percentage": gray_percentage }),
+            )
+            .await
+    }
+
+    pub async fn revert_authorizer_mini_program_gray_release(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .get(
+                "wxa/revertgrayrelease",
+                Some(authorizer_access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_gray_release_plan(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramGrayReleasePlanResponse> {
+        self.inner
+            .get(
+                "wxa/getgrayreleaseplan",
+                Some(authorizer_access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_support_version(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramSupportVersionResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wxopen/getweappsupportversion",
+                Some(authorizer_access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn set_authorizer_mini_program_support_version(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        version: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wxopen/setweappsupportversion",
+                Some(authorizer_access_token.into()),
+                json!({ "version": version.into() }),
+            )
+            .await
+    }
+
+    pub async fn query_authorizer_mini_program_audit_quota(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramAuditQuotaResponse> {
+        self.inner
+            .get("wxa/queryquota", Some(authorizer_access_token.into()))
+            .await
+    }
+
+    pub async fn speedup_authorizer_mini_program_audit(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        audit_id: i64,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "wxa/speedupaudit",
+                Some(authorizer_access_token.into()),
+                json!({ "auditid": audit_id }),
+            )
+            .await
+    }
+
+    pub fn authorizer_mini_program_domain(&self) -> DomainModule {
+        DomainModule::new(
+            self.inner.clone(),
+            "open_platform.authorizer.mini_program.domain",
+        )
+    }
+
+    pub async fn modify_authorizer_mini_program_domain(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformMiniProgramModifyDomainRequest,
+    ) -> Result<OpenPlatformMiniProgramModifyDomainResponse> {
+        self.inner
+            .post(
+                "wxa/modify_domain",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn set_authorizer_mini_program_webview_domain(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        action: impl Into<String>,
+        domains: Vec<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "wxa/setwebviewdomain",
+                Some(authorizer_access_token.into()),
+                json!({ "action": action.into(), "webviewdomain": domains }),
+            )
+            .await
+    }
+
+    pub fn authorizer_mini_program_tester(&self) -> DomainModule {
+        DomainModule::new(
+            self.inner.clone(),
+            "open_platform.authorizer.mini_program.tester",
+        )
+    }
+
+    pub async fn bind_authorizer_mini_program_tester(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        wechat_id: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramTesterBindResponse> {
+        self.inner
+            .post(
+                "wxa/bind_tester",
+                Some(authorizer_access_token.into()),
+                json!({ "wechatid": wechat_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn unbind_authorizer_mini_program_tester(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformMiniProgramTesterUnbindRequest,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "wxa/unbind_tester",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_authorizer_mini_program_testers(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramTesterListResponse> {
+        self.inner
+            .post(
+                "wxa/memberauth",
+                Some(authorizer_access_token.into()),
+                json!({ "action": "get_experiencer" }),
+            )
+            .await
+    }
+
+    pub fn authorizer_mini_program_privacy(&self) -> DomainModule {
+        DomainModule::new(
+            self.inner.clone(),
+            "open_platform.authorizer.mini_program.privacy",
+        )
+    }
+
+    pub async fn get_authorizer_mini_program_privacy_setting(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        privacy_version: i64,
+    ) -> Result<OpenPlatformMiniProgramPrivacySettingResponse> {
+        self.inner
+            .post(
+                "cgi-bin/component/getprivacysetting",
+                Some(authorizer_access_token.into()),
+                json!({ "privacy_ver": privacy_version }),
+            )
+            .await
+    }
+
+    pub async fn set_authorizer_mini_program_privacy_setting(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformMiniProgramPrivacySettingRequest,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/component/setprivacysetting",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn upload_authorizer_mini_program_privacy_ext_file_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<OpenPlatformMiniProgramPrivacyExtFileResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "cgi-bin/component/uploadprivacyextfile",
+                Some(authorizer_access_token.into()),
+                Vec::new(),
+                form,
+            )
+            .await
+    }
+
+    pub fn component_login_page_url(request: OpenPlatformComponentLoginPageUrlRequest) -> String {
+        let mut url = url::Url::parse("https://mp.weixin.qq.com/cgi-bin/componentloginpage")
+            .expect("static component login page url is valid");
+        url.query_pairs_mut()
+            .append_pair("component_appid", &request.component_appid)
+            .append_pair("pre_auth_code", &request.pre_auth_code)
+            .append_pair("redirect_uri", &request.redirect_uri);
+        for (key, value) in request.extra_query {
+            url.query_pairs_mut().append_pair(&key, &value);
+        }
+        url.to_string()
+    }
+
+    pub async fn authorizer_mini_program_code_to_session(
+        &self,
+        component_access_token: impl Into<String>,
+        appid: impl Into<String>,
+        js_code: impl Into<String>,
+        component_appid: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramSessionResponse> {
+        self.inner
+            .get_with_query(
+                "sns/component/jscode2session",
+                None,
+                vec![
+                    ("appid".to_string(), appid.into()),
+                    ("js_code".to_string(), js_code.into()),
+                    ("grant_type".to_string(), "authorization_code".to_string()),
+                    ("component_appid".to_string(), component_appid.into()),
+                    (
+                        "component_access_token".to_string(),
+                        component_access_token.into(),
+                    ),
+                ],
+            )
+            .await
+    }
+
+    pub fn official_account_fast_registration_url(
+        request: OpenPlatformOfficialAccountFastRegistrationUrlRequest,
+    ) -> String {
+        let mut url = url::Url::parse("https://mp.weixin.qq.com/cgi-bin/fastregisterauth")
+            .expect("static fast registration auth url is valid");
+        url.query_pairs_mut()
+            .append_pair(
+                "copy_wx_verify",
+                if request.copy_wx_verify {
+                    "true"
+                } else {
+                    "false"
+                },
+            )
+            .append_pair("component_appid", &request.component_appid)
+            .append_pair("appid", &request.appid)
+            .append_pair("redirect_uri", &request.redirect_uri);
+        url.to_string()
+    }
+
+    pub async fn fast_register_authorizer_official_account_mini_program(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        ticket: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/account/fastregister",
+                Some(authorizer_access_token.into()),
+                json!({ "ticket": ticket.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_account_basic_info(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformAuthorizerAccountBasicInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/account/getaccountbasicinfo",
+                Some(authorizer_access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn modify_authorizer_account_head_image(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformAuthorizerAccountHeadImageRequest,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/account/modifyheadimage",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_authorizer_account_signature(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        signature: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/account/modifysignature",
+                Some(authorizer_access_token.into()),
+                json!({ "signature": signature.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_material_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<bytes::Bytes> {
+        self.inner
+            .post_json_bytes(
+                "cgi-bin/material/get_material",
+                Some(authorizer_access_token.into()),
+                json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn create_authorizer_open_account(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        appid: impl Into<String>,
+    ) -> Result<OpenPlatformOpenAccountResponse> {
+        self.inner
+            .post(
+                "cgi-bin/open/create",
+                Some(authorizer_access_token.into()),
+                json!({ "appid": appid.into() }),
+            )
+            .await
+    }
+
+    pub async fn bind_authorizer_open_account(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        appid: impl Into<String>,
+        open_appid: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/open/bind",
+                Some(authorizer_access_token.into()),
+                json!({ "appid": appid.into(), "open_appid": open_appid.into() }),
+            )
+            .await
+    }
+
+    pub async fn unbind_authorizer_open_account(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        appid: impl Into<String>,
+        open_appid: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/open/unbind",
+                Some(authorizer_access_token.into()),
+                json!({ "appid": appid.into(), "open_appid": open_appid.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_open_account(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        appid: impl Into<String>,
+    ) -> Result<OpenPlatformOpenAccountResponse> {
+        self.inner
+            .post(
+                "cgi-bin/open/get",
+                Some(authorizer_access_token.into()),
+                json!({ "appid": appid.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_mini_program_privacy_interface(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformMiniProgramPrivacyInterfaceResponse> {
+        self.inner
+            .post(
+                "wxa/security/get_privacy_interface",
+                Some(authorizer_access_token.into()),
+                json!({}),
+            )
+            .await
+    }
+
+    pub async fn apply_authorizer_mini_program_privacy_interface(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
+    ) -> Result<OpenPlatformMiniProgramPrivacyInterfaceApplyResponse> {
+        self.inner
+            .post(
+                "wxa/security/apply_privacy_interface",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn get_authorizer_info(
         &self,
         component_access_token: impl Into<String>,
@@ -676,6 +1252,367 @@ pub struct OpenPlatformAuthorizerOptionResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramCommitRequest {
+    pub template_id: String,
+    pub ext_json: String,
+    pub user_version: String,
+    pub user_desc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramSubmitAuditRequest {
+    pub item_list: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_info: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_stuff: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_info: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version_desc: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ugc_declare: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_api_not_use: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramCategoryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub category_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPageResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub page_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramSubmitAuditResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "type")]
+    pub audit_type: Option<String>,
+    #[serde(default)]
+    pub mediaid: Option<String>,
+    #[serde(default)]
+    pub auditid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramAuditStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub screenshot: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramLatestAuditStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub auditid: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default, alias = "ScreenShot")]
+    pub screenshot: Option<String>,
+    #[serde(default)]
+    pub user_version: Option<String>,
+    #[serde(default)]
+    pub user_desc: Option<String>,
+    #[serde(default)]
+    pub submit_audit_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramRollbackReleaseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub version_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramGrayReleasePlanResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub gray_release_plan: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramSupportVersionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub now_version: Option<String>,
+    #[serde(default)]
+    pub uv_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramAuditQuotaResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub rest: Option<i64>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    #[serde(default)]
+    pub speedup_rest: Option<i64>,
+    #[serde(default)]
+    pub speedup_limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramModifyDomainRequest {
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requestdomain: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wsrequestdomain: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uploaddomain: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub downloaddomain: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub udpdomain: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tcpdomain: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramModifyDomainResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub requestdomain: Vec<Value>,
+    #[serde(default)]
+    pub wsrequestdomain: Vec<Value>,
+    #[serde(default)]
+    pub uploaddomain: Vec<Value>,
+    #[serde(default)]
+    pub downloaddomain: Vec<Value>,
+    #[serde(default)]
+    pub udpdomain: Vec<Value>,
+    #[serde(default)]
+    pub tcpdomain: Vec<Value>,
+    #[serde(default)]
+    pub invalid_requestdomain: Vec<Value>,
+    #[serde(default)]
+    pub invalid_wsrequestdomain: Vec<Value>,
+    #[serde(default)]
+    pub invalid_uploaddomain: Vec<Value>,
+    #[serde(default)]
+    pub invalid_downloaddomain: Vec<Value>,
+    #[serde(default)]
+    pub invalid_udpdomain: Vec<Value>,
+    #[serde(default)]
+    pub invalid_tcpdomain: Vec<Value>,
+    #[serde(default)]
+    pub no_icp_domain: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramTesterUnbindRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wechatid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub userstr: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramTesterBindResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userstr: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramTesterListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub members: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacySettingRequest {
+    pub owner_setting: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub setting_list: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_ver: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacySettingResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub owner_setting: Option<Value>,
+    #[serde(default)]
+    pub setting_list: Vec<Value>,
+    #[serde(default)]
+    pub privacy_ver: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyExtFileResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ext_file_media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformComponentLoginPageUrlRequest {
+    pub component_appid: String,
+    pub pre_auth_code: String,
+    pub redirect_uri: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_query: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformOfficialAccountFastRegistrationUrlRequest {
+    pub component_appid: String,
+    pub appid: String,
+    pub redirect_uri: String,
+    pub copy_wx_verify: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramSessionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub session_key: Option<String>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerAccountHeadImageRequest {
+    pub head_img_media_id: String,
+    pub x1: String,
+    pub y1: String,
+    pub x2: String,
+    pub y2: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerAccountBasicInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub account_type: Option<i64>,
+    #[serde(default)]
+    pub principal_type: Option<i64>,
+    #[serde(default)]
+    pub principal_name: Option<String>,
+    #[serde(default)]
+    pub realname_status: Option<i64>,
+    #[serde(default)]
+    pub wx_verify_info: Option<Value>,
+    #[serde(default)]
+    pub signature_info: Option<Value>,
+    #[serde(default)]
+    pub head_image_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformOpenAccountResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub open_appid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyInterfaceResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub interface_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
+    pub api_name: String,
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyInterfaceApplyResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub audit_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddTemplateFromDraftRequest {
     pub draft_id: i64,
     pub template_type: i64,
@@ -720,8 +1657,26 @@ mod tests {
     use super::{
         AddTemplateFromDraftRequest, AuthorizerAccessTokenRequest, AuthorizerAccessTokenResponse,
         ComponentAccessTokenRequest, ComponentAccessTokenResponse, DeleteTemplateRequest,
-        OpenPlatformAuthorizerInfoResponse, OpenPlatformAuthorizerOptionResponse,
-        OpenPlatformAuthorizersResponse, OpenPlatformHandleAuthorizeResponse,
+        OpenPlatform, OpenPlatformAuthorizerAccountBasicInfoResponse,
+        OpenPlatformAuthorizerAccountHeadImageRequest, OpenPlatformAuthorizerInfoResponse,
+        OpenPlatformAuthorizerOptionResponse, OpenPlatformAuthorizersResponse,
+        OpenPlatformComponentLoginPageUrlRequest, OpenPlatformHandleAuthorizeResponse,
+        OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditStatusResponse,
+        OpenPlatformMiniProgramCategoryResponse, OpenPlatformMiniProgramCommitRequest,
+        OpenPlatformMiniProgramGrayReleasePlanResponse,
+        OpenPlatformMiniProgramLatestAuditStatusResponse,
+        OpenPlatformMiniProgramModifyDomainRequest, OpenPlatformMiniProgramModifyDomainResponse,
+        OpenPlatformMiniProgramPageResponse, OpenPlatformMiniProgramPrivacyExtFileResponse,
+        OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
+        OpenPlatformMiniProgramPrivacyInterfaceApplyResponse,
+        OpenPlatformMiniProgramPrivacyInterfaceResponse,
+        OpenPlatformMiniProgramPrivacySettingRequest,
+        OpenPlatformMiniProgramPrivacySettingResponse,
+        OpenPlatformMiniProgramRollbackReleaseResponse, OpenPlatformMiniProgramSessionResponse,
+        OpenPlatformMiniProgramSubmitAuditRequest, OpenPlatformMiniProgramSubmitAuditResponse,
+        OpenPlatformMiniProgramSupportVersionResponse, OpenPlatformMiniProgramTesterBindResponse,
+        OpenPlatformMiniProgramTesterListResponse, OpenPlatformMiniProgramTesterUnbindRequest,
+        OpenPlatformOfficialAccountFastRegistrationUrlRequest, OpenPlatformOpenAccountResponse,
         OpenPlatformStatusResponse, PreauthCodeResponse, QueryAuthResponse,
         RegisterMiniProgramRequest, RegistrationStatusRequest,
     };
@@ -913,6 +1868,291 @@ mod tests {
 
         assert_eq!(add, json!({ "draft_id": 100, "template_type": 0 }));
         assert_eq!(delete, json!({ "template_id": "tpl" }));
+    }
+
+    #[test]
+    fn serializes_authorizer_mini_program_code_requests() {
+        let commit = serde_json::to_value(OpenPlatformMiniProgramCommitRequest {
+            template_id: "100".to_string(),
+            ext_json: "{\"extAppid\":\"wx\"}".to_string(),
+            user_version: "1.0.0".to_string(),
+            user_desc: "release".to_string(),
+        })
+        .unwrap();
+        assert_eq!(commit["template_id"], "100");
+        assert_eq!(commit["user_version"], "1.0.0");
+        assert_eq!(commit["user_desc"], "release");
+
+        let audit = serde_json::to_value(OpenPlatformMiniProgramSubmitAuditRequest {
+            item_list: vec![json!({
+                "address": "pages/index/index",
+                "tag": "工具",
+                "first_class": "工具",
+                "second_class": "效率",
+                "first_id": 1,
+                "second_id": 2,
+                "title": "home"
+            })],
+            feedback_info: Some("feedback".to_string()),
+            feedback_stuff: None,
+            preview_info: Some(json!({ "pic_id_list": ["pic"] })),
+            version_desc: Some("v1".to_string()),
+            ugc_declare: None,
+            privacy_api_not_use: Some(true),
+            order_path: None,
+        })
+        .unwrap();
+        assert_eq!(audit["item_list"][0]["address"], "pages/index/index");
+        assert_eq!(audit["preview_info"]["pic_id_list"][0], "pic");
+        assert_eq!(audit["privacy_api_not_use"], true);
+        assert!(audit.get("feedback_stuff").is_none());
+    }
+
+    #[test]
+    fn deserializes_authorizer_mini_program_code_responses() {
+        let categories: OpenPlatformMiniProgramCategoryResponse = serde_json::from_value(json!({
+            "category_list": [{ "first_class": "工具", "first_id": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(categories.category_list[0]["first_id"], 1);
+
+        let pages: OpenPlatformMiniProgramPageResponse =
+            serde_json::from_value(json!({ "page_list": ["pages/index/index"] })).unwrap();
+        assert_eq!(pages.page_list[0], "pages/index/index");
+
+        let submitted: OpenPlatformMiniProgramSubmitAuditResponse = serde_json::from_value(json!({
+            "type": "audit",
+            "mediaid": "media",
+            "auditid": 123
+        }))
+        .unwrap();
+        assert_eq!(submitted.audit_type.as_deref(), Some("audit"));
+        assert_eq!(submitted.auditid, Some(123));
+
+        let status: OpenPlatformMiniProgramAuditStatusResponse = serde_json::from_value(json!({
+            "status": 0,
+            "reason": "ok",
+            "screenshot": "https://example.com/s.png"
+        }))
+        .unwrap();
+        assert_eq!(status.status, Some(0));
+        assert_eq!(status.reason.as_deref(), Some("ok"));
+
+        let latest: OpenPlatformMiniProgramLatestAuditStatusResponse =
+            serde_json::from_value(json!({
+                "auditid": 124,
+                "status": 0,
+                "ScreenShot": "https://example.com/latest.png",
+                "user_version": "1.0.0",
+                "submit_audit_time": 1800000000
+            }))
+            .unwrap();
+        assert_eq!(latest.auditid, Some(124));
+        assert_eq!(
+            latest.screenshot.as_deref(),
+            Some("https://example.com/latest.png")
+        );
+
+        let rollback: OpenPlatformMiniProgramRollbackReleaseResponse =
+            serde_json::from_value(json!({
+                "version_list": [{ "user_version": "1.0.0", "app_version": 1 }]
+            }))
+            .unwrap();
+        assert_eq!(rollback.version_list[0]["app_version"], 1);
+
+        let gray: OpenPlatformMiniProgramGrayReleasePlanResponse = serde_json::from_value(json!({
+            "gray_release_plan": { "status": 1, "gray_percentage": 10 }
+        }))
+        .unwrap();
+        assert_eq!(gray.gray_release_plan.unwrap()["gray_percentage"], 10);
+
+        let support: OpenPlatformMiniProgramSupportVersionResponse =
+            serde_json::from_value(json!({
+                "now_version": "3.0.0",
+                "uv_info": { "items": [{ "percentage": 90, "version": "3.0.0" }] }
+            }))
+            .unwrap();
+        assert_eq!(support.now_version.as_deref(), Some("3.0.0"));
+
+        let quota: OpenPlatformMiniProgramAuditQuotaResponse = serde_json::from_value(json!({
+            "rest": 10,
+            "limit": 100,
+            "speedup_rest": 1,
+            "speedup_limit": 10
+        }))
+        .unwrap();
+        assert_eq!(quota.rest, Some(10));
+        assert_eq!(quota.speedup_limit, Some(10));
+    }
+
+    #[test]
+    fn serializes_authorizer_mini_program_domain_and_tester_requests() {
+        let domain = serde_json::to_value(OpenPlatformMiniProgramModifyDomainRequest {
+            action: "set".to_string(),
+            requestdomain: vec!["https://api.example.com".to_string()],
+            wsrequestdomain: Vec::new(),
+            uploaddomain: vec!["https://upload.example.com".to_string()],
+            downloaddomain: Vec::new(),
+            udpdomain: Vec::new(),
+            tcpdomain: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(domain["action"], "set");
+        assert_eq!(domain["requestdomain"][0], "https://api.example.com");
+        assert!(domain.get("wsrequestdomain").is_none());
+
+        let domain_response: OpenPlatformMiniProgramModifyDomainResponse =
+            serde_json::from_value(json!({
+                "requestdomain": ["https://api.example.com"],
+                "invalid_requestdomain": ["bad-domain"],
+                "no_icp_domain": ["https://no-icp.example.com"]
+            }))
+            .unwrap();
+        assert_eq!(domain_response.requestdomain[0], "https://api.example.com");
+        assert_eq!(domain_response.invalid_requestdomain[0], "bad-domain");
+
+        let unbind = serde_json::to_value(OpenPlatformMiniProgramTesterUnbindRequest {
+            wechatid: None,
+            userstr: Some("userstr".to_string()),
+        })
+        .unwrap();
+        assert_eq!(unbind["userstr"], "userstr");
+        assert!(unbind.get("wechatid").is_none());
+
+        let bind: OpenPlatformMiniProgramTesterBindResponse =
+            serde_json::from_value(json!({ "userstr": "userstr" })).unwrap();
+        assert_eq!(bind.userstr.as_deref(), Some("userstr"));
+
+        let list: OpenPlatformMiniProgramTesterListResponse = serde_json::from_value(json!({
+            "members": [{ "wechatid": "tester", "userstr": "userstr" }]
+        }))
+        .unwrap();
+        assert_eq!(list.members[0]["wechatid"], "tester");
+    }
+
+    #[test]
+    fn serializes_authorizer_mini_program_privacy_requests() {
+        let privacy = serde_json::to_value(OpenPlatformMiniProgramPrivacySettingRequest {
+            owner_setting: json!({
+                "contact_email": "dev@example.com",
+                "notice_method": "email"
+            }),
+            setting_list: vec![json!({
+                "privacy_key": "UserInfo",
+                "privacy_text": "用户信息"
+            })],
+            privacy_ver: Some(2),
+        })
+        .unwrap();
+        assert_eq!(privacy["owner_setting"]["contact_email"], "dev@example.com");
+        assert_eq!(privacy["setting_list"][0]["privacy_key"], "UserInfo");
+        assert_eq!(privacy["privacy_ver"], 2);
+
+        let response: OpenPlatformMiniProgramPrivacySettingResponse =
+            serde_json::from_value(json!({
+                "owner_setting": { "contact_email": "dev@example.com" },
+                "setting_list": [{ "privacy_key": "UserInfo" }],
+                "privacy_ver": 2
+            }))
+            .unwrap();
+        assert_eq!(
+            response.owner_setting.unwrap()["contact_email"],
+            "dev@example.com"
+        );
+        assert_eq!(response.setting_list[0]["privacy_key"], "UserInfo");
+
+        let upload: OpenPlatformMiniProgramPrivacyExtFileResponse =
+            serde_json::from_value(json!({ "ext_file_media_id": "media" })).unwrap();
+        assert_eq!(upload.ext_file_media_id.as_deref(), Some("media"));
+    }
+
+    #[test]
+    fn builds_open_platform_authorization_urls() {
+        let component_url =
+            OpenPlatform::component_login_page_url(OpenPlatformComponentLoginPageUrlRequest {
+                component_appid: "component".to_string(),
+                pre_auth_code: "preauth".to_string(),
+                redirect_uri: "https://example.com/callback".to_string(),
+                extra_query: vec![("auth_type".to_string(), "3".to_string())],
+            });
+        assert!(component_url.starts_with("https://mp.weixin.qq.com/cgi-bin/componentloginpage?"));
+        assert!(component_url.contains("component_appid=component"));
+        assert!(component_url.contains("pre_auth_code=preauth"));
+        assert!(component_url.contains("auth_type=3"));
+
+        let fast_url = OpenPlatform::official_account_fast_registration_url(
+            OpenPlatformOfficialAccountFastRegistrationUrlRequest {
+                component_appid: "component".to_string(),
+                appid: "wx-authorizer".to_string(),
+                redirect_uri: "https://example.com/fast".to_string(),
+                copy_wx_verify: true,
+            },
+        );
+        assert!(fast_url.starts_with("https://mp.weixin.qq.com/cgi-bin/fastregisterauth?"));
+        assert!(fast_url.contains("copy_wx_verify=true"));
+        assert!(fast_url.contains("appid=wx-authorizer"));
+    }
+
+    #[test]
+    fn serializes_authorizer_account_and_open_account_requests() {
+        let head = serde_json::to_value(OpenPlatformAuthorizerAccountHeadImageRequest {
+            head_img_media_id: "media".to_string(),
+            x1: "0.000000".to_string(),
+            y1: "0.000000".to_string(),
+            x2: "1.000000".to_string(),
+            y2: "1.000000".to_string(),
+        })
+        .unwrap();
+        assert_eq!(head["head_img_media_id"], "media");
+        assert_eq!(head["x2"], "1.000000");
+
+        let basic: OpenPlatformAuthorizerAccountBasicInfoResponse = serde_json::from_value(json!({
+            "appid": "wx-authorizer",
+            "account_type": 1,
+            "principal_name": "principal",
+            "signature_info": { "signature": "hello" },
+            "head_image_info": { "head_image_url": "https://example.com/head.png" }
+        }))
+        .unwrap();
+        assert_eq!(basic.appid.as_deref(), Some("wx-authorizer"));
+        assert_eq!(basic.signature_info.unwrap()["signature"], "hello");
+
+        let open: OpenPlatformOpenAccountResponse =
+            serde_json::from_value(json!({ "open_appid": "open-appid" })).unwrap();
+        assert_eq!(open.open_appid.as_deref(), Some("open-appid"));
+    }
+
+    #[test]
+    fn deserializes_authorizer_session_and_privacy_interface_responses() {
+        let session: OpenPlatformMiniProgramSessionResponse = serde_json::from_value(json!({
+            "openid": "openid",
+            "session_key": "session",
+            "unionid": "union"
+        }))
+        .unwrap();
+        assert_eq!(session.openid.as_deref(), Some("openid"));
+        assert_eq!(session.unionid.as_deref(), Some("union"));
+
+        let interfaces: OpenPlatformMiniProgramPrivacyInterfaceResponse =
+            serde_json::from_value(json!({
+                "interface_list": [{ "api_name": "wx.getUserProfile", "status": 2 }]
+            }))
+            .unwrap();
+        assert_eq!(interfaces.interface_list[0]["status"], 2);
+
+        let apply = serde_json::to_value(OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
+            api_name: "wx.getUserProfile".to_string(),
+            content: "用于完善会员资料".to_string(),
+            url: Some("https://example.com/privacy".to_string()),
+            scene: Some(1),
+        })
+        .unwrap();
+        assert_eq!(apply["api_name"], "wx.getUserProfile");
+        assert_eq!(apply["scene"], 1);
+
+        let applied: OpenPlatformMiniProgramPrivacyInterfaceApplyResponse =
+            serde_json::from_value(json!({ "audit_id": 100 })).unwrap();
+        assert_eq!(applied.audit_id, Some(100));
     }
 
     #[test]
