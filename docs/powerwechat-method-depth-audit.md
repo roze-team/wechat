@@ -130,6 +130,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   list, and webview template DTOs.
 - typed Work message audience and helper wrappers for markdown, image, voice,
   file, video, text-card, news, mpnews, and mini-program notice sends.
+- linked-corp and external-contact school message requests now include typed
+  builder helpers for text/media payloads and recipient targeting, reducing
+  raw JSON construction at call sites while keeping extension fields.
 - external-contact contact-way add/get/list responses and conclusions are now
   typed instead of generic JSON values.
 - external-contact group-chat list/get/transfer responses now expose typed

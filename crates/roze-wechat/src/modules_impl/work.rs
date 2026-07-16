@@ -5216,6 +5216,62 @@ pub struct WorkLinkedCorpMessage {
     pub extra: Value,
 }
 
+impl WorkLinkedCorpMessage {
+    pub fn text(agent_id: i64, content: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, "text");
+        message.text = Some(json!({ "content": content.into() }));
+        message
+    }
+
+    pub fn image(agent_id: i64, media_id: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, "image");
+        message.image = Some(json!({ "media_id": media_id.into() }));
+        message
+    }
+
+    pub fn file(agent_id: i64, media_id: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, "file");
+        message.file = Some(json!({ "media_id": media_id.into() }));
+        message
+    }
+
+    pub fn with_touser(mut self, user_id: impl Into<String>) -> Self {
+        self.touser.push(user_id.into());
+        self
+    }
+
+    pub fn with_toparty(mut self, party_id: impl Into<String>) -> Self {
+        self.toparty.push(party_id.into());
+        self
+    }
+
+    pub fn with_totag(mut self, tag_id: impl Into<String>) -> Self {
+        self.totag.push(tag_id.into());
+        self
+    }
+
+    fn empty(agent_id: i64, msg_type: impl Into<String>) -> Self {
+        Self {
+            touser: Vec::new(),
+            toparty: Vec::new(),
+            totag: Vec::new(),
+            msgtype: msg_type.into(),
+            agentid: agent_id,
+            text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            textcard: None,
+            news: None,
+            mpnews: None,
+            markdown: None,
+            miniprogram_notice: None,
+            extra: Value::Null,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalContactSchoolMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5238,6 +5294,61 @@ pub struct WorkExternalContactSchoolMessage {
     pub miniprogram_notice: Option<Value>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalContactSchoolMessage {
+    pub fn text(agent_id: i64, content: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, "text");
+        message.text = Some(json!({ "content": content.into() }));
+        message
+    }
+
+    pub fn image(agent_id: i64, media_id: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, "image");
+        message.image = Some(json!({ "media_id": media_id.into() }));
+        message
+    }
+
+    pub fn with_recv_scope(mut self, recv_scope: i64) -> Self {
+        self.recv_scope = Some(recv_scope);
+        self
+    }
+
+    pub fn with_external_user(mut self, user_id: impl Into<String>) -> Self {
+        self.to_external_userid.push(user_id.into());
+        self
+    }
+
+    pub fn with_parent_user(mut self, user_id: impl Into<String>) -> Self {
+        self.to_parent_userid.push(user_id.into());
+        self
+    }
+
+    pub fn with_student_user(mut self, user_id: impl Into<String>) -> Self {
+        self.to_student_userid.push(user_id.into());
+        self
+    }
+
+    pub fn with_party(mut self, party_id: impl Into<String>) -> Self {
+        self.to_party.push(party_id.into());
+        self
+    }
+
+    fn empty(agent_id: i64, msg_type: impl Into<String>) -> Self {
+        Self {
+            recv_scope: None,
+            to_external_userid: Vec::new(),
+            to_parent_userid: Vec::new(),
+            to_student_userid: Vec::new(),
+            to_party: Vec::new(),
+            msgtype: msg_type.into(),
+            agentid: agent_id,
+            text: None,
+            image: None,
+            miniprogram_notice: None,
+            extra: Value::Null,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9676,6 +9787,24 @@ mod tests {
         assert_eq!(linked_body["touser"][0], "Corp/user");
         assert_eq!(linked_body["text"]["content"], "hello");
 
+        let linked_text = serde_json::to_value(
+            WorkLinkedCorpMessage::text(100001, "hello")
+                .with_touser("Corp/user")
+                .with_toparty("Corp/party")
+                .with_totag("Corp/tag"),
+        )
+        .unwrap();
+        assert_eq!(linked_text["msgtype"], "text");
+        assert_eq!(linked_text["agentid"], 100001);
+        assert_eq!(linked_text["touser"][0], "Corp/user");
+        assert_eq!(linked_text["text"]["content"], "hello");
+
+        let linked_file =
+            serde_json::to_value(WorkLinkedCorpMessage::file(100001, "file-media")).unwrap();
+        assert_eq!(linked_file["msgtype"], "file");
+        assert_eq!(linked_file["file"]["media_id"], "file-media");
+        assert!(linked_file.get("touser").is_none());
+
         let linked_response: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
             "errcode": 0,
             "invaliduser": ["Corp/bad-user"],
@@ -9704,6 +9833,28 @@ mod tests {
         assert_eq!(school_body["to_parent_userid"][0], "parent");
         assert_eq!(school_body["to_student_userid"][0], "student");
         assert!(school_body.get("to_external_userid").is_none());
+
+        let school_text = serde_json::to_value(
+            WorkExternalContactSchoolMessage::text(100001, "notice")
+                .with_recv_scope(0)
+                .with_parent_user("parent")
+                .with_student_user("student")
+                .with_party("party"),
+        )
+        .unwrap();
+        assert_eq!(school_text["msgtype"], "text");
+        assert_eq!(school_text["recv_scope"], 0);
+        assert_eq!(school_text["text"]["content"], "notice");
+        assert_eq!(school_text["to_parent_userid"][0], "parent");
+
+        let school_image = serde_json::to_value(WorkExternalContactSchoolMessage::image(
+            100001,
+            "image-media",
+        ))
+        .unwrap();
+        assert_eq!(school_image["msgtype"], "image");
+        assert_eq!(school_image["image"]["media_id"], "image-media");
+        assert!(school_image.get("to_parent_userid").is_none());
 
         let school_response: WorkExternalContactSchoolMessageSendResponse =
             serde_json::from_value(json!({
