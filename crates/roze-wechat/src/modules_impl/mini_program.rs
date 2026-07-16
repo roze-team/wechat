@@ -98,6 +98,58 @@ impl MiniProgram {
         self.inner.post("cgi-bin/stable_token", None, request).await
     }
 
+    pub async fn access_token(
+        &self,
+        app_id: impl Into<String>,
+        secret: impl Into<String>,
+    ) -> Result<StableAccessTokenResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/token",
+                None,
+                vec![
+                    ("grant_type".to_string(), "client_credential".to_string()),
+                    ("appid".to_string(), app_id.into()),
+                    ("secret".to_string(), secret.into()),
+                ],
+            )
+            .await
+    }
+
+    pub async fn get_paid_union_id(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramPaidUnionIdRequest,
+    ) -> Result<MiniProgramPaidUnionIdResponse> {
+        let mut query = vec![("openid".to_string(), request.openid)];
+        if let Some(transaction_id) = request.transaction_id {
+            query.push(("transaction_id".to_string(), transaction_id));
+        }
+        if let Some(mch_id) = request.mch_id {
+            query.push(("mch_id".to_string(), mch_id));
+        }
+        if let Some(out_trade_no) = request.out_trade_no {
+            query.push(("out_trade_no".to_string(), out_trade_no));
+        }
+        self.inner
+            .get_with_query("wxa/getpaidunionid", Some(access_token.into()), query)
+            .await
+    }
+
+    pub async fn check_encrypted_data(
+        &self,
+        access_token: impl Into<String>,
+        encrypted_msg_hash: impl Into<String>,
+    ) -> Result<MiniProgramCheckEncryptedDataResponse> {
+        self.inner
+            .post(
+                "wxa/business/checkencryptedmsg",
+                Some(access_token.into()),
+                json!({ "encrypted_msg_hash": encrypted_msg_hash.into() }),
+            )
+            .await
+    }
+
     pub fn customer_service_message(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.customer_service_message")
     }
@@ -110,6 +162,95 @@ impl MiniProgram {
         self.inner
             .post(
                 "cgi-bin/message/custom/send",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_customer_service_temp_media_bytes(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<Bytes> {
+        self.inner
+            .get_bytes(
+                "cgi-bin/media/get",
+                Some(access_token.into()),
+                vec![("media_id".to_string(), media_id.into())],
+            )
+            .await
+    }
+
+    pub async fn upload_customer_service_temp_media_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        media_type: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MiniProgramUploadMediaResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "cgi-bin/media/upload",
+                Some(access_token.into()),
+                vec![("type".to_string(), media_type.into())],
+                form,
+            )
+            .await
+    }
+
+    pub fn uniform_message(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.uniform_message")
+    }
+
+    pub async fn send_uniform_message(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/wxopen/template/uniform_send",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub fn updatable_message(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "mini_program.updatable_message")
+    }
+
+    pub async fn create_updatable_message_activity_id(
+        &self,
+        access_token: impl Into<String>,
+        union_id: impl Into<String>,
+        open_id: impl Into<String>,
+    ) -> Result<MiniProgramActivityIdResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/message/wxopen/activityid/create",
+                Some(access_token.into()),
+                vec![
+                    ("unionid".to_string(), union_id.into()),
+                    ("openid".to_string(), open_id.into()),
+                ],
+            )
+            .await
+    }
+
+    pub async fn send_updatable_message(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/wxopen/updatablemsg/send",
                 Some(access_token.into()),
                 request,
             )
@@ -222,6 +363,20 @@ impl MiniProgram {
             .await
     }
 
+    pub async fn performance_data(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<Value> {
+        self.inner
+            .post(
+                "wxa/business/performance/boot",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn live_broadcast(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "mini_program.live_broadcast")
     }
@@ -285,6 +440,50 @@ impl MiniProgram {
                 "wxaapi/broadcast/room/deleteroom",
                 Some(access_token.into()),
                 json!({ "id": room_id }),
+            )
+            .await
+    }
+
+    pub async fn get_live_goods_warehouse(
+        &self,
+        access_token: impl Into<String>,
+        goods_ids: Vec<i64>,
+    ) -> Result<MiniProgramLiveGoodsWarehouseResponse> {
+        self.inner
+            .post(
+                "wxa/business/getgoodswarehouse",
+                Some(access_token.into()),
+                json!({ "goods_ids": goods_ids }),
+            )
+            .await
+    }
+
+    pub async fn get_live_followers(
+        &self,
+        access_token: impl Into<String>,
+        limit: i64,
+        page_break: i64,
+    ) -> Result<MiniProgramLiveFollowersResponse> {
+        self.inner
+            .post(
+                "wxa/business/get_wxa_followers",
+                Some(access_token.into()),
+                json!({ "limit": limit, "page_break": page_break }),
+            )
+            .await
+    }
+
+    pub async fn push_live_message(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        user_openid: Vec<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxa/business/push_message",
+                Some(access_token.into()),
+                json!({ "room_id": room_id, "user_openid": user_openid }),
             )
             .await
     }
@@ -579,6 +778,26 @@ impl MiniProgram {
     ) -> Result<Value> {
         self.inner
             .post("wxa/media_check_async", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn image_security_check_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WechatStatusResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "wxa/img_sec_check",
+                Some(access_token.into()),
+                Vec::new(),
+                form,
+            )
             .await
     }
 
@@ -2452,6 +2671,65 @@ pub struct Code2SessionResponse {
     pub session_key: Option<String>,
     #[serde(default)]
     pub unionid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramPaidUnionIdRequest {
+    pub openid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transaction_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mch_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub out_trade_no: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramPaidUnionIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramCheckEncryptedDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub vaild: Option<bool>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramUploadMediaResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "type")]
+    pub media_type: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramActivityIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub activity_id: Option<String>,
+    #[serde(default)]
+    pub expiration_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4676,6 +4954,28 @@ pub struct LiveInfoRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsWarehouseResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub goods: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveFollowersResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub followers: Vec<Value>,
+    #[serde(default)]
+    pub page_break: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UrlSchemeGenerateRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump_wxa: Option<JumpWxa>,
@@ -4900,6 +5200,15 @@ mod tests {
         assert_eq!(value["touser"], "openid");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+
+        let upload: MiniProgramUploadMediaResponse = serde_json::from_value(json!({
+            "type": "image",
+            "media_id": "media",
+            "created_at": 1800000000
+        }))
+        .unwrap();
+        assert_eq!(upload.media_type.as_deref(), Some("image"));
+        assert_eq!(upload.media_id.as_deref(), Some("media"));
     }
 
     #[test]
@@ -4914,6 +5223,15 @@ mod tests {
             value,
             json!({ "begin_date": "20260704", "end_date": "20260704" })
         );
+
+        let performance = json!({
+            "cost_time_type": 1,
+            "default_start_time": 1,
+            "default_end_time": 2,
+            "device": 1,
+            "networktype": 1
+        });
+        assert_eq!(performance["cost_time_type"], 1);
     }
 
     #[test]
@@ -6399,6 +6717,35 @@ mod tests {
         assert_eq!(response.openid.as_deref(), Some("openid"));
         assert_eq!(response.session_key.as_deref(), Some("session-key"));
         assert_eq!(response.unionid.as_deref(), Some("unionid"));
+
+        let paid = serde_json::to_value(MiniProgramPaidUnionIdRequest {
+            openid: "openid".to_string(),
+            transaction_id: Some("transaction".to_string()),
+            mch_id: None,
+            out_trade_no: None,
+        })
+        .unwrap();
+        assert_eq!(paid["openid"], "openid");
+        assert_eq!(paid["transaction_id"], "transaction");
+        assert!(paid.get("mch_id").is_none());
+
+        let paid_response: MiniProgramPaidUnionIdResponse =
+            serde_json::from_value(json!({ "unionid": "unionid" })).unwrap();
+        assert_eq!(paid_response.unionid.as_deref(), Some("unionid"));
+
+        let encrypted: MiniProgramCheckEncryptedDataResponse = serde_json::from_value(json!({
+            "vaild": true,
+            "create_time": 1800000000
+        }))
+        .unwrap();
+        assert_eq!(encrypted.vaild, Some(true));
+
+        let activity: MiniProgramActivityIdResponse = serde_json::from_value(json!({
+            "activity_id": "activity",
+            "expiration_time": 1800000000
+        }))
+        .unwrap();
+        assert_eq!(activity.activity_id.as_deref(), Some("activity"));
     }
 
     #[test]
@@ -6579,5 +6926,19 @@ mod tests {
         .unwrap();
 
         assert_eq!(value, json!({ "start": 0, "limit": 20 }));
+
+        let goods: MiniProgramLiveGoodsWarehouseResponse = serde_json::from_value(json!({
+            "goods": [{ "goodsId": 100, "name": "item" }]
+        }))
+        .unwrap();
+        assert_eq!(goods.goods[0]["goodsId"], 100);
+
+        let followers: MiniProgramLiveFollowersResponse = serde_json::from_value(json!({
+            "followers": [{ "openid": "openid" }],
+            "page_break": 10
+        }))
+        .unwrap();
+        assert_eq!(followers.followers[0]["openid"], "openid");
+        assert_eq!(followers.page_break.unwrap(), 10);
     }
 }

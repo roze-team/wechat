@@ -17,7 +17,7 @@ but these areas should be expanded for stricter production parity.
 | Work | 363 | 274 | high |
 | Payment | 165 | 93 | high |
 | Open Platform | 76 | 61 | medium |
-| Mini Program | 214 | 165 | medium |
+| Mini Program | 214 | 178 | medium |
 | Official Account | 283 | 222 | medium |
 | Open Work | 57 | 36 | medium |
 | Basic Service | 33 | 16 | low |
@@ -46,8 +46,10 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    privacy, domain, tester, material, and aggregate account flows.
 
 4. Mini Program depth:
-   expand `liveBroadcast`, `industry/miniDrama/vod`, `express`,
-   `immediateDelivery`, `b2b`, `dataCube`, `operation`, and `wxa`.
+   exact endpoint coverage is now green after filtering scanner-only
+   documentation paths. Continue DTO normalization across `liveBroadcast`,
+   `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
+   `dataCube`, `operation`, and `wxa`.
 
 5. Official Account depth:
    submodules are now covered, but `broadcasting`, `customerService`, `material`,
@@ -68,7 +70,7 @@ uses Rust `format!` placeholders.
 | Family | PowerWeChat endpoints found | Exact endpoints not found in Roze | Highest-impact update areas |
 | --- | ---: | ---: | --- |
 | Work | 261 | 0 | exact endpoint scan green; continue method/DTO depth review |
-| Mini Program | 151 | 41 | live broadcast goods/roles/room operations, uniform/updatable messages, business/security paths |
+| Mini Program | 151 | 0 | exact endpoint scan green after filtering documentation-path false positives; continue method/DTO depth review |
 | Open Platform | 48 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Official Account | 200 | 22 | user tags, customer-service sessions/message records, card update/list, base callback/quota |
 | Basic Service | 12 | 7 | subscribe message template management |
@@ -123,6 +125,19 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
   account create/bind/unbind/get, fast-registration URL, component login URL,
   and fast-register reuse wrappers.
 
+Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
+
+- base access-token, paid-union-id, and encrypted-data check wrappers;
+- customer-service temporary media download/upload wrappers;
+- uniform-message and updatable-message domain helpers and send/create wrappers;
+- data-cube performance data wrapper;
+- live-business goods warehouse, follower list, and push-message wrappers;
+- image security multipart upload wrapper.
+
+The raw Mini Program endpoint scanner still reports 23 entries, but they are
+documentation or path-template noise such as `*.html`, `express/response`, and
+`wxa/sec/order/request` rather than callable PowerWeChat endpoints.
+
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.
 The approximate payment scan found 69 payment paths and 37 paths that still
@@ -153,8 +168,9 @@ Recommended implementation order:
    touch money movement and need stronger typed DTOs plus signing tests.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
-3. Mini Program `liveBroadcast` depth, especially goods, room assistant,
-   sub-anchor, role, replay/comment/KF toggles, and follower/message helpers.
+3. Mini Program DTO/method-depth review for `liveBroadcast`,
+   `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
+   `dataCube`, `operation`, and `wxa`.
 4. Official Account `user/tag` and `customerService` depth.
 5. Open Work `license`, `suitAuth`, and server/component authorizer depth.
 
