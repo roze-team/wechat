@@ -129,6 +129,20 @@ impl BasicService {
             .await
     }
 
+    pub async fn get_jssdk_media(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<bytes::Bytes> {
+        self.inner
+            .get_bytes(
+                "cgi-bin/media/get/jssdk",
+                Some(access_token.into()),
+                vec![("media_id".to_string(), media_id.into())],
+            )
+            .await
+    }
+
     pub fn qr_code(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "basic_service.qr_code")
     }
@@ -210,6 +224,106 @@ impl BasicService {
                 Some(access_token.into()),
                 request,
             )
+            .await
+    }
+
+    pub async fn send_mini_program_subscribe_message(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramSubscribeMessageRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/subscribe/send",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_subscribe_template(
+        &self,
+        access_token: impl Into<String>,
+        tid: impl Into<String>,
+        kid_list: Vec<i64>,
+        scene_desc: impl Into<String>,
+    ) -> Result<SubscribeTemplateAddResponse> {
+        self.inner
+            .post(
+                "wxaapi/newtmpl/addtemplate",
+                Some(access_token.into()),
+                json!({
+                    "tid": tid.into(),
+                    "kidList": kid_list,
+                    "sceneDesc": scene_desc.into(),
+                }),
+            )
+            .await
+    }
+
+    pub async fn delete_subscribe_template(
+        &self,
+        access_token: impl Into<String>,
+        pri_tmpl_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "wxaapi/newtmpl/deltemplate",
+                Some(access_token.into()),
+                json!({ "priTmplId": pri_tmpl_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn subscribe_template_categories(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<SubscribeTemplateCategoryResponse> {
+        self.inner
+            .get("wxaapi/newtmpl/getcategory", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn subscribe_template_keywords(
+        &self,
+        access_token: impl Into<String>,
+        tid: impl Into<String>,
+    ) -> Result<SubscribeTemplateKeywordResponse> {
+        self.inner
+            .get_with_query(
+                "wxaapi/newtmpl/getpubtemplatekeywords",
+                Some(access_token.into()),
+                vec![("tid".to_string(), tid.into())],
+            )
+            .await
+    }
+
+    pub async fn subscribe_template_titles(
+        &self,
+        access_token: impl Into<String>,
+        ids: impl Into<String>,
+        start: i64,
+        limit: i64,
+    ) -> Result<SubscribeTemplateTitleResponse> {
+        self.inner
+            .get_with_query(
+                "wxaapi/newtmpl/getpubtemplatetitles",
+                Some(access_token.into()),
+                vec![
+                    ("ids".to_string(), ids.into()),
+                    ("start".to_string(), start.to_string()),
+                    ("limit".to_string(), limit.to_string()),
+                ],
+            )
+            .await
+    }
+
+    pub async fn subscribe_templates(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<SubscribeTemplateListResponse> {
+        self.inner
+            .get("wxaapi/newtmpl/gettemplate", Some(access_token.into()))
             .await
     }
 
@@ -412,6 +526,71 @@ pub struct SubscribeMessageRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramSubscribeMessageRequest {
+    pub touser: String,
+    pub template_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeTemplateAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "priTmplId")]
+    pub pri_tmpl_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeTemplateCategoryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeTemplateKeywordResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeTemplateTitleResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeTemplateListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortKeyGenerateRequest {
     pub long_data: String,
     pub expire_seconds: i64,
@@ -460,9 +639,12 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        BasicService, MediaCheckAsyncRequest, MsgSecCheckRequest, QrActionInfo,
-        QrCodeCreateRequest, ShortKeyFetchRequest, ShortKeyFetchResponse, ShortKeyGenerateRequest,
-        ShortKeyGenerateResponse, SubscribeMessageRequest, TempMediaResponse,
+        BasicService, MediaCheckAsyncRequest, MiniProgramSubscribeMessageRequest,
+        MsgSecCheckRequest, QrActionInfo, QrCodeCreateRequest, ShortKeyFetchRequest,
+        ShortKeyFetchResponse, ShortKeyGenerateRequest, ShortKeyGenerateResponse,
+        SubscribeMessageRequest, SubscribeTemplateAddResponse, SubscribeTemplateCategoryResponse,
+        SubscribeTemplateKeywordResponse, SubscribeTemplateListResponse,
+        SubscribeTemplateTitleResponse, TempMediaResponse,
     };
 
     #[test]
@@ -514,6 +696,57 @@ mod tests {
         assert_eq!(value["touser"], "openid");
         assert_eq!(value["data"]["thing1"]["value"], "hello");
         assert!(value.get("miniprogram").is_none());
+    }
+
+    #[test]
+    fn serializes_mini_program_subscribe_message_request() {
+        let value = serde_json::to_value(MiniProgramSubscribeMessageRequest {
+            touser: "openid".to_string(),
+            template_id: "tpl".to_string(),
+            page: Some("pages/index".to_string()),
+            miniprogram_state: Some("trial".to_string()),
+            lang: Some("zh_CN".to_string()),
+            data: json!({ "thing1": { "value": "hello" } }),
+        })
+        .unwrap();
+
+        assert_eq!(value["touser"], "openid");
+        assert_eq!(value["page"], "pages/index");
+        assert_eq!(value["miniprogram_state"], "trial");
+        assert_eq!(value["data"]["thing1"]["value"], "hello");
+    }
+
+    #[test]
+    fn deserializes_subscribe_template_responses() {
+        let add: SubscribeTemplateAddResponse =
+            serde_json::from_value(json!({ "priTmplId": "private-template" })).unwrap();
+        assert_eq!(add.pri_tmpl_id.as_deref(), Some("private-template"));
+
+        let categories: SubscribeTemplateCategoryResponse = serde_json::from_value(json!({
+            "data": [{ "id": 1, "name": "commerce" }]
+        }))
+        .unwrap();
+        assert_eq!(categories.data[0]["name"], "commerce");
+
+        let keywords: SubscribeTemplateKeywordResponse = serde_json::from_value(json!({
+            "data": [{ "kid": 1, "name": "thing1" }]
+        }))
+        .unwrap();
+        assert_eq!(keywords.data[0]["kid"], 1);
+
+        let titles: SubscribeTemplateTitleResponse = serde_json::from_value(json!({
+            "count": 1,
+            "data": [{ "tid": "tid", "title": "notify" }]
+        }))
+        .unwrap();
+        assert_eq!(titles.count, Some(1));
+        assert_eq!(titles.data[0]["title"], "notify");
+
+        let templates: SubscribeTemplateListResponse = serde_json::from_value(json!({
+            "data": [{ "priTmplId": "private-template", "title": "notify" }]
+        }))
+        .unwrap();
+        assert_eq!(templates.data[0]["priTmplId"], "private-template");
     }
 
     #[test]

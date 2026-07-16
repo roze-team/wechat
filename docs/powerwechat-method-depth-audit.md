@@ -20,7 +20,7 @@ but these areas should be expanded for stricter production parity.
 | Mini Program | 214 | 178 | medium |
 | Official Account | 283 | 244 | medium |
 | Open Work | 57 | 43 | medium |
-| Basic Service | 33 | 16 | low |
+| Basic Service | 33 | 24 | low |
 | Channels | 6 | 4 | low |
 
 Counts are directional because Roze sometimes merges several PowerWeChat helper
@@ -74,7 +74,7 @@ uses Rust `format!` placeholders.
 | Mini Program | 151 | 0 | exact endpoint scan green after filtering documentation-path false positives; continue method/DTO depth review |
 | Open Platform | 48 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Official Account | 201 | 0 | exact endpoint scan green; continue method/DTO depth review |
-| Basic Service | 12 | 7 | subscribe message template management |
+| Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
 
@@ -193,6 +193,14 @@ Implemented on 2026-07-10 in Roze WeChat payment depth:
 - typed refund detail responses, partner out-refund query, and transfer bill
   receipt/electronic receipt apply/query wrappers.
 
+Implemented on 2026-07-16 in Roze WeChat Basic Service exact endpoint depth:
+
+- JSSDK media bytes download wrapper;
+- mini-program subscribe-message send wrapper;
+- subscribe template add/delete, category, keyword, title, and personal-template
+  list wrappers;
+- typed subscribe-template add/category/keyword/title/list responses.
+
 ## Concrete Next Batch
 
 Recommended implementation order:
@@ -204,8 +212,8 @@ Recommended implementation order:
 3. Mini Program DTO/method-depth review for `liveBroadcast`,
    `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
    `dataCube`, `operation`, and `wxa`.
-4. Basic Service subscribe-message template management exact endpoint review.
-5. Payment remaining statement/download DTO normalization and helper variants.
+4. Payment remaining statement/download DTO normalization and helper variants.
+5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
 ## Documentation Update Needed
 
