@@ -283,7 +283,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
-    ) -> Result<Value> {
+    ) -> Result<DataCubeVisitTrendResponse> {
         self.inner
             .post(
                 "datacube/getweanalysisappiddailyvisittrend",
@@ -297,7 +297,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
-    ) -> Result<Value> {
+    ) -> Result<DataCubeVisitTrendResponse> {
         self.inner
             .post(
                 "datacube/getweanalysisappidweeklyvisittrend",
@@ -311,7 +311,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
-    ) -> Result<Value> {
+    ) -> Result<DataCubeVisitTrendResponse> {
         self.inner
             .post(
                 "datacube/getweanalysisappidmonthlyvisittrend",
@@ -325,7 +325,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
-    ) -> Result<Value> {
+    ) -> Result<DataCubeRetainInfoResponse> {
         self.inner
             .post(
                 "datacube/getweanalysisappiddailyretaininfo",
@@ -339,7 +339,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
-    ) -> Result<Value> {
+    ) -> Result<DataCubeVisitPageResponse> {
         self.inner
             .post(
                 "datacube/getweanalysisappidvisitpage",
@@ -353,7 +353,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
-    ) -> Result<Value> {
+    ) -> Result<DataCubeUserPortraitResponse> {
         self.inner
             .post(
                 "datacube/getweanalysisappiduserportrait",
@@ -367,7 +367,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: Value,
-    ) -> Result<Value> {
+    ) -> Result<DataCubePerformanceDataResponse> {
         self.inner
             .post(
                 "wxa/business/performance/boot",
@@ -765,7 +765,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: SecurityMsgSecCheckRequest,
-    ) -> Result<Value> {
+    ) -> Result<SecurityMsgSecCheckResponse> {
         self.inner
             .post("wxa/msg_sec_check", Some(access_token.into()), request)
             .await
@@ -775,7 +775,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: SecurityMediaCheckAsyncRequest,
-    ) -> Result<Value> {
+    ) -> Result<SecurityMediaCheckAsyncResponse> {
         self.inner
             .post("wxa/media_check_async", Some(access_token.into()), request)
             .await
@@ -2962,6 +2962,114 @@ pub struct DataCubeDateRange {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitTrendResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<DataCubeVisitTrendItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitTrendItem {
+    #[serde(default)]
+    pub ref_date: Option<String>,
+    #[serde(default)]
+    pub session_cnt: Option<i64>,
+    #[serde(default)]
+    pub visit_pv: Option<i64>,
+    #[serde(default)]
+    pub visit_uv: Option<i64>,
+    #[serde(default)]
+    pub visit_uv_new: Option<i64>,
+    #[serde(default)]
+    pub stay_time_uv: Option<f64>,
+    #[serde(default)]
+    pub stay_time_session: Option<f64>,
+    #[serde(default)]
+    pub visit_depth: Option<f64>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeRetainInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub visit_uv_new: Vec<DataCubeRetainInfoItem>,
+    #[serde(default)]
+    pub visit_uv: Vec<DataCubeRetainInfoItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeRetainInfoItem {
+    #[serde(default)]
+    pub key: Option<i64>,
+    #[serde(default)]
+    pub value: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitPageResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<DataCubeVisitPageItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitPageItem {
+    #[serde(default)]
+    pub page_path: Option<String>,
+    #[serde(default)]
+    pub page_visit_pv: Option<i64>,
+    #[serde(default)]
+    pub page_visit_uv: Option<i64>,
+    #[serde(default)]
+    pub page_staytime_pv: Option<f64>,
+    #[serde(default)]
+    pub entrypage_pv: Option<i64>,
+    #[serde(default)]
+    pub exitpage_pv: Option<i64>,
+    #[serde(default)]
+    pub page_share_pv: Option<i64>,
+    #[serde(default)]
+    pub page_share_uv: Option<i64>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeUserPortraitResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub visit_uv_new: Option<Value>,
+    #[serde(default)]
+    pub visit_uv: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubePerformanceDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Value>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityMsgSecCheckRequest {
     pub content: String,
     #[serde(default = "default_security_scene")]
@@ -2986,6 +3094,54 @@ pub struct SecurityMediaCheckAsyncRequest {
     pub version: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityMsgSecCheckResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub result: Option<SecurityCheckResult>,
+    #[serde(default)]
+    pub detail: Vec<SecurityCheckDetail>,
+    #[serde(default)]
+    pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityMediaCheckAsyncResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityCheckResult {
+    #[serde(default)]
+    pub suggest: Option<String>,
+    #[serde(default)]
+    pub label: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityCheckDetail {
+    #[serde(default)]
+    pub strategy: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub suggest: Option<String>,
+    #[serde(default)]
+    pub label: Option<i64>,
+    #[serde(default)]
+    pub prob: Option<f64>,
+    #[serde(default)]
+    pub keyword: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5648,6 +5804,70 @@ mod tests {
             "networktype": 1
         });
         assert_eq!(performance["cost_time_type"], 1);
+
+        let trend: DataCubeVisitTrendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "list": [{
+                "ref_date": "20260704",
+                "session_cnt": 10,
+                "visit_pv": 20,
+                "visit_uv": 5,
+                "visit_uv_new": 2,
+                "stay_time_uv": 3.5,
+                "stay_time_session": 2.5,
+                "visit_depth": 1.5,
+                "extra_field": "kept"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(trend.list[0].ref_date.as_deref(), Some("20260704"));
+        assert_eq!(trend.list[0].visit_pv, Some(20));
+        assert_eq!(trend.list[0].extra["extra_field"], "kept");
+
+        let retain: DataCubeRetainInfoResponse = serde_json::from_value(json!({
+            "visit_uv_new": [{ "key": 0, "value": 10 }],
+            "visit_uv": [{ "key": 1, "value": 8 }]
+        }))
+        .unwrap();
+        assert_eq!(retain.visit_uv_new[0].value, Some(10));
+        assert_eq!(retain.visit_uv[0].key, Some(1));
+
+        let page: DataCubeVisitPageResponse = serde_json::from_value(json!({
+            "list": [{
+                "page_path": "pages/index",
+                "page_visit_pv": 20,
+                "page_visit_uv": 5,
+                "page_staytime_pv": 1.5,
+                "entrypage_pv": 3,
+                "exitpage_pv": 2,
+                "page_share_pv": 1,
+                "page_share_uv": 1,
+                "extra_field": "kept"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(page.list[0].page_path.as_deref(), Some("pages/index"));
+        assert_eq!(page.list[0].page_share_pv, Some(1));
+        assert_eq!(page.list[0].extra["extra_field"], "kept");
+
+        let portrait: DataCubeUserPortraitResponse = serde_json::from_value(json!({
+            "visit_uv_new": { "province": [{ "id": 1, "name": "Beijing", "value": 10 }] },
+            "visit_uv": { "city": [{ "id": 1, "name": "Beijing", "value": 8 }] }
+        }))
+        .unwrap();
+        assert_eq!(
+            portrait.visit_uv_new.unwrap()["province"][0]["name"],
+            "Beijing"
+        );
+
+        let performance_response: DataCubePerformanceDataResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": [{ "cost_time": 100, "count": 2 }],
+            "extra_field": "kept"
+        }))
+        .unwrap();
+        assert_eq!(performance_response.data[0]["cost_time"], 100);
+        assert_eq!(performance_response.extra["extra_field"], "kept");
     }
 
     #[test]
@@ -5663,6 +5883,28 @@ mod tests {
         assert_eq!(value["scene"], 1);
         assert_eq!(value["version"], 2);
         assert_eq!(value["openid"], "openid");
+
+        let msg: SecurityMsgSecCheckResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "result": { "suggest": "pass", "label": 100 },
+            "detail": [{
+                "strategy": "content_model",
+                "errcode": 0,
+                "suggest": "pass",
+                "label": 100,
+                "prob": 0.9,
+                "keyword": "hello"
+            }],
+            "trace_id": "trace"
+        }))
+        .unwrap();
+        assert_eq!(msg.result.unwrap().suggest.as_deref(), Some("pass"));
+        assert_eq!(msg.detail[0].label, Some(100));
+        assert_eq!(msg.trace_id.as_deref(), Some("trace"));
+
+        let media: SecurityMediaCheckAsyncResponse =
+            serde_json::from_value(json!({ "errcode": 0, "trace_id": "trace" })).unwrap();
+        assert_eq!(media.trace_id.as_deref(), Some("trace"));
     }
 
     #[test]

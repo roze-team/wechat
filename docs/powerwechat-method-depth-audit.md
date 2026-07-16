@@ -196,6 +196,8 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   real-time-log responses now expose typed operation DTOs.
 - wxa sec-order detail/list responses now expose typed order, amount, shipping,
   and shipping-item DTOs.
+- dataCube visit-trend, retain, visit-page, user-portrait, performance, and
+  security check responses now expose typed Mini Program DTOs.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and
