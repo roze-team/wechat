@@ -4685,7 +4685,19 @@ pub struct WorkExternalPayMerchantResponse {
     #[serde(default)]
     pub merchant_name: Option<String>,
     #[serde(default)]
-    pub allow_use_scope: Vec<Value>,
+    pub allow_use_scope: Vec<WorkExternalPayUseScope>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayUseScope {
+    #[serde(default, rename = "type")]
+    pub scope_type: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub partyid: Option<i64>,
+    #[serde(default)]
+    pub tagid: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4697,7 +4709,35 @@ pub struct WorkExternalPayBillListResponse {
     #[serde(default)]
     pub next_cursor: Option<String>,
     #[serde(default)]
-    pub bill_list: Vec<Value>,
+    pub bill_list: Vec<WorkExternalPayBill>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayBill {
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub mch_id: Option<String>,
+    #[serde(default)]
+    pub merchant_name: Option<String>,
+    #[serde(default)]
+    pub payee_userid: Option<String>,
+    #[serde(default)]
+    pub payer_userid: Option<String>,
+    #[serde(default)]
+    pub amount: Option<i64>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub trade_state: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub pay_time: Option<i64>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9588,15 +9628,28 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(merchant.mch_id.as_deref(), Some("1900000109"));
-        assert_eq!(merchant.allow_use_scope[0]["type"], "all");
+        assert_eq!(
+            merchant.allow_use_scope[0].scope_type.as_deref(),
+            Some("all")
+        );
 
         let bills: WorkExternalPayBillListResponse = serde_json::from_value(json!({
             "next_cursor": "cursor",
-            "bill_list": [{ "out_trade_no": "trade-no", "amount": 100 }]
+            "bill_list": [{
+                "out_trade_no": "trade-no",
+                "transaction_id": "transaction",
+                "payee_userid": "payee",
+                "payer_userid": "payer",
+                "amount": 100,
+                "status": "success",
+                "pay_time": 1_800_000_000
+            }]
         }))
         .unwrap();
         assert_eq!(bills.next_cursor.as_deref(), Some("cursor"));
-        assert_eq!(bills.bill_list[0]["out_trade_no"], "trade-no");
+        assert_eq!(bills.bill_list[0].out_trade_no.as_deref(), Some("trade-no"));
+        assert_eq!(bills.bill_list[0].amount, Some(100));
+        assert_eq!(bills.bill_list[0].payee_userid.as_deref(), Some("payee"));
     }
 
     #[test]
