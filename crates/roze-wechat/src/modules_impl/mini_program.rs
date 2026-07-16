@@ -2579,7 +2579,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: CreateQrCodeRequest,
-    ) -> Result<Value> {
+    ) -> Result<WxaCodeResponse> {
         self.inner
             .post(
                 "cgi-bin/wxaapp/createwxaqrcode",
@@ -2607,7 +2607,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: GetWxaCodeRequest,
-    ) -> Result<Value> {
+    ) -> Result<WxaCodeResponse> {
         self.inner
             .post("wxa/getwxacode", Some(access_token.into()), request)
             .await
@@ -2631,7 +2631,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: GetUnlimitedWxaCodeRequest,
-    ) -> Result<Value> {
+    ) -> Result<WxaCodeResponse> {
         self.inner
             .post("wxa/getwxacodeunlimit", Some(access_token.into()), request)
             .await
@@ -5662,6 +5662,24 @@ pub struct GetUnlimitedWxaCodeRequest {
     pub is_hyaline: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WxaCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ticket: Option<String>,
+    #[serde(default)]
+    pub expire_seconds: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub buffer: Option<String>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
 fn default_wxa_code_width() -> i64 {
     430
 }
@@ -5744,6 +5762,20 @@ mod tests {
         .unwrap();
 
         assert_eq!(value, json!({ "path": "pages/index", "width": 430 }));
+
+        let response: WxaCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "ticket": "ticket",
+            "expire_seconds": 1800,
+            "url": "https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=ticket",
+            "buffer": "base64",
+            "extra_field": "kept"
+        }))
+        .unwrap();
+        assert_eq!(response.ticket.as_deref(), Some("ticket"));
+        assert_eq!(response.expire_seconds, Some(1800));
+        assert_eq!(response.buffer.as_deref(), Some("base64"));
+        assert_eq!(response.extra["extra_field"], "kept");
     }
 
     #[test]
