@@ -233,7 +233,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         user_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkUserDetailResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/user/get",
@@ -296,7 +296,7 @@ impl Work {
         access_token: impl Into<String>,
         department_id: i64,
         fetch_child: bool,
-    ) -> Result<Value> {
+    ) -> Result<WorkDepartmentUserSimpleListResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/user/simplelist",
@@ -317,7 +317,7 @@ impl Work {
         access_token: impl Into<String>,
         department_id: i64,
         fetch_child: bool,
-    ) -> Result<Value> {
+    ) -> Result<WorkDepartmentUserDetailListResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/user/list",
@@ -4922,6 +4922,142 @@ pub struct WorkDepartmentUserId {
     pub userid: Option<String>,
     #[serde(default)]
     pub department: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(flatten)]
+    pub user: WorkUserDetail,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentUserSimpleListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userlist: Vec<WorkDepartmentSimpleUser>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentSimpleUser {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub department: Vec<i64>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentUserDetailListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userlist: Vec<WorkUserDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkUserDetail {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub department: Vec<i64>,
+    #[serde(default)]
+    pub order: Vec<i64>,
+    #[serde(default)]
+    pub position: Option<String>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub biz_mail: Option<String>,
+    #[serde(default)]
+    pub is_leader_in_dept: Vec<i64>,
+    #[serde(default)]
+    pub direct_leader: Vec<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub thumb_avatar: Option<String>,
+    #[serde(default)]
+    pub telephone: Option<String>,
+    #[serde(default)]
+    pub alias: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+    #[serde(default)]
+    pub main_department: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub qr_code: Option<String>,
+    #[serde(default)]
+    pub external_position: Option<String>,
+    #[serde(default)]
+    pub external_profile: Option<WorkUserExternalProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExternalProfile {
+    #[serde(default)]
+    pub external_corp_name: Option<String>,
+    #[serde(default)]
+    pub external_attr: Vec<WorkUserExternalAttribute>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExternalAttribute {
+    #[serde(default, rename = "type")]
+    pub attr_type: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub text: Option<WorkUserExternalAttributeText>,
+    #[serde(default)]
+    pub web: Option<WorkUserExternalAttributeWeb>,
+    #[serde(default)]
+    pub miniprogram: Option<WorkUserExternalAttributeMiniProgram>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExternalAttributeText {
+    #[serde(default)]
+    pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExternalAttributeWeb {
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExternalAttributeMiniProgram {
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10192,6 +10328,85 @@ mod tests {
         let lookup: WorkUserIdLookupResponse =
             serde_json::from_value(json!({ "userid": "user" })).unwrap();
         assert_eq!(lookup.userid.as_deref(), Some("user"));
+
+        let user: WorkUserDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "userid": "user",
+            "name": "User",
+            "department": [1],
+            "order": [10],
+            "position": "Engineer",
+            "mobile": "13800000000",
+            "gender": "1",
+            "email": "user@example.com",
+            "biz_mail": "user@corp.example",
+            "is_leader_in_dept": [1],
+            "direct_leader": ["leader"],
+            "avatar": "https://example.com/avatar.png",
+            "thumb_avatar": "https://example.com/thumb.png",
+            "telephone": "010",
+            "alias": "alias",
+            "address": "addr",
+            "open_userid": "open-user",
+            "main_department": 1,
+            "status": 1,
+            "qr_code": "https://example.com/qr",
+            "external_position": "External",
+            "external_profile": {
+                "external_corp_name": "Roze",
+                "external_attr": [{
+                    "type": 0,
+                    "name": "Website",
+                    "web": { "url": "https://example.com", "title": "Home" }
+                }]
+            }
+        }))
+        .unwrap();
+        assert_eq!(user.errcode, Some(0));
+        assert_eq!(user.user.userid.as_deref(), Some("user"));
+        assert_eq!(user.user.department[0], 1);
+        assert_eq!(
+            user.user.external_profile.as_ref().unwrap().external_attr[0]
+                .web
+                .as_ref()
+                .unwrap()
+                .url
+                .as_deref(),
+            Some("https://example.com")
+        );
+
+        let simple_list: WorkDepartmentUserSimpleListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "userlist": [{
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "open_userid": "open-user"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(simple_list.userlist[0].userid.as_deref(), Some("user"));
+        assert_eq!(simple_list.userlist[0].department[0], 1);
+        assert_eq!(
+            simple_list.userlist[0].open_userid.as_deref(),
+            Some("open-user")
+        );
+
+        let detail_list: WorkDepartmentUserDetailListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "userlist": [{
+                "userid": "user",
+                "name": "User",
+                "mobile": "13800000000",
+                "department": [1]
+            }]
+        }))
+        .unwrap();
+        assert_eq!(detail_list.userlist[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            detail_list.userlist[0].mobile.as_deref(),
+            Some("13800000000")
+        );
 
         let invite = serde_json::to_value(WorkUserInviteRequest {
             user: vec!["user".to_string()],

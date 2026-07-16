@@ -140,6 +140,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   list records.
 - linked-corp user/department responses and user batch/export job results now
   expose typed user, department, import-result, and export-data DTOs.
+- Work user get/simple-list/detail-list responses now expose typed user,
+  department, and external-profile DTOs.
 - invoice info/batch responses and account-service tag detail/list responses
   now expose typed invoice user-info, line-item, invoice batch-item, tag-user,
   and tag DTOs.
