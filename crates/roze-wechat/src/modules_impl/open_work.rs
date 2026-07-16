@@ -5,6 +5,7 @@ use crate::{
     config::Platform,
     error::Result,
     modules::{DomainModule, PlatformClient},
+    types::CallbackMessage,
     Client,
 };
 
@@ -697,6 +698,12 @@ impl OpenWork {
         DomainModule::new(self.inner.clone(), "open_work.server")
     }
 
+    pub fn parse_server_event_xml(xml: &str) -> Result<OpenWorkServerEvent> {
+        Ok(OpenWorkServerEvent::from_callback_message(
+            CallbackMessage::parse_xml(xml)?,
+        ))
+    }
+
     async fn post_component_json<R>(
         &self,
         component_access_token: impl Into<String>,
@@ -788,6 +795,86 @@ pub struct OpenWorkComponentAuthorizerOptionResponse {
     pub option_name: Option<String>,
     #[serde(default)]
     pub option_value: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum OpenWorkServerEvent {
+    SuiteTicket {
+        suite_id: Option<String>,
+        suite_ticket: Option<String>,
+        create_time: Option<i64>,
+    },
+    CreateAuth {
+        suite_id: Option<String>,
+        auth_code: Option<String>,
+        create_time: Option<i64>,
+    },
+    ChangeAuth {
+        suite_id: Option<String>,
+        auth_corp_id: Option<String>,
+        create_time: Option<i64>,
+    },
+    CancelAuth {
+        suite_id: Option<String>,
+        auth_corp_id: Option<String>,
+        create_time: Option<i64>,
+    },
+    ResetPermanentCode {
+        suite_id: Option<String>,
+        auth_corp_id: Option<String>,
+        create_time: Option<i64>,
+    },
+    Unknown {
+        info_type: Option<String>,
+        message: Box<CallbackMessage>,
+    },
+}
+
+impl OpenWorkServerEvent {
+    pub fn from_callback_message(message: CallbackMessage) -> Self {
+        match message.info_type.as_deref() {
+            Some("suite_ticket") => Self::SuiteTicket {
+                suite_id: message.suite_id.clone(),
+                suite_ticket: message.suite_ticket.clone(),
+                create_time: message.create_time,
+            },
+            Some("create_auth") => Self::CreateAuth {
+                suite_id: message.suite_id.clone(),
+                auth_code: message.authorization_code.clone(),
+                create_time: message.create_time,
+            },
+            Some("change_auth") => Self::ChangeAuth {
+                suite_id: message.suite_id.clone(),
+                auth_corp_id: message.auth_corp_id.clone(),
+                create_time: message.create_time,
+            },
+            Some("cancel_auth") => Self::CancelAuth {
+                suite_id: message.suite_id.clone(),
+                auth_corp_id: message.auth_corp_id.clone(),
+                create_time: message.create_time,
+            },
+            Some("reset_permanent_code") => Self::ResetPermanentCode {
+                suite_id: message.suite_id.clone(),
+                auth_corp_id: message.auth_corp_id.clone(),
+                create_time: message.create_time,
+            },
+            _ => Self::Unknown {
+                info_type: message.info_type.clone(),
+                message: Box::new(message),
+            },
+        }
+    }
+
+    pub fn info_type(&self) -> Option<&str> {
+        match self {
+            Self::SuiteTicket { .. } => Some("suite_ticket"),
+            Self::CreateAuth { .. } => Some("create_auth"),
+            Self::ChangeAuth { .. } => Some("change_auth"),
+            Self::CancelAuth { .. } => Some("cancel_auth"),
+            Self::ResetPermanentCode { .. } => Some("reset_permanent_code"),
+            Self::Unknown { info_type, .. } => info_type.as_deref(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1398,6 +1485,69 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn parses_open_work_server_events() {
+        let suite_ticket = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[suite_ticket]]></InfoType>
+                <CreateTime>1800000000</CreateTime>
+                <SuiteTicket><![CDATA[ticket]]></SuiteTicket>
+            </xml>"#,
+        )
+        .unwrap();
+        match suite_ticket {
+            OpenWorkServerEvent::SuiteTicket {
+                suite_id,
+                suite_ticket,
+                create_time,
+            } => {
+                assert_eq!(suite_id.as_deref(), Some("suite-id"));
+                assert_eq!(suite_ticket.as_deref(), Some("ticket"));
+                assert_eq!(create_time, Some(1_800_000_000));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let create_auth = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[create_auth]]></InfoType>
+                <CreateTime>1800000001</CreateTime>
+                <AuthorizationCode><![CDATA[auth-code]]></AuthorizationCode>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(create_auth.info_type(), Some("create_auth"));
+        match create_auth {
+            OpenWorkServerEvent::CreateAuth {
+                suite_id,
+                auth_code,
+                create_time,
+            } => {
+                assert_eq!(suite_id.as_deref(), Some("suite-id"));
+                assert_eq!(auth_code.as_deref(), Some("auth-code"));
+                assert_eq!(create_time, Some(1_800_000_001));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let unknown = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[new_event]]></InfoType>
+            </xml>"#,
+        )
+        .unwrap();
+        match unknown {
+            OpenWorkServerEvent::Unknown { info_type, message } => {
+                assert_eq!(info_type.as_deref(), Some("new_event"));
+                assert_eq!(message.suite_id.as_deref(), Some("suite-id"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
 
     #[test]
     fn serializes_provider_token_request() {

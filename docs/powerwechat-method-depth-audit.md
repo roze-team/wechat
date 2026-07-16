@@ -254,6 +254,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
   auth-agent, auth-user, register-code, and dealer-corp DTOs.
 - license renew-order job invalid accounts, order list/detail, and trial-info
   responses now expose typed Open Work DTOs instead of generic JSON values.
+- server callback XML can now be parsed into typed Open Work suite-ticket,
+  create/change/cancel-auth, and reset-permanent-code events with an unknown
+  fallback for future WeCom event types.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.
