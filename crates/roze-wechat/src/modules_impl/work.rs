@@ -6564,7 +6564,17 @@ pub struct WorkAccountServiceAccountListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub account_list: Vec<Value>,
+    pub account_list: Vec<WorkAccountServiceAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceAccount {
+    #[serde(default)]
+    pub open_kfid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6590,9 +6600,35 @@ pub struct WorkAccountServiceCustomerBatchGetResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub customer_list: Vec<Value>,
+    pub customer_list: Vec<WorkAccountServiceCustomer>,
     #[serde(default)]
     pub invalid_external_userid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceCustomer {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub gender: Option<i64>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+    #[serde(default)]
+    pub enter_session_context: Option<WorkAccountServiceEnterSessionContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceEnterSessionContext {
+    #[serde(default)]
+    pub scene: Option<String>,
+    #[serde(default)]
+    pub scene_param: Option<String>,
+    #[serde(default)]
+    pub wechat_channels: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6639,7 +6675,45 @@ pub struct WorkAccountServiceSyncMsgResponse {
     #[serde(default)]
     pub has_more: Option<i64>,
     #[serde(default)]
-    pub msg_list: Vec<Value>,
+    pub msg_list: Vec<WorkAccountServiceMessage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceMessage {
+    #[serde(default)]
+    pub msgid: Option<String>,
+    #[serde(default)]
+    pub open_kfid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub send_time: Option<i64>,
+    #[serde(default)]
+    pub origin: Option<i64>,
+    #[serde(default)]
+    pub msgtype: Option<String>,
+    #[serde(default)]
+    pub text: Option<Value>,
+    #[serde(default)]
+    pub image: Option<Value>,
+    #[serde(default)]
+    pub voice: Option<Value>,
+    #[serde(default)]
+    pub video: Option<Value>,
+    #[serde(default)]
+    pub file: Option<Value>,
+    #[serde(default)]
+    pub location: Option<Value>,
+    #[serde(default)]
+    pub link: Option<Value>,
+    #[serde(default)]
+    pub business_card: Option<Value>,
+    #[serde(default)]
+    pub miniprogram: Option<Value>,
+    #[serde(default)]
+    pub msgmenu: Option<Value>,
+    #[serde(default)]
+    pub event: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6700,7 +6774,17 @@ pub struct WorkAccountServiceServicerResultResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub result_list: Vec<Value>,
+    pub result_list: Vec<WorkAccountServiceServicerResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceServicerResult {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6710,7 +6794,15 @@ pub struct WorkAccountServiceServicerListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub servicer_list: Vec<Value>,
+    pub servicer_list: Vec<WorkAccountServiceServicer>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceServicer {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10185,21 +10277,47 @@ mod tests {
         assert_eq!(account_add.open_kfid.as_deref(), Some("kf"));
 
         let accounts: WorkAccountServiceAccountListResponse = serde_json::from_value(json!({
-            "account_list": [{ "open_kfid": "kf", "name": "Support" }]
+            "account_list": [{ "open_kfid": "kf", "name": "Support", "avatar": "https://example.com/a.png" }]
         }))
         .unwrap();
-        assert_eq!(accounts.account_list[0]["name"], "Support");
+        assert_eq!(accounts.account_list[0].open_kfid.as_deref(), Some("kf"));
+        assert_eq!(accounts.account_list[0].name.as_deref(), Some("Support"));
+        assert_eq!(
+            accounts.account_list[0].avatar.as_deref(),
+            Some("https://example.com/a.png")
+        );
 
         let contact_way: WorkAccountServiceAddContactWayResponse =
             serde_json::from_value(json!({ "url": "https://example.com/kf" })).unwrap();
         assert_eq!(contact_way.url.as_deref(), Some("https://example.com/kf"));
 
         let customers: WorkAccountServiceCustomerBatchGetResponse = serde_json::from_value(json!({
-            "customer_list": [{ "external_userid": "external" }],
+            "customer_list": [{
+                "external_userid": "external",
+                "nickname": "Customer",
+                "gender": 1,
+                "enter_session_context": { "scene": "scene", "scene_param": "param" }
+            }],
             "invalid_external_userid": ["bad"]
         }))
         .unwrap();
-        assert_eq!(customers.customer_list[0]["external_userid"], "external");
+        assert_eq!(
+            customers.customer_list[0].external_userid.as_deref(),
+            Some("external")
+        );
+        assert_eq!(
+            customers.customer_list[0].nickname.as_deref(),
+            Some("Customer")
+        );
+        assert_eq!(
+            customers.customer_list[0]
+                .enter_session_context
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_deref(),
+            Some("scene")
+        );
 
         let config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
             serde_json::from_value(json!({
@@ -10212,11 +10330,22 @@ mod tests {
         let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
             "next_cursor": "next",
             "has_more": 1,
-            "msg_list": [{ "msgid": "msg" }]
+            "msg_list": [{
+                "msgid": "msg",
+                "open_kfid": "kf",
+                "external_userid": "external",
+                "send_time": 100,
+                "origin": 3,
+                "msgtype": "text",
+                "text": { "content": "hello" }
+            }]
         }))
         .unwrap();
         assert_eq!(sync.next_cursor.as_deref(), Some("next"));
-        assert_eq!(sync.msg_list[0]["msgid"], "msg");
+        assert_eq!(sync.msg_list[0].msgid.as_deref(), Some("msg"));
+        assert_eq!(sync.msg_list[0].open_kfid.as_deref(), Some("kf"));
+        assert_eq!(sync.msg_list[0].msgtype.as_deref(), Some("text"));
+        assert_eq!(sync.msg_list[0].text.as_ref().unwrap()["content"], "hello");
 
         let send: WorkAccountServiceSendMsgResponse =
             serde_json::from_value(json!({ "msgid": "msg" })).unwrap();
@@ -10227,13 +10356,21 @@ mod tests {
                 "result_list": [{ "userid": "servicer", "errcode": 0 }]
             }))
             .unwrap();
-        assert_eq!(servicer_result.result_list[0]["userid"], "servicer");
+        assert_eq!(
+            servicer_result.result_list[0].userid.as_deref(),
+            Some("servicer")
+        );
+        assert_eq!(servicer_result.result_list[0].errcode, Some(0));
 
         let servicers: WorkAccountServiceServicerListResponse = serde_json::from_value(json!({
-            "servicer_list": [{ "userid": "servicer" }]
+            "servicer_list": [{ "userid": "servicer", "status": 1 }]
         }))
         .unwrap();
-        assert_eq!(servicers.servicer_list[0]["userid"], "servicer");
+        assert_eq!(
+            servicers.servicer_list[0].userid.as_deref(),
+            Some("servicer")
+        );
+        assert_eq!(servicers.servicer_list[0].status, Some(1));
 
         let state: WorkAccountServiceStateGetResponse = serde_json::from_value(json!({
             "service_state": 2,
