@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, to_value, Value};
 
 use crate::{
     config::Platform,
@@ -2236,6 +2236,161 @@ impl Work {
             },
         )
         .await
+    }
+
+    pub async fn send_markdown_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        content: impl Into<String>,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            "markdown",
+            "markdown",
+            json!({ "content": content.into() }),
+        )
+        .await
+    }
+
+    pub async fn send_image_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        media_id: impl Into<String>,
+    ) -> Result<MessageSendResponse> {
+        self.send_media_message(access_token, audience, "image", media_id)
+            .await
+    }
+
+    pub async fn send_voice_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        media_id: impl Into<String>,
+    ) -> Result<MessageSendResponse> {
+        self.send_media_message(access_token, audience, "voice", media_id)
+            .await
+    }
+
+    pub async fn send_file_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        media_id: impl Into<String>,
+    ) -> Result<MessageSendResponse> {
+        self.send_media_message(access_token, audience, "file", media_id)
+            .await
+    }
+
+    pub async fn send_video_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        video: WorkVideoMessage,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(access_token, audience, "video", "video", to_value(video)?)
+            .await
+    }
+
+    pub async fn send_text_card_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        text_card: WorkTextCardMessage,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            "textcard",
+            "textcard",
+            to_value(text_card)?,
+        )
+        .await
+    }
+
+    pub async fn send_news_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        articles: Vec<WorkNewsArticle>,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            "news",
+            "news",
+            json!({ "articles": articles }),
+        )
+        .await
+    }
+
+    pub async fn send_mpnews_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        articles: Vec<WorkMpNewsArticle>,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            "mpnews",
+            "mpnews",
+            json!({ "articles": articles }),
+        )
+        .await
+    }
+
+    pub async fn send_mini_program_notice_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        notice: WorkMiniProgramNoticeMessage,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            "miniprogram_notice",
+            "miniprogram_notice",
+            to_value(notice)?,
+        )
+        .await
+    }
+
+    async fn send_media_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        msg_type: &str,
+        media_id: impl Into<String>,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            msg_type,
+            msg_type,
+            json!({ "media_id": media_id.into() }),
+        )
+        .await
+    }
+
+    async fn send_message_payload(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        msg_type: &str,
+        payload_key: &str,
+        payload: Value,
+    ) -> Result<MessageSendResponse> {
+        let mut body = to_value(audience)?;
+        if let Some(object) = body.as_object_mut() {
+            object.insert("msgtype".to_string(), Value::String(msg_type.to_string()));
+            object.insert(payload_key.to_string(), payload);
+        }
+        self.inner
+            .post("cgi-bin/message/send", Some(access_token.into()), body)
+            .await
     }
 
     pub async fn recall_message(
@@ -4557,6 +4712,96 @@ pub struct WorkMessage {
     pub duplicate_check_interval: Option<i64>,
     #[serde(flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMessageAudience {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub touser: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toparty: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub totag: Option<String>,
+    pub agentid: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safe: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_id_trans: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_duplicate_check: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_check_interval: Option<i64>,
+}
+
+impl WorkMessageAudience {
+    pub fn to_user(agent_id: i64, user: impl Into<String>) -> Self {
+        Self {
+            touser: Some(user.into()),
+            toparty: None,
+            totag: None,
+            agentid: agent_id,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVideoMessage {
+    pub media_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTextCardMessage {
+    pub title: String,
+    pub description: String,
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub btntxt: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkNewsArticle {
+    pub title: String,
+    pub description: String,
+    pub url: String,
+    pub picurl: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMpNewsArticle {
+    pub title: String,
+    pub thumb_media_id: String,
+    pub author: String,
+    pub content_source_url: String,
+    pub content: String,
+    pub digest: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMiniProgramNoticeMessage {
+    pub appid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<String>,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub emphasis_first_item: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content_item: Vec<WorkMiniProgramNoticeItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMiniProgramNoticeItem {
+    pub key: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7025,6 +7270,68 @@ mod tests {
         assert_eq!(value["touser"], "user");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+    }
+
+    #[test]
+    fn serializes_typed_work_message_payloads() {
+        let audience = serde_json::to_value(WorkMessageAudience::to_user(100001, "user")).unwrap();
+        assert_eq!(audience["touser"], "user");
+        assert_eq!(audience["agentid"], 100001);
+        assert_eq!(audience["safe"], 0);
+
+        let video = serde_json::to_value(WorkVideoMessage {
+            media_id: "media".to_string(),
+            title: Some("title".to_string()),
+            description: Some("desc".to_string()),
+        })
+        .unwrap();
+        assert_eq!(video["media_id"], "media");
+        assert_eq!(video["description"], "desc");
+
+        let text_card = serde_json::to_value(WorkTextCardMessage {
+            title: "title".to_string(),
+            description: "desc".to_string(),
+            url: "https://example.com".to_string(),
+            btntxt: Some("open".to_string()),
+        })
+        .unwrap();
+        assert_eq!(text_card["btntxt"], "open");
+
+        let news = serde_json::to_value(WorkNewsArticle {
+            title: "title".to_string(),
+            description: "desc".to_string(),
+            url: "https://example.com".to_string(),
+            picurl: "https://example.com/a.png".to_string(),
+        })
+        .unwrap();
+        assert_eq!(news["picurl"], "https://example.com/a.png");
+
+        let mpnews = serde_json::to_value(WorkMpNewsArticle {
+            title: "title".to_string(),
+            thumb_media_id: "thumb".to_string(),
+            author: "author".to_string(),
+            content_source_url: "https://example.com/source".to_string(),
+            content: "content".to_string(),
+            digest: "digest".to_string(),
+        })
+        .unwrap();
+        assert_eq!(mpnews["thumb_media_id"], "thumb");
+
+        let notice = serde_json::to_value(WorkMiniProgramNoticeMessage {
+            appid: "wx-app".to_string(),
+            page: Some("pages/index".to_string()),
+            title: "notice".to_string(),
+            description: Some("desc".to_string()),
+            emphasis_first_item: Some(true),
+            content_item: vec![WorkMiniProgramNoticeItem {
+                key: "time".to_string(),
+                value: "10:00".to_string(),
+            }],
+        })
+        .unwrap();
+        assert_eq!(notice["appid"], "wx-app");
+        assert_eq!(notice["content_item"][0]["key"], "time");
+        assert_eq!(notice["emphasis_first_item"], true);
     }
 
     #[test]

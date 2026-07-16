@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 274 | high |
+| Work | 363 | 283 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -114,6 +114,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   template-card update wrapper, msg-audit agree/robot-info wrappers, tag user
   removal wrapper, group robot send/upload wrappers, and Work access-token
   wrapper.
+- typed Work message audience and helper wrappers for markdown, image, voice,
+  file, video, text-card, news, mpnews, and mini-program notice sends.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 
