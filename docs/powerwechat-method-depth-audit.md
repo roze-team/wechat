@@ -255,6 +255,8 @@ Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 - user openid migration wrapper;
 - user tag create/list/update/delete, user-tag IDs, users-of-tag, batch tag,
   and batch untag wrappers with typed tag/list responses.
+- card get/code responses now expose typed card, card-type detail, base-info,
+  date-info, SKU, and code-card DTOs instead of generic JSON values.
 
 Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
 

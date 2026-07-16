@@ -5137,13 +5137,149 @@ pub struct CardIdRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardDateInfo {
+    #[serde(default)]
+    pub date_type: Option<String>,
+    #[serde(default)]
+    pub begin_timestamp: Option<i64>,
+    #[serde(default)]
+    pub end_timestamp: Option<i64>,
+    #[serde(default)]
+    pub fixed_term: Option<i64>,
+    #[serde(default)]
+    pub fixed_begin_term: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardSku {
+    #[serde(default)]
+    pub quantity: Option<i64>,
+    #[serde(default)]
+    pub total_quantity: Option<i64>,
+    #[serde(default)]
+    pub use_custom_code: Option<bool>,
+    #[serde(default)]
+    pub bind_openid: Option<bool>,
+    #[serde(default)]
+    pub can_share: Option<bool>,
+    #[serde(default)]
+    pub can_give_friend: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardBaseInfo {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub logo_url: Option<String>,
+    #[serde(default)]
+    pub code_type: Option<String>,
+    #[serde(default)]
+    pub brand_name: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub sub_title: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub notice: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub date_info: Option<CardDateInfo>,
+    #[serde(default)]
+    pub sku: Option<CardSku>,
+    #[serde(default)]
+    pub get_limit: Option<i64>,
+    #[serde(default)]
+    pub use_limit: Option<i64>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardTypeDetail {
+    #[serde(default)]
+    pub base_info: Option<CardBaseInfo>,
+    #[serde(default)]
+    pub advanced_info: Option<Value>,
+    #[serde(default)]
+    pub deal_detail: Option<String>,
+    #[serde(default)]
+    pub least_cost: Option<i64>,
+    #[serde(default)]
+    pub reduce_cost: Option<i64>,
+    #[serde(default)]
+    pub discount: Option<i64>,
+    #[serde(default)]
+    pub gift: Option<String>,
+    #[serde(default)]
+    pub default_detail: Option<String>,
+    #[serde(default)]
+    pub supply_bonus: Option<bool>,
+    #[serde(default)]
+    pub supply_balance: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardInfo {
+    #[serde(default)]
+    pub card_type: Option<String>,
+    #[serde(default)]
+    pub groupon: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub cash: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub discount: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub gift: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub general_coupon: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub member_card: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub scenic_ticket: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub movie_ticket: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub boarding_pass: Option<CardTypeDetail>,
+    #[serde(default)]
+    pub meeting_ticket: Option<CardTypeDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardCodeCardInfo {
+    #[serde(default)]
+    pub card_id: Option<String>,
+    #[serde(default)]
+    pub begin_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardGetResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub card: Option<Value>,
+    pub card: Option<CardInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5161,7 +5297,7 @@ pub struct CardCodeResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub card: Option<Value>,
+    pub card: Option<CardCodeCardInfo>,
     #[serde(default)]
     pub openid: Option<String>,
     #[serde(default)]
@@ -6042,6 +6178,47 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_card_get_response() {
+        let response: CardGetResponse = serde_json::from_value(json!({
+            "card": {
+                "card_type": "GROUPON",
+                "groupon": {
+                    "base_info": {
+                        "id": "card",
+                        "brand_name": "brand",
+                        "title": "title",
+                        "date_info": {
+                            "date_type": "DATE_TYPE_FIX_TIME_RANGE",
+                            "begin_timestamp": 1800000000,
+                            "end_timestamp": 1800100000
+                        },
+                        "sku": { "quantity": 100 }
+                    },
+                    "deal_detail": "deal",
+                    "custom_field": "kept"
+                }
+            }
+        }))
+        .unwrap();
+
+        let card = response.card.expect("card");
+        assert_eq!(card.card_type.as_deref(), Some("GROUPON"));
+        let groupon = card.groupon.expect("groupon");
+        assert_eq!(groupon.deal_detail.as_deref(), Some("deal"));
+        assert_eq!(groupon.extra["custom_field"], "kept");
+        let base = groupon.base_info.expect("base_info");
+        assert_eq!(base.id.as_deref(), Some("card"));
+        assert_eq!(base.brand_name.as_deref(), Some("brand"));
+        assert_eq!(
+            base.date_info
+                .as_ref()
+                .and_then(|info| info.begin_timestamp),
+            Some(1800000000)
+        );
+        assert_eq!(base.sku.as_ref().and_then(|sku| sku.quantity), Some(100));
+    }
+
+    #[test]
     fn serializes_template_subscribe_and_user_tag_requests() {
         let subscribe = serde_json::to_value(TemplateSubscribeMessageRequest {
             touser: "openid".to_string(),
@@ -6548,7 +6725,10 @@ mod tests {
         assert_eq!(response.openid.as_deref(), Some("openid"));
         assert_eq!(response.can_consume, Some(true));
         assert_eq!(response.user_card_status.as_deref(), Some("NORMAL"));
-        assert_eq!(response.card.expect("card")["card_id"], "card");
+        assert_eq!(
+            response.card.expect("card").card_id.as_deref(),
+            Some("card")
+        );
     }
 
     #[test]
