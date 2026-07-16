@@ -7093,27 +7093,127 @@ pub struct WorkAccountServiceMessage {
     #[serde(default)]
     pub msgtype: Option<String>,
     #[serde(default)]
-    pub text: Option<Value>,
+    pub text: Option<WorkAccountServiceTextMessage>,
     #[serde(default)]
-    pub image: Option<Value>,
+    pub image: Option<WorkAccountServiceMediaMessage>,
     #[serde(default)]
-    pub voice: Option<Value>,
+    pub voice: Option<WorkAccountServiceMediaMessage>,
     #[serde(default)]
-    pub video: Option<Value>,
+    pub video: Option<WorkAccountServiceVideoMessage>,
     #[serde(default)]
-    pub file: Option<Value>,
+    pub file: Option<WorkAccountServiceMediaMessage>,
     #[serde(default)]
-    pub location: Option<Value>,
+    pub location: Option<WorkAccountServiceLocationMessage>,
     #[serde(default)]
-    pub link: Option<Value>,
+    pub link: Option<WorkAccountServiceLinkMessage>,
     #[serde(default)]
-    pub business_card: Option<Value>,
+    pub business_card: Option<WorkAccountServiceBusinessCardMessage>,
     #[serde(default)]
-    pub miniprogram: Option<Value>,
+    pub miniprogram: Option<WorkAccountServiceMiniProgramMessage>,
     #[serde(default)]
-    pub msgmenu: Option<Value>,
+    pub msgmenu: Option<WorkAccountServiceMenuMessage>,
     #[serde(default)]
-    pub event: Option<Value>,
+    pub event: Option<WorkAccountServiceEventMessage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTextMessage {
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceMediaMessage {
+    #[serde(default)]
+    pub media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceVideoMessage {
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub thumb_media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceLocationMessage {
+    #[serde(default)]
+    pub latitude: Option<f64>,
+    #[serde(default)]
+    pub longitude: Option<f64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceLinkMessage {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub desc: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub thumb_media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceBusinessCardMessage {
+    #[serde(default)]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceMiniProgramMessage {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+    #[serde(default)]
+    pub thumb_media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceMenuMessage {
+    #[serde(default)]
+    pub head_content: Option<String>,
+    #[serde(default)]
+    pub list: Vec<WorkAccountServiceMenuItem>,
+    #[serde(default)]
+    pub tail_content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceMenuItem {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceEventMessage {
+    #[serde(default)]
+    pub event_type: Option<String>,
+    #[serde(default)]
+    pub open_kfid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub scene: Option<String>,
+    #[serde(default)]
+    pub scene_param: Option<String>,
+    #[serde(default)]
+    pub welcome_code: Option<String>,
+    #[serde(default)]
+    pub menu_id: Option<String>,
+    #[serde(default)]
+    pub msgid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11498,22 +11598,96 @@ mod tests {
         let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
             "next_cursor": "next",
             "has_more": 1,
-            "msg_list": [{
-                "msgid": "msg",
-                "open_kfid": "kf",
-                "external_userid": "external",
-                "send_time": 100,
-                "origin": 3,
-                "msgtype": "text",
-                "text": { "content": "hello" }
-            }]
+            "msg_list": [
+                {
+                    "msgid": "msg",
+                    "open_kfid": "kf",
+                    "external_userid": "external",
+                    "send_time": 100,
+                    "origin": 3,
+                    "msgtype": "text",
+                    "text": { "content": "hello" }
+                },
+                {
+                    "msgid": "image-msg",
+                    "msgtype": "image",
+                    "image": { "media_id": "image-media" }
+                },
+                {
+                    "msgid": "link-msg",
+                    "msgtype": "link",
+                    "link": {
+                        "title": "Docs",
+                        "desc": "Read",
+                        "url": "https://example.com",
+                        "thumb_media_id": "thumb"
+                    }
+                },
+                {
+                    "msgid": "menu-msg",
+                    "msgtype": "msgmenu",
+                    "msgmenu": {
+                        "head_content": "choose",
+                        "list": [{ "id": "m1", "content": "Option" }],
+                        "tail_content": "tail"
+                    }
+                },
+                {
+                    "msgid": "event-msg",
+                    "msgtype": "event",
+                    "event": {
+                        "event_type": "enter_session",
+                        "open_kfid": "kf",
+                        "external_userid": "external",
+                        "scene": "scene",
+                        "scene_param": "param",
+                        "welcome_code": "welcome"
+                    }
+                }
+            ]
         }))
         .unwrap();
         assert_eq!(sync.next_cursor.as_deref(), Some("next"));
         assert_eq!(sync.msg_list[0].msgid.as_deref(), Some("msg"));
         assert_eq!(sync.msg_list[0].open_kfid.as_deref(), Some("kf"));
         assert_eq!(sync.msg_list[0].msgtype.as_deref(), Some("text"));
-        assert_eq!(sync.msg_list[0].text.as_ref().unwrap()["content"], "hello");
+        assert_eq!(
+            sync.msg_list[0]
+                .text
+                .as_ref()
+                .expect("text")
+                .content
+                .as_deref(),
+            Some("hello")
+        );
+        assert_eq!(
+            sync.msg_list[1]
+                .image
+                .as_ref()
+                .expect("image")
+                .media_id
+                .as_deref(),
+            Some("image-media")
+        );
+        assert_eq!(
+            sync.msg_list[2].link.as_ref().expect("link").url.as_deref(),
+            Some("https://example.com")
+        );
+        assert_eq!(
+            sync.msg_list[3].msgmenu.as_ref().expect("msgmenu").list[0]
+                .content
+                .as_deref(),
+            Some("Option")
+        );
+        assert_eq!(
+            sync.msg_list[4]
+                .event
+                .as_ref()
+                .expect("event")
+                .welcome_code
+                .as_deref(),
+            Some("welcome")
+        );
 
         let send: WorkAccountServiceSendMsgResponse =
             serde_json::from_value(json!({ "msgid": "msg" })).unwrap();

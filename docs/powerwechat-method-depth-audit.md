@@ -110,6 +110,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   wrappers, and opengid-to-chatid wrapper.
 - external-contact list/detail/follow-user/batch-detail responses now expose
   typed contact, profile, follow-info, and tag DTOs.
+- account-service sync-message responses now expose typed text/media/link/menu
+  and event message-body DTOs.
 - agent scope/workbench wrappers, auth exact-path user info/detail wrappers,
   department get/simple-list wrappers, external-contact new-id and union-id
   conversion wrappers, moment-strategy list/range/create/edit/delete wrappers,
