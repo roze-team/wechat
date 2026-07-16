@@ -137,7 +137,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - linked-corp user/department responses and user batch/export job results now
   expose typed user, department, import-result, and export-data DTOs.
 - invoice info/batch responses and account-service tag detail/list responses
-  now expose typed invoice user-info, invoice batch-item, tag-user, and tag DTOs.
+  now expose typed invoice user-info, line-item, invoice batch-item, tag-user,
+  and tag DTOs.
 - external-pay merchant and bill-list responses now expose typed use-scope and
   bill DTOs.
 - corp-group app-share responses now expose typed shared-corp records.

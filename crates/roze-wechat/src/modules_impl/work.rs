@@ -4635,7 +4635,25 @@ pub struct WorkInvoiceUserInfo {
     #[serde(default)]
     pub check_code: Option<String>,
     #[serde(default)]
-    pub info: Vec<Value>,
+    pub info: Vec<WorkInvoiceLineItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceLineItem {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub num: Option<String>,
+    #[serde(default)]
+    pub unit: Option<String>,
+    #[serde(default)]
+    pub fee: Option<i64>,
+    #[serde(default)]
+    pub price: Option<String>,
+    #[serde(default)]
+    pub tax_rate: Option<String>,
+    #[serde(default)]
+    pub tax_amount: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10048,7 +10066,16 @@ mod tests {
                 "fee": 100,
                 "title": "Roze",
                 "billing_no": "NO100",
-                "tax_no": "TAX100"
+                "tax_no": "TAX100",
+                "info": [{
+                    "name": "Cloud service",
+                    "num": "1",
+                    "unit": "month",
+                    "fee": 100,
+                    "price": "100.00",
+                    "tax_rate": "0.06",
+                    "tax_amount": 6
+                }]
             }
         }))
         .unwrap();
@@ -10058,13 +10085,19 @@ mod tests {
         assert_eq!(user_info.fee, Some(100));
         assert_eq!(user_info.title.as_deref(), Some("Roze"));
         assert_eq!(user_info.billing_no.as_deref(), Some("NO100"));
+        assert_eq!(user_info.info[0].name.as_deref(), Some("Cloud service"));
+        assert_eq!(user_info.info[0].tax_amount, Some(6));
 
         let batch: WorkInvoiceInfoBatchResponse = serde_json::from_value(json!({
             "item_list": [{
                 "card_id": "card",
                 "encrypt_code": "encrypted",
                 "reimburse_status": "INVOICE_REIMBURSE_INIT",
-                "user_info": { "fee": 100, "title": "Roze" }
+                "user_info": {
+                    "fee": 100,
+                    "title": "Roze",
+                    "info": [{ "name": "Cloud service", "fee": 100 }]
+                }
             }]
         }))
         .unwrap();
@@ -10081,6 +10114,12 @@ mod tests {
                 .title
                 .as_deref(),
             Some("Roze")
+        );
+        assert_eq!(
+            batch.item_list[0].user_info.as_ref().unwrap().info[0]
+                .name
+                .as_deref(),
+            Some("Cloud service")
         );
     }
 
