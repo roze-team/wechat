@@ -5238,25 +5238,25 @@ pub struct WorkLinkedCorpMessage {
     pub msgtype: String,
     pub agentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<WorkTextMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<Value>,
+    pub image: Option<WorkMediaMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub voice: Option<Value>,
+    pub voice: Option<WorkMediaMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub video: Option<Value>,
+    pub video: Option<WorkVideoMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub file: Option<Value>,
+    pub file: Option<WorkMediaMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub textcard: Option<Value>,
+    pub textcard: Option<WorkTextCardMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub news: Option<Value>,
+    pub news: Option<WorkNewsMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mpnews: Option<Value>,
+    pub mpnews: Option<WorkMpNewsMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub markdown: Option<Value>,
+    pub markdown: Option<WorkMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub miniprogram_notice: Option<Value>,
+    pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -5264,19 +5264,25 @@ pub struct WorkLinkedCorpMessage {
 impl WorkLinkedCorpMessage {
     pub fn text(agent_id: i64, content: impl Into<String>) -> Self {
         let mut message = Self::empty(agent_id, "text");
-        message.text = Some(json!({ "content": content.into() }));
+        message.text = Some(WorkTextMessage {
+            content: content.into(),
+        });
         message
     }
 
     pub fn image(agent_id: i64, media_id: impl Into<String>) -> Self {
         let mut message = Self::empty(agent_id, "image");
-        message.image = Some(json!({ "media_id": media_id.into() }));
+        message.image = Some(WorkMediaMessage {
+            media_id: media_id.into(),
+        });
         message
     }
 
     pub fn file(agent_id: i64, media_id: impl Into<String>) -> Self {
         let mut message = Self::empty(agent_id, "file");
-        message.file = Some(json!({ "media_id": media_id.into() }));
+        message.file = Some(WorkMediaMessage {
+            media_id: media_id.into(),
+        });
         message
     }
 
@@ -5332,11 +5338,11 @@ pub struct WorkExternalContactSchoolMessage {
     pub msgtype: String,
     pub agentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<WorkTextMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<Value>,
+    pub image: Option<WorkMediaMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub miniprogram_notice: Option<Value>,
+    pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -5344,13 +5350,17 @@ pub struct WorkExternalContactSchoolMessage {
 impl WorkExternalContactSchoolMessage {
     pub fn text(agent_id: i64, content: impl Into<String>) -> Self {
         let mut message = Self::empty(agent_id, "text");
-        message.text = Some(json!({ "content": content.into() }));
+        message.text = Some(WorkTextMessage {
+            content: content.into(),
+        });
         message
     }
 
     pub fn image(agent_id: i64, media_id: impl Into<String>) -> Self {
         let mut message = Self::empty(agent_id, "image");
-        message.image = Some(json!({ "media_id": media_id.into() }));
+        message.image = Some(WorkMediaMessage {
+            media_id: media_id.into(),
+        });
         message
     }
 
@@ -10144,7 +10154,9 @@ mod tests {
             totag: vec!["Corp/tag".to_string()],
             msgtype: "text".to_string(),
             agentid: 100001,
-            text: Some(json!({ "content": "hello" })),
+            text: Some(WorkTextMessage {
+                content: "hello".to_string(),
+            }),
             image: None,
             voice: None,
             video: None,
@@ -10178,6 +10190,38 @@ mod tests {
         assert_eq!(linked_file["file"]["media_id"], "file-media");
         assert!(linked_file.get("touser").is_none());
 
+        let mut linked_rich = WorkLinkedCorpMessage::empty(100001, "video");
+        linked_rich.video = Some(WorkVideoMessage {
+            media_id: "video-media".to_string(),
+            title: Some("title".to_string()),
+            description: Some("desc".to_string()),
+        });
+        linked_rich.news = Some(WorkNewsMessage {
+            articles: vec![WorkNewsArticle {
+                title: "news".to_string(),
+                description: "desc".to_string(),
+                url: "https://example.com".to_string(),
+                picurl: "https://example.com/a.png".to_string(),
+            }],
+        });
+        linked_rich.mpnews = Some(WorkMpNewsMessage {
+            articles: vec![WorkMpNewsArticle {
+                title: "mpnews".to_string(),
+                thumb_media_id: "thumb".to_string(),
+                author: "author".to_string(),
+                content_source_url: "https://example.com/source".to_string(),
+                content: "content".to_string(),
+                digest: "digest".to_string(),
+            }],
+        });
+        let linked_rich = serde_json::to_value(linked_rich).unwrap();
+        assert_eq!(linked_rich["video"]["title"], "title");
+        assert_eq!(linked_rich["news"]["articles"][0]["title"], "news");
+        assert_eq!(
+            linked_rich["mpnews"]["articles"][0]["thumb_media_id"],
+            "thumb"
+        );
+
         let linked_response: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
             "errcode": 0,
             "invaliduser": ["Corp/bad-user"],
@@ -10197,7 +10241,9 @@ mod tests {
             to_party: vec!["party".to_string()],
             msgtype: "text".to_string(),
             agentid: 100001,
-            text: Some(json!({ "content": "notice" })),
+            text: Some(WorkTextMessage {
+                content: "notice".to_string(),
+            }),
             image: None,
             miniprogram_notice: None,
             extra: Value::Null,
@@ -10228,6 +10274,26 @@ mod tests {
         assert_eq!(school_image["msgtype"], "image");
         assert_eq!(school_image["image"]["media_id"], "image-media");
         assert!(school_image.get("to_parent_userid").is_none());
+
+        let mut school_notice =
+            WorkExternalContactSchoolMessage::empty(100001, "miniprogram_notice");
+        school_notice.miniprogram_notice = Some(WorkMiniProgramNoticeMessage {
+            appid: "wx-app".to_string(),
+            page: Some("pages/index".to_string()),
+            title: "notice".to_string(),
+            description: Some("desc".to_string()),
+            emphasis_first_item: Some(false),
+            content_item: vec![WorkMiniProgramNoticeItem {
+                key: "time".to_string(),
+                value: "10:00".to_string(),
+            }],
+        });
+        let school_notice = serde_json::to_value(school_notice).unwrap();
+        assert_eq!(school_notice["miniprogram_notice"]["appid"], "wx-app");
+        assert_eq!(
+            school_notice["miniprogram_notice"]["content_item"][0]["value"],
+            "10:00"
+        );
 
         let school_response: WorkExternalContactSchoolMessageSendResponse =
             serde_json::from_value(json!({
