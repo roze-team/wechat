@@ -7682,13 +7682,53 @@ pub struct WorkMeetingRoomAddResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomInfo {
+    #[serde(default)]
+    pub meetingroom_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub capacity: Option<i64>,
+    #[serde(default)]
+    pub city: Option<String>,
+    #[serde(default)]
+    pub building: Option<String>,
+    #[serde(default)]
+    pub floor: Option<String>,
+    #[serde(default)]
+    pub equipment: Vec<i64>,
+    #[serde(default)]
+    pub coordinate: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub meetingroom_list: Vec<Value>,
+    pub meetingroom_list: Vec<WorkMeetingRoomInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBooking {
+    #[serde(default)]
+    pub meeting_id: Option<i64>,
+    #[serde(default)]
+    pub schedule_id: Option<i64>,
+    #[serde(default)]
+    pub meetingroom_id: Option<i64>,
+    #[serde(default)]
+    pub subject: Option<String>,
+    #[serde(default)]
+    pub start_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub booker: Option<String>,
+    #[serde(default)]
+    pub attendees: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7698,7 +7738,7 @@ pub struct WorkMeetingRoomGetBookingInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub booking_list: Vec<Value>,
+    pub booking_list: Vec<WorkMeetingRoomBooking>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7953,13 +7993,35 @@ pub struct WorkWeDriveSpaceCreateResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceInfo {
+    #[serde(default)]
+    pub spaceid: Option<String>,
+    #[serde(default)]
+    pub space_name: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub quota: Option<i64>,
+    #[serde(default)]
+    pub used_size: Option<i64>,
+    #[serde(default)]
+    pub auth_info: Vec<Value>,
+    #[serde(default)]
+    pub add_member_only_admin: Option<bool>,
+    #[serde(default)]
+    pub enable_watermark: Option<bool>,
+    #[serde(default)]
+    pub enable_share_url: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveSpaceInfoResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub space_info: Option<Value>,
+    pub space_info: Option<WorkWeDriveSpaceInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7983,7 +8045,7 @@ pub struct WorkWeDriveFileListResponse {
     #[serde(default)]
     pub next_start: Option<i64>,
     #[serde(default)]
-    pub file_list: Vec<Value>,
+    pub file_list: Vec<WorkWeDriveFileInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8023,13 +8085,57 @@ pub struct WorkWeDriveFileCreateResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileInfo {
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default)]
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub file_type: Option<String>,
+    #[serde(default)]
+    pub file_size: Option<i64>,
+    #[serde(default)]
+    pub spaceid: Option<String>,
+    #[serde(default)]
+    pub fatherid: Option<String>,
+    #[serde(default)]
+    pub creator: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub auth_info: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileRenameResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub file: Option<Value>,
+    pub file: Option<WorkWeDriveFileInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileMoveResult {
+    #[serde(default)]
+    pub success: Vec<String>,
+    #[serde(default)]
+    pub failed: Vec<WorkWeDriveFileMoveFailure>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileMoveFailure {
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8039,7 +8145,7 @@ pub struct WorkWeDriveFileMoveResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub file_list: Option<Value>,
+    pub file_list: Option<WorkWeDriveFileMoveResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10346,16 +10452,35 @@ mod tests {
         assert_eq!(room_add.meetingroom_id, Some(7));
 
         let room_list: WorkMeetingRoomListResponse = serde_json::from_value(json!({
-            "meetingroom_list": [{ "meetingroom_id": 7, "name": "Room A" }]
+            "meetingroom_list": [{
+                "meetingroom_id": 7,
+                "name": "Room A",
+                "capacity": 12,
+                "equipment": [1, 2]
+            }]
         }))
         .unwrap();
-        assert_eq!(room_list.meetingroom_list[0]["name"], "Room A");
+        assert_eq!(
+            room_list.meetingroom_list[0].name.as_deref(),
+            Some("Room A")
+        );
+        assert_eq!(room_list.meetingroom_list[0].capacity, Some(12));
 
         let room_booking: WorkMeetingRoomGetBookingInfoResponse = serde_json::from_value(json!({
-            "booking_list": [{ "meeting_id": 123, "subject": "Weekly" }]
+            "booking_list": [{
+                "meeting_id": 123,
+                "schedule_id": 456,
+                "subject": "Weekly",
+                "booker": "user",
+                "attendees": ["user", "other"]
+            }]
         }))
         .unwrap();
-        assert_eq!(room_booking.booking_list[0]["subject"], "Weekly");
+        assert_eq!(
+            room_booking.booking_list[0].subject.as_deref(),
+            Some("Weekly")
+        );
+        assert_eq!(room_booking.booking_list[0].schedule_id, Some(456));
 
         let room_book: WorkMeetingRoomBookResponse =
             serde_json::from_value(json!({ "meeting_id": 123, "schedule_id": 456 })).unwrap();
@@ -10573,10 +10698,18 @@ mod tests {
         assert_eq!(space_create.spaceid.as_deref(), Some("space"));
 
         let space_info: WorkWeDriveSpaceInfoResponse = serde_json::from_value(json!({
-            "space_info": { "space_name": "Team Space" }
+            "space_info": {
+                "spaceid": "space",
+                "space_name": "Team Space",
+                "userid": "user",
+                "quota": 1024,
+                "auth_info": [{ "type": 1, "auth": 7 }]
+            }
         }))
         .unwrap();
-        assert_eq!(space_info.space_info.unwrap()["space_name"], "Team Space");
+        let space_info = space_info.space_info.unwrap();
+        assert_eq!(space_info.space_name.as_deref(), Some("Team Space"));
+        assert_eq!(space_info.auth_info[0]["auth"], 7);
 
         let space_share: WorkWeDriveSpaceShareResponse = serde_json::from_value(json!({
             "space_share_url": "https://example.com/space"
@@ -10590,11 +10723,12 @@ mod tests {
         let file_list: WorkWeDriveFileListResponse = serde_json::from_value(json!({
             "has_more": true,
             "next_start": 100,
-            "file_list": [{ "fileid": "file" }]
+            "file_list": [{ "fileid": "file", "file_name": "doc.txt", "file_size": 10 }]
         }))
         .unwrap();
         assert_eq!(file_list.has_more, Some(true));
-        assert_eq!(file_list.file_list[0]["fileid"], "file");
+        assert_eq!(file_list.file_list[0].fileid.as_deref(), Some("file"));
+        assert_eq!(file_list.file_list[0].file_name.as_deref(), Some("doc.txt"));
 
         let upload: WorkWeDriveFileUploadResponse =
             serde_json::from_value(json!({ "fileid": "file" })).unwrap();
@@ -10619,13 +10753,18 @@ mod tests {
             "file": { "fileid": "file", "file_name": "new.txt" }
         }))
         .unwrap();
-        assert_eq!(rename.file.unwrap()["file_name"], "new.txt");
+        assert_eq!(rename.file.unwrap().file_name.as_deref(), Some("new.txt"));
 
         let moved: WorkWeDriveFileMoveResponse = serde_json::from_value(json!({
-            "file_list": { "success": ["file"] }
+            "file_list": {
+                "success": ["file"],
+                "failed": [{ "fileid": "bad", "errcode": 40001, "errmsg": "invalid" }]
+            }
         }))
         .unwrap();
-        assert_eq!(moved.file_list.unwrap()["success"][0], "file");
+        let moved = moved.file_list.unwrap();
+        assert_eq!(moved.success[0], "file");
+        assert_eq!(moved.failed[0].fileid.as_deref(), Some("bad"));
 
         let share: WorkWeDriveFileShareResponse = serde_json::from_value(json!({
             "share_url": "https://example.com/share"
