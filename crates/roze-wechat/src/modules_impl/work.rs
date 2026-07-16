@@ -6035,9 +6035,27 @@ pub struct ExternalContactMomentListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub moment_list: Vec<Value>,
+    pub moment_list: Vec<ExternalContactMomentSummary>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentSummary {
+    #[serde(default)]
+    pub moment_id: Option<String>,
+    #[serde(default)]
+    pub creator: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub create_type: Option<i64>,
+    #[serde(default)]
+    pub visible_type: Option<i64>,
+    #[serde(default)]
+    pub text: Option<ExternalContactMessageText>,
+    #[serde(default)]
+    pub attachments: Vec<ExternalContactMessageAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6047,9 +6065,19 @@ pub struct ExternalContactMomentTaskResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub task_list: Vec<Value>,
+    pub task_list: Vec<ExternalContactMomentTask>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentTask {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub publish_status: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6059,9 +6087,19 @@ pub struct ExternalContactMomentCustomerListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub customer_list: Vec<Value>,
+    pub customer_list: Vec<ExternalContactMomentCustomer>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentCustomer {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub publish_status: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6071,11 +6109,35 @@ pub struct ExternalContactMomentCommentResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub comment_list: Vec<Value>,
+    pub comment_list: Vec<ExternalContactMomentComment>,
     #[serde(default)]
-    pub like_list: Vec<Value>,
+    pub like_list: Vec<ExternalContactMomentLike>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentComment {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub comment_id: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentLike {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6109,7 +6171,19 @@ pub struct ExternalContactMomentTaskResultResponse {
     #[serde(default, rename = "type")]
     pub result_type: Option<String>,
     #[serde(default)]
-    pub result: Option<Value>,
+    pub result: Option<ExternalContactMomentTaskResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentTaskResult {
+    #[serde(default)]
+    pub moment_id: Option<String>,
+    #[serde(default)]
+    pub invalid_sender_list: Vec<String>,
+    #[serde(default)]
+    pub invalid_external_contact_list: Vec<String>,
+    #[serde(default)]
+    pub invalid_chat_list: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6129,7 +6203,29 @@ pub struct ExternalContactUserBehaviorDataResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub behavior_data: Vec<Value>,
+    pub behavior_data: Vec<ExternalContactUserBehaviorData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUserBehaviorData {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub stat_time: Option<i64>,
+    #[serde(default)]
+    pub chat_cnt: Option<i64>,
+    #[serde(default)]
+    pub message_cnt: Option<i64>,
+    #[serde(default)]
+    pub reply_percentage: Option<f64>,
+    #[serde(default)]
+    pub avg_reply_time: Option<i64>,
+    #[serde(default)]
+    pub negative_feedback_cnt: Option<i64>,
+    #[serde(default)]
+    pub new_apply_cnt: Option<i64>,
+    #[serde(default)]
+    pub new_contact_cnt: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6167,7 +6263,33 @@ pub struct ExternalGroupChatStatisticResponse {
     #[serde(default)]
     pub next_offset: Option<i64>,
     #[serde(default)]
-    pub items: Vec<Value>,
+    pub items: Vec<ExternalGroupChatStatisticItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatStatisticItem {
+    #[serde(default)]
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub data: Option<ExternalGroupChatStatisticData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatStatisticData {
+    #[serde(default)]
+    pub new_chat_cnt: Option<i64>,
+    #[serde(default)]
+    pub chat_total: Option<i64>,
+    #[serde(default)]
+    pub chat_has_msg: Option<i64>,
+    #[serde(default)]
+    pub new_member_cnt: Option<i64>,
+    #[serde(default)]
+    pub member_total: Option<i64>,
+    #[serde(default)]
+    pub member_has_msg: Option<i64>,
+    #[serde(default)]
+    pub msg_total: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8410,33 +8532,61 @@ mod tests {
         assert_eq!(task["visible_range"]["sender_list"]["user_list"][0], "user");
 
         let moments: ExternalContactMomentListResponse = serde_json::from_value(json!({
-            "moment_list": [{ "moment_id": "moment" }],
+            "moment_list": [{
+                "moment_id": "moment",
+                "creator": "creator",
+                "create_time": 100,
+                "text": { "content": "hello" },
+                "attachments": [{ "msgtype": "image", "image": { "media_id": "media" } }]
+            }],
             "next_cursor": "cursor"
         }))
         .unwrap();
-        assert_eq!(moments.moment_list[0]["moment_id"], "moment");
+        assert_eq!(moments.moment_list[0].moment_id.as_deref(), Some("moment"));
+        assert_eq!(moments.moment_list[0].creator.as_deref(), Some("creator"));
+        assert_eq!(
+            moments.moment_list[0]
+                .text
+                .as_ref()
+                .unwrap()
+                .content
+                .as_deref(),
+            Some("hello")
+        );
         assert_eq!(moments.next_cursor.as_deref(), Some("cursor"));
 
         let tasks: ExternalContactMomentTaskResponse = serde_json::from_value(json!({
-            "task_list": [{ "userid": "user" }],
+            "task_list": [{ "userid": "user", "publish_status": 2 }],
             "next_cursor": "next"
         }))
         .unwrap();
-        assert_eq!(tasks.task_list[0]["userid"], "user");
+        assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(tasks.task_list[0].publish_status, Some(2));
 
         let customers: ExternalContactMomentCustomerListResponse = serde_json::from_value(json!({
-            "customer_list": [{ "external_userid": "external" }]
+            "customer_list": [{ "external_userid": "external", "publish_status": 1 }]
         }))
         .unwrap();
-        assert_eq!(customers.customer_list[0]["external_userid"], "external");
+        assert_eq!(
+            customers.customer_list[0].external_userid.as_deref(),
+            Some("external")
+        );
+        assert_eq!(customers.customer_list[0].publish_status, Some(1));
 
         let comments: ExternalContactMomentCommentResponse = serde_json::from_value(json!({
-            "comment_list": [{ "userid": "user" }],
-            "like_list": [{ "external_userid": "external" }]
+            "comment_list": [{ "userid": "user", "comment_id": "comment", "content": "nice" }],
+            "like_list": [{ "external_userid": "external", "create_time": 100 }]
         }))
         .unwrap();
-        assert_eq!(comments.comment_list[0]["userid"], "user");
-        assert_eq!(comments.like_list[0]["external_userid"], "external");
+        assert_eq!(comments.comment_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            comments.comment_list[0].comment_id.as_deref(),
+            Some("comment")
+        );
+        assert_eq!(
+            comments.like_list[0].external_userid.as_deref(),
+            Some("external")
+        );
 
         let created: ExternalContactMomentTaskCreateResponse =
             serde_json::from_value(json!({ "jobid": "job" })).unwrap();
@@ -8450,6 +8600,7 @@ mod tests {
         .unwrap();
         assert_eq!(result.status, Some(2));
         assert_eq!(result.result_type.as_deref(), Some("add_moment_task"));
+        assert_eq!(result.result.unwrap().moment_id.as_deref(), Some("moment"));
 
         let strategy_range = serde_json::to_value(ExternalContactMomentStrategyRangeRequest {
             strategy_id: 100,
@@ -8515,20 +8666,40 @@ mod tests {
 
         let behavior_response: ExternalContactUserBehaviorDataResponse =
             serde_json::from_value(json!({
-                "behavior_data": [{ "userid": "user", "new_apply_cnt": 1 }]
+                "behavior_data": [{
+                    "userid": "user",
+                    "stat_time": 1,
+                    "new_apply_cnt": 1,
+                    "reply_percentage": 99.5
+                }]
             }))
             .unwrap();
-        assert_eq!(behavior_response.behavior_data[0]["new_apply_cnt"], 1);
+        assert_eq!(
+            behavior_response.behavior_data[0].userid.as_deref(),
+            Some("user")
+        );
+        assert_eq!(behavior_response.behavior_data[0].new_apply_cnt, Some(1));
+        assert_eq!(
+            behavior_response.behavior_data[0].reply_percentage,
+            Some(99.5)
+        );
 
         let statistic_response: ExternalGroupChatStatisticResponse =
             serde_json::from_value(json!({
                 "total": 1,
                 "next_offset": 50,
-                "items": [{ "owner": "owner" }]
+                "items": [{
+                    "owner": "owner",
+                    "data": { "new_chat_cnt": 1, "msg_total": 2 }
+                }]
             }))
             .unwrap();
         assert_eq!(statistic_response.total, Some(1));
-        assert_eq!(statistic_response.items[0]["owner"], "owner");
+        assert_eq!(statistic_response.items[0].owner.as_deref(), Some("owner"));
+        assert_eq!(
+            statistic_response.items[0].data.as_ref().unwrap().msg_total,
+            Some(2)
+        );
     }
 
     #[test]
