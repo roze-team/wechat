@@ -6414,10 +6414,30 @@ pub struct ExternalGroupChatListRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status_filter: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner_filter: Option<Value>,
+    pub owner_filter: Option<ExternalContactOwnerFilter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactOwnerFilter {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userid_list: Vec<String>,
+}
+
+impl ExternalContactOwnerFilter {
+    pub fn user(user_id: impl Into<String>) -> Self {
+        Self {
+            userid_list: vec![user_id.into()],
+        }
+    }
+
+    pub fn users(user_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            userid_list: user_ids.into_iter().map(Into::into).collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7338,7 +7358,48 @@ pub struct ExternalContactMomentTaskRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<ExternalContactMessageAttachment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_range: Option<Value>,
+    pub visible_range: Option<ExternalContactMomentVisibleRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentVisibleRange {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_list: Option<ExternalContactMomentSenderList>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_contact_list: Option<ExternalContactMomentExternalContactList>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentSenderList {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentExternalContactList {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag_list: Vec<String>,
+}
+
+impl ExternalContactMomentVisibleRange {
+    pub fn sender_users(user_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            sender_list: Some(ExternalContactMomentSenderList {
+                user_list: user_ids.into_iter().map(Into::into).collect(),
+            }),
+            external_contact_list: None,
+        }
+    }
+
+    pub fn with_external_contact_tags(
+        mut self,
+        tag_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.external_contact_list = Some(ExternalContactMomentExternalContactList {
+            tag_list: tag_ids.into_iter().map(Into::into).collect(),
+        });
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7424,7 +7485,7 @@ pub struct ExternalGroupChatStatisticRequest {
     pub day_begin_time: i64,
     pub day_end_time: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner_filter: Option<Value>,
+    pub owner_filter: Option<ExternalContactOwnerFilter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order_by: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7440,7 +7501,7 @@ pub struct ExternalGroupChatStatisticByDayRequest {
     pub day_begin_time: i64,
     pub day_end_time: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner_filter: Option<Value>,
+    pub owner_filter: Option<ExternalContactOwnerFilter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10329,7 +10390,7 @@ mod tests {
     fn serializes_external_group_chat_requests_and_responses() {
         let list = serde_json::to_value(ExternalGroupChatListRequest {
             status_filter: Some(0),
-            owner_filter: Some(json!({ "userid_list": ["user"] })),
+            owner_filter: Some(ExternalContactOwnerFilter::user("user")),
             cursor: None,
             limit: 50,
         })
@@ -10784,10 +10845,10 @@ mod tests {
         let task = serde_json::to_value(ExternalContactMomentTaskRequest {
             text: Some(ExternalContactMessageText::new("hello")),
             attachments: vec![ExternalContactMessageAttachment::image("media")],
-            visible_range: Some(json!({
-                "sender_list": { "user_list": ["user"] },
-                "external_contact_list": { "tag_list": ["tag"] }
-            })),
+            visible_range: Some(
+                ExternalContactMomentVisibleRange::sender_users(["user"])
+                    .with_external_contact_tags(["tag"]),
+            ),
         })
         .unwrap();
         assert_eq!(task["text"]["content"], "hello");
@@ -10938,7 +10999,7 @@ mod tests {
         let statistic = serde_json::to_value(ExternalGroupChatStatisticRequest {
             day_begin_time: 1,
             day_end_time: 2,
-            owner_filter: Some(json!({ "userid_list": ["owner"] })),
+            owner_filter: Some(ExternalContactOwnerFilter::user("owner")),
             order_by: Some(1),
             order_asc: Some(0),
             offset: Some(0),
