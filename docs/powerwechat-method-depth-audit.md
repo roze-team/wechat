@@ -248,6 +248,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   download URL parsing;
 - trade-bill and fund-flow-bill download convenience wrappers;
 - optional SHA-1/SHA-256 download hash verification for returned bill bytes;
+- structured downloaded-bill wrapper exposing verified bytes, UTF-8 text,
+  non-empty line count, header, summary, and data-row iteration for statement
+  ingestion code;
 - shared signed bytes GET support in `PlatformClient`;
 - structured merchant-service complaint list/detail/negotiation DTOs covering
   order info, media lists, service-order info, user tags, refund amount, and

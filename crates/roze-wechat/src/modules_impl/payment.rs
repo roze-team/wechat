@@ -1336,6 +1336,17 @@ impl Payment {
         Ok(bytes)
     }
 
+    pub async fn download_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+    ) -> Result<PaymentDownloadedBill> {
+        let hash_type = request.hash_type.clone();
+        let hash_value = request.hash_value.clone();
+        let bytes = self.download_bill_bytes(credentials, request).await?;
+        PaymentDownloadedBill::from_verified_bytes(bytes, hash_type, hash_value)
+    }
+
     pub async fn download_trade_bill_bytes(
         &self,
         credentials: &PaymentCredentials,
@@ -1353,6 +1364,23 @@ impl Payment {
         .await
     }
 
+    pub async fn download_trade_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+    ) -> Result<PaymentDownloadedBill> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill(
+            credentials,
+            PaymentBillDownloadRequest {
+                download_url: bill.download_url,
+                hash_type: bill.hash_type,
+                hash_value: bill.hash_value,
+            },
+        )
+        .await
+    }
+
     pub async fn download_fund_flow_bill_bytes(
         &self,
         credentials: &PaymentCredentials,
@@ -1360,6 +1388,23 @@ impl Payment {
     ) -> Result<Bytes> {
         let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
         self.download_bill_bytes(
+            credentials,
+            PaymentBillDownloadRequest {
+                download_url: bill.download_url,
+                hash_type: bill.hash_type,
+                hash_value: bill.hash_value,
+            },
+        )
+        .await
+    }
+
+    pub async fn download_fund_flow_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+    ) -> Result<PaymentDownloadedBill> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill(
             credentials,
             PaymentBillDownloadRequest {
                 download_url: bill.download_url,
@@ -3082,6 +3127,53 @@ pub struct PaymentBillDownloadRequest {
     pub hash_value: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct PaymentDownloadedBill {
+    pub bytes: Bytes,
+    pub text: String,
+    pub hash_type: Option<String>,
+    pub hash_value: Option<String>,
+    pub line_count: usize,
+    pub header: Option<String>,
+    pub summary: Option<String>,
+}
+
+impl PaymentDownloadedBill {
+    pub fn from_verified_bytes(
+        bytes: Bytes,
+        hash_type: Option<String>,
+        hash_value: Option<String>,
+    ) -> Result<Self> {
+        let text = String::from_utf8(bytes.to_vec()).map_err(|err| {
+            WechatError::Config(format!("payment bill download is not valid UTF-8: {err}"))
+        })?;
+        let mut non_empty_lines = text.lines().filter(|line| !line.trim().is_empty());
+        let header = non_empty_lines.next().map(ToString::to_string);
+        let summary = non_empty_lines.next_back().map(ToString::to_string);
+        let line_count = text.lines().filter(|line| !line.trim().is_empty()).count();
+
+        Ok(Self {
+            bytes,
+            text,
+            hash_type,
+            hash_value,
+            line_count,
+            header,
+            summary,
+        })
+    }
+
+    pub fn rows(&self) -> impl Iterator<Item = &str> {
+        self.text.lines().filter(|line| !line.trim().is_empty())
+    }
+
+    pub fn data_rows(&self) -> impl Iterator<Item = &str> {
+        self.rows()
+            .enumerate()
+            .filter_map(|(index, line)| (index > 0 && index + 1 < self.line_count).then_some(line))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FundAppTransferBillRequest {
     pub appid: String,
@@ -3799,7 +3891,7 @@ mod tests {
         PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PartnerRefundQuery,
         PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
         PayScoreServiceOrderRequest, PayScoreServiceOrderResponse, PayScoreTimeRange,
-        PaymentBillDownloadRequest, PaymentCredentials, PaymentNotification,
+        PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill, PaymentNotification,
         PaymentRefundNotification, PaymentResource, PaymentTransactionNotification,
         PaymentTransferBillNotification, ProfitSharingBillRequest, ProfitSharingOrderRequest,
         ProfitSharingReceiver, ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
@@ -4801,6 +4893,43 @@ mod tests {
         let sha1 = hex::encode(sha1_hasher.finalize());
         verify_payment_download_hash(b"bill-bytes", Some("SHA1"), Some(&sha1)).unwrap();
         assert!(verify_payment_download_hash(b"bill-bytes", Some("SHA256"), Some("bad")).is_err());
+    }
+
+    #[test]
+    fn builds_structured_payment_downloaded_bill() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\nsum,1,100\n",
+            ),
+            Some("SHA256".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            bill.header.as_deref(),
+            Some("transaction_id,out_trade_no,amount")
+        );
+        assert_eq!(bill.summary.as_deref(), Some("sum,1,100"));
+        assert_eq!(bill.line_count, 3);
+        assert_eq!(
+            bill.data_rows().collect::<Vec<_>>(),
+            vec!["4200001,order-1,100"]
+        );
+        assert_eq!(bill.hash_type.as_deref(), Some("SHA256"));
+        assert_eq!(bill.bytes.len(), 65);
+    }
+
+    #[test]
+    fn rejects_non_utf8_payment_downloaded_bill() {
+        let err = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(&[0xff]),
+            None,
+            None,
+        )
+        .expect_err("non UTF-8 bill should fail");
+
+        assert!(err.to_string().contains("not valid UTF-8"));
     }
 
     #[test]
