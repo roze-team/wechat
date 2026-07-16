@@ -1039,6 +1039,242 @@ impl Work {
             .await
     }
 
+    pub async fn list_external_contact_moments(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactMomentListRequest,
+    ) -> Result<ExternalContactMomentListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_moment_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_tasks(
+        &self,
+        access_token: impl Into<String>,
+        moment_id: impl Into<String>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<ExternalContactMomentTaskResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_moment_task",
+                Some(access_token.into()),
+                json!({ "moment_id": moment_id.into(), "cursor": cursor.into(), "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_customer_list(
+        &self,
+        access_token: impl Into<String>,
+        moment_id: impl Into<String>,
+        user_id: impl Into<String>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<ExternalContactMomentCustomerListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_moment_customer_list",
+                Some(access_token.into()),
+                json!({ "moment_id": moment_id.into(), "userid": user_id.into(), "cursor": cursor.into(), "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_send_result(
+        &self,
+        access_token: impl Into<String>,
+        moment_id: impl Into<String>,
+        user_id: impl Into<String>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<ExternalContactMomentCustomerListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_moment_send_result",
+                Some(access_token.into()),
+                json!({ "moment_id": moment_id.into(), "userid": user_id.into(), "cursor": cursor.into(), "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_comments(
+        &self,
+        access_token: impl Into<String>,
+        moment_id: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<ExternalContactMomentCommentResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_moment_comments",
+                Some(access_token.into()),
+                json!({ "moment_id": moment_id.into(), "userid": user_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn add_external_contact_moment_task(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactMomentTaskRequest,
+    ) -> Result<ExternalContactMomentTaskCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/add_moment_task",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_task_result(
+        &self,
+        access_token: impl Into<String>,
+        job_id: impl Into<String>,
+    ) -> Result<ExternalContactMomentTaskResultResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/externalcontact/get_moment_task_result",
+                Some(access_token.into()),
+                vec![("jobid".to_string(), job_id.into())],
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_user_behavior_data(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactUserBehaviorDataRequest,
+    ) -> Result<ExternalContactUserBehaviorDataResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_user_behavior_data",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_group_chat_statistic(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupChatStatisticRequest,
+    ) -> Result<ExternalGroupChatStatisticResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/statistic",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_group_chat_statistic_by_day(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupChatStatisticByDayRequest,
+    ) -> Result<ExternalGroupChatStatisticResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/statistic_group_by_day",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_external_contact_customer_strategies(
+        &self,
+        access_token: impl Into<String>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<ExternalContactCustomerStrategyListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_strategy/list",
+                Some(access_token.into()),
+                json!({ "cursor": cursor.into(), "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_customer_strategy(
+        &self,
+        access_token: impl Into<String>,
+        strategy_id: i64,
+    ) -> Result<ExternalContactCustomerStrategyResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_strategy/get",
+                Some(access_token.into()),
+                json!({ "strategy_id": strategy_id }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_customer_strategy_range(
+        &self,
+        access_token: impl Into<String>,
+        strategy_id: i64,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<ExternalContactCustomerStrategyRangeResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_strategy/get_range",
+                Some(access_token.into()),
+                json!({ "strategy_id": strategy_id, "cursor": cursor.into(), "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn create_external_contact_customer_strategy(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactCustomerStrategyCreateRequest,
+    ) -> Result<ExternalContactCustomerStrategyCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_strategy/create",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_external_contact_customer_strategy(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactCustomerStrategyEditRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_strategy/edit",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_external_contact_customer_strategy(
+        &self,
+        access_token: impl Into<String>,
+        strategy_id: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_strategy/del",
+                Some(access_token.into()),
+                json!({ "strategy_id": strategy_id }),
+            )
+            .await
+    }
+
     pub fn group_robot(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.group_robot")
     }
@@ -3645,6 +3881,259 @@ pub struct ExternalContactUnassignedListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentListRequest {
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creator: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub moment_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentTaskResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub task_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentCustomerListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub customer_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentCommentResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub comment_list: Vec<Value>,
+    #[serde(default)]
+    pub like_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentTaskRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_range: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentTaskCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub jobid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentTaskResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default, rename = "type")]
+    pub result_type: Option<String>,
+    #[serde(default)]
+    pub result: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUserBehaviorDataRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userid: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub partyid: Vec<i64>,
+    pub start_time: i64,
+    pub end_time: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUserBehaviorDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub behavior_data: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatStatisticRequest {
+    pub day_begin_time: i64,
+    pub day_end_time: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_filter: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_by: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_asc: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatStatisticByDayRequest {
+    pub day_begin_time: i64,
+    pub day_end_time: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_filter: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatStatisticResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub next_offset: Option<i64>,
+    #[serde(default)]
+    pub items: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyPrivilege {
+    pub view_customer_list: bool,
+    pub view_customer_data: bool,
+    pub view_room_list: bool,
+    pub contact_me: bool,
+    pub join_room: bool,
+    pub share_customer: bool,
+    pub oper_resign_customer: bool,
+    pub send_customer_msg: bool,
+    pub edit_welcome_msg: bool,
+    pub view_behavior_data: bool,
+    pub view_room_data: bool,
+    pub send_group_msg: bool,
+    pub room_deduplication: bool,
+    pub rapid_reply: bool,
+    pub onjob_customer_transfer: bool,
+    pub edit_anti_spam_rule: bool,
+    pub export_customer_list: bool,
+    pub export_customer_data: bool,
+    pub export_customer_group_list: bool,
+    pub manage_customer_tag: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyRange {
+    #[serde(rename = "type")]
+    pub kind: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partyid: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyCreateRequest {
+    pub parent_id: i64,
+    pub strategy_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admin_list: Vec<String>,
+    pub privilege: ExternalContactCustomerStrategyPrivilege,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range: Vec<ExternalContactCustomerStrategyRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyEditRequest {
+    pub strategy_id: i64,
+    pub strategy_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admin_list: Vec<String>,
+    pub privilege: ExternalContactCustomerStrategyPrivilege,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range_add: Vec<ExternalContactCustomerStrategyRange>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range_del: Vec<ExternalContactCustomerStrategyRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, alias = "momentStrategy")]
+    pub strategy: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, alias = "momentStrategy")]
+    pub strategy: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyRangeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub range: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategyCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub strategy_id: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotMessage {
     pub msgtype: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5184,6 +5673,210 @@ mod tests {
             .unwrap();
         assert_eq!(unassigned_response.info[0]["handover_userid"], "old");
         assert_eq!(unassigned_response.is_last, Some(false));
+    }
+
+    #[test]
+    fn serializes_external_contact_moment_requests_and_responses() {
+        let list = serde_json::to_value(ExternalContactMomentListRequest {
+            start_time: 1,
+            end_time: 2,
+            creator: Some("creator".to_string()),
+            filter_type: Some(1),
+            cursor: None,
+            limit: 100,
+        })
+        .unwrap();
+        assert_eq!(list["creator"], "creator");
+        assert_eq!(list["filter_type"], 1);
+        assert!(list.get("cursor").is_none());
+
+        let task = serde_json::to_value(ExternalContactMomentTaskRequest {
+            text: Some(json!({ "content": "hello" })),
+            attachments: vec![json!({ "msgtype": "image", "image": { "media_id": "media" } })],
+            visible_range: Some(json!({
+                "sender_list": { "user_list": ["user"] },
+                "external_contact_list": { "tag_list": ["tag"] }
+            })),
+        })
+        .unwrap();
+        assert_eq!(task["text"]["content"], "hello");
+        assert_eq!(task["attachments"][0]["image"]["media_id"], "media");
+        assert_eq!(task["visible_range"]["sender_list"]["user_list"][0], "user");
+
+        let moments: ExternalContactMomentListResponse = serde_json::from_value(json!({
+            "moment_list": [{ "moment_id": "moment" }],
+            "next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(moments.moment_list[0]["moment_id"], "moment");
+        assert_eq!(moments.next_cursor.as_deref(), Some("cursor"));
+
+        let tasks: ExternalContactMomentTaskResponse = serde_json::from_value(json!({
+            "task_list": [{ "userid": "user" }],
+            "next_cursor": "next"
+        }))
+        .unwrap();
+        assert_eq!(tasks.task_list[0]["userid"], "user");
+
+        let customers: ExternalContactMomentCustomerListResponse = serde_json::from_value(json!({
+            "customer_list": [{ "external_userid": "external" }]
+        }))
+        .unwrap();
+        assert_eq!(customers.customer_list[0]["external_userid"], "external");
+
+        let comments: ExternalContactMomentCommentResponse = serde_json::from_value(json!({
+            "comment_list": [{ "userid": "user" }],
+            "like_list": [{ "external_userid": "external" }]
+        }))
+        .unwrap();
+        assert_eq!(comments.comment_list[0]["userid"], "user");
+        assert_eq!(comments.like_list[0]["external_userid"], "external");
+
+        let created: ExternalContactMomentTaskCreateResponse =
+            serde_json::from_value(json!({ "jobid": "job" })).unwrap();
+        assert_eq!(created.jobid.as_deref(), Some("job"));
+
+        let result: ExternalContactMomentTaskResultResponse = serde_json::from_value(json!({
+            "status": 2,
+            "type": "add_moment_task",
+            "result": { "moment_id": "moment" }
+        }))
+        .unwrap();
+        assert_eq!(result.status, Some(2));
+        assert_eq!(result.result_type.as_deref(), Some("add_moment_task"));
+    }
+
+    #[test]
+    fn serializes_external_contact_statistics_requests_and_responses() {
+        let behavior = serde_json::to_value(ExternalContactUserBehaviorDataRequest {
+            userid: vec!["user".to_string()],
+            partyid: Vec::new(),
+            start_time: 1,
+            end_time: 2,
+        })
+        .unwrap();
+        assert_eq!(behavior["userid"][0], "user");
+        assert!(behavior.get("partyid").is_none());
+
+        let statistic = serde_json::to_value(ExternalGroupChatStatisticRequest {
+            day_begin_time: 1,
+            day_end_time: 2,
+            owner_filter: Some(json!({ "userid_list": ["owner"] })),
+            order_by: Some(1),
+            order_asc: Some(0),
+            offset: Some(0),
+            limit: Some(50),
+        })
+        .unwrap();
+        assert_eq!(statistic["owner_filter"]["userid_list"][0], "owner");
+        assert_eq!(statistic["order_asc"], 0);
+
+        let by_day = serde_json::to_value(ExternalGroupChatStatisticByDayRequest {
+            day_begin_time: 1,
+            day_end_time: 2,
+            owner_filter: None,
+        })
+        .unwrap();
+        assert!(by_day.get("owner_filter").is_none());
+
+        let behavior_response: ExternalContactUserBehaviorDataResponse =
+            serde_json::from_value(json!({
+                "behavior_data": [{ "userid": "user", "new_apply_cnt": 1 }]
+            }))
+            .unwrap();
+        assert_eq!(behavior_response.behavior_data[0]["new_apply_cnt"], 1);
+
+        let statistic_response: ExternalGroupChatStatisticResponse =
+            serde_json::from_value(json!({
+                "total": 1,
+                "next_offset": 50,
+                "items": [{ "owner": "owner" }]
+            }))
+            .unwrap();
+        assert_eq!(statistic_response.total, Some(1));
+        assert_eq!(statistic_response.items[0]["owner"], "owner");
+    }
+
+    #[test]
+    fn serializes_external_contact_customer_strategy_requests_and_responses() {
+        let privilege = ExternalContactCustomerStrategyPrivilege {
+            view_customer_list: true,
+            view_customer_data: true,
+            view_room_list: true,
+            contact_me: true,
+            join_room: true,
+            share_customer: true,
+            oper_resign_customer: true,
+            send_customer_msg: true,
+            edit_welcome_msg: true,
+            view_behavior_data: true,
+            view_room_data: true,
+            send_group_msg: true,
+            room_deduplication: true,
+            rapid_reply: true,
+            onjob_customer_transfer: true,
+            edit_anti_spam_rule: true,
+            export_customer_list: true,
+            export_customer_data: true,
+            export_customer_group_list: true,
+            manage_customer_tag: true,
+        };
+
+        let create = serde_json::to_value(ExternalContactCustomerStrategyCreateRequest {
+            parent_id: 1,
+            strategy_name: "strategy".to_string(),
+            admin_list: vec!["admin".to_string()],
+            privilege: privilege.clone(),
+            range: vec![ExternalContactCustomerStrategyRange {
+                kind: 1,
+                partyid: Some(2),
+                userid: None,
+            }],
+        })
+        .unwrap();
+        assert_eq!(create["parent_id"], 1);
+        assert_eq!(create["privilege"]["view_customer_list"], true);
+        assert_eq!(create["range"][0]["type"], 1);
+        assert!(create["range"][0].get("userid").is_none());
+
+        let edit = serde_json::to_value(ExternalContactCustomerStrategyEditRequest {
+            strategy_id: 2,
+            strategy_name: "strategy-new".to_string(),
+            admin_list: Vec::new(),
+            privilege,
+            range_add: vec![ExternalContactCustomerStrategyRange {
+                kind: 2,
+                partyid: None,
+                userid: Some("user".to_string()),
+            }],
+            range_del: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(edit["strategy_id"], 2);
+        assert!(edit.get("admin_list").is_none());
+        assert_eq!(edit["range_add"][0]["userid"], "user");
+
+        let list: ExternalContactCustomerStrategyListResponse = serde_json::from_value(json!({
+            "momentStrategy": [{ "strategy_id": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(list.strategy[0]["strategy_id"], 1);
+
+        let detail: ExternalContactCustomerStrategyResponse = serde_json::from_value(json!({
+            "momentStrategy": { "strategy_id": 1, "strategy_name": "strategy" }
+        }))
+        .unwrap();
+        assert_eq!(detail.strategy.unwrap()["strategy_name"], "strategy");
+
+        let range: ExternalContactCustomerStrategyRangeResponse = serde_json::from_value(json!({
+            "range": [{ "userid": "user" }]
+        }))
+        .unwrap();
+        assert_eq!(range.range[0]["userid"], "user");
+
+        let created: ExternalContactCustomerStrategyCreateResponse =
+            serde_json::from_value(json!({ "strategy_id": 3 })).unwrap();
+        assert_eq!(created.strategy_id.unwrap(), 3);
     }
 
     #[test]
