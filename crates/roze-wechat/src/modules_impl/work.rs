@@ -2238,7 +2238,9 @@ impl Work {
                 totag: None,
                 msgtype: "text".to_string(),
                 agentid: agent_id,
-                text: Some(json!({ "content": content.into() })),
+                text: Some(WorkTextMessage {
+                    content: content.into(),
+                }),
                 markdown: None,
                 textcard: None,
                 safe: Some(0),
@@ -5111,11 +5113,11 @@ pub struct WorkMessage {
     pub msgtype: String,
     pub agentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<WorkTextMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub markdown: Option<Value>,
+    pub markdown: Option<WorkMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub textcard: Option<Value>,
+    pub textcard: Option<WorkTextCardMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub safe: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5126,6 +5128,16 @@ pub struct WorkMessage {
     pub duplicate_check_interval: Option<i64>,
     #[serde(flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTextMessage {
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMarkdownMessage {
+    pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9805,7 +9817,9 @@ mod tests {
             totag: None,
             msgtype: "text".to_string(),
             agentid: 100001,
-            text: Some(json!({ "content": "hello" })),
+            text: Some(WorkTextMessage {
+                content: "hello".to_string(),
+            }),
             markdown: None,
             textcard: None,
             safe: Some(0),
@@ -9819,6 +9833,49 @@ mod tests {
         assert_eq!(value["touser"], "user");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+
+        let markdown = serde_json::to_value(WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: "markdown".to_string(),
+            agentid: 100001,
+            text: None,
+            markdown: Some(WorkMarkdownMessage {
+                content: "**hello**".to_string(),
+            }),
+            textcard: None,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
+        assert_eq!(markdown["markdown"]["content"], "**hello**");
+
+        let textcard = serde_json::to_value(WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: "textcard".to_string(),
+            agentid: 100001,
+            text: None,
+            markdown: None,
+            textcard: Some(WorkTextCardMessage {
+                title: "title".to_string(),
+                description: "desc".to_string(),
+                url: "https://example.com".to_string(),
+                btntxt: Some("open".to_string()),
+            }),
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
+        assert_eq!(textcard["textcard"]["btntxt"], "open");
     }
 
     #[test]
