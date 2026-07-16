@@ -194,7 +194,10 @@ impl OpenWork {
             .await
     }
 
-    pub async fn pre_auth_code(&self, suite_access_token: impl Into<String>) -> Result<Value> {
+    pub async fn pre_auth_code(
+        &self,
+        suite_access_token: impl Into<String>,
+    ) -> Result<OpenWorkPreAuthCodeResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/service/get_pre_auth_code",
@@ -221,7 +224,7 @@ impl OpenWork {
         &self,
         suite_access_token: impl Into<String>,
         auth_code: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenWorkPermanentCodeResponse> {
         self.inner
             .post(
                 "cgi-bin/service/get_permanent_code",
@@ -282,7 +285,7 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenWorkPermanentCodeResponse> {
         self.inner
             .post(
                 "cgi-bin/service/get_auth_info",
@@ -336,7 +339,7 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenWorkCorpTokenResponse> {
         self.inner
             .post(
                 "cgi-bin/service/get_corp_token",

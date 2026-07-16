@@ -219,6 +219,8 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
 - component quota clear wrapper;
 - typed component preauth, query-auth, authorizer info/list, and option
   responses.
+- suite pre-auth, permanent-code, auth-info, and corp-token public wrappers now
+  return typed Open Work DTOs instead of raw JSON values.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.
