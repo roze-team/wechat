@@ -179,6 +179,15 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   order info, media lists, service-order info, user tags, refund amount, and
   additional shared-power return details.
 
+Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
+
+- `PaymentResource.original_type` support for WeChat Pay v3 encrypted
+  notifications;
+- typed transaction-success, refund, and merchant-transfer bill notification
+  payload DTOs for production webhook handlers;
+- typed PayScore service-order response covering state, post-payment/discount,
+  risk-fund, time-range, location, order id, and package fields.
+
 Implemented on 2026-07-10 in Roze WeChat payment depth:
 
 - legacy balance transfer query/create and bank-card transfer query:

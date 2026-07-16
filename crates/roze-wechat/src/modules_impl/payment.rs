@@ -3500,8 +3500,48 @@ impl PayScoreServiceOrderQuery {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PayScoreServiceOrderResponse {
-    #[serde(flatten)]
-    pub value: Value,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub mchid: Option<String>,
+    #[serde(default)]
+    pub out_order_no: Option<String>,
+    #[serde(default)]
+    pub service_id: Option<String>,
+    #[serde(default)]
+    pub service_introduction: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub state_description: Option<String>,
+    #[serde(default)]
+    pub post_payments: Vec<PayScorePostPayment>,
+    #[serde(default)]
+    pub post_discounts: Vec<PayScorePostDiscount>,
+    #[serde(default)]
+    pub risk_fund: Option<PayScoreRiskFund>,
+    #[serde(default)]
+    pub time_range: Option<PayScoreTimeRange>,
+    #[serde(default)]
+    pub location: Option<PayScoreLocation>,
+    #[serde(default)]
+    pub attach: Option<String>,
+    #[serde(default)]
+    pub notify_url: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default, rename = "package")]
+    pub package_info: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayScoreLocation {
+    #[serde(default)]
+    pub start_location: Option<String>,
+    #[serde(default)]
+    pub end_location: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3542,6 +3582,8 @@ pub struct PaymentResource {
     pub nonce: String,
     #[serde(default)]
     pub associated_data: String,
+    #[serde(default)]
+    pub original_type: Option<String>,
 }
 
 impl PaymentNotification {
@@ -3557,6 +3599,177 @@ impl PaymentNotification {
         )?;
         Ok(serde_json::from_slice(&plaintext)?)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentTransactionNotification {
+    #[serde(default)]
+    pub amount: Option<PaymentTransactionAmount>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub sp_appid: Option<String>,
+    #[serde(default)]
+    pub sp_mchid: Option<String>,
+    #[serde(default)]
+    pub sub_appid: Option<String>,
+    #[serde(default)]
+    pub sub_mchid: Option<String>,
+    #[serde(default)]
+    pub attach: Option<String>,
+    #[serde(default)]
+    pub bank_type: Option<String>,
+    #[serde(default)]
+    pub mchid: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub payer: Option<PaymentTransactionPayer>,
+    #[serde(default)]
+    pub promotion_detail: Vec<PaymentPromotionDetail>,
+    #[serde(default)]
+    pub success_time: Option<String>,
+    #[serde(default)]
+    pub trade_state: Option<String>,
+    #[serde(default)]
+    pub trade_state_desc: Option<String>,
+    #[serde(default)]
+    pub trade_type: Option<String>,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub scene_info: Option<PaymentTransactionSceneInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentTransactionAmount {
+    #[serde(default)]
+    pub currency: Option<String>,
+    #[serde(default)]
+    pub payer_currency: Option<String>,
+    #[serde(default)]
+    pub payer_total: Option<i64>,
+    #[serde(default)]
+    pub total: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentTransactionPayer {
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub sub_openid: Option<String>,
+    #[serde(default)]
+    pub sp_openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentTransactionSceneInfo {
+    #[serde(default)]
+    pub device_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentPromotionDetail {
+    #[serde(default)]
+    pub coupon_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub scope: Option<String>,
+    #[serde(default, rename = "type")]
+    pub promotion_type: Option<String>,
+    #[serde(default)]
+    pub amount: Option<i64>,
+    #[serde(default)]
+    pub stock_id: Option<String>,
+    #[serde(default)]
+    pub wechatpay_contribute: Option<i64>,
+    #[serde(default)]
+    pub merchant_contribute: Option<i64>,
+    #[serde(default)]
+    pub other_contribute: Option<i64>,
+    #[serde(default)]
+    pub currency: Option<String>,
+    #[serde(default)]
+    pub goods_detail: Vec<PaymentPromotionGoodsDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentPromotionGoodsDetail {
+    #[serde(default)]
+    pub goods_id: Option<String>,
+    #[serde(default)]
+    pub quantity: Option<i64>,
+    #[serde(default)]
+    pub unit_price: Option<i64>,
+    #[serde(default)]
+    pub discount_amount: Option<i64>,
+    #[serde(default)]
+    pub goods_remark: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentRefundNotification {
+    #[serde(default)]
+    pub sp_mchid: Option<String>,
+    #[serde(default)]
+    pub sub_mchid: Option<String>,
+    #[serde(default)]
+    pub mchid: Option<String>,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub refund_id: Option<String>,
+    #[serde(default)]
+    pub out_refund_no: Option<String>,
+    #[serde(default)]
+    pub refund_status: Option<String>,
+    #[serde(default)]
+    pub success_time: Option<String>,
+    #[serde(default)]
+    pub user_received_account: Option<String>,
+    #[serde(default)]
+    pub amount: Option<PaymentRefundNotificationAmount>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentRefundNotificationAmount {
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub refund: Option<i64>,
+    #[serde(default)]
+    pub payer_total: Option<i64>,
+    #[serde(default)]
+    pub payer_refund: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentTransferBillNotification {
+    pub out_bill_no: String,
+    pub transfer_bill_no: String,
+    pub state: String,
+    #[serde(default, rename = "mch_id")]
+    pub mch_id: Option<String>,
+    #[serde(default)]
+    pub transfer_amount: Option<i64>,
+    #[serde(default, alias = "open_id")]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub fail_reason: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<String>,
+    #[serde(default)]
+    pub update_time: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[cfg(test)]
@@ -3585,19 +3798,20 @@ mod tests {
         NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
         PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PartnerRefundQuery,
         PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
-        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentBillDownloadRequest,
-        PaymentCredentials, PaymentNotification, PaymentResource, ProfitSharingBillRequest,
-        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
-        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
-        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundDetailResponse, RefundRequest,
-        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
-        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
-        TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
-        TransferBillReceiptResponse, TransferDetailInput, TransferDetailReceiptQuery,
-        TransferDetailReceiptRequest, TransferDetailReceiptResponse, TransferSceneReportInfo,
-        TransferToBalanceRequest, TransferToBalanceResponse, UserCouponListRequest,
-        UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
+        PayScoreServiceOrderRequest, PayScoreServiceOrderResponse, PayScoreTimeRange,
+        PaymentBillDownloadRequest, PaymentCredentials, PaymentNotification,
+        PaymentRefundNotification, PaymentResource, PaymentTransactionNotification,
+        PaymentTransferBillNotification, ProfitSharingBillRequest, ProfitSharingOrderRequest,
+        ProfitSharingReceiver, ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
+        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
+        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
+        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
+        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
+        TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
+        UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
     };
 
     #[test]
@@ -3618,12 +3832,138 @@ mod tests {
                 ciphertext,
                 nonce: nonce.to_string(),
                 associated_data: aad.to_string(),
+                original_type: Some("transaction".to_string()),
             },
             summary: "success".to_string(),
         };
 
         let value: serde_json::Value = notification.decrypt_resource(key).unwrap();
         assert_eq!(value, json!({ "trade_state": "SUCCESS" }));
+        assert_eq!(
+            notification.resource.original_type.as_deref(),
+            Some("transaction")
+        );
+    }
+
+    #[test]
+    fn deserializes_payment_notify_payloads() {
+        let transaction: PaymentTransactionNotification = serde_json::from_value(json!({
+            "appid": "wx-app",
+            "mchid": "mchid",
+            "out_trade_no": "out-1",
+            "transaction_id": "tx-1",
+            "trade_type": "JSAPI",
+            "trade_state": "SUCCESS",
+            "amount": {
+                "total": 100,
+                "payer_total": 100,
+                "currency": "CNY"
+            },
+            "payer": {
+                "openid": "openid"
+            },
+            "promotion_detail": [{
+                "coupon_id": "coupon-1",
+                "type": "CASH",
+                "amount": 10,
+                "goods_detail": [{
+                    "goods_id": "sku-1",
+                    "quantity": 1,
+                    "unit_price": 100,
+                    "discount_amount": 10
+                }]
+            }]
+        }))
+        .unwrap();
+        assert_eq!(transaction.trade_state.as_deref(), Some("SUCCESS"));
+        assert_eq!(transaction.amount.unwrap().total, Some(100));
+        assert_eq!(transaction.payer.unwrap().openid.as_deref(), Some("openid"));
+        assert_eq!(
+            transaction.promotion_detail[0].promotion_type.as_deref(),
+            Some("CASH")
+        );
+
+        let refund: PaymentRefundNotification = serde_json::from_value(json!({
+            "mchid": "mchid",
+            "transaction_id": "tx-1",
+            "out_trade_no": "out-1",
+            "refund_id": "refund-1",
+            "out_refund_no": "out-refund-1",
+            "refund_status": "SUCCESS",
+            "success_time": "2026-07-16T10:00:00+08:00",
+            "user_received_account": "微信零钱",
+            "amount": {
+                "total": 100,
+                "refund": 100,
+                "payer_total": 100,
+                "payer_refund": 100
+            }
+        }))
+        .unwrap();
+        assert_eq!(refund.refund_status.as_deref(), Some("SUCCESS"));
+        assert_eq!(refund.amount.unwrap().payer_refund, Some(100));
+
+        let transfer: PaymentTransferBillNotification = serde_json::from_value(json!({
+            "out_bill_no": "bill-1",
+            "transfer_bill_no": "transfer-1",
+            "state": "SUCCESS",
+            "mch_id": "mchid",
+            "transfer_amount": 100,
+            "openid": "openid",
+            "create_time": "2026-07-16T10:00:00+08:00"
+        }))
+        .unwrap();
+        assert_eq!(transfer.out_bill_no, "bill-1");
+        assert_eq!(transfer.openid.as_deref(), Some("openid"));
+    }
+
+    #[test]
+    fn deserializes_pay_score_service_order_response() {
+        let response: PayScoreServiceOrderResponse = serde_json::from_value(json!({
+            "appid": "wx-app",
+            "mchid": "mchid",
+            "out_order_no": "out-order-1",
+            "service_id": "service-id",
+            "service_introduction": "rental",
+            "state": "CREATED",
+            "state_description": "created",
+            "post_payments": [{
+                "name": "fee",
+                "amount": 100,
+                "description": "fee",
+                "count": 1
+            }],
+            "post_discounts": [{
+                "name": "discount",
+                "amount": 10,
+                "description": "discount",
+                "count": 1
+            }],
+            "risk_fund": {
+                "name": "deposit",
+                "amount": 100,
+                "description": "deposit"
+            },
+            "time_range": {
+                "start_time": "2026-07-16T10:00:00+08:00",
+                "end_time": "2026-07-16T11:00:00+08:00"
+            },
+            "location": {
+                "start_location": "A",
+                "end_location": "B"
+            },
+            "order_id": "order-id",
+            "package": "prepay_id=xxx"
+        }))
+        .unwrap();
+
+        assert_eq!(response.state.as_deref(), Some("CREATED"));
+        assert_eq!(response.post_payments[0].name, "fee");
+        assert_eq!(
+            response.location.unwrap().end_location.as_deref(),
+            Some("B")
+        );
+        assert_eq!(response.package_info.as_deref(), Some("prepay_id=xxx"));
     }
 
     #[test]
