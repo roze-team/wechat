@@ -196,6 +196,10 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
   and fast-register reuse wrappers.
 - authorizer info/option/list and code-template draft/list public wrappers now
   return typed Open Platform DTOs instead of raw JSON values.
+- authorizer mini-program submit-audit requests, category responses, rollback
+  versions, gray-release plans, support-version UV info, domain mutation
+  results, tester members, and privacy setting payloads now expose typed DTOs
+  while keeping extension fields for future WeChat additions.
 
 Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 

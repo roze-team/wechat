@@ -1263,22 +1263,89 @@ pub struct OpenPlatformMiniProgramCommitRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramAuditItem {
+    pub address: String,
+    pub tag: String,
+    pub first_class: String,
+    pub second_class: String,
+    pub first_id: i64,
+    pub second_id: i64,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub third_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub third_id: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_info: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_stuff: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramAuditPreviewInfo {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pic_id_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub video_id_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramUgcDeclare {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub method: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_audit_team: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_desc: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramSubmitAuditRequest {
-    pub item_list: Vec<Value>,
+    pub item_list: Vec<OpenPlatformMiniProgramAuditItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_info: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_stuff: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preview_info: Option<Value>,
+    pub preview_info: Option<OpenPlatformMiniProgramAuditPreviewInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version_desc: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ugc_declare: Option<Value>,
+    pub ugc_declare: Option<OpenPlatformMiniProgramUgcDeclare>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_api_not_use: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramCategory {
+    #[serde(default)]
+    pub first_class: Option<String>,
+    #[serde(default)]
+    pub second_class: Option<String>,
+    #[serde(default)]
+    pub third_class: Option<String>,
+    #[serde(default)]
+    pub first_id: Option<i64>,
+    #[serde(default)]
+    pub second_id: Option<i64>,
+    #[serde(default)]
+    pub third_id: Option<i64>,
+    #[serde(default)]
+    pub audit_status: Option<i64>,
+    #[serde(default)]
+    pub audit_reason: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1288,7 +1355,7 @@ pub struct OpenPlatformMiniProgramCategoryResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub category_list: Vec<Value>,
+    pub category_list: Vec<OpenPlatformMiniProgramCategory>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1352,13 +1419,45 @@ pub struct OpenPlatformMiniProgramLatestAuditStatusResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramReleaseVersion {
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub percentage: Option<i64>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub user_version: Option<String>,
+    #[serde(default)]
+    pub user_desc: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramRollbackReleaseResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub version_list: Vec<Value>,
+    pub version_list: Vec<OpenPlatformMiniProgramReleaseVersion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramGrayReleasePlan {
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub create_timestamp: Option<i64>,
+    #[serde(default)]
+    pub gray_percentage: Option<i64>,
+    #[serde(default)]
+    pub support_experiencer_first: Option<bool>,
+    #[serde(default)]
+    pub support_debuger_first: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1368,7 +1467,27 @@ pub struct OpenPlatformMiniProgramGrayReleasePlanResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub gray_release_plan: Option<Value>,
+    pub gray_release_plan: Option<OpenPlatformMiniProgramGrayReleasePlan>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramUvInfo {
+    #[serde(default)]
+    pub items: Vec<OpenPlatformMiniProgramUvInfoItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramUvInfoItem {
+    #[serde(default)]
+    pub ref_date: Option<String>,
+    #[serde(default)]
+    pub visit_uv: Option<i64>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1380,7 +1499,7 @@ pub struct OpenPlatformMiniProgramSupportVersionResponse {
     #[serde(default)]
     pub now_version: Option<String>,
     #[serde(default)]
-    pub uv_info: Option<Value>,
+    pub uv_info: Option<OpenPlatformMiniProgramUvInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1417,37 +1536,70 @@ pub struct OpenPlatformMiniProgramModifyDomainRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramDomainResult {
+    #[serde(default)]
+    pub domain: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+fn deserialize_domain_results<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<OpenPlatformMiniProgramDomainResult>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values = Vec::<Value>::deserialize(deserializer)?;
+    values
+        .into_iter()
+        .map(|value| match value {
+            Value::String(domain) => Ok(OpenPlatformMiniProgramDomainResult {
+                domain: Some(domain),
+                status: None,
+                reason: None,
+                extra: Value::Null,
+            }),
+            other => serde_json::from_value(other).map_err(serde::de::Error::custom),
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramModifyDomainResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
-    pub requestdomain: Vec<Value>,
-    #[serde(default)]
-    pub wsrequestdomain: Vec<Value>,
-    #[serde(default)]
-    pub uploaddomain: Vec<Value>,
-    #[serde(default)]
-    pub downloaddomain: Vec<Value>,
-    #[serde(default)]
-    pub udpdomain: Vec<Value>,
-    #[serde(default)]
-    pub tcpdomain: Vec<Value>,
-    #[serde(default)]
-    pub invalid_requestdomain: Vec<Value>,
-    #[serde(default)]
-    pub invalid_wsrequestdomain: Vec<Value>,
-    #[serde(default)]
-    pub invalid_uploaddomain: Vec<Value>,
-    #[serde(default)]
-    pub invalid_downloaddomain: Vec<Value>,
-    #[serde(default)]
-    pub invalid_udpdomain: Vec<Value>,
-    #[serde(default)]
-    pub invalid_tcpdomain: Vec<Value>,
-    #[serde(default)]
-    pub no_icp_domain: Vec<Value>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub requestdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub wsrequestdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub uploaddomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub downloaddomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub udpdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub tcpdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub invalid_requestdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub invalid_wsrequestdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub invalid_uploaddomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub invalid_downloaddomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub invalid_udpdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub invalid_tcpdomain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, deserialize_with = "deserialize_domain_results")]
+    pub no_icp_domain: Vec<OpenPlatformMiniProgramDomainResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1469,20 +1621,66 @@ pub struct OpenPlatformMiniProgramTesterBindResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramTesterMember {
+    #[serde(default)]
+    pub userstr: Option<String>,
+    #[serde(default)]
+    pub wechatid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub bind_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramTesterListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub members: Vec<Value>,
+    pub members: Vec<OpenPlatformMiniProgramTesterMember>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyOwnerSetting {
+    #[serde(default)]
+    pub contact_email: Option<String>,
+    #[serde(default)]
+    pub contact_phone: Option<String>,
+    #[serde(default)]
+    pub contact_qq: Option<String>,
+    #[serde(default)]
+    pub contact_weixin: Option<String>,
+    #[serde(default)]
+    pub notice_method: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacySettingItem {
+    #[serde(default)]
+    pub privacy_key: Option<String>,
+    #[serde(default)]
+    pub privacy_text: Option<String>,
+    #[serde(default)]
+    pub privacy_label: Option<String>,
+    #[serde(default)]
+    pub privacy_desc: Option<String>,
+    #[serde(default)]
+    pub privacy_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramPrivacySettingRequest {
-    pub owner_setting: Value,
+    pub owner_setting: OpenPlatformMiniProgramPrivacyOwnerSetting,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub setting_list: Vec<Value>,
+    pub setting_list: Vec<OpenPlatformMiniProgramPrivacySettingItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_ver: Option<i64>,
 }
@@ -1494,9 +1692,9 @@ pub struct OpenPlatformMiniProgramPrivacySettingResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub owner_setting: Option<Value>,
+    pub owner_setting: Option<OpenPlatformMiniProgramPrivacyOwnerSetting>,
     #[serde(default)]
-    pub setting_list: Vec<Value>,
+    pub setting_list: Vec<OpenPlatformMiniProgramPrivacySettingItem>,
     #[serde(default)]
     pub privacy_ver: Option<i64>,
 }
@@ -1728,6 +1926,7 @@ mod tests {
         OpenPlatformAuthorizerAccountHeadImageRequest, OpenPlatformAuthorizerInfoResponse,
         OpenPlatformAuthorizerOptionResponse, OpenPlatformAuthorizersResponse,
         OpenPlatformComponentLoginPageUrlRequest, OpenPlatformHandleAuthorizeResponse,
+        OpenPlatformMiniProgramAuditItem, OpenPlatformMiniProgramAuditPreviewInfo,
         OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditStatusResponse,
         OpenPlatformMiniProgramCategoryResponse, OpenPlatformMiniProgramCommitRequest,
         OpenPlatformMiniProgramGrayReleasePlanResponse,
@@ -1737,6 +1936,7 @@ mod tests {
         OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
         OpenPlatformMiniProgramPrivacyInterfaceApplyResponse,
         OpenPlatformMiniProgramPrivacyInterfaceResponse,
+        OpenPlatformMiniProgramPrivacyOwnerSetting, OpenPlatformMiniProgramPrivacySettingItem,
         OpenPlatformMiniProgramPrivacySettingRequest,
         OpenPlatformMiniProgramPrivacySettingResponse,
         OpenPlatformMiniProgramRollbackReleaseResponse, OpenPlatformMiniProgramSessionResponse,
@@ -1996,18 +2196,27 @@ mod tests {
         assert_eq!(commit["user_desc"], "release");
 
         let audit = serde_json::to_value(OpenPlatformMiniProgramSubmitAuditRequest {
-            item_list: vec![json!({
-                "address": "pages/index/index",
-                "tag": "工具",
-                "first_class": "工具",
-                "second_class": "效率",
-                "first_id": 1,
-                "second_id": 2,
-                "title": "home"
-            })],
+            item_list: vec![OpenPlatformMiniProgramAuditItem {
+                address: "pages/index/index".to_string(),
+                tag: "tool".to_string(),
+                first_class: "tool".to_string(),
+                second_class: "efficiency".to_string(),
+                first_id: 1,
+                second_id: 2,
+                title: "home".to_string(),
+                third_class: None,
+                third_id: None,
+                feedback_info: None,
+                feedback_stuff: None,
+                extra: serde_json::Value::Null,
+            }],
             feedback_info: Some("feedback".to_string()),
             feedback_stuff: None,
-            preview_info: Some(json!({ "pic_id_list": ["pic"] })),
+            preview_info: Some(OpenPlatformMiniProgramAuditPreviewInfo {
+                pic_id_list: vec!["pic".to_string()],
+                video_id_list: Vec::new(),
+                extra: serde_json::Value::Null,
+            }),
             version_desc: Some("v1".to_string()),
             ugc_declare: None,
             privacy_api_not_use: Some(true),
@@ -2023,10 +2232,15 @@ mod tests {
     #[test]
     fn deserializes_authorizer_mini_program_code_responses() {
         let categories: OpenPlatformMiniProgramCategoryResponse = serde_json::from_value(json!({
-            "category_list": [{ "first_class": "工具", "first_id": 1 }]
+            "category_list": [{ "first_class": "tool", "first_id": 1, "extra_field": "kept" }]
         }))
         .unwrap();
-        assert_eq!(categories.category_list[0]["first_id"], 1);
+        assert_eq!(categories.category_list[0].first_id, Some(1));
+        assert_eq!(
+            categories.category_list[0].first_class.as_deref(),
+            Some("tool")
+        );
+        assert_eq!(categories.category_list[0].extra["extra_field"], "kept");
 
         let pages: OpenPlatformMiniProgramPageResponse =
             serde_json::from_value(json!({ "page_list": ["pages/index/index"] })).unwrap();
@@ -2070,21 +2284,29 @@ mod tests {
                 "version_list": [{ "user_version": "1.0.0", "app_version": 1 }]
             }))
             .unwrap();
-        assert_eq!(rollback.version_list[0]["app_version"], 1);
+        assert_eq!(
+            rollback.version_list[0].user_version.as_deref(),
+            Some("1.0.0")
+        );
+        assert_eq!(rollback.version_list[0].extra["app_version"], 1);
 
         let gray: OpenPlatformMiniProgramGrayReleasePlanResponse = serde_json::from_value(json!({
             "gray_release_plan": { "status": 1, "gray_percentage": 10 }
         }))
         .unwrap();
-        assert_eq!(gray.gray_release_plan.unwrap()["gray_percentage"], 10);
+        assert_eq!(gray.gray_release_plan.unwrap().gray_percentage, Some(10));
 
         let support: OpenPlatformMiniProgramSupportVersionResponse =
             serde_json::from_value(json!({
                 "now_version": "3.0.0",
-                "uv_info": { "items": [{ "percentage": 90, "version": "3.0.0" }] }
+                "uv_info": { "items": [{ "visit_uv": 90, "version": "3.0.0" }] }
             }))
             .unwrap();
         assert_eq!(support.now_version.as_deref(), Some("3.0.0"));
+        assert_eq!(
+            support.uv_info.unwrap().items[0].version.as_deref(),
+            Some("3.0.0")
+        );
 
         let quota: OpenPlatformMiniProgramAuditQuotaResponse = serde_json::from_value(json!({
             "rest": 10,
@@ -2116,12 +2338,22 @@ mod tests {
         let domain_response: OpenPlatformMiniProgramModifyDomainResponse =
             serde_json::from_value(json!({
                 "requestdomain": ["https://api.example.com"],
-                "invalid_requestdomain": ["bad-domain"],
+                "invalid_requestdomain": [{ "domain": "bad-domain", "reason": "invalid" }],
                 "no_icp_domain": ["https://no-icp.example.com"]
             }))
             .unwrap();
-        assert_eq!(domain_response.requestdomain[0], "https://api.example.com");
-        assert_eq!(domain_response.invalid_requestdomain[0], "bad-domain");
+        assert_eq!(
+            domain_response.requestdomain[0].domain.as_deref(),
+            Some("https://api.example.com")
+        );
+        assert_eq!(
+            domain_response.invalid_requestdomain[0].domain.as_deref(),
+            Some("bad-domain")
+        );
+        assert_eq!(
+            domain_response.invalid_requestdomain[0].reason.as_deref(),
+            Some("invalid")
+        );
 
         let unbind = serde_json::to_value(OpenPlatformMiniProgramTesterUnbindRequest {
             wechatid: None,
@@ -2139,20 +2371,28 @@ mod tests {
             "members": [{ "wechatid": "tester", "userstr": "userstr" }]
         }))
         .unwrap();
-        assert_eq!(list.members[0]["wechatid"], "tester");
+        assert_eq!(list.members[0].wechatid.as_deref(), Some("tester"));
     }
 
     #[test]
     fn serializes_authorizer_mini_program_privacy_requests() {
         let privacy = serde_json::to_value(OpenPlatformMiniProgramPrivacySettingRequest {
-            owner_setting: json!({
-                "contact_email": "dev@example.com",
-                "notice_method": "email"
-            }),
-            setting_list: vec![json!({
-                "privacy_key": "UserInfo",
-                "privacy_text": "用户信息"
-            })],
+            owner_setting: OpenPlatformMiniProgramPrivacyOwnerSetting {
+                contact_email: Some("dev@example.com".to_string()),
+                contact_phone: None,
+                contact_qq: None,
+                contact_weixin: None,
+                notice_method: Some("email".to_string()),
+                extra: serde_json::Value::Null,
+            },
+            setting_list: vec![OpenPlatformMiniProgramPrivacySettingItem {
+                privacy_key: Some("UserInfo".to_string()),
+                privacy_text: Some("user info".to_string()),
+                privacy_label: None,
+                privacy_desc: None,
+                privacy_url: None,
+                extra: serde_json::Value::Null,
+            }],
             privacy_ver: Some(2),
         })
         .unwrap();
@@ -2168,14 +2408,38 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(
-            response.owner_setting.unwrap()["contact_email"],
-            "dev@example.com"
+            response.owner_setting.unwrap().contact_email.as_deref(),
+            Some("dev@example.com")
         );
-        assert_eq!(response.setting_list[0]["privacy_key"], "UserInfo");
+        assert_eq!(
+            response.setting_list[0].privacy_key.as_deref(),
+            Some("UserInfo")
+        );
 
         let upload: OpenPlatformMiniProgramPrivacyExtFileResponse =
             serde_json::from_value(json!({ "ext_file_media_id": "media" })).unwrap();
         assert_eq!(upload.ext_file_media_id.as_deref(), Some("media"));
+
+        let apply = serde_json::to_value(OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
+            api_name: "getUserInfo".to_string(),
+            content: "reason".to_string(),
+            url: Some("https://example.com/privacy".to_string()),
+            scene: Some(1),
+        })
+        .unwrap();
+        assert_eq!(apply["api_name"], "getUserInfo");
+        assert_eq!(apply["url"], "https://example.com/privacy");
+
+        let interfaces: OpenPlatformMiniProgramPrivacyInterfaceResponse =
+            serde_json::from_value(json!({
+                "interface_list": [{ "api_name": "getUserInfo", "status": 2 }]
+            }))
+            .unwrap();
+        assert_eq!(interfaces.interface_list[0]["api_name"], "getUserInfo");
+
+        let apply_response: OpenPlatformMiniProgramPrivacyInterfaceApplyResponse =
+            serde_json::from_value(json!({ "audit_id": 10 })).unwrap();
+        assert_eq!(apply_response.audit_id, Some(10));
     }
 
     #[test]
