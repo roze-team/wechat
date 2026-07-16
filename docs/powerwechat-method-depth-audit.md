@@ -210,6 +210,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   and shipping-item DTOs.
 - dataCube visit-trend, retain, visit-page, user-portrait, performance, and
   security check responses now expose typed Mini Program DTOs.
+- uniform-message send, updatable-message send, and dataCube performance-data
+  request paths now accept typed Mini Program DTOs instead of raw JSON request
+  payloads.
 - wxa code QR/code/unlimited JSON response paths now expose typed ticket, URL,
   buffer, and error metadata DTOs alongside existing bytes helpers.
 - Channels shop/store basic info now share the typed basic-info response DTO.
@@ -218,6 +221,8 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   menu, semantic, template-message, user-list, and blacklist paths now return
   explicit typed response DTOs with compatibility extension fields where the
   upstream payload remains open-ended.
+- Official Account mass-preview now accepts a typed request DTO with explicit
+  preview recipient and message type fields.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and

@@ -210,7 +210,7 @@ impl MiniProgram {
     pub async fn send_uniform_message(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: UniformMessageRequest,
     ) -> Result<WechatStatusResponse> {
         self.inner
             .post(
@@ -246,7 +246,7 @@ impl MiniProgram {
     pub async fn send_updatable_message(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: UpdatableMessageRequest,
     ) -> Result<WechatStatusResponse> {
         self.inner
             .post(
@@ -366,7 +366,7 @@ impl MiniProgram {
     pub async fn performance_data(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: DataCubePerformanceDataRequest,
     ) -> Result<DataCubePerformanceDataResponse> {
         self.inner
             .post(
@@ -2959,6 +2959,33 @@ impl CustomerServiceMessage {
 pub struct DataCubeDateRange {
     pub begin_date: String,
     pub end_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UniformMessageRequest {
+    pub touser: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weapp_template_msg: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mp_template_msg: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatableMessageRequest {
+    pub activity_id: String,
+    pub target_state: i64,
+    pub template_info: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubePerformanceDataRequest {
+    pub cost_time_type: i64,
+    pub default_start_time: i64,
+    pub default_end_time: i64,
+    pub device: i64,
+    pub networktype: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5751,6 +5778,43 @@ mod tests {
 
         assert_eq!(value["template_id"], "tpl");
         assert_eq!(value["data"]["thing1"]["value"], "hello");
+
+        let uniform = serde_json::to_value(UniformMessageRequest {
+            touser: "openid".to_string(),
+            weapp_template_msg: Some(json!({
+                "template_id": "mini-tpl",
+                "page": "pages/index",
+                "data": { "thing1": { "value": "mini" } }
+            })),
+            mp_template_msg: Some(json!({
+                "appid": "wx-official",
+                "template_id": "official-tpl",
+                "url": "https://example.com",
+                "data": { "first": { "value": "official" } }
+            })),
+        })
+        .unwrap();
+        assert_eq!(uniform["touser"], "openid");
+        assert_eq!(uniform["weapp_template_msg"]["template_id"], "mini-tpl");
+        assert_eq!(uniform["mp_template_msg"]["appid"], "wx-official");
+
+        let updatable = serde_json::to_value(UpdatableMessageRequest {
+            activity_id: "activity".to_string(),
+            target_state: 1,
+            template_info: json!({
+                "parameter_list": [{
+                    "name": "member_count",
+                    "value": "2"
+                }]
+            }),
+        })
+        .unwrap();
+        assert_eq!(updatable["activity_id"], "activity");
+        assert_eq!(updatable["target_state"], 1);
+        assert_eq!(
+            updatable["template_info"]["parameter_list"][0]["name"],
+            "member_count"
+        );
     }
 
     #[test]
@@ -5828,14 +5892,18 @@ mod tests {
             json!({ "begin_date": "20260704", "end_date": "20260704" })
         );
 
-        let performance = json!({
-            "cost_time_type": 1,
-            "default_start_time": 1,
-            "default_end_time": 2,
-            "device": 1,
-            "networktype": 1
-        });
+        let performance = serde_json::to_value(DataCubePerformanceDataRequest {
+            cost_time_type: 1,
+            default_start_time: 1,
+            default_end_time: 2,
+            device: 1,
+            networktype: 1,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
         assert_eq!(performance["cost_time_type"], 1);
+        assert_eq!(performance["networktype"], 1);
+        assert!(performance.get("extra").is_none());
 
         let trend: DataCubeVisitTrendResponse = serde_json::from_value(json!({
             "errcode": 0,

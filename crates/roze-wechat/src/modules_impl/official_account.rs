@@ -203,7 +203,7 @@ impl OfficialAccount {
     pub async fn mass_preview(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: MassPreviewRequest,
     ) -> Result<MassPreviewResponse> {
         self.inner
             .post(
@@ -3717,6 +3717,17 @@ pub struct MassSendOpenIdsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MassPreviewRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub touser: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub towxname: Option<String>,
+    pub msgtype: String,
+    #[serde(flatten)]
+    pub message: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MassSendResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -5744,6 +5755,18 @@ mod tests {
         .unwrap();
         assert_eq!(send.msg_id, Some(1000000001));
         assert_eq!(send.msg_data_id, Some(2247483650));
+
+        let preview_request = serde_json::to_value(MassPreviewRequest {
+            touser: Some("openid".to_string()),
+            towxname: None,
+            msgtype: "mpnews".to_string(),
+            message: json!({ "mpnews": { "media_id": "media" } }),
+        })
+        .unwrap();
+        assert_eq!(preview_request["touser"], "openid");
+        assert_eq!(preview_request["msgtype"], "mpnews");
+        assert_eq!(preview_request["mpnews"]["media_id"], "media");
+        assert!(preview_request.get("towxname").is_none());
 
         let preview: MassPreviewResponse =
             serde_json::from_value(json!({ "errcode": 0, "msg_id": 1001 })).unwrap();
