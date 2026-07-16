@@ -4597,7 +4597,37 @@ pub struct WorkInvoiceInfoResponse {
     #[serde(default)]
     pub detail: Option<String>,
     #[serde(default)]
-    pub user_info: Option<Value>,
+    pub user_info: Option<WorkInvoiceUserInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceUserInfo {
+    #[serde(default)]
+    pub fee: Option<i64>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub billing_time: Option<String>,
+    #[serde(default)]
+    pub billing_no: Option<String>,
+    #[serde(default)]
+    pub billing_code: Option<String>,
+    #[serde(default)]
+    pub tax_no: Option<String>,
+    #[serde(default)]
+    pub buyer_number: Option<String>,
+    #[serde(default)]
+    pub buyer_address_and_phone: Option<String>,
+    #[serde(default)]
+    pub buyer_bank_account: Option<String>,
+    #[serde(default)]
+    pub remarks: Option<String>,
+    #[serde(default)]
+    pub pdf_url: Option<String>,
+    #[serde(default)]
+    pub check_code: Option<String>,
+    #[serde(default)]
+    pub info: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4607,7 +4637,23 @@ pub struct WorkInvoiceInfoBatchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub item_list: Vec<Value>,
+    pub item_list: Vec<WorkInvoiceInfoBatchItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkInvoiceInfoBatchItem {
+    #[serde(default)]
+    pub card_id: Option<String>,
+    #[serde(default)]
+    pub encrypt_code: Option<String>,
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub reimburse_status: Option<String>,
+    #[serde(default)]
+    pub user_info: Option<WorkInvoiceUserInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6914,9 +6960,17 @@ pub struct WorkAccountServiceTagDetailResponse {
     #[serde(default)]
     pub tagname: Option<String>,
     #[serde(default)]
-    pub userlist: Vec<Value>,
+    pub userlist: Vec<WorkAccountServiceTagUser>,
     #[serde(default)]
     pub partylist: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTagUser {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6938,7 +6992,15 @@ pub struct WorkAccountServiceTagListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub taglist: Vec<Value>,
+    pub taglist: Vec<WorkAccountServiceTag>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceTag {
+    #[serde(default)]
+    pub tagid: Option<i64>,
+    #[serde(default)]
+    pub tagname: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9453,18 +9515,44 @@ mod tests {
             "type": "vat",
             "payee": "Roze",
             "detail": "Cloud service",
-            "user_info": { "fee": 100 }
+            "user_info": {
+                "fee": 100,
+                "title": "Roze",
+                "billing_no": "NO100",
+                "tax_no": "TAX100"
+            }
         }))
         .unwrap();
         assert_eq!(info.card_id.as_deref(), Some("card"));
         assert_eq!(info.invoice_type.as_deref(), Some("vat"));
-        assert_eq!(info.user_info.unwrap()["fee"], 100);
+        let user_info = info.user_info.unwrap();
+        assert_eq!(user_info.fee, Some(100));
+        assert_eq!(user_info.title.as_deref(), Some("Roze"));
+        assert_eq!(user_info.billing_no.as_deref(), Some("NO100"));
 
         let batch: WorkInvoiceInfoBatchResponse = serde_json::from_value(json!({
-            "item_list": [{ "card_id": "card", "encrypt_code": "encrypted" }]
+            "item_list": [{
+                "card_id": "card",
+                "encrypt_code": "encrypted",
+                "reimburse_status": "INVOICE_REIMBURSE_INIT",
+                "user_info": { "fee": 100, "title": "Roze" }
+            }]
         }))
         .unwrap();
-        assert_eq!(batch.item_list[0]["card_id"], "card");
+        assert_eq!(batch.item_list[0].card_id.as_deref(), Some("card"));
+        assert_eq!(
+            batch.item_list[0].reimburse_status.as_deref(),
+            Some("INVOICE_REIMBURSE_INIT")
+        );
+        assert_eq!(
+            batch.item_list[0]
+                .user_info
+                .as_ref()
+                .unwrap()
+                .title
+                .as_deref(),
+            Some("Roze")
+        );
     }
 
     #[test]
@@ -10483,11 +10571,13 @@ mod tests {
 
         let tag_detail: WorkAccountServiceTagDetailResponse = serde_json::from_value(json!({
             "tagname": "tag",
-            "userlist": [{ "userid": "user" }],
+            "userlist": [{ "userid": "user", "name": "User" }],
             "partylist": [1]
         }))
         .unwrap();
         assert_eq!(tag_detail.tagname.as_deref(), Some("tag"));
+        assert_eq!(tag_detail.userlist[0].userid.as_deref(), Some("user"));
+        assert_eq!(tag_detail.userlist[0].name.as_deref(), Some("User"));
         assert_eq!(tag_detail.partylist[0], 1);
 
         let tag_user: WorkAccountServiceTagUserResultResponse = serde_json::from_value(json!({
@@ -10501,7 +10591,8 @@ mod tests {
             "taglist": [{ "tagid": 1, "tagname": "tag" }]
         }))
         .unwrap();
-        assert_eq!(tags.taglist[0]["tagname"], "tag");
+        assert_eq!(tags.taglist[0].tagid, Some(1));
+        assert_eq!(tags.taglist[0].tagname.as_deref(), Some("tag"));
 
         let ok: WorkAiBotLongConnectionResponse = serde_json::from_value(json!({
             "cmd": "pong",
