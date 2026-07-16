@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 157 | high |
+| Work | 363 | 174 | high |
 | Payment | 165 | 93 | high |
 | Open Platform | 76 | 23 | high |
 | Mini Program | 214 | 165 | medium |
@@ -80,6 +80,11 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external contact remark wrapper;
 - corp-tag list/add/edit/delete and customer tag-mark wrappers;
 - external group-chat list/get/transfer wrappers.
+- customer-acquisition link list/get/create/update/delete wrappers;
+- external-contact group message template, task/result, welcome, remind, and
+  cancel wrappers;
+- external-customer transfer, transfer-result, unassigned-list, and resigned
+  transfer/result wrappers.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.

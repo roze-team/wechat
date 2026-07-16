@@ -796,6 +796,249 @@ impl Work {
             .await
     }
 
+    pub async fn list_customer_acquisition_links(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerAcquisitionLinkListRequest,
+    ) -> Result<CustomerAcquisitionLinkListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/list_link",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_customer_acquisition_link(
+        &self,
+        access_token: impl Into<String>,
+        link_id: impl Into<String>,
+    ) -> Result<CustomerAcquisitionLinkResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/get",
+                Some(access_token.into()),
+                json!({ "link_id": link_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn create_customer_acquisition_link(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerAcquisitionLinkRequest,
+    ) -> Result<CustomerAcquisitionLinkCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/create_link",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_customer_acquisition_link(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerAcquisitionLinkUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/update_link",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_customer_acquisition_link(
+        &self,
+        access_token: impl Into<String>,
+        link_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/delete_link",
+                Some(access_token.into()),
+                json!({ "link_id": link_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn add_external_contact_message_template(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactMessageTemplateRequest,
+    ) -> Result<ExternalContactMessageTemplateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/add_msg_template",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_external_contact_group_messages(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactGroupMessageListRequest,
+    ) -> Result<ExternalContactGroupMessageListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_groupmsg_list_v2",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_group_message_tasks(
+        &self,
+        access_token: impl Into<String>,
+        msg_id: impl Into<String>,
+        limit: i64,
+        cursor: impl Into<String>,
+    ) -> Result<ExternalContactGroupMessageTaskResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_groupmsg_task",
+                Some(access_token.into()),
+                json!({ "msgid": msg_id.into(), "limit": limit, "msgcursorid": cursor.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_group_message_send_result(
+        &self,
+        access_token: impl Into<String>,
+        msg_id: impl Into<String>,
+        user_id: impl Into<String>,
+        limit: i64,
+        cursor: impl Into<String>,
+    ) -> Result<ExternalContactGroupMessageSendResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_groupmsg_send_result",
+                Some(access_token.into()),
+                json!({ "msgid": msg_id.into(), "userid": user_id.into(), "limit": limit, "cursor": cursor.into() }),
+            )
+            .await
+    }
+
+    pub async fn send_external_contact_welcome_message(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactWelcomeMessageRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/send_welcome_msg",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn remind_external_contact_group_message_send(
+        &self,
+        access_token: impl Into<String>,
+        msg_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/remind_groupmsg_send",
+                Some(access_token.into()),
+                json!({ "msgid": msg_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn cancel_external_contact_group_message_send(
+        &self,
+        access_token: impl Into<String>,
+        msg_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/cancel_groupmsg_send",
+                Some(access_token.into()),
+                json!({ "msgid": msg_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn transfer_external_customer(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalCustomerTransferRequest,
+    ) -> Result<ExternalCustomerTransferResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/transfer_customer",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn query_external_customer_transfer_result(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalCustomerTransferResultRequest,
+    ) -> Result<ExternalCustomerTransferResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/transfer_result",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_unassigned_external_contacts(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactUnassignedListRequest,
+    ) -> Result<ExternalContactUnassignedListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_unassigned_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn transfer_resigned_external_customer(
+        &self,
+        access_token: impl Into<String>,
+        request: ResignedExternalCustomerTransferRequest,
+    ) -> Result<ExternalCustomerTransferResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/resigned/transfer_customer",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn query_resigned_external_customer_transfer_result(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalCustomerTransferResultRequest,
+    ) -> Result<ExternalCustomerTransferResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/resigned/transfer_result",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn group_robot(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.group_robot")
     }
@@ -3180,6 +3423,228 @@ pub struct ExternalGroupChatTransferResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLinkListRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLinkListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub link_id_list: Vec<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionRange {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub department_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionPriorityOption {
+    pub priority_type: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub priority_userid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLinkRequest {
+    pub link_name: String,
+    pub range: CustomerAcquisitionRange,
+    pub skip_verify: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority_option: Option<CustomerAcquisitionPriorityOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLinkUpdateRequest {
+    pub link_id: String,
+    pub link_name: String,
+    pub range: CustomerAcquisitionRange,
+    pub skip_verify: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority_option: Option<CustomerAcquisitionPriorityOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLinkCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub link: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLinkResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub link: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageTemplateRequest {
+    pub chat_type: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external_userid: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chat_id_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_filter: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender: Option<String>,
+    pub allow_select: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageTemplateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msgid: Option<String>,
+    #[serde(default)]
+    pub fail_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageListRequest {
+    pub chat_type: String,
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creator: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_type: Option<i64>,
+    pub limit: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub group_msg_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageTaskResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub task_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageSendResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub send_list: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactWelcomeMessageRequest {
+    pub welcome_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalCustomerTransferRequest {
+    pub handover_userid: String,
+    pub takeover_userid: String,
+    pub external_userid: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transfer_success_msg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResignedExternalCustomerTransferRequest {
+    pub handover_userid: String,
+    pub takeover_userid: String,
+    pub external_userid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalCustomerTransferResultRequest {
+    pub handover_userid: String,
+    pub takeover_userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalCustomerTransferResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub customer: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+pub type ExternalCustomerTransferResultResponse = ExternalCustomerTransferResponse;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUnassignedListRequest {
+    pub page_id: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub page_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUnassignedListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub info: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub is_last: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotMessage {
     pub msgtype: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4514,6 +4979,211 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(transfer.failed_chat_list[0]["chat_id"], "bad");
+    }
+
+    #[test]
+    fn serializes_customer_acquisition_link_requests_and_responses() {
+        let list = serde_json::to_value(CustomerAcquisitionLinkListRequest {
+            cursor: None,
+            limit: 50,
+        })
+        .unwrap();
+        assert_eq!(list["limit"], 50);
+        assert!(list.get("cursor").is_none());
+
+        let create = serde_json::to_value(CustomerAcquisitionLinkRequest {
+            link_name: "summer".to_string(),
+            range: CustomerAcquisitionRange {
+                user_list: vec!["user".to_string()],
+                department_list: Vec::new(),
+            },
+            skip_verify: true,
+            priority_option: Some(CustomerAcquisitionPriorityOption {
+                priority_type: 1,
+                priority_userid_list: vec!["priority".to_string()],
+            }),
+        })
+        .unwrap();
+        assert_eq!(create["link_name"], "summer");
+        assert_eq!(create["range"]["user_list"][0], "user");
+        assert_eq!(create["skip_verify"], true);
+        assert_eq!(
+            create["priority_option"]["priority_userid_list"][0],
+            "priority"
+        );
+        assert!(create["range"].get("department_list").is_none());
+
+        let update = serde_json::to_value(CustomerAcquisitionLinkUpdateRequest {
+            link_id: "link".to_string(),
+            link_name: "autumn".to_string(),
+            range: CustomerAcquisitionRange {
+                user_list: Vec::new(),
+                department_list: vec!["2".to_string()],
+            },
+            skip_verify: false,
+            priority_option: None,
+        })
+        .unwrap();
+        assert_eq!(update["link_id"], "link");
+        assert_eq!(update["range"]["department_list"][0], "2");
+        assert!(update.get("priority_option").is_none());
+
+        let links: CustomerAcquisitionLinkListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "link_id_list": ["link"],
+            "next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(links.link_id_list[0], "link");
+        assert_eq!(links.next_cursor.as_deref(), Some("cursor"));
+
+        let created: CustomerAcquisitionLinkCreateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "link": { "link_id": "link", "url": "https://example.com" }
+        }))
+        .unwrap();
+        assert_eq!(created.link.unwrap()["link_id"], "link");
+    }
+
+    #[test]
+    fn serializes_external_contact_message_template_requests() {
+        let template = serde_json::to_value(ExternalContactMessageTemplateRequest {
+            chat_type: "single".to_string(),
+            external_userid: vec!["external".to_string()],
+            chat_id_list: Vec::new(),
+            tag_filter: Some(json!({ "group_list": [{ "tag_list": ["tag"] }] })),
+            sender: Some("sender".to_string()),
+            allow_select: true,
+            text: Some(json!({ "content": "hello" })),
+            attachments: vec![json!({
+                "msgtype": "link",
+                "link": { "title": "title", "url": "https://example.com" }
+            })],
+        })
+        .unwrap();
+        assert_eq!(template["chat_type"], "single");
+        assert_eq!(template["external_userid"][0], "external");
+        assert_eq!(template["attachments"][0]["msgtype"], "link");
+        assert!(template.get("chat_id_list").is_none());
+
+        let list = serde_json::to_value(ExternalContactGroupMessageListRequest {
+            chat_type: "group".to_string(),
+            start_time: 1,
+            end_time: 2,
+            creator: None,
+            filter_type: Some(1),
+            limit: 10,
+            cursor: None,
+        })
+        .unwrap();
+        assert_eq!(list["filter_type"], 1);
+        assert!(list.get("creator").is_none());
+
+        let welcome = serde_json::to_value(ExternalContactWelcomeMessageRequest {
+            welcome_code: "welcome".to_string(),
+            text: Some(json!({ "content": "hi" })),
+            attachments: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(welcome["welcome_code"], "welcome");
+        assert_eq!(welcome["text"]["content"], "hi");
+        assert!(welcome.get("attachments").is_none());
+    }
+
+    #[test]
+    fn deserializes_external_contact_message_template_responses() {
+        let added: ExternalContactMessageTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "msgid": "msg",
+            "fail_list": [{ "external_userid": "bad" }]
+        }))
+        .unwrap();
+        assert_eq!(added.msgid.as_deref(), Some("msg"));
+        assert_eq!(added.fail_list[0]["external_userid"], "bad");
+
+        let messages: ExternalContactGroupMessageListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "group_msg_list": [{ "msgid": "msg" }],
+            "next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(messages.group_msg_list[0]["msgid"], "msg");
+        assert_eq!(messages.next_cursor.as_deref(), Some("cursor"));
+
+        let tasks: ExternalContactGroupMessageTaskResponse = serde_json::from_value(json!({
+            "task_list": [{ "userid": "user", "status": 1 }],
+            "next_cursor": "task-cursor"
+        }))
+        .unwrap();
+        assert_eq!(tasks.task_list[0]["userid"], "user");
+        assert_eq!(tasks.next_cursor.as_deref(), Some("task-cursor"));
+
+        let send_result: ExternalContactGroupMessageSendResultResponse =
+            serde_json::from_value(json!({
+                "send_list": [{ "external_userid": "external", "status": 1 }],
+                "next_cursor": "send-cursor"
+            }))
+            .unwrap();
+        assert_eq!(send_result.send_list[0]["external_userid"], "external");
+    }
+
+    #[test]
+    fn serializes_external_customer_transfer_requests_and_responses() {
+        let transfer = serde_json::to_value(ExternalCustomerTransferRequest {
+            handover_userid: "old".to_string(),
+            takeover_userid: "new".to_string(),
+            external_userid: vec!["external".to_string()],
+            transfer_success_msg: Some("done".to_string()),
+        })
+        .unwrap();
+        assert_eq!(transfer["handover_userid"], "old");
+        assert_eq!(transfer["takeover_userid"], "new");
+        assert_eq!(transfer["external_userid"][0], "external");
+        assert_eq!(transfer["transfer_success_msg"], "done");
+
+        let resigned = serde_json::to_value(ResignedExternalCustomerTransferRequest {
+            handover_userid: "old".to_string(),
+            takeover_userid: "new".to_string(),
+            external_userid: vec!["external".to_string()],
+        })
+        .unwrap();
+        assert_eq!(resigned["external_userid"][0], "external");
+
+        let query = serde_json::to_value(ExternalCustomerTransferResultRequest {
+            handover_userid: "old".to_string(),
+            takeover_userid: "new".to_string(),
+            cursor: None,
+        })
+        .unwrap();
+        assert!(query.get("cursor").is_none());
+
+        let unassigned = serde_json::to_value(ExternalContactUnassignedListRequest {
+            page_id: 1,
+            cursor: Some("cursor".to_string()),
+            page_size: 100,
+        })
+        .unwrap();
+        assert_eq!(unassigned["page_id"], 1);
+        assert_eq!(unassigned["cursor"], "cursor");
+
+        let response: ExternalCustomerTransferResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "customer": [{ "external_userid": "external" }],
+            "next_cursor": "cursor"
+        }))
+        .unwrap();
+        assert_eq!(response.customer[0]["external_userid"], "external");
+        assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
+
+        let unassigned_response: ExternalContactUnassignedListResponse =
+            serde_json::from_value(json!({
+                "info": [{ "handover_userid": "old" }],
+                "is_last": false,
+                "next_cursor": "next"
+            }))
+            .unwrap();
+        assert_eq!(unassigned_response.info[0]["handover_userid"], "old");
+        assert_eq!(unassigned_response.is_last, Some(false));
     }
 
     #[test]
