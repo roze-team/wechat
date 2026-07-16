@@ -97,7 +97,7 @@ impl Work {
     pub async fn set_agent_scope(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkAgentScopeRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
@@ -125,7 +125,7 @@ impl Work {
     pub async fn set_agent_workbench_template(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkAgentWorkbenchTemplateRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
@@ -139,7 +139,7 @@ impl Work {
     pub async fn set_agent_workbench_data(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkAgentWorkbenchDataRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
@@ -4403,23 +4403,23 @@ pub struct WorkAgentWorkbenchKeyDataTemplate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchKeyDataItem {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jump_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchImageTemplate {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jump_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
 }
 
@@ -4431,19 +4431,19 @@ pub struct WorkAgentWorkbenchListTemplate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchListItem {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subtitle: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jump_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchWebviewTemplate {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
 }
 
@@ -4464,6 +4464,85 @@ pub struct AgentUpdateRequest {
     pub isreportenter: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub home_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkAgentScopeRequest {
+    pub agentid: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_userinfos: Option<WorkAgentAllowUsers>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_partys: Option<WorkAgentAllowParties>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_tags: Option<WorkAgentAllowTags>,
+}
+
+impl WorkAgentScopeRequest {
+    pub fn new(agentid: i64) -> Self {
+        Self {
+            agentid,
+            allow_userinfos: None,
+            allow_partys: None,
+            allow_tags: None,
+        }
+    }
+
+    pub fn with_users(mut self, users: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.allow_userinfos = Some(WorkAgentAllowUsers {
+            user: users
+                .into_iter()
+                .map(|userid| WorkAgentAllowUser {
+                    userid: Some(userid.into()),
+                })
+                .collect(),
+        });
+        self
+    }
+
+    pub fn with_parties(mut self, party_ids: impl IntoIterator<Item = i64>) -> Self {
+        self.allow_partys = Some(WorkAgentAllowParties {
+            partyid: party_ids.into_iter().collect(),
+        });
+        self
+    }
+
+    pub fn with_tags(mut self, tag_ids: impl IntoIterator<Item = i64>) -> Self {
+        self.allow_tags = Some(WorkAgentAllowTags {
+            tagid: tag_ids.into_iter().collect(),
+        });
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchTemplateRequest {
+    pub agentid: i64,
+    #[serde(rename = "type")]
+    pub template_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keydata: Option<WorkAgentWorkbenchKeyDataTemplate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<WorkAgentWorkbenchImageTemplate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list: Option<WorkAgentWorkbenchListTemplate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchDataRequest {
+    pub agentid: i64,
+    pub userid: String,
+    #[serde(rename = "type")]
+    pub template_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keydata: Option<WorkAgentWorkbenchKeyDataTemplate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<WorkAgentWorkbenchImageTemplate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list: Option<WorkAgentWorkbenchListTemplate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12618,6 +12697,59 @@ mod tests {
         assert_eq!(value["agentid"], 100001);
         assert_eq!(value["name"], "agent");
         assert!(value.get("home_url").is_none());
+
+        let scope = serde_json::to_value(
+            WorkAgentScopeRequest::new(100001)
+                .with_users(["user"])
+                .with_parties([2, 3])
+                .with_tags([4]),
+        )
+        .unwrap();
+        assert_eq!(scope["agentid"], 100001);
+        assert_eq!(scope["allow_userinfos"]["user"][0]["userid"], "user");
+        assert_eq!(scope["allow_partys"]["partyid"][1], 3);
+        assert_eq!(scope["allow_tags"]["tagid"][0], 4);
+
+        let template = serde_json::to_value(WorkAgentWorkbenchTemplateRequest {
+            agentid: 100001,
+            template_type: "keydata".to_string(),
+            keydata: Some(WorkAgentWorkbenchKeyDataTemplate {
+                items: vec![WorkAgentWorkbenchKeyDataItem {
+                    key: Some("today".to_string()),
+                    data: Some("10".to_string()),
+                    jump_url: None,
+                    pagepath: None,
+                }],
+            }),
+            image: None,
+            list: None,
+            webview: None,
+        })
+        .unwrap();
+        assert_eq!(template["type"], "keydata");
+        assert_eq!(template["keydata"]["items"][0]["key"], "today");
+        assert!(template.get("image").is_none());
+        assert!(template["keydata"]["items"][0]
+            .as_object()
+            .unwrap()
+            .get("jump_url")
+            .is_none());
+
+        let data = serde_json::to_value(WorkAgentWorkbenchDataRequest {
+            agentid: 100001,
+            userid: "user".to_string(),
+            template_type: "webview".to_string(),
+            keydata: None,
+            image: None,
+            list: None,
+            webview: Some(WorkAgentWorkbenchWebviewTemplate {
+                url: Some("https://example.com/workbench".to_string()),
+            }),
+        })
+        .unwrap();
+        assert_eq!(data["userid"], "user");
+        assert_eq!(data["type"], "webview");
+        assert_eq!(data["webview"]["url"], "https://example.com/workbench");
     }
 
     #[test]
