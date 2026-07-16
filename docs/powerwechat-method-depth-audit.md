@@ -162,6 +162,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   typed DTOs instead of raw JSON payloads.
 - Work app message send payloads now expose typed text, markdown, and text-card
   message DTOs on the primary `WorkMessage` request instead of generic JSON.
+- Work app message media, video, news, mpnews, and mini-program notice payloads
+  now expose typed DTOs on the primary `WorkMessage` request and helper paths.
 - group robot text, markdown, and file message payloads now expose typed DTOs
   instead of generic JSON values.
 - Work remaining raw request payloads have been removed: moment-strategy

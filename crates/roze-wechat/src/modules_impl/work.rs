@@ -2244,8 +2244,15 @@ impl Work {
                 text: Some(WorkTextMessage {
                     content: content.into(),
                 }),
+                image: None,
+                voice: None,
+                video: None,
+                file: None,
                 markdown: None,
                 textcard: None,
+                news: None,
+                mpnews: None,
+                miniprogram_notice: None,
                 safe: Some(0),
                 enable_id_trans: None,
                 enable_duplicate_check: None,
@@ -2267,7 +2274,9 @@ impl Work {
             audience,
             "markdown",
             "markdown",
-            json!({ "content": content.into() }),
+            to_value(WorkMarkdownMessage {
+                content: content.into(),
+            })?,
         )
         .await
     }
@@ -2339,7 +2348,7 @@ impl Work {
             audience,
             "news",
             "news",
-            json!({ "articles": articles }),
+            to_value(WorkNewsMessage { articles })?,
         )
         .await
     }
@@ -2355,7 +2364,7 @@ impl Work {
             audience,
             "mpnews",
             "mpnews",
-            json!({ "articles": articles }),
+            to_value(WorkMpNewsMessage { articles })?,
         )
         .await
     }
@@ -2388,7 +2397,9 @@ impl Work {
             audience,
             msg_type,
             msg_type,
-            json!({ "media_id": media_id.into() }),
+            to_value(WorkMediaMessage {
+                media_id: media_id.into(),
+            })?,
         )
         .await
     }
@@ -5118,9 +5129,23 @@ pub struct WorkMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<WorkTextMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video: Option<WorkVideoMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<WorkMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub textcard: Option<WorkTextCardMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub news: Option<WorkNewsMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mpnews: Option<WorkMpNewsMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub safe: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5141,6 +5166,11 @@ pub struct WorkTextMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMarkdownMessage {
     pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMediaMessage {
+    pub media_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5393,6 +5423,11 @@ pub struct WorkNewsArticle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkNewsMessage {
+    pub articles: Vec<WorkNewsArticle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMpNewsArticle {
     pub title: String,
     pub thumb_media_id: String,
@@ -5400,6 +5435,11 @@ pub struct WorkMpNewsArticle {
     pub content_source_url: String,
     pub content: String,
     pub digest: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMpNewsMessage {
+    pub articles: Vec<WorkMpNewsArticle>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9842,8 +9882,15 @@ mod tests {
             text: Some(WorkTextMessage {
                 content: "hello".to_string(),
             }),
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
             markdown: None,
             textcard: None,
+            news: None,
+            mpnews: None,
+            miniprogram_notice: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -9863,10 +9910,17 @@ mod tests {
             msgtype: "markdown".to_string(),
             agentid: 100001,
             text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
             markdown: Some(WorkMarkdownMessage {
                 content: "**hello**".to_string(),
             }),
             textcard: None,
+            news: None,
+            mpnews: None,
+            miniprogram_notice: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -9883,6 +9937,10 @@ mod tests {
             msgtype: "textcard".to_string(),
             agentid: 100001,
             text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
             markdown: None,
             textcard: Some(WorkTextCardMessage {
                 title: "title".to_string(),
@@ -9890,6 +9948,9 @@ mod tests {
                 url: "https://example.com".to_string(),
                 btntxt: Some("open".to_string()),
             }),
+            news: None,
+            mpnews: None,
+            miniprogram_notice: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -9898,6 +9959,102 @@ mod tests {
         })
         .unwrap();
         assert_eq!(textcard["textcard"]["btntxt"], "open");
+
+        let image = serde_json::to_value(WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: "image".to_string(),
+            agentid: 100001,
+            text: None,
+            image: Some(WorkMediaMessage {
+                media_id: "image-media".to_string(),
+            }),
+            voice: None,
+            video: None,
+            file: None,
+            markdown: None,
+            textcard: None,
+            news: None,
+            mpnews: None,
+            miniprogram_notice: None,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
+        assert_eq!(image["image"]["media_id"], "image-media");
+
+        let news = serde_json::to_value(WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: "news".to_string(),
+            agentid: 100001,
+            text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            markdown: None,
+            textcard: None,
+            news: Some(WorkNewsMessage {
+                articles: vec![WorkNewsArticle {
+                    title: "title".to_string(),
+                    description: "desc".to_string(),
+                    url: "https://example.com".to_string(),
+                    picurl: "https://example.com/a.png".to_string(),
+                }],
+            }),
+            mpnews: None,
+            miniprogram_notice: None,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
+        assert_eq!(
+            news["news"]["articles"][0]["picurl"],
+            "https://example.com/a.png"
+        );
+
+        let mpnews = serde_json::to_value(WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: "mpnews".to_string(),
+            agentid: 100001,
+            text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            markdown: None,
+            textcard: None,
+            news: None,
+            mpnews: Some(WorkMpNewsMessage {
+                articles: vec![WorkMpNewsArticle {
+                    title: "title".to_string(),
+                    thumb_media_id: "thumb".to_string(),
+                    author: "author".to_string(),
+                    content_source_url: "https://example.com/source".to_string(),
+                    content: "content".to_string(),
+                    digest: "digest".to_string(),
+                }],
+            }),
+            miniprogram_notice: None,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
+        assert_eq!(mpnews["mpnews"]["articles"][0]["thumb_media_id"], "thumb");
     }
 
     #[test]
