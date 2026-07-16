@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 249 | high |
+| Work | 363 | 274 | high |
 | Payment | 165 | 93 | high |
 | Open Platform | 76 | 23 | high |
 | Mini Program | 214 | 165 | medium |
@@ -29,9 +29,10 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 ## Priority Updates
 
 1. Work method-depth parity:
-   continue expanding `externalContact`, `oa`, `user`, `message`, and `media`.
-   These still have the largest endpoint surface compared with current Roze
-   wrappers.
+   exact endpoint coverage is now green against the current PowerWeChat Work
+   scan, but the method surface still needs deeper typed DTO normalization and
+   semantic helper polish across `externalContact`, `oa`, `user`, `message`,
+   `media`, and webhook/token flows.
 
 2. Payment method-depth parity:
    continue expanding `merchantService`, `notify`, `order`, and remaining
@@ -66,7 +67,7 @@ uses Rust `format!` placeholders.
 
 | Family | PowerWeChat endpoints found | Exact endpoints not found in Roze | Highest-impact update areas |
 | --- | ---: | ---: | --- |
-| Work | 261 | 55 | external contact, check-in, department/user batch/export, message variants, OA |
+| Work | 261 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Mini Program | 151 | 41 | live broadcast goods/roles/room operations, uniform/updatable messages, business/security paths |
 | Open Platform | 48 | 36 | authorizer mini-program code/audit/privacy/domain/tester/account flows |
 | Official Account | 200 | 22 | user tags, customer-service sessions/message records, card update/list, base callback/quota |
@@ -104,6 +105,12 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-contact strategy-tag list/add/edit/delete wrappers, group welcome
   template add/edit/get/delete wrappers, group-chat join-way add/get/update/delete
   wrappers, and opengid-to-chatid wrapper.
+- agent scope/workbench wrappers, auth exact-path user info/detail wrappers,
+  department get/simple-list wrappers, external-contact new-id and union-id
+  conversion wrappers, moment-strategy list/range/create/edit/delete wrappers,
+  template-card update wrapper, msg-audit agree/robot-info wrappers, tag user
+  removal wrapper, group robot send/upload wrappers, and Work access-token
+  wrapper.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.

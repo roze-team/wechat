@@ -29,6 +29,23 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.base")
     }
 
+    pub async fn access_token(
+        &self,
+        corp_id: impl Into<String>,
+        corp_secret: impl Into<String>,
+    ) -> Result<WorkAccessTokenResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/gettoken",
+                None,
+                vec![
+                    ("corpid".to_string(), corp_id.into()),
+                    ("corpsecret".to_string(), corp_secret.into()),
+                ],
+            )
+            .await
+    }
+
     pub async fn callback_ip(&self, access_token: impl Into<String>) -> Result<WorkIpListResponse> {
         self.inner
             .get("cgi-bin/getcallbackip", Some(access_token.into()))
@@ -67,6 +84,62 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post("cgi-bin/agent/set", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn set_agent_scope(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/agent/set_scope",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_agent_workbench_template(
+        &self,
+        access_token: impl Into<String>,
+        agent_id: i64,
+    ) -> Result<Value> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/agent/get_workbench_template",
+                Some(access_token.into()),
+                vec![("agentid".to_string(), agent_id.to_string())],
+            )
+            .await
+    }
+
+    pub async fn set_agent_workbench_template(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/agent/set_workbench_template",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn set_agent_workbench_data(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/agent/set_workbench_data",
+                Some(access_token.into()),
+                request,
+            )
             .await
     }
 
@@ -126,6 +199,33 @@ impl Work {
             .unwrap_or_default();
         self.inner
             .get_with_query("cgi-bin/department/list", Some(access_token.into()), query)
+            .await
+    }
+
+    pub async fn simple_list_departments(
+        &self,
+        access_token: impl Into<String>,
+        id: Option<i64>,
+    ) -> Result<Value> {
+        let query = id
+            .map(|id| vec![("id".to_string(), id.to_string())])
+            .unwrap_or_default();
+        self.inner
+            .get_with_query(
+                "cgi-bin/department/simplelist",
+                Some(access_token.into()),
+                query,
+            )
+            .await
+    }
+
+    pub async fn get_department(&self, access_token: impl Into<String>, id: i64) -> Result<Value> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/department/get",
+                Some(access_token.into()),
+                vec![("id".to_string(), id.to_string())],
+            )
             .await
     }
 
@@ -898,6 +998,46 @@ impl Work {
             .await
     }
 
+    pub async fn list_external_contact_follow_users(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<Value> {
+        self.inner
+            .get(
+                "cgi-bin/externalcontact/get_follow_user_list",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_new_external_user_id(
+        &self,
+        access_token: impl Into<String>,
+        external_userid: impl Into<String>,
+    ) -> Result<WorkExternalUserIdConvertResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_new_external_userid",
+                Some(access_token.into()),
+                json!({ "external_userid": external_userid.into() }),
+            )
+            .await
+    }
+
+    pub async fn external_contact_union_id_to_external_user_id(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUnionIdToExternalUserIdRequest,
+    ) -> Result<WorkExternalUserIdConvertResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/unionid_to_external_userid",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn batch_get_external_contacts(
         &self,
         access_token: impl Into<String>,
@@ -1191,6 +1331,91 @@ impl Work {
                 "cgi-bin/externalcontact/groupchat/del_join_way",
                 Some(access_token.into()),
                 json!({ "config_id": config_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_new_external_group_chat_user_id(
+        &self,
+        access_token: impl Into<String>,
+        external_userid: impl Into<String>,
+    ) -> Result<WorkExternalUserIdConvertResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/get_new_external_userid",
+                Some(access_token.into()),
+                json!({ "external_userid": external_userid.into() }),
+            )
+            .await
+    }
+
+    pub async fn list_external_contact_moment_strategies(
+        &self,
+        access_token: impl Into<String>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<ExternalContactMomentStrategyListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/moment_strategy/list",
+                Some(access_token.into()),
+                json!({ "cursor": cursor.into(), "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_strategy_range(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactMomentStrategyRangeRequest,
+    ) -> Result<ExternalContactMomentStrategyRangeResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/moment_strategy/get_range",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn create_external_contact_moment_strategy(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<ExternalContactMomentStrategyCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/moment_strategy/create",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_external_contact_moment_strategy(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<ExternalContactMomentStrategyCreateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/moment_strategy/edit",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_external_contact_moment_strategy(
+        &self,
+        access_token: impl Into<String>,
+        strategy_id: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/moment_strategy/del",
+                Some(access_token.into()),
+                json!({ "strategy_id": strategy_id }),
             )
             .await
     }
@@ -2027,6 +2252,20 @@ impl Work {
             .await
     }
 
+    pub async fn update_template_card_message(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<MessageSendResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/update_template_card",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn send_linked_corp_message(
         &self,
         access_token: impl Into<String>,
@@ -2150,6 +2389,48 @@ impl Work {
                 "cgi-bin/msgaudit/groupchat/get",
                 Some(access_token.into()),
                 json!({ "roomid": room_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn msg_audit_check_single_agree(
+        &self,
+        access_token: impl Into<String>,
+        info: Vec<Value>,
+    ) -> Result<Value> {
+        self.inner
+            .post(
+                "cgi-bin/msgaudit/check_single_agree",
+                Some(access_token.into()),
+                json!({ "info": info }),
+            )
+            .await
+    }
+
+    pub async fn msg_audit_check_room_agree(
+        &self,
+        access_token: impl Into<String>,
+        room_id: impl Into<String>,
+    ) -> Result<Value> {
+        self.inner
+            .post(
+                "cgi-bin/msgaudit/check_room_agree",
+                Some(access_token.into()),
+                json!({ "roomid": room_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn msg_audit_robot_info(
+        &self,
+        access_token: impl Into<String>,
+        robot_id: impl Into<String>,
+    ) -> Result<Value> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/msgaudit/get_robot_info",
+                Some(access_token.into()),
+                vec![("robot_id".to_string(), robot_id.into())],
             )
             .await
     }
@@ -3611,6 +3892,23 @@ impl Work {
             .await
     }
 
+    pub async fn remove_users_from_tag(
+        &self,
+        access_token: impl Into<String>,
+        tagid: i64,
+        userlist: Vec<String>,
+        partylist: Vec<String>,
+    ) -> Result<WorkAccountServiceTagUserResultResponse> {
+        self.account_service_tag_or_untag_users(
+            access_token,
+            "cgi-bin/tag/deltagusers",
+            tagid,
+            userlist,
+            partylist,
+        )
+        .await
+    }
+
     pub async fn account_service_tag_list(
         &self,
         access_token: impl Into<String>,
@@ -3714,6 +4012,44 @@ impl Work {
             .await
     }
 
+    pub async fn send_group_robot_message(
+        &self,
+        key: impl Into<String>,
+        request: GroupRobotMessage,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post_json_with_query(
+                "cgi-bin/webhook/send",
+                vec![("key".to_string(), key.into())],
+                serde_json::to_value(request).expect("work group robot message serializes"),
+                Vec::new(),
+            )
+            .await
+    }
+
+    pub async fn upload_group_robot_media_from_bytes(
+        &self,
+        key: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "cgi-bin/webhook/upload_media",
+                None,
+                vec![
+                    ("key".to_string(), key.into()),
+                    ("type".to_string(), "file".to_string()),
+                ],
+                form,
+            )
+            .await
+    }
+
     pub fn oauth(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.oauth")
     }
@@ -3746,6 +4082,20 @@ impl Work {
             .await
     }
 
+    pub async fn auth_user_info(
+        &self,
+        access_token: impl Into<String>,
+        code: impl Into<String>,
+    ) -> Result<Value> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/auth/getuserinfo",
+                Some(access_token.into()),
+                vec![("code".to_string(), code.into())],
+            )
+            .await
+    }
+
     pub async fn oauth_user_detail(
         &self,
         access_token: impl Into<String>,
@@ -3754,6 +4104,20 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/user/getuserdetail",
+                Some(access_token.into()),
+                json!({ "user_ticket": user_ticket.into() }),
+            )
+            .await
+    }
+
+    pub async fn auth_user_detail(
+        &self,
+        access_token: impl Into<String>,
+        user_ticket: impl Into<String>,
+    ) -> Result<Value> {
+        self.inner
+            .post(
+                "cgi-bin/auth/getuserdetail",
                 Some(access_token.into()),
                 json!({ "user_ticket": user_ticket.into() }),
             )
@@ -3814,6 +4178,18 @@ pub struct WorkIpListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub ip_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccessTokenResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub access_token: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3917,6 +4293,8 @@ pub struct WorkUnionIdToExternalUserIdResponse {
     #[serde(default)]
     pub pending_id: Option<String>,
 }
+
+pub type WorkExternalUserIdConvertResponse = WorkUnionIdToExternalUserIdResponse;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalUserIdToPendingIdRequest {
@@ -4729,6 +5107,48 @@ pub struct ExternalGroupChatJoinWayResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub join_way: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyRangeRequest {
+    pub strategy_id: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub strategy: Vec<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyRangeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub range: Option<Value>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub strategy_id: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6664,6 +7084,22 @@ mod tests {
 
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["mentioned_list"][0], "@all");
+
+        let markdown = serde_json::to_value(Work::group_robot_markdown("**hello**")).unwrap();
+        assert_eq!(markdown["msgtype"], "markdown");
+        assert_eq!(markdown["markdown"]["content"], "**hello**");
+
+        let file = serde_json::to_value(GroupRobotMessage {
+            msgtype: "file".to_string(),
+            text: None,
+            markdown: None,
+            image: None,
+            news: None,
+            file: Some(json!({ "media_id": "media" })),
+            template_card: None,
+        })
+        .unwrap();
+        assert_eq!(file["file"]["media_id"], "media");
     }
 
     #[test]
@@ -6962,6 +7398,10 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(join_detail.join_way.unwrap()["config_id"], "config");
+
+        let converted: WorkExternalUserIdConvertResponse =
+            serde_json::from_value(json!({ "external_userid": "new-external" })).unwrap();
+        assert_eq!(converted.external_userid.as_deref(), Some("new-external"));
     }
 
     #[test]
@@ -7276,6 +7716,34 @@ mod tests {
         .unwrap();
         assert_eq!(result.status, Some(2));
         assert_eq!(result.result_type.as_deref(), Some("add_moment_task"));
+
+        let strategy_range = serde_json::to_value(ExternalContactMomentStrategyRangeRequest {
+            strategy_id: 100,
+            cursor: Some("cursor".to_string()),
+            limit: 50,
+        })
+        .unwrap();
+        assert_eq!(strategy_range["strategy_id"], 100);
+        assert_eq!(strategy_range["cursor"], "cursor");
+
+        let strategies: ExternalContactMomentStrategyListResponse = serde_json::from_value(json!({
+            "strategy": [{ "strategy_id": 100, "strategy_name": "vip" }],
+            "next_cursor": "next"
+        }))
+        .unwrap();
+        assert_eq!(strategies.strategy[0]["strategy_name"], "vip");
+        assert_eq!(strategies.next_cursor.as_deref(), Some("next"));
+
+        let range: ExternalContactMomentStrategyRangeResponse = serde_json::from_value(json!({
+            "range": { "user_list": ["user"] },
+            "next_cursor": "next"
+        }))
+        .unwrap();
+        assert_eq!(range.range.unwrap()["user_list"][0], "user");
+
+        let created_strategy: ExternalContactMomentStrategyCreateResponse =
+            serde_json::from_value(json!({ "strategy_id": 100 })).unwrap();
+        assert_eq!(created_strategy.strategy_id.unwrap(), 100);
     }
 
     #[test]
@@ -7448,6 +7916,14 @@ mod tests {
 
         assert_eq!(callback.ip_list[0], "1.1.1.1");
         assert_eq!(callback.ip_list.len(), 2);
+
+        let token: WorkAccessTokenResponse = serde_json::from_value(json!({
+            "access_token": "token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert_eq!(token.access_token.as_deref(), Some("token"));
+        assert_eq!(token.expires_in, Some(7200));
     }
 
     #[test]
@@ -8851,6 +9327,14 @@ mod tests {
         assert_eq!(value["limit"], 100);
         assert_eq!(value["timeout"], 10);
         assert!(value.get("proxy").is_none());
+
+        let single_agree = json!({
+            "info": [{ "userid": "user", "exteranalopenid": "openid" }]
+        });
+        assert_eq!(single_agree["info"][0]["userid"], "user");
+
+        let room_agree = json!({ "roomid": "room" });
+        assert_eq!(room_agree["roomid"], "room");
     }
 
     #[test]
