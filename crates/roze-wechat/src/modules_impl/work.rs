@@ -7456,13 +7456,31 @@ pub struct WorkJournalRecordListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalRecordInfo {
+    #[serde(default)]
+    pub journaluuid: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub creator: Option<String>,
+    #[serde(default)]
+    pub apply_time: Option<i64>,
+    #[serde(default)]
+    pub state: Option<i64>,
+    #[serde(default)]
+    pub apply_data: Option<Value>,
+    #[serde(default)]
+    pub comments: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalRecordDetailResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub info: Option<Value>,
+    pub info: Option<WorkJournalRecordInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7473,13 +7491,31 @@ pub struct WorkJournalStatListRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalStatSummary {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalStatList {
+    #[serde(default)]
+    pub summary: Vec<WorkJournalStatSummary>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub details: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalStatListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub stat_list: Option<Value>,
+    pub stat_list: Option<WorkJournalStatList>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7838,13 +7874,65 @@ pub struct WorkLivingGetUserAllLivingIdResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingInfo {
+    #[serde(default)]
+    pub anchor_userid: Option<String>,
+    #[serde(default)]
+    pub theme: Option<String>,
+    #[serde(default)]
+    pub living_start: Option<i64>,
+    #[serde(default)]
+    pub living_duration: Option<i64>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default, rename = "type")]
+    pub living_type: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub viewer_count: Option<i64>,
+    #[serde(default)]
+    pub comment_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLivingInfoResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub living_info: Option<Value>,
+    pub living_info: Option<WorkLivingInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingWatchStat {
+    #[serde(default)]
+    pub viewer_userid: Option<String>,
+    #[serde(default)]
+    pub viewer_external_userid: Option<String>,
+    #[serde(default)]
+    pub watch_time: Option<i64>,
+    #[serde(default)]
+    pub is_comment: Option<i64>,
+    #[serde(default)]
+    pub is_mic: Option<i64>,
+    #[serde(default)]
+    pub invite_userid: Option<String>,
+    #[serde(default)]
+    pub invite_external_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingWatchStatInfo {
+    #[serde(default)]
+    pub viewer_count: Option<i64>,
+    #[serde(default)]
+    pub comment_count: Option<i64>,
+    #[serde(default)]
+    pub mic_count: Option<i64>,
+    #[serde(default)]
+    pub watch_stat: Vec<WorkLivingWatchStat>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7856,7 +7944,7 @@ pub struct WorkLivingWatchStatResponse {
     #[serde(default)]
     pub next_key: Option<String>,
     #[serde(default)]
-    pub stat_info: Option<Value>,
+    pub stat_info: Option<WorkLivingWatchStatInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10162,16 +10250,34 @@ mod tests {
         assert_eq!(records.next_cursor, Some(10));
 
         let detail: WorkJournalRecordDetailResponse = serde_json::from_value(json!({
-            "info": { "journaluuid": "journal-1", "template_id": "template-1" }
+            "info": {
+                "journaluuid": "journal-1",
+                "template_id": "template-1",
+                "creator": "user",
+                "apply_time": 1_800_000_000,
+                "state": 1,
+                "apply_data": { "contents": [] },
+                "comments": [{ "comment_userid": "manager" }]
+            }
         }))
         .unwrap();
-        assert_eq!(detail.info.unwrap()["journaluuid"], "journal-1");
+        let detail = detail.info.unwrap();
+        assert_eq!(detail.journaluuid.as_deref(), Some("journal-1"));
+        assert_eq!(detail.creator.as_deref(), Some("user"));
+        assert_eq!(detail.comments[0]["comment_userid"], "manager");
 
         let stats: WorkJournalStatListResponse = serde_json::from_value(json!({
-            "stat_list": { "summary": [{ "userid": "user", "count": 3 }] }
+            "stat_list": {
+                "summary": [{ "userid": "user", "count": 3 }],
+                "total": 3,
+                "details": [{ "journaluuid": "journal-1" }]
+            }
         }))
         .unwrap();
-        assert_eq!(stats.stat_list.unwrap()["summary"][0]["count"], 3);
+        let stats = stats.stat_list.unwrap();
+        assert_eq!(stats.summary[0].userid.as_deref(), Some("user"));
+        assert_eq!(stats.summary[0].count, Some(3));
+        assert_eq!(stats.total, Some(3));
 
         let schedule_add: WorkScheduleAddResponse =
             serde_json::from_value(json!({ "schedule_id": "schedule-1" })).unwrap();
@@ -10671,17 +10777,41 @@ mod tests {
         assert_eq!(ids.livingid_list[0], "living-1");
 
         let info: WorkLivingInfoResponse = serde_json::from_value(json!({
-            "living_info": { "theme": "Launch" }
+            "living_info": {
+                "anchor_userid": "anchor",
+                "theme": "Launch",
+                "living_start": 1_800_000_000,
+                "living_duration": 3600,
+                "type": 1,
+                "status": 2,
+                "viewer_count": 3
+            }
         }))
         .unwrap();
-        assert_eq!(info.living_info.unwrap()["theme"], "Launch");
+        let info = info.living_info.unwrap();
+        assert_eq!(info.theme.as_deref(), Some("Launch"));
+        assert_eq!(info.living_type, Some(1));
+        assert_eq!(info.viewer_count, Some(3));
 
         let stat: WorkLivingWatchStatResponse = serde_json::from_value(json!({
             "next_key": "next",
-            "stat_info": { "viewer_count": 3 }
+            "stat_info": {
+                "viewer_count": 3,
+                "comment_count": 1,
+                "watch_stat": [{
+                    "viewer_userid": "viewer",
+                    "watch_time": 120,
+                    "is_comment": 1
+                }]
+            }
         }))
         .unwrap();
-        assert_eq!(stat.stat_info.unwrap()["viewer_count"], 3);
+        let stat_info = stat.stat_info.unwrap();
+        assert_eq!(stat_info.viewer_count, Some(3));
+        assert_eq!(
+            stat_info.watch_stat[0].viewer_userid.as_deref(),
+            Some("viewer")
+        );
 
         let share_info: WorkLivingShareInfoResponse = serde_json::from_value(json!({
             "livingid": "living-1",

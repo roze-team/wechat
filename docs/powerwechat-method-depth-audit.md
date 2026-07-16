@@ -145,6 +145,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   dial-record, call-state, and schedule DTOs.
 - OA meeting-room and WeDrive responses now expose typed room, booking, space,
   file, and move-result DTOs.
+- OA journal detail/stat and living info/watch-stat responses now expose typed
+  journal, statistic, live-info, and watch-stat DTOs.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 
