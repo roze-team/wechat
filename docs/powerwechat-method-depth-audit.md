@@ -170,6 +170,8 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 - data-cube performance data wrapper;
 - live-business goods warehouse, follower list, and push-message wrappers;
 - image security multipart upload wrapper.
+- express order, account, delivery, waybill, path, and contact responses now
+  expose typed logistics DTOs.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and

@@ -4593,7 +4593,27 @@ pub struct ExpressAddOrderResponse {
     #[serde(default)]
     pub waybill_id: Option<String>,
     #[serde(default)]
-    pub waybill_data: Vec<Value>,
+    pub waybill_data: Vec<ExpressWaybillData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressWaybillData {
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressOrderSummary {
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub order_status: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4603,7 +4623,7 @@ pub struct ExpressBatchOrderListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub order_list: Vec<Value>,
+    pub order_list: Vec<ExpressOrderSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4627,7 +4647,19 @@ pub struct ExpressAccountListResponse {
     #[serde(default)]
     pub count: Option<i64>,
     #[serde(default)]
-    pub list: Vec<Value>,
+    pub list: Vec<ExpressAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressAccount {
+    #[serde(default)]
+    pub biz_id: Option<String>,
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub delivery_name: Option<String>,
+    #[serde(default)]
+    pub account_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4639,7 +4671,19 @@ pub struct ExpressDeliveryListResponse {
     #[serde(default)]
     pub count: Option<i64>,
     #[serde(default)]
-    pub data: Vec<Value>,
+    pub data: Vec<ExpressDelivery>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressDelivery {
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub delivery_name: Option<String>,
+    #[serde(default)]
+    pub can_use_cash: Option<i64>,
+    #[serde(default)]
+    pub can_get_quota: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4651,7 +4695,7 @@ pub struct ExpressGetOrderResponse {
     #[serde(default)]
     pub print_html: Option<String>,
     #[serde(default)]
-    pub waybill_data: Vec<Value>,
+    pub waybill_data: Vec<ExpressWaybillData>,
     #[serde(default)]
     pub delivery_id: Option<String>,
     #[serde(default)]
@@ -4677,7 +4721,17 @@ pub struct ExpressGetPathResponse {
     #[serde(default)]
     pub path_item_num: Option<i64>,
     #[serde(default)]
-    pub path_item_list: Vec<Value>,
+    pub path_item_list: Vec<ExpressPathItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressPathItem {
+    #[serde(default)]
+    pub action_time: Option<i64>,
+    #[serde(default)]
+    pub action_type: Option<i64>,
+    #[serde(default)]
+    pub action_msg: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4711,11 +4765,35 @@ pub struct ExpressGetContactResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub waybill_id: Option<Value>,
+    pub waybill_id: Option<String>,
     #[serde(default)]
-    pub sender: Vec<Value>,
+    pub sender: Vec<ExpressContact>,
     #[serde(default)]
-    pub receiver: Vec<Value>,
+    pub receiver: Vec<ExpressContact>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressContact {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub tel: Option<String>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default)]
+    pub company: Option<String>,
+    #[serde(default)]
+    pub post_code: Option<String>,
+    #[serde(default)]
+    pub country: Option<String>,
+    #[serde(default)]
+    pub province: Option<String>,
+    #[serde(default)]
+    pub city: Option<String>,
+    #[serde(default)]
+    pub area: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6437,14 +6515,19 @@ mod tests {
         .unwrap();
         assert_eq!(add.delivery_resultcode, Some(0));
         assert_eq!(add.order_id.as_deref(), Some("order-id"));
-        assert_eq!(add.waybill_data[0]["key"], "tracking_no");
+        assert_eq!(add.waybill_data[0].key.as_deref(), Some("tracking_no"));
+        assert_eq!(add.waybill_data[0].value.as_deref(), Some("waybill-id"));
 
         let batch: ExpressBatchOrderListResponse = serde_json::from_value(json!({
             "errcode": 0,
             "order_list": [{ "order_id": "order-id", "waybill_id": "waybill-id" }]
         }))
         .unwrap();
-        assert_eq!(batch.order_list[0]["waybill_id"], "waybill-id");
+        assert_eq!(batch.order_list[0].order_id.as_deref(), Some("order-id"));
+        assert_eq!(
+            batch.order_list[0].waybill_id.as_deref(),
+            Some("waybill-id")
+        );
 
         let cancel: ExpressCancelOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6461,7 +6544,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(accounts.count, Some(1));
-        assert_eq!(accounts.list[0]["biz_id"], "biz-id");
+        assert_eq!(accounts.list[0].biz_id.as_deref(), Some("biz-id"));
+        assert_eq!(accounts.list[0].delivery_id.as_deref(), Some("delivery-id"));
 
         let deliveries: ExpressDeliveryListResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6469,7 +6553,10 @@ mod tests {
             "data": [{ "delivery_id": "delivery-id", "delivery_name": "Fast Delivery" }]
         }))
         .unwrap();
-        assert_eq!(deliveries.data[0]["delivery_name"], "Fast Delivery");
+        assert_eq!(
+            deliveries.data[0].delivery_name.as_deref(),
+            Some("Fast Delivery")
+        );
 
         let order: ExpressGetOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6483,6 +6570,7 @@ mod tests {
         .unwrap();
         assert_eq!(order.order_status, Some(1));
         assert_eq!(order.print_html.as_deref(), Some("<html></html>"));
+        assert_eq!(order.waybill_data[0].key.as_deref(), Some("tracking_no"));
 
         let path: ExpressGetPathResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6490,11 +6578,19 @@ mod tests {
             "delivery_id": "delivery-id",
             "waybill_id": "waybill-id",
             "path_item_num": 1,
-            "path_item_list": [{ "action_msg": "picked up" }]
+            "path_item_list": [{
+                "action_time": 1_800_000_000,
+                "action_type": 100001,
+                "action_msg": "picked up"
+            }]
         }))
         .unwrap();
         assert_eq!(path.path_item_num, Some(1));
-        assert_eq!(path.path_item_list[0]["action_msg"], "picked up");
+        assert_eq!(path.path_item_list[0].action_type, Some(100001));
+        assert_eq!(
+            path.path_item_list[0].action_msg.as_deref(),
+            Some("picked up")
+        );
 
         let printer: ExpressGetPrinterResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6516,12 +6612,13 @@ mod tests {
         let contact: ExpressGetContactResponse = serde_json::from_value(json!({
             "errcode": 0,
             "waybill_id": "waybill-id",
-            "sender": [{ "name": "sender" }],
-            "receiver": [{ "name": "receiver" }]
+            "sender": [{ "name": "sender", "mobile": "13800000000" }],
+            "receiver": [{ "name": "receiver", "address": "street" }]
         }))
         .unwrap();
-        assert_eq!(contact.waybill_id, Some(json!("waybill-id")));
-        assert_eq!(contact.receiver[0]["name"], "receiver");
+        assert_eq!(contact.waybill_id.as_deref(), Some("waybill-id"));
+        assert_eq!(contact.sender[0].mobile.as_deref(), Some("13800000000"));
+        assert_eq!(contact.receiver[0].name.as_deref(), Some("receiver"));
 
         let preview: ExpressPreviewTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
