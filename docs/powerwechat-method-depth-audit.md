@@ -124,6 +124,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   now expose typed fail IDs, message text/attachments, tasks, and send results.
 - external-contact customer-strategy list/get/range/create responses now expose
   typed strategy IDs, strategy metadata, privileges, and ranges.
+- external-contact corp-tag, strategy-tag, and moment-strategy responses now
+  expose typed tag-group, tag, strategy, range, and strategy-id DTOs.
 - external-contact moment and statistics responses now expose typed moment,
   task, customer, comment/like, task-result, behavior, and group-chat statistic
   DTOs.
