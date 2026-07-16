@@ -185,6 +185,120 @@ impl Work {
             .await
     }
 
+    pub async fn sync_users_by_batch(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserBatchJobRequest,
+    ) -> Result<WorkUserBatchJobResponse> {
+        self.inner
+            .post("cgi-bin/batch/syncuser", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn replace_users_by_batch(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserBatchJobRequest,
+    ) -> Result<WorkUserBatchJobResponse> {
+        self.inner
+            .post(
+                "cgi-bin/batch/replaceuser",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn replace_departments_by_batch(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserBatchJobRequest,
+    ) -> Result<WorkUserBatchJobResponse> {
+        self.inner
+            .post(
+                "cgi-bin/batch/replaceparty",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_user_batch_job_result(
+        &self,
+        access_token: impl Into<String>,
+        job_id: impl Into<String>,
+    ) -> Result<WorkUserBatchJobResultResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/batch/getresult",
+                Some(access_token.into()),
+                vec![("jobid".to_string(), job_id.into())],
+            )
+            .await
+    }
+
+    pub async fn export_simple_users(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserExportJobRequest,
+    ) -> Result<WorkUserExportJobResponse> {
+        self.inner
+            .post(
+                "cgi-bin/export/simple_user",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn export_users(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserExportJobRequest,
+    ) -> Result<WorkUserExportJobResponse> {
+        self.inner
+            .post("cgi-bin/export/user", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn export_departments(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserExportJobRequest,
+    ) -> Result<WorkUserExportJobResponse> {
+        self.inner
+            .post(
+                "cgi-bin/export/department",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn export_tag_users(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserExportTagUserJobRequest,
+    ) -> Result<WorkUserExportJobResponse> {
+        self.inner
+            .post("cgi-bin/export/taguser", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_user_export_job_result(
+        &self,
+        access_token: impl Into<String>,
+        job_id: impl Into<String>,
+    ) -> Result<WorkUserExportJobResultResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/export/get_result",
+                Some(access_token.into()),
+                vec![("jobid".to_string(), job_id.into())],
+            )
+            .await
+    }
+
     pub async fn user_id_to_openid(
         &self,
         access_token: impl Into<String>,
@@ -3411,6 +3525,77 @@ pub struct WorkMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserBatchJobRequest {
+    pub media_id: String,
+    pub to_invite: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callbacks: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserBatchJobResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub jobid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserBatchJobResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default, rename = "type")]
+    pub job_type: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub percentage: Option<i64>,
+    #[serde(default)]
+    pub result: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExportJobRequest {
+    pub encoding_aeskey: String,
+    pub block_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExportTagUserJobRequest {
+    pub tagid: i64,
+    pub encoding_aeskey: String,
+    pub block_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExportJobResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub jobid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExportJobResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub data_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSendResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -6126,6 +6311,74 @@ mod tests {
         assert_eq!(to_openid.openid.as_deref(), Some("openid"));
         assert_eq!(to_openid.appid.as_deref(), Some("wxappid"));
         assert_eq!(to_userid.userid.as_deref(), Some("user"));
+    }
+
+    #[test]
+    fn serializes_work_user_batch_and_export_jobs() {
+        let batch = serde_json::to_value(WorkUserBatchJobRequest {
+            media_id: "media".to_string(),
+            to_invite: true,
+            callbacks: Some(json!({
+                "url": "https://example.com/callback",
+                "token": "token",
+                "encodingaeskey": "key"
+            })),
+        })
+        .unwrap();
+        assert_eq!(batch["media_id"], "media");
+        assert_eq!(batch["to_invite"], true);
+        assert_eq!(batch["callbacks"]["token"], "token");
+
+        let without_callback = serde_json::to_value(WorkUserBatchJobRequest {
+            media_id: "media".to_string(),
+            to_invite: false,
+            callbacks: None,
+        })
+        .unwrap();
+        assert!(without_callback.get("callbacks").is_none());
+
+        let export = serde_json::to_value(WorkUserExportJobRequest {
+            encoding_aeskey: "aes-key".to_string(),
+            block_size: 10_000,
+        })
+        .unwrap();
+        assert_eq!(export["encoding_aeskey"], "aes-key");
+        assert_eq!(export["block_size"], 10_000);
+
+        let tag_export = serde_json::to_value(WorkUserExportTagUserJobRequest {
+            tagid: 1,
+            encoding_aeskey: "aes-key".to_string(),
+            block_size: 10_000,
+        })
+        .unwrap();
+        assert_eq!(tag_export["tagid"], 1);
+
+        let batch_job: WorkUserBatchJobResponse =
+            serde_json::from_value(json!({ "jobid": "batch-job" })).unwrap();
+        assert_eq!(batch_job.jobid.as_deref(), Some("batch-job"));
+
+        let batch_result: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
+            "status": 2,
+            "type": "sync_user",
+            "total": 10,
+            "percentage": 100,
+            "result": [{ "userid": "user", "errcode": 0 }]
+        }))
+        .unwrap();
+        assert_eq!(batch_result.job_type.as_deref(), Some("sync_user"));
+        assert_eq!(batch_result.result[0]["userid"], "user");
+
+        let export_job: WorkUserExportJobResponse =
+            serde_json::from_value(json!({ "jobid": "export-job" })).unwrap();
+        assert_eq!(export_job.jobid.as_deref(), Some("export-job"));
+
+        let export_result: WorkUserExportJobResultResponse = serde_json::from_value(json!({
+            "status": 2,
+            "data_list": [{ "userid": "user" }]
+        }))
+        .unwrap();
+        assert_eq!(export_result.status, Some(2));
+        assert_eq!(export_result.data_list[0]["userid"], "user");
     }
 
     #[test]
