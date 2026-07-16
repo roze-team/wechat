@@ -28,6 +28,125 @@ impl OpenWork {
         DomainModule::new(self.inner.clone(), "open_work.base")
     }
 
+    pub async fn create_component_preauth_code(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+    ) -> Result<OpenWorkComponentPreauthCodeResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_create_preauthcode",
+            json!({ "component_appid": component_appid.into() }),
+        )
+        .await
+    }
+
+    pub async fn query_component_auth(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorization_code: impl Into<String>,
+    ) -> Result<OpenWorkComponentQueryAuthResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_query_auth",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorization_code": authorization_code.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn get_component_authorizer_info(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorizer_appid: impl Into<String>,
+    ) -> Result<OpenWorkComponentAuthorizerInfoResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_get_authorizer_info",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorizer_appid": authorizer_appid.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn get_component_authorizers(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        offset: i64,
+        count: i64,
+    ) -> Result<OpenWorkComponentAuthorizersResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_get_authorizer_list",
+            json!({
+                "component_appid": component_appid.into(),
+                "offset": offset,
+                "count": count,
+            }),
+        )
+        .await
+    }
+
+    pub async fn get_component_authorizer_option(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorizer_appid: impl Into<String>,
+        option_name: impl Into<String>,
+    ) -> Result<OpenWorkComponentAuthorizerOptionResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_get_authorizer_option",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorizer_appid": authorizer_appid.into(),
+                "option_name": option_name.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn set_component_authorizer_option(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+        authorizer_appid: impl Into<String>,
+        option_name: impl Into<String>,
+        option_value: impl Into<String>,
+    ) -> Result<OpenWorkStatusResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/api_set_authorizer_option",
+            json!({
+                "component_appid": component_appid.into(),
+                "authorizer_appid": authorizer_appid.into(),
+                "option_name": option_name.into(),
+                "option_value": option_value.into(),
+            }),
+        )
+        .await
+    }
+
+    pub async fn clear_component_quota(
+        &self,
+        component_access_token: impl Into<String>,
+        component_appid: impl Into<String>,
+    ) -> Result<OpenWorkStatusResponse> {
+        self.post_component_json(
+            component_access_token,
+            "cgi-bin/component/clear_quota",
+            json!({ "component_appid": component_appid.into() }),
+        )
+        .await
+    }
+
     pub async fn provider_token(
         &self,
         request: ProviderTokenRequest,
@@ -574,6 +693,98 @@ impl OpenWork {
     pub fn server(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "open_work.server")
     }
+
+    async fn post_component_json<R>(
+        &self,
+        component_access_token: impl Into<String>,
+        path: &str,
+        body: Value,
+    ) -> Result<R>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        self.inner
+            .post_json_with_query(
+                path,
+                vec![(
+                    "component_access_token".to_string(),
+                    component_access_token.into(),
+                )],
+                body,
+                Vec::new(),
+            )
+            .await
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkComponentPreauthCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub pre_auth_code: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkComponentQueryAuthResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorization_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkComponentAuthorizerInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorizer_info: Option<Value>,
+    #[serde(default)]
+    pub authorization_info: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkComponentAuthorizationSummary {
+    #[serde(default)]
+    pub authorizer_appid: Option<String>,
+    #[serde(default)]
+    pub refresh_token: Option<String>,
+    #[serde(default)]
+    pub auth_time: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkComponentAuthorizersResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub list: Vec<OpenWorkComponentAuthorizationSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkComponentAuthorizerOptionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub authorizer_appid: Option<String>,
+    #[serde(default)]
+    pub option_name: Option<String>,
+    #[serde(default)]
+    pub option_value: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1087,6 +1298,57 @@ mod tests {
         .unwrap();
         assert_eq!(suite.suite_access_token.as_deref(), Some("suite-token"));
         assert_eq!(suite.expires_in, Some(7200));
+    }
+
+    #[test]
+    fn deserializes_open_work_component_base_responses() {
+        let preauth: OpenWorkComponentPreauthCodeResponse = serde_json::from_value(json!({
+            "pre_auth_code": "pre-auth",
+            "expires_in": 1200
+        }))
+        .unwrap();
+        assert_eq!(preauth.pre_auth_code.as_deref(), Some("pre-auth"));
+        assert_eq!(preauth.expires_in, Some(1200));
+
+        let query: OpenWorkComponentQueryAuthResponse = serde_json::from_value(json!({
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "authorizer_access_token": "token"
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            query.authorization_info.unwrap()["authorizer_appid"],
+            "wx-authorizer"
+        );
+
+        let info: OpenWorkComponentAuthorizerInfoResponse = serde_json::from_value(json!({
+            "authorizer_info": { "nick_name": "Corp App" },
+            "authorization_info": { "authorizer_appid": "wx-authorizer" }
+        }))
+        .unwrap();
+        assert_eq!(info.authorizer_info.unwrap()["nick_name"], "Corp App");
+
+        let list: OpenWorkComponentAuthorizersResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "list": [{
+                "authorizer_appid": "wx-authorizer",
+                "refresh_token": "refresh",
+                "auth_time": 1800000000
+            }]
+        }))
+        .unwrap();
+        assert_eq!(list.total_count, Some(1));
+        assert_eq!(list.list[0].refresh_token.as_deref(), Some("refresh"));
+
+        let option: OpenWorkComponentAuthorizerOptionResponse = serde_json::from_value(json!({
+            "authorizer_appid": "wx-authorizer",
+            "option_name": "voice_recognize",
+            "option_value": "1"
+        }))
+        .unwrap();
+        assert_eq!(option.option_name.as_deref(), Some("voice_recognize"));
+        assert_eq!(option.option_value.as_deref(), Some("1"));
     }
 
     #[test]
