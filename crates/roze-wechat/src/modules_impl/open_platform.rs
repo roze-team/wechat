@@ -795,7 +795,7 @@ impl OpenPlatform {
         component_access_token: impl Into<String>,
         component_appid: impl Into<String>,
         authorizer_appid: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenPlatformAuthorizerInfoResponse> {
         self.post_component_json(
             component_access_token,
             "cgi-bin/component/api_get_authorizer_info",
@@ -813,7 +813,7 @@ impl OpenPlatform {
         component_appid: impl Into<String>,
         authorizer_appid: impl Into<String>,
         option_name: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenPlatformAuthorizerOptionResponse> {
         self.post_component_json(
             component_access_token,
             "cgi-bin/component/api_get_authorizer_option",
@@ -853,7 +853,7 @@ impl OpenPlatform {
         component_appid: impl Into<String>,
         offset: i64,
         count: i64,
-    ) -> Result<Value> {
+    ) -> Result<OpenPlatformAuthorizersResponse> {
         self.post_component_json(
             component_access_token,
             "cgi-bin/component/api_get_authorizer_list",
@@ -873,7 +873,7 @@ impl OpenPlatform {
     pub async fn template_drafts(
         &self,
         component_access_token: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OpenPlatformTemplateDraftListResponse> {
         self.inner
             .get_with_query(
                 "wxa/gettemplatedraftlist",
@@ -915,7 +915,10 @@ impl OpenPlatform {
         .await
     }
 
-    pub async fn templates(&self, component_access_token: impl Into<String>) -> Result<Value> {
+    pub async fn templates(
+        &self,
+        component_access_token: impl Into<String>,
+    ) -> Result<OpenPlatformTemplateListResponse> {
         self.inner
             .get_with_query(
                 "wxa/gettemplatelist",
@@ -1619,6 +1622,70 @@ pub struct AddTemplateFromDraftRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformTemplateDraftListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub draft_list: Vec<OpenPlatformTemplateDraft>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformTemplateDraft {
+    #[serde(default)]
+    pub draft_id: Option<i64>,
+    #[serde(default)]
+    pub user_version: Option<String>,
+    #[serde(default)]
+    pub user_desc: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub source_miniprogram_appid: Option<String>,
+    #[serde(default)]
+    pub source_miniprogram: Option<String>,
+    #[serde(default)]
+    pub developer: Option<String>,
+    #[serde(default)]
+    pub template_type: Option<i64>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformTemplateListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_list: Vec<OpenPlatformTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformTemplate {
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub user_version: Option<String>,
+    #[serde(default)]
+    pub user_desc: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub source_miniprogram_appid: Option<String>,
+    #[serde(default)]
+    pub source_miniprogram: Option<String>,
+    #[serde(default)]
+    pub developer: Option<String>,
+    #[serde(default)]
+    pub template_type: Option<i64>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteTemplateRequest {
     pub template_id: String,
 }
@@ -1677,7 +1744,8 @@ mod tests {
         OpenPlatformMiniProgramSupportVersionResponse, OpenPlatformMiniProgramTesterBindResponse,
         OpenPlatformMiniProgramTesterListResponse, OpenPlatformMiniProgramTesterUnbindRequest,
         OpenPlatformOfficialAccountFastRegistrationUrlRequest, OpenPlatformOpenAccountResponse,
-        OpenPlatformStatusResponse, PreauthCodeResponse, QueryAuthResponse,
+        OpenPlatformStatusResponse, OpenPlatformTemplateDraftListResponse,
+        OpenPlatformTemplateListResponse, PreauthCodeResponse, QueryAuthResponse,
         RegisterMiniProgramRequest, RegistrationStatusRequest,
     };
 
@@ -1868,6 +1936,50 @@ mod tests {
 
         assert_eq!(add, json!({ "draft_id": 100, "template_type": 0 }));
         assert_eq!(delete, json!({ "template_id": "tpl" }));
+
+        let drafts: OpenPlatformTemplateDraftListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "draft_list": [{
+                "draft_id": 100,
+                "user_version": "1.0.0",
+                "user_desc": "draft",
+                "create_time": 1_800_000_000,
+                "source_miniprogram_appid": "wx-source",
+                "source_miniprogram": "Source",
+                "developer": "dev",
+                "template_type": 0,
+                "extra_field": "kept"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(drafts.draft_list[0].draft_id, Some(100));
+        assert_eq!(drafts.draft_list[0].user_version.as_deref(), Some("1.0.0"));
+        assert_eq!(drafts.draft_list[0].extra["extra_field"], "kept");
+
+        let templates: OpenPlatformTemplateListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "template_list": [{
+                "template_id": "tpl",
+                "user_version": "1.0.0",
+                "user_desc": "template",
+                "create_time": 1_800_000_001,
+                "source_miniprogram_appid": "wx-source",
+                "source_miniprogram": "Source",
+                "developer": "dev",
+                "template_type": 0,
+                "extra_field": "kept"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            templates.template_list[0].template_id.as_deref(),
+            Some("tpl")
+        );
+        assert_eq!(
+            templates.template_list[0].source_miniprogram.as_deref(),
+            Some("Source")
+        );
+        assert_eq!(templates.template_list[0].extra["extra_field"], "kept");
     }
 
     #[test]

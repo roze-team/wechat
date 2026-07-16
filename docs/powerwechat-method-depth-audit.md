@@ -175,6 +175,8 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 - authorizer account basic info, head image, signature, material bytes, open
   account create/bind/unbind/get, fast-registration URL, component login URL,
   and fast-register reuse wrappers.
+- authorizer info/option/list and code-template draft/list public wrappers now
+  return typed Open Platform DTOs instead of raw JSON values.
 
 Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 
