@@ -3144,11 +3144,54 @@ pub struct PaymentBillRecord {
     pub fields: Vec<(String, String)>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PaymentBillStatement {
+    pub headers: Vec<String>,
+    pub records: Vec<PaymentBillRecord>,
+    pub summary: PaymentBillSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PaymentBillSummary {
+    pub raw: String,
+    pub values: Vec<String>,
+}
+
 impl PaymentBillRecord {
     pub fn get(&self, name: &str) -> Option<&str> {
         self.fields
             .iter()
             .find_map(|(key, value)| (key == name).then_some(value.as_str()))
+    }
+
+    pub fn get_i64(&self, name: &str) -> Result<Option<i64>> {
+        self.get(name)
+            .map(|value| {
+                value.parse::<i64>().map_err(|err| {
+                    WechatError::Config(format!(
+                        "payment bill field {name} is not a valid i64: {err}"
+                    ))
+                })
+            })
+            .transpose()
+    }
+}
+
+impl PaymentBillSummary {
+    pub fn get(&self, index: usize) -> Option<&str> {
+        self.values.get(index).map(String::as_str)
+    }
+
+    pub fn get_i64(&self, index: usize) -> Result<Option<i64>> {
+        self.get(index)
+            .map(|value| {
+                value.parse::<i64>().map_err(|err| {
+                    WechatError::Config(format!(
+                        "payment bill summary field {index} is not a valid i64: {err}"
+                    ))
+                })
+            })
+            .transpose()
     }
 }
 
@@ -3188,6 +3231,33 @@ impl PaymentDownloadedBill {
     }
 
     pub fn data_records(&self) -> Result<Vec<PaymentBillRecord>> {
+        let headers = self.parse_headers()?;
+        self.data_records_with_headers(&headers)
+    }
+
+    pub fn statement(&self) -> Result<PaymentBillStatement> {
+        let headers = self.parse_headers()?;
+        let records = self.data_records_with_headers(&headers)?;
+        let summary_raw = self
+            .summary
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("payment bill summary is missing".to_string()))?;
+        let summary = PaymentBillSummary {
+            raw: summary_raw.to_string(),
+            values: parse_payment_bill_csv_line(summary_raw)?
+                .into_iter()
+                .map(clean_payment_bill_cell)
+                .collect(),
+        };
+
+        Ok(PaymentBillStatement {
+            headers,
+            records,
+            summary,
+        })
+    }
+
+    fn parse_headers(&self) -> Result<Vec<String>> {
         let header = self
             .header
             .as_deref()
@@ -3196,6 +3266,10 @@ impl PaymentDownloadedBill {
             .into_iter()
             .map(clean_payment_bill_cell)
             .collect::<Vec<_>>();
+        Ok(headers)
+    }
+
+    fn data_records_with_headers(&self, headers: &[String]) -> Result<Vec<PaymentBillRecord>> {
         self.data_rows()
             .map(|row| {
                 let values = parse_payment_bill_csv_line(row)?
@@ -5059,7 +5133,22 @@ mod tests {
         assert_eq!(records[0].get("transaction_id"), Some("4200001"));
         assert_eq!(records[0].get("out_trade_no"), Some("order-1"));
         assert_eq!(records[0].get("amount"), Some("100"));
+        assert_eq!(records[0].get_i64("amount").unwrap(), Some(100));
         assert_eq!(records[0].raw, "4200001,order-1,100");
+        let statement = bill.statement().unwrap();
+        assert_eq!(
+            statement.headers,
+            vec![
+                "transaction_id".to_string(),
+                "out_trade_no".to_string(),
+                "amount".to_string()
+            ]
+        );
+        assert_eq!(statement.records, records);
+        assert_eq!(statement.summary.raw, "sum,1,100");
+        assert_eq!(statement.summary.get(0), Some("sum"));
+        assert_eq!(statement.summary.get_i64(1).unwrap(), Some(1));
+        assert_eq!(statement.summary.get_i64(2).unwrap(), Some(100));
         assert_eq!(bill.hash_type.as_deref(), Some("SHA256"));
         assert_eq!(bill.bytes.len(), 65);
     }
@@ -5109,6 +5198,27 @@ mod tests {
             .data_records()
             .expect_err("unterminated quote should be rejected");
         assert!(err.to_string().contains("unterminated quoted field"));
+    }
+
+    #[test]
+    fn rejects_invalid_payment_bill_numeric_helpers() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(b"amount\nnot-number\nsum,total\n"),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let statement = bill.statement().unwrap();
+        let field_err = statement.records[0]
+            .get_i64("amount")
+            .expect_err("invalid record amount should fail");
+        assert!(field_err.to_string().contains("not a valid i64"));
+        let summary_err = statement
+            .summary
+            .get_i64(1)
+            .expect_err("invalid summary total should fail");
+        assert!(summary_err.to_string().contains("not a valid i64"));
     }
 
     #[test]
