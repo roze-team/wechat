@@ -122,6 +122,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   chat summaries, chat details, members, admins, and failed-transfer records.
 - external-contact group-message template add/list/task/send-result responses
   now expose typed fail IDs, message text/attachments, tasks, and send results.
+- external-contact customer-strategy list/get/range/create responses now expose
+  typed strategy IDs, strategy metadata, privileges, and ranges.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 

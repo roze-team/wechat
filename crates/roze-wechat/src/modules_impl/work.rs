@@ -6235,7 +6235,7 @@ pub struct ExternalContactCustomerStrategyListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default, alias = "momentStrategy")]
-    pub strategy: Vec<Value>,
+    pub strategy: Vec<ExternalContactCustomerStrategy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6245,7 +6245,27 @@ pub struct ExternalContactCustomerStrategyResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default, alias = "momentStrategy")]
-    pub strategy: Option<Value>,
+    pub strategy: Option<ExternalContactCustomerStrategy>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactCustomerStrategy {
+    #[serde(default)]
+    pub strategy_id: Option<i64>,
+    #[serde(default)]
+    pub parent_id: Option<i64>,
+    #[serde(default)]
+    pub strategy_name: Option<String>,
+    #[serde(default)]
+    pub admin_list: Vec<String>,
+    #[serde(default)]
+    pub privilege: Option<ExternalContactCustomerStrategyPrivilege>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6255,7 +6275,7 @@ pub struct ExternalContactCustomerStrategyRangeResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub range: Vec<Value>,
+    pub range: Vec<ExternalContactCustomerStrategyRange>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6265,7 +6285,7 @@ pub struct ExternalContactCustomerStrategyCreateResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub strategy_id: Option<Value>,
+    pub strategy_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8571,26 +8591,62 @@ mod tests {
         assert_eq!(edit["range_add"][0]["userid"], "user");
 
         let list: ExternalContactCustomerStrategyListResponse = serde_json::from_value(json!({
-            "momentStrategy": [{ "strategy_id": 1 }]
+            "momentStrategy": [{
+                "strategy_id": 1,
+                "strategy_name": "strategy",
+                "parent_id": 0,
+                "admin_list": ["admin"],
+                "create_time": 1_720_000_000
+            }]
         }))
         .unwrap();
-        assert_eq!(list.strategy[0]["strategy_id"], 1);
+        assert_eq!(list.strategy[0].strategy_id, Some(1));
+        assert_eq!(list.strategy[0].strategy_name.as_deref(), Some("strategy"));
+        assert_eq!(list.strategy[0].admin_list[0], "admin");
 
         let detail: ExternalContactCustomerStrategyResponse = serde_json::from_value(json!({
-            "momentStrategy": { "strategy_id": 1, "strategy_name": "strategy" }
+            "momentStrategy": {
+                "strategy_id": 1,
+                "strategy_name": "strategy",
+                "privilege": {
+                    "view_customer_list": true,
+                    "view_customer_data": true,
+                    "view_room_list": true,
+                    "contact_me": true,
+                    "join_room": true,
+                    "share_customer": true,
+                    "oper_resign_customer": true,
+                    "send_customer_msg": true,
+                    "edit_welcome_msg": true,
+                    "view_behavior_data": true,
+                    "view_room_data": true,
+                    "send_group_msg": true,
+                    "room_deduplication": true,
+                    "rapid_reply": true,
+                    "onjob_customer_transfer": true,
+                    "edit_anti_spam_rule": true,
+                    "export_customer_list": true,
+                    "export_customer_data": true,
+                    "export_customer_group_list": true,
+                    "manage_customer_tag": true
+                }
+            }
         }))
         .unwrap();
-        assert_eq!(detail.strategy.unwrap()["strategy_name"], "strategy");
+        let strategy = detail.strategy.unwrap();
+        assert_eq!(strategy.strategy_name.as_deref(), Some("strategy"));
+        assert!(strategy.privilege.unwrap().view_customer_list);
 
         let range: ExternalContactCustomerStrategyRangeResponse = serde_json::from_value(json!({
-            "range": [{ "userid": "user" }]
+            "range": [{ "type": 2, "userid": "user" }]
         }))
         .unwrap();
-        assert_eq!(range.range[0]["userid"], "user");
+        assert_eq!(range.range[0].kind, 2);
+        assert_eq!(range.range[0].userid.as_deref(), Some("user"));
 
         let created: ExternalContactCustomerStrategyCreateResponse =
             serde_json::from_value(json!({ "strategy_id": 3 })).unwrap();
-        assert_eq!(created.strategy_id.unwrap(), 3);
+        assert_eq!(created.strategy_id, Some(3));
     }
 
     #[test]
