@@ -116,6 +116,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   wrapper.
 - typed Work message audience and helper wrappers for markdown, image, voice,
   file, video, text-card, news, mpnews, and mini-program notice sends.
+- external-contact contact-way add/get/list responses and conclusions are now
+  typed instead of generic JSON values.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 

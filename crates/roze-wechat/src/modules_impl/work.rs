@@ -1056,7 +1056,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         request: ContactWayRequest,
-    ) -> Result<Value> {
+    ) -> Result<ContactWayAddResponse> {
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_contact_way",
@@ -1070,7 +1070,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         config_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<ContactWayGetResponse> {
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_contact_way",
@@ -5113,6 +5113,110 @@ pub struct ContactWayRequest {
     pub chat_expires_in: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unionid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conclusions: Option<ContactWayConclusions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub config_id: Option<String>,
+    #[serde(default)]
+    pub qr_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub contact_way: Option<ContactWayDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayId {
+    #[serde(default)]
+    pub config_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayDetail {
+    #[serde(default)]
+    pub config_id: Option<String>,
+    #[serde(default, rename = "type")]
+    pub kind: Option<i64>,
+    #[serde(default)]
+    pub scene: Option<i64>,
+    #[serde(default)]
+    pub style: Option<i64>,
+    #[serde(default)]
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub skip_verify: Option<bool>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub qr_code: Option<String>,
+    #[serde(default)]
+    pub user: Vec<String>,
+    #[serde(default)]
+    pub party: Vec<i64>,
+    #[serde(default)]
+    pub is_temp: Option<bool>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+    #[serde(default)]
+    pub chat_expires_in: Option<i64>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+    #[serde(default)]
+    pub conclusions: Option<ContactWayConclusions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayConclusions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<ContactWayConclusionText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<ContactWayConclusionImage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<ContactWayConclusionLink>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub miniprogram: Option<ContactWayConclusionMiniProgram>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayConclusionText {
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayConclusionImage {
+    pub pic_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayConclusionLink {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picurl: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub desc: Option<String>,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContactWayConclusionMiniProgram {
+    pub title: String,
+    pub pic_media_id: String,
+    pub appid: String,
+    pub page: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5131,7 +5235,7 @@ pub struct ContactWayListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub contact_way: Vec<Value>,
+    pub contact_way: Vec<ContactWayId>,
     #[serde(default)]
     pub next_cursor: Option<String>,
 }
@@ -5158,7 +5262,7 @@ pub struct ContactWayUpdateRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unionid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conclusions: Option<Value>,
+    pub conclusions: Option<ContactWayConclusions>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7483,11 +7587,20 @@ mod tests {
             expires_in: None,
             chat_expires_in: None,
             unionid: None,
+            conclusions: Some(ContactWayConclusions {
+                text: Some(ContactWayConclusionText {
+                    content: "hello".to_string(),
+                }),
+                image: None,
+                link: None,
+                miniprogram: None,
+            }),
         })
         .unwrap();
 
         assert_eq!(value["type"], 1);
         assert_eq!(value["user"][0], "user");
+        assert_eq!(value["conclusions"]["text"]["content"], "hello");
     }
 
     #[test]
@@ -7513,7 +7626,14 @@ mod tests {
             expires_in: None,
             chat_expires_in: Some(3600),
             unionid: None,
-            conclusions: Some(json!({ "text": { "content": "hello" } })),
+            conclusions: Some(ContactWayConclusions {
+                text: Some(ContactWayConclusionText {
+                    content: "hello".to_string(),
+                }),
+                image: None,
+                link: None,
+                miniprogram: None,
+            }),
         })
         .unwrap();
         assert_eq!(update["config_id"], "config");
@@ -7528,8 +7648,46 @@ mod tests {
             "next_cursor": "cursor"
         }))
         .unwrap();
-        assert_eq!(response.contact_way[0]["config_id"], "config");
+        assert_eq!(response.contact_way[0].config_id.as_deref(), Some("config"));
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
+
+        let added: ContactWayAddResponse = serde_json::from_value(json!({
+            "config_id": "config",
+            "qr_code": "https://example.com/qr"
+        }))
+        .unwrap();
+        assert_eq!(added.config_id.as_deref(), Some("config"));
+
+        let detail: ContactWayGetResponse = serde_json::from_value(json!({
+            "contact_way": {
+                "config_id": "config",
+                "type": 1,
+                "scene": 2,
+                "style": 1,
+                "remark": "remark",
+                "skip_verify": true,
+                "qr_code": "https://example.com/qr",
+                "user": ["user"],
+                "party": [1],
+                "is_temp": false,
+                "conclusions": {
+                    "link": {
+                        "title": "title",
+                        "picurl": "https://example.com/pic.png",
+                        "desc": "desc",
+                        "url": "https://example.com"
+                    }
+                }
+            }
+        }))
+        .unwrap();
+        let contact_way = detail.contact_way.unwrap();
+        assert_eq!(contact_way.kind, Some(1));
+        assert_eq!(contact_way.user[0], "user");
+        assert_eq!(
+            contact_way.conclusions.unwrap().link.unwrap().url,
+            "https://example.com"
+        );
     }
 
     #[test]
