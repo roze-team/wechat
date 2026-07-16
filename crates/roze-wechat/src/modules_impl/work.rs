@@ -4138,7 +4138,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         request: AppChatCreateRequest,
-    ) -> Result<Value> {
+    ) -> Result<WorkAppChatCreateResponse> {
         self.inner
             .post("cgi-bin/appchat/create", Some(access_token.into()), request)
             .await
@@ -4158,7 +4158,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         chat_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkAppChatGetResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/appchat/get",
@@ -4238,7 +4238,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         code: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkOauthUserInfoResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/user/getuserinfo",
@@ -4252,7 +4252,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         code: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkOauthUserInfoResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/auth/getuserinfo",
@@ -4266,7 +4266,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         user_ticket: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkOauthUserDetailResponse> {
         self.inner
             .post(
                 "cgi-bin/user/getuserdetail",
@@ -4280,7 +4280,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         user_ticket: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<WorkOauthUserDetailResponse> {
         self.inner
             .post(
                 "cgi-bin/auth/getuserdetail",
@@ -7684,6 +7684,38 @@ pub struct AppChatCreateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAppChatCreateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub chatid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAppChatGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub chat_info: Option<WorkAppChatInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAppChatInfo {
+    #[serde(default)]
+    pub chatid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub userlist: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinDataRequest {
     pub opencheckindatatype: i64,
     pub starttime: i64,
@@ -8959,6 +8991,50 @@ pub struct WorkOauthAuthorizeUrlRequest {
     pub scope: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkOauthUserInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, alias = "UserId")]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub user_ticket: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
+    #[serde(default, alias = "OpenId")]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkOauthUserDetailResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub gender: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub qr_code: Option<String>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub biz_mail: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[cfg(test)]
@@ -12274,6 +12350,25 @@ mod tests {
         assert_eq!(create["userlist"][0], "user");
         assert_eq!(message["chatid"], "chatid");
         assert_eq!(message["text"]["content"], "hello");
+
+        let created: WorkAppChatCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "chatid": "chatid" })).unwrap();
+        assert_eq!(created.chatid.as_deref(), Some("chatid"));
+
+        let got: WorkAppChatGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "chat_info": {
+                "chatid": "chatid",
+                "name": "chat",
+                "owner": "owner",
+                "userlist": ["user"]
+            }
+        }))
+        .unwrap();
+        let chat = got.chat_info.unwrap();
+        assert_eq!(chat.chatid.as_deref(), Some("chatid"));
+        assert_eq!(chat.owner.as_deref(), Some("owner"));
+        assert_eq!(chat.userlist[0], "user");
     }
 
     #[test]
@@ -12288,5 +12383,36 @@ mod tests {
         assert!(url.contains("appid=wwid"));
         assert!(url.contains("scope=snsapi_base"));
         assert!(url.ends_with("#wechat_redirect"));
+
+        let info: WorkOauthUserInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "UserId": "legacy-user",
+            "user_ticket": "ticket",
+            "expires_in": 7200,
+            "OpenId": "legacy-openid",
+            "external_userid": "external"
+        }))
+        .unwrap();
+        assert_eq!(info.userid.as_deref(), Some("legacy-user"));
+        assert_eq!(info.user_ticket.as_deref(), Some("ticket"));
+        assert_eq!(info.openid.as_deref(), Some("legacy-openid"));
+        assert_eq!(info.external_userid.as_deref(), Some("external"));
+
+        let detail: WorkOauthUserDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "userid": "user",
+            "name": "User",
+            "gender": "1",
+            "avatar": "https://example.com/avatar.png",
+            "qr_code": "https://example.com/qr",
+            "mobile": "13800000000",
+            "email": "user@example.com",
+            "biz_mail": "user@corp.example",
+            "address": "addr"
+        }))
+        .unwrap();
+        assert_eq!(detail.userid.as_deref(), Some("user"));
+        assert_eq!(detail.name.as_deref(), Some("User"));
+        assert_eq!(detail.mobile.as_deref(), Some("13800000000"));
     }
 }
