@@ -1394,7 +1394,7 @@ impl Work {
     pub async fn create_external_contact_moment_strategy(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: ExternalContactMomentStrategyCreateRequest,
     ) -> Result<ExternalContactMomentStrategyCreateResponse> {
         self.inner
             .post(
@@ -1408,7 +1408,7 @@ impl Work {
     pub async fn edit_external_contact_moment_strategy(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: ExternalContactMomentStrategyEditRequest,
     ) -> Result<ExternalContactMomentStrategyCreateResponse> {
         self.inner
             .post(
@@ -2423,7 +2423,7 @@ impl Work {
     pub async fn update_template_card_message(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkTemplateCardUpdateRequest,
     ) -> Result<MessageSendResponse> {
         self.inner
             .post(
@@ -2437,7 +2437,7 @@ impl Work {
     pub async fn send_linked_corp_message(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkLinkedCorpMessage,
     ) -> Result<WorkLinkedCorpMessageSendResponse> {
         self.inner
             .post(
@@ -2451,7 +2451,7 @@ impl Work {
     pub async fn send_external_contact_school_message(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkExternalContactSchoolMessage,
     ) -> Result<WorkExternalContactSchoolMessageSendResponse> {
         self.inner
             .post(
@@ -2723,7 +2723,7 @@ impl Work {
     pub async fn add_checkin_option(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkCheckinOptionMutationRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
@@ -2737,7 +2737,7 @@ impl Work {
     pub async fn update_checkin_option(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkCheckinOptionMutationRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
@@ -2788,7 +2788,7 @@ impl Work {
     pub async fn create_approval_apply_event(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkApprovalApplyEventRequest,
     ) -> Result<WorkApprovalApplyEventResponse> {
         self.inner
             .post("cgi-bin/oa/applyevent", Some(access_token.into()), request)
@@ -3044,7 +3044,7 @@ impl Work {
     pub async fn set_one_user_vacation_quota(
         &self,
         access_token: impl Into<String>,
-        request: Value,
+        request: WorkVacationQuotaUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
@@ -5163,6 +5163,84 @@ impl WorkMessageAudience {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardUpdateRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub partyids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tagids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub atall: Option<i64>,
+    pub agentid: i64,
+    pub response_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub template_card: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLinkedCorpMessage {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub touser: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub toparty: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub totag: Vec<String>,
+    pub msgtype: String,
+    pub agentid: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub textcard: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub news: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mpnews: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_notice: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalContactSchoolMessage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recv_scope: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub to_external_userid: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub to_parent_userid: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub to_student_userid: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub to_party: Vec<String>,
+    pub msgtype: String,
+    pub agentid: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub miniprogram_notice: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVideoMessage {
     pub media_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -6398,6 +6476,22 @@ pub struct ExternalContactMomentStrategyRangeRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub limit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyCreateRequest {
+    pub parent_id: i64,
+    pub strategy_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admin_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyEditRequest {
+    pub strategy_id: i64,
+    pub strategy_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admin_list: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8111,6 +8205,11 @@ pub struct WorkCheckinSetScheduleListRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOptionMutationRequest {
+    pub group: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinCorpOptionResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -8279,6 +8378,23 @@ pub struct WorkApprovalApplyEventResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalApplyEventRequest {
+    pub creator_userid: String,
+    pub template_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_template_approver: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub approver: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notifyer: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notify_type: Option<i64>,
+    pub apply_data: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub summary_list: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalInfoRequest {
     pub starttime: i64,
     pub endtime: i64,
@@ -8345,6 +8461,23 @@ pub struct WorkVacationConfigResponse {
 }
 
 pub type WorkVacationQuotaResponse = WorkVacationConfigResponse;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuotaUpdateRequest {
+    pub userid: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lists: Vec<WorkVacationQuotaUpdateItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuotaUpdateItem {
+    pub vacation_id: i64,
+    pub leftduration: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_attr: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalCreateTemplateRequest {
@@ -9500,18 +9633,46 @@ mod tests {
         assert_eq!(notice["appid"], "wx-app");
         assert_eq!(notice["content_item"][0]["key"], "time");
         assert_eq!(notice["emphasis_first_item"], true);
+
+        let update = serde_json::to_value(WorkTemplateCardUpdateRequest {
+            userids: vec!["user".to_string()],
+            partyids: Vec::new(),
+            tagids: Vec::new(),
+            atall: None,
+            agentid: 100001,
+            response_code: "response".to_string(),
+            button: Some(json!({ "replace_name": "done" })),
+            template_card: Some(json!({ "card_type": "button_interaction" })),
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
+        assert_eq!(update["userids"][0], "user");
+        assert_eq!(update["response_code"], "response");
+        assert_eq!(update["button"]["replace_name"], "done");
+        assert!(update.get("partyids").is_none());
     }
 
     #[test]
     fn serializes_linked_corp_and_school_message_responses() {
-        let linked_body = json!({
-            "touser": ["Corp/user"],
-            "toparty": ["Corp/party"],
-            "totag": ["Corp/tag"],
-            "msgtype": "text",
-            "agentid": 100001,
-            "text": { "content": "hello" }
-        });
+        let linked_body = serde_json::to_value(WorkLinkedCorpMessage {
+            touser: vec!["Corp/user".to_string()],
+            toparty: vec!["Corp/party".to_string()],
+            totag: vec!["Corp/tag".to_string()],
+            msgtype: "text".to_string(),
+            agentid: 100001,
+            text: Some(json!({ "content": "hello" })),
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            textcard: None,
+            news: None,
+            mpnews: None,
+            markdown: None,
+            miniprogram_notice: None,
+            extra: serde_json::Value::Null,
+        })
+        .unwrap();
         assert_eq!(linked_body["touser"][0], "Corp/user");
         assert_eq!(linked_body["text"]["content"], "hello");
 
@@ -9526,17 +9687,23 @@ mod tests {
         assert_eq!(linked_response.invalidparty[0], "Corp/bad-party");
         assert_eq!(linked_response.invalidtag[0], "Corp/bad-tag");
 
-        let school_body = json!({
-            "recv_scope": 0,
-            "to_parent_userid": ["parent"],
-            "to_student_userid": ["student"],
-            "to_party": ["party"],
-            "msgtype": "text",
-            "agentid": 100001,
-            "text": { "content": "notice" }
-        });
+        let school_body = serde_json::to_value(WorkExternalContactSchoolMessage {
+            recv_scope: Some(0),
+            to_external_userid: Vec::new(),
+            to_parent_userid: vec!["parent".to_string()],
+            to_student_userid: vec!["student".to_string()],
+            to_party: vec!["party".to_string()],
+            msgtype: "text".to_string(),
+            agentid: 100001,
+            text: Some(json!({ "content": "notice" })),
+            image: None,
+            miniprogram_notice: None,
+            extra: Value::Null,
+        })
+        .unwrap();
         assert_eq!(school_body["to_parent_userid"][0], "parent");
         assert_eq!(school_body["to_student_userid"][0], "student");
+        assert!(school_body.get("to_external_userid").is_none());
 
         let school_response: WorkExternalContactSchoolMessageSendResponse =
             serde_json::from_value(json!({
@@ -10555,6 +10722,26 @@ mod tests {
         .unwrap();
         assert_eq!(strategy_range["strategy_id"], 100);
         assert_eq!(strategy_range["cursor"], "cursor");
+
+        let create_strategy = serde_json::to_value(ExternalContactMomentStrategyCreateRequest {
+            parent_id: 0,
+            strategy_name: "vip".to_string(),
+            admin_list: vec!["admin".to_string()],
+        })
+        .unwrap();
+        assert_eq!(create_strategy["parent_id"], 0);
+        assert_eq!(create_strategy["strategy_name"], "vip");
+        assert_eq!(create_strategy["admin_list"][0], "admin");
+
+        let edit_strategy = serde_json::to_value(ExternalContactMomentStrategyEditRequest {
+            strategy_id: 100,
+            strategy_name: "vip2".to_string(),
+            admin_list: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(edit_strategy["strategy_id"], 100);
+        assert_eq!(edit_strategy["strategy_name"], "vip2");
+        assert!(edit_strategy.get("admin_list").is_none());
 
         let strategies: ExternalContactMomentStrategyListResponse = serde_json::from_value(json!({
             "strategy": [{
@@ -11771,6 +11958,32 @@ mod tests {
         assert_eq!(schedule["groupid"], 1);
         assert_eq!(schedule["items"][0]["userid"], "user");
 
+        let option = serde_json::to_value(WorkCheckinOptionMutationRequest {
+            group: json!({
+                "groupid": 1,
+                "groupname": "default",
+                "range": { "userid": ["user"] }
+            }),
+        })
+        .unwrap();
+        assert_eq!(option["group"]["groupname"], "default");
+        assert_eq!(option["group"]["range"]["userid"][0], "user");
+
+        let apply = serde_json::to_value(WorkApprovalApplyEventRequest {
+            creator_userid: "user".to_string(),
+            template_id: "template".to_string(),
+            use_template_approver: Some(1),
+            approver: vec![json!({ "attr": 1, "userid": ["manager"] })],
+            notifyer: vec!["notify".to_string()],
+            notify_type: Some(1),
+            apply_data: json!({ "contents": [{ "control": "Text", "value": { "text": "hi" } }] }),
+            summary_list: vec![json!({ "summary_info": [{ "text": "hi", "lang": "zh_CN" }] })],
+        })
+        .unwrap();
+        assert_eq!(apply["creator_userid"], "user");
+        assert_eq!(apply["approver"][0]["userid"][0], "manager");
+        assert_eq!(apply["summary_list"][0]["summary_info"][0]["text"], "hi");
+
         let info = serde_json::to_value(WorkApprovalInfoRequest {
             starttime: 1_800_000_000,
             endtime: 1_800_086_400,
@@ -11789,6 +12002,20 @@ mod tests {
         })
         .unwrap();
         assert_eq!(data["next_spnum"], 10);
+
+        let quota = serde_json::to_value(WorkVacationQuotaUpdateRequest {
+            userid: "user".to_string(),
+            lists: vec![WorkVacationQuotaUpdateItem {
+                vacation_id: 1,
+                leftduration: 3600,
+                time_attr: Some(0),
+                extra: serde_json::Value::Null,
+            }],
+        })
+        .unwrap();
+        assert_eq!(quota["userid"], "user");
+        assert_eq!(quota["lists"][0]["vacation_id"], 1);
+        assert_eq!(quota["lists"][0]["leftduration"], 3600);
     }
 
     #[test]

@@ -155,6 +155,10 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - Work user create/update and batch-delete mutation paths now use typed request
   DTOs covering department/order, leader, contact, invite, avatar, external
   profile, and extended-attribute payloads.
+- Work remaining raw request payloads have been removed: moment-strategy
+  create/edit, linked-corp and external-contact school message sends,
+  template-card update, check-in option add/update, approval apply-event, and
+  vacation quota update now accept explicit request DTOs.
 - invoice info/batch responses and account-service tag detail/list responses
   now expose typed invoice user-info, line-item, invoice batch-item, tag-user,
   and tag DTOs.
