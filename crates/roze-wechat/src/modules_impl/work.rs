@@ -112,7 +112,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         agent_id: i64,
-    ) -> Result<Value> {
+    ) -> Result<WorkAgentWorkbenchTemplateResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/agent/get_workbench_template",
@@ -4375,6 +4375,76 @@ pub struct WorkAgentAllowParties {
 pub struct WorkAgentAllowTags {
     #[serde(default)]
     pub tagid: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchTemplateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "type")]
+    pub template_type: Option<String>,
+    #[serde(default)]
+    pub keydata: Option<WorkAgentWorkbenchKeyDataTemplate>,
+    #[serde(default)]
+    pub image: Option<WorkAgentWorkbenchImageTemplate>,
+    #[serde(default)]
+    pub list: Option<WorkAgentWorkbenchListTemplate>,
+    #[serde(default)]
+    pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchKeyDataTemplate {
+    #[serde(default)]
+    pub items: Vec<WorkAgentWorkbenchKeyDataItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchKeyDataItem {
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub data: Option<String>,
+    #[serde(default)]
+    pub jump_url: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchImageTemplate {
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub jump_url: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchListTemplate {
+    #[serde(default)]
+    pub items: Vec<WorkAgentWorkbenchListItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchListItem {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub subtitle: Option<String>,
+    #[serde(default)]
+    pub jump_url: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAgentWorkbenchWebviewTemplate {
+    #[serde(default)]
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10589,6 +10659,51 @@ mod tests {
         );
         assert_eq!(detail.allow_partys.as_ref().unwrap().partyid[0], 1);
         assert_eq!(detail.allow_tags.as_ref().unwrap().tagid[0], 2);
+
+        let template: WorkAgentWorkbenchTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "type": "keydata",
+            "keydata": {
+                "items": [{
+                    "key": "Pending",
+                    "data": "42",
+                    "jump_url": "https://example.com/tasks",
+                    "pagepath": "pages/tasks/index"
+                }]
+            },
+            "image": {
+                "url": "https://example.com/banner.png",
+                "jump_url": "https://example.com/banner"
+            },
+            "list": {
+                "items": [{
+                    "title": "Task",
+                    "subtitle": "Due today",
+                    "jump_url": "https://example.com/task"
+                }]
+            },
+            "webview": {
+                "url": "https://example.com/workbench"
+            }
+        }))
+        .unwrap();
+        assert_eq!(template.template_type.as_deref(), Some("keydata"));
+        assert_eq!(
+            template.keydata.as_ref().unwrap().items[0].key.as_deref(),
+            Some("Pending")
+        );
+        assert_eq!(
+            template.image.as_ref().unwrap().url.as_deref(),
+            Some("https://example.com/banner.png")
+        );
+        assert_eq!(
+            template.list.as_ref().unwrap().items[0].title.as_deref(),
+            Some("Task")
+        );
+        assert_eq!(
+            template.webview.as_ref().unwrap().url.as_deref(),
+            Some("https://example.com/workbench")
+        );
     }
 
     #[test]
