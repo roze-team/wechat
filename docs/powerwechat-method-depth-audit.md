@@ -118,6 +118,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   file, video, text-card, news, mpnews, and mini-program notice sends.
 - external-contact contact-way add/get/list responses and conclusions are now
   typed instead of generic JSON values.
+- external-contact group-chat list/get/transfer responses now expose typed
+  chat summaries, chat details, members, admins, and failed-transfer records.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 

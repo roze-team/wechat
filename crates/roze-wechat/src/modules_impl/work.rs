@@ -5376,9 +5376,17 @@ pub struct ExternalGroupChatListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub group_chat_list: Vec<Value>,
+    pub group_chat_list: Vec<ExternalGroupChatSummary>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatSummary {
+    #[serde(default)]
+    pub chat_id: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5388,7 +5396,61 @@ pub struct ExternalGroupChatGetResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub group_chat: Option<Value>,
+    pub group_chat: Option<ExternalGroupChatDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatDetail {
+    #[serde(default)]
+    pub chat_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub notice: Option<String>,
+    #[serde(default)]
+    pub member_list: Vec<ExternalGroupChatMember>,
+    #[serde(default)]
+    pub admin_list: Vec<ExternalGroupChatAdmin>,
+    #[serde(default)]
+    pub member_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatMember {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default, rename = "type")]
+    pub member_type: Option<i64>,
+    #[serde(default)]
+    pub join_time: Option<i64>,
+    #[serde(default)]
+    pub join_scene: Option<i64>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub invitor: Option<ExternalGroupChatInvitor>,
+    #[serde(default)]
+    pub group_nickname: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatInvitor {
+    #[serde(default)]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatAdmin {
+    #[serde(default)]
+    pub userid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5398,7 +5460,17 @@ pub struct ExternalGroupChatTransferResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub failed_chat_list: Vec<Value>,
+    pub failed_chat_list: Vec<ExternalGroupChatFailedChat>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatFailedChat {
+    #[serde(default)]
+    pub chat_id: Option<String>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7802,26 +7874,57 @@ mod tests {
 
         let chats: ExternalGroupChatListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "group_chat_list": [{ "chat_id": "chat" }],
+            "group_chat_list": [{ "chat_id": "chat", "status": 0 }],
             "next_cursor": "cursor"
         }))
         .unwrap();
-        assert_eq!(chats.group_chat_list[0]["chat_id"], "chat");
+        assert_eq!(chats.group_chat_list[0].chat_id.as_deref(), Some("chat"));
+        assert_eq!(chats.group_chat_list[0].status, Some(0));
         assert_eq!(chats.next_cursor.as_deref(), Some("cursor"));
 
         let detail: ExternalGroupChatGetResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "group_chat": { "chat_id": "chat", "name": "group" }
+            "group_chat": {
+                "chat_id": "chat",
+                "name": "group",
+                "owner": "owner",
+                "create_time": 1_720_000_000,
+                "notice": "notice",
+                "member_list": [{
+                    "userid": "member",
+                    "type": 1,
+                    "join_time": 1_720_000_001,
+                    "join_scene": 2,
+                    "state": "state",
+                    "invitor": { "userid": "invitor" },
+                    "group_nickname": "nick",
+                    "name": "name",
+                    "unionid": "union"
+                }],
+                "admin_list": [{ "userid": "admin" }],
+                "member_version": "v1"
+            }
         }))
         .unwrap();
-        assert_eq!(detail.group_chat.unwrap()["name"], "group");
+        let group_chat = detail.group_chat.unwrap();
+        assert_eq!(group_chat.name.as_deref(), Some("group"));
+        assert_eq!(group_chat.member_list[0].member_type, Some(1));
+        assert_eq!(
+            group_chat.member_list[0]
+                .invitor
+                .as_ref()
+                .and_then(|invitor| invitor.userid.as_deref()),
+            Some("invitor")
+        );
+        assert_eq!(group_chat.admin_list[0].userid.as_deref(), Some("admin"));
 
         let transfer: ExternalGroupChatTransferResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "failed_chat_list": [{ "chat_id": "bad", "errcode": 40003 }]
+            "failed_chat_list": [{ "chat_id": "bad", "errcode": 40003, "errmsg": "bad owner" }]
         }))
         .unwrap();
-        assert_eq!(transfer.failed_chat_list[0]["chat_id"], "bad");
+        assert_eq!(transfer.failed_chat_list[0].chat_id.as_deref(), Some("bad"));
+        assert_eq!(transfer.failed_chat_list[0].errcode, Some(40003));
 
         let open_gid: ExternalGroupChatOpenGidToChatIdResponse =
             serde_json::from_value(json!({ "chat_id": "chat" })).unwrap();
