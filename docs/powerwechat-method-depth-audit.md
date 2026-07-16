@@ -153,6 +153,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - invoice info/batch responses and account-service tag detail/list responses
   now expose typed invoice user-info, line-item, invoice batch-item, tag-user,
   and tag DTOs.
+- external-contact group-message template, welcome-message, and moment-task
+  requests now reuse typed text/attachment DTOs with constructors for image,
+  link, mini-program, video, and file attachments instead of raw JSON vectors.
 - external-pay merchant and bill-list responses now expose typed use-scope and
   bill DTOs.
 - corp-group app-share responses now expose typed shared-corp records.

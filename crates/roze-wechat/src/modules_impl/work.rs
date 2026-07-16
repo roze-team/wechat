@@ -6530,9 +6530,9 @@ pub struct ExternalContactMessageTemplateRequest {
     pub sender: Option<String>,
     pub allow_select: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<ExternalContactMessageText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attachments: Vec<Value>,
+    pub attachments: Vec<ExternalContactMessageAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6591,67 +6591,139 @@ pub struct ExternalContactGroupMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageText {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+}
+
+impl ExternalContactMessageText {
+    pub fn new(content: impl Into<String>) -> Self {
+        Self {
+            content: Some(content.into()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageAttachment {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msgtype: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<ExternalContactMessageImage>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<ExternalContactMessageLink>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub miniprogram: Option<ExternalContactMessageMiniProgram>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video: Option<ExternalContactMessageVideo>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<ExternalContactMessageFile>,
+}
+
+impl ExternalContactMessageAttachment {
+    pub fn image(media_id: impl Into<String>) -> Self {
+        Self {
+            msgtype: Some("image".to_string()),
+            image: Some(ExternalContactMessageImage {
+                media_id: Some(media_id.into()),
+                pic_url: None,
+            }),
+            link: None,
+            miniprogram: None,
+            video: None,
+            file: None,
+        }
+    }
+
+    pub fn link(link: ExternalContactMessageLink) -> Self {
+        Self {
+            msgtype: Some("link".to_string()),
+            image: None,
+            link: Some(link),
+            miniprogram: None,
+            video: None,
+            file: None,
+        }
+    }
+
+    pub fn miniprogram(miniprogram: ExternalContactMessageMiniProgram) -> Self {
+        Self {
+            msgtype: Some("miniprogram".to_string()),
+            image: None,
+            link: None,
+            miniprogram: Some(miniprogram),
+            video: None,
+            file: None,
+        }
+    }
+
+    pub fn video(media_id: impl Into<String>) -> Self {
+        Self {
+            msgtype: Some("video".to_string()),
+            image: None,
+            link: None,
+            miniprogram: None,
+            video: Some(ExternalContactMessageVideo {
+                media_id: Some(media_id.into()),
+            }),
+            file: None,
+        }
+    }
+
+    pub fn file(media_id: impl Into<String>) -> Self {
+        Self {
+            msgtype: Some("file".to_string()),
+            image: None,
+            link: None,
+            miniprogram: None,
+            video: None,
+            file: Some(ExternalContactMessageFile {
+                media_id: Some(media_id.into()),
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageImage {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pic_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageLink {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picurl: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub desc: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageMiniProgram {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pic_media_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub appid: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageVideo {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageFile {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_id: Option<String>,
 }
 
@@ -6707,9 +6779,9 @@ pub struct ExternalContactGroupMessageSendResult {
 pub struct ExternalContactWelcomeMessageRequest {
     pub welcome_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<ExternalContactMessageText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attachments: Vec<Value>,
+    pub attachments: Vec<ExternalContactMessageAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6926,9 +6998,9 @@ pub struct ExternalContactMomentLike {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentTaskRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<ExternalContactMessageText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attachments: Vec<Value>,
+    pub attachments: Vec<ExternalContactMessageAttachment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_range: Option<Value>,
 }
@@ -10028,17 +10100,26 @@ mod tests {
             tag_filter: Some(json!({ "group_list": [{ "tag_list": ["tag"] }] })),
             sender: Some("sender".to_string()),
             allow_select: true,
-            text: Some(json!({ "content": "hello" })),
-            attachments: vec![json!({
-                "msgtype": "link",
-                "link": { "title": "title", "url": "https://example.com" }
-            })],
+            text: Some(ExternalContactMessageText::new("hello")),
+            attachments: vec![ExternalContactMessageAttachment::link(
+                ExternalContactMessageLink {
+                    title: Some("title".to_string()),
+                    picurl: None,
+                    desc: None,
+                    url: Some("https://example.com".to_string()),
+                },
+            )],
         })
         .unwrap();
         assert_eq!(template["chat_type"], "single");
         assert_eq!(template["external_userid"][0], "external");
         assert_eq!(template["attachments"][0]["msgtype"], "link");
+        assert_eq!(
+            template["attachments"][0]["link"],
+            json!({ "title": "title", "url": "https://example.com" })
+        );
         assert!(template.get("chat_id_list").is_none());
+        assert!(template["attachments"][0].get("image").is_none());
 
         let list = serde_json::to_value(ExternalContactGroupMessageListRequest {
             chat_type: "group".to_string(),
@@ -10055,13 +10136,26 @@ mod tests {
 
         let welcome = serde_json::to_value(ExternalContactWelcomeMessageRequest {
             welcome_code: "welcome".to_string(),
-            text: Some(json!({ "content": "hi" })),
-            attachments: Vec::new(),
+            text: Some(ExternalContactMessageText::new("hi")),
+            attachments: vec![ExternalContactMessageAttachment::image("image-media")],
         })
         .unwrap();
         assert_eq!(welcome["welcome_code"], "welcome");
         assert_eq!(welcome["text"]["content"], "hi");
-        assert!(welcome.get("attachments").is_none());
+        assert_eq!(welcome["attachments"][0]["msgtype"], "image");
+        assert_eq!(
+            welcome["attachments"][0]["image"]["media_id"],
+            "image-media"
+        );
+
+        let empty_welcome = serde_json::to_value(ExternalContactWelcomeMessageRequest {
+            welcome_code: "welcome".to_string(),
+            text: None,
+            attachments: Vec::new(),
+        })
+        .unwrap();
+        assert!(empty_welcome.get("text").is_none());
+        assert!(empty_welcome.get("attachments").is_none());
     }
 
     #[test]
@@ -10239,8 +10333,8 @@ mod tests {
         assert!(list.get("cursor").is_none());
 
         let task = serde_json::to_value(ExternalContactMomentTaskRequest {
-            text: Some(json!({ "content": "hello" })),
-            attachments: vec![json!({ "msgtype": "image", "image": { "media_id": "media" } })],
+            text: Some(ExternalContactMessageText::new("hello")),
+            attachments: vec![ExternalContactMessageAttachment::image("media")],
             visible_range: Some(json!({
                 "sender_list": { "user_list": ["user"] },
                 "external_contact_list": { "tag_list": ["tag"] }
