@@ -2035,10 +2035,11 @@ impl Work {
     ) -> GroupRobotMessage {
         GroupRobotMessage {
             msgtype: "text".to_string(),
-            text: Some(json!({
-                "content": content.into(),
-                "mentioned_list": mentioned_list,
-            })),
+            text: Some(GroupRobotTextMessage {
+                content: content.into(),
+                mentioned_list,
+                mentioned_mobile_list: Vec::new(),
+            }),
             markdown: None,
             image: None,
             news: None,
@@ -2051,7 +2052,9 @@ impl Work {
         GroupRobotMessage {
             msgtype: "markdown".to_string(),
             text: None,
-            markdown: Some(json!({ "content": content.into() })),
+            markdown: Some(GroupRobotMarkdownMessage {
+                content: content.into(),
+            }),
             image: None,
             news: None,
             file: None,
@@ -7754,17 +7757,36 @@ pub struct ExternalContactCustomerStrategyCreateResponse {
 pub struct GroupRobotMessage {
     pub msgtype: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<GroupRobotTextMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub markdown: Option<Value>,
+    pub markdown: Option<GroupRobotMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub news: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub file: Option<Value>,
+    pub file: Option<GroupRobotFileMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub template_card: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotTextMessage {
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentioned_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentioned_mobile_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotMarkdownMessage {
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotFileMessage {
+    pub media_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10199,7 +10221,9 @@ mod tests {
             markdown: None,
             image: None,
             news: None,
-            file: Some(json!({ "media_id": "media" })),
+            file: Some(GroupRobotFileMessage {
+                media_id: "media".to_string(),
+            }),
             template_card: None,
         })
         .unwrap();
