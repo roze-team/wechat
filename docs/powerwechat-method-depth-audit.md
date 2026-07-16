@@ -18,7 +18,7 @@ but these areas should be expanded for stricter production parity.
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
-| Official Account | 283 | 222 | medium |
+| Official Account | 283 | 244 | medium |
 | Open Work | 57 | 36 | medium |
 | Basic Service | 33 | 16 | low |
 | Channels | 6 | 4 | low |
@@ -52,9 +52,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    `dataCube`, `operation`, and `wxa`.
 
 5. Official Account depth:
-   submodules are now covered, but `broadcasting`, `customerService`, `material`,
-   `user/tag`, `card`, `menu`, `templateMessage`, and `publish` still deserve
-   more one-to-one helper wrappers.
+   exact endpoint coverage is now green against the current PowerWeChat scan.
+   Continue DTO normalization for `broadcasting`, `material`, `menu`,
+   `templateMessage`, and `publish`.
 
 6. Open Work depth:
    `license`, `suitAuth`, and `server` should be expanded toward PowerWeChat's
@@ -72,7 +72,7 @@ uses Rust `format!` placeholders.
 | Work | 261 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Mini Program | 151 | 0 | exact endpoint scan green after filtering documentation-path false positives; continue method/DTO depth review |
 | Open Platform | 48 | 0 | exact endpoint scan green; continue method/DTO depth review |
-| Official Account | 200 | 22 | user tags, customer-service sessions/message records, card update/list, base callback/quota |
+| Official Account | 201 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Basic Service | 12 | 7 | subscribe message template management |
 | Open Work | 35 | 7 | component authorizer management and quota paths |
 | Channels | 2 | 0 | none from exact endpoint scan |
@@ -138,6 +138,18 @@ The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and
 `wxa/sec/order/request` rather than callable PowerWeChat endpoints.
 
+Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
+
+- base callback/quota wrappers: clear quota, callback IP list, and callback URL
+  network check;
+- card batch list and update wrappers with typed responses;
+- customer-service avatar upload, session list/waiting/create/close/get, and
+  message-record wrappers with typed session/record DTOs;
+- template subscribe-message send wrapper;
+- user openid migration wrapper;
+- user tag create/list/update/delete, user-tag IDs, users-of-tag, batch tag,
+  and batch untag wrappers with typed tag/list responses.
+
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.
 The approximate payment scan found 69 payment paths and 37 paths that still
@@ -182,8 +194,8 @@ Recommended implementation order:
 3. Mini Program DTO/method-depth review for `liveBroadcast`,
    `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
    `dataCube`, `operation`, and `wxa`.
-4. Official Account `user/tag` and `customerService` depth.
-5. Open Work `license`, `suitAuth`, and server/component authorizer depth.
+4. Open Work `license`, `suitAuth`, and server/component authorizer depth.
+5. Basic Service subscribe-message template management exact endpoint review.
 
 ## Documentation Update Needed
 

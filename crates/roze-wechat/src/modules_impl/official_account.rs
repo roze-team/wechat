@@ -108,6 +108,47 @@ impl OfficialAccount {
         self.inner.post("cgi-bin/stable_token", None, request).await
     }
 
+    pub async fn clear_quota(
+        &self,
+        access_token: impl Into<String>,
+        app_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/clear_quota",
+                Some(access_token.into()),
+                json!({ "appid": app_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn callback_ip(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialCallbackIpResponse> {
+        self.inner
+            .get("cgi-bin/getcallbackip", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn check_callback_url(
+        &self,
+        access_token: impl Into<String>,
+        action: impl Into<String>,
+        check_operator: impl Into<String>,
+    ) -> Result<OfficialCallbackCheckResponse> {
+        self.inner
+            .post(
+                "cgi-bin/callbacks/check",
+                Some(access_token.into()),
+                json!({
+                    "action": action.into(),
+                    "check_operator": check_operator.into(),
+                }),
+            )
+            .await
+    }
+
     pub fn broadcasting(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "official_account.broadcasting")
     }
@@ -529,6 +570,45 @@ impl OfficialAccount {
             .await
     }
 
+    pub async fn list_cards(
+        &self,
+        access_token: impl Into<String>,
+        offset: i64,
+        count: i64,
+        status_list: Vec<String>,
+    ) -> Result<CardListResponse> {
+        self.inner
+            .post(
+                "card/batchget",
+                Some(access_token.into()),
+                json!({
+                    "offset": offset,
+                    "count": count,
+                    "status_list": status_list,
+                }),
+            )
+            .await
+    }
+
+    pub async fn update_card(
+        &self,
+        access_token: impl Into<String>,
+        card_id: impl Into<String>,
+        card_type: impl AsRef<str>,
+        card: Value,
+    ) -> Result<CardUpdateResponse> {
+        let mut body = serde_json::Map::new();
+        body.insert("card_id".to_string(), json!(card_id.into()));
+        body.insert(card_type.as_ref().to_ascii_lowercase(), card);
+        self.inner
+            .post(
+                "card/update",
+                Some(access_token.into()),
+                Value::Object(body),
+            )
+            .await
+    }
+
     pub async fn get_card_code(
         &self,
         access_token: impl Into<String>,
@@ -654,6 +734,111 @@ impl OfficialAccount {
                     "kf_account": account.into(),
                     "invite_wx": wechat_id.into(),
                 }),
+            )
+            .await
+    }
+
+    pub async fn upload_customer_service_avatar_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        account: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WechatStatusResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "customservice/kfaccount/uploadheadimg",
+                Some(access_token.into()),
+                vec![("kf_account".to_string(), account.into())],
+                form,
+            )
+            .await
+    }
+
+    pub async fn customer_service_sessions(
+        &self,
+        access_token: impl Into<String>,
+        account: impl Into<String>,
+    ) -> Result<CustomerServiceSessionListResponse> {
+        self.inner
+            .get_with_query(
+                "customservice/kfsession/getsessionlist",
+                Some(access_token.into()),
+                vec![("kf_account".to_string(), account.into())],
+            )
+            .await
+    }
+
+    pub async fn waiting_customer_service_sessions(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<CustomerServiceWaitCaseListResponse> {
+        self.inner
+            .get(
+                "customservice/kfsession/getwaitcase",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn create_customer_service_session(
+        &self,
+        access_token: impl Into<String>,
+        account: impl Into<String>,
+        openid: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "customservice/kfsession/create",
+                Some(access_token.into()),
+                json!({ "kf_account": account.into(), "openid": openid.into() }),
+            )
+            .await
+    }
+
+    pub async fn close_customer_service_session(
+        &self,
+        access_token: impl Into<String>,
+        account: impl Into<String>,
+        openid: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "customservice/kfsession/close",
+                Some(access_token.into()),
+                json!({ "kf_account": account.into(), "openid": openid.into() }),
+            )
+            .await
+    }
+
+    pub async fn customer_service_session(
+        &self,
+        access_token: impl Into<String>,
+        openid: impl Into<String>,
+    ) -> Result<CustomerServiceSessionResponse> {
+        self.inner
+            .get_with_query(
+                "customservice/kfsession/getsession",
+                Some(access_token.into()),
+                vec![("openid".to_string(), openid.into())],
+            )
+            .await
+    }
+
+    pub async fn customer_service_message_records(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerServiceMessageRecordRequest,
+    ) -> Result<CustomerServiceMessageRecordResponse> {
+        self.inner
+            .post(
+                "customservice/msgrecord/getmsglist",
+                Some(access_token.into()),
+                request,
             )
             .await
     }
@@ -3021,6 +3206,20 @@ impl OfficialAccount {
             .await
     }
 
+    pub async fn send_subscribe_template_message(
+        &self,
+        access_token: impl Into<String>,
+        request: TemplateSubscribeMessageRequest,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/template/subscribe",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn set_template_industry(
         &self,
         access_token: impl Into<String>,
@@ -3146,6 +3345,135 @@ impl OfficialAccount {
                     "openid": openid.into(),
                     "remark": remark.into(),
                 }),
+            )
+            .await
+    }
+
+    pub async fn change_openid(
+        &self,
+        access_token: impl Into<String>,
+        from_app_id: impl Into<String>,
+        openid_list: Vec<String>,
+    ) -> Result<OfficialChangeOpenidResponse> {
+        self.inner
+            .post(
+                "cgi-bin/changeopenid",
+                Some(access_token.into()),
+                json!({
+                    "from_appid": from_app_id.into(),
+                    "openid_list": openid_list,
+                }),
+            )
+            .await
+    }
+
+    pub async fn create_user_tag(
+        &self,
+        access_token: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Result<OfficialUserTagResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tags/create",
+                Some(access_token.into()),
+                json!({ "tag": { "name": name.into() } }),
+            )
+            .await
+    }
+
+    pub async fn user_tags(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<OfficialUserTagListResponse> {
+        self.inner
+            .get("cgi-bin/tags/get", Some(access_token.into()))
+            .await
+    }
+
+    pub async fn update_user_tag(
+        &self,
+        access_token: impl Into<String>,
+        tag_id: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tags/update",
+                Some(access_token.into()),
+                json!({ "tag": { "id": tag_id.into(), "name": name.into() } }),
+            )
+            .await
+    }
+
+    pub async fn delete_user_tag(
+        &self,
+        access_token: impl Into<String>,
+        tag_id: impl Into<String>,
+    ) -> Result<WechatStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tags/delete",
+                Some(access_token.into()),
+                json!({ "tag": { "id": tag_id.into() } }),
+            )
+            .await
+    }
+
+    pub async fn get_user_tag_ids(
+        &self,
+        access_token: impl Into<String>,
+        openid: impl Into<String>,
+    ) -> Result<OfficialUserTagIdsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tags/getidlist",
+                Some(access_token.into()),
+                json!({ "openid": openid.into() }),
+            )
+            .await
+    }
+
+    pub async fn users_of_tag(
+        &self,
+        access_token: impl Into<String>,
+        tag_id: impl Into<String>,
+        next_openid: impl Into<String>,
+    ) -> Result<OfficialUsersOfTagResponse> {
+        self.inner
+            .post(
+                "cgi-bin/user/tag/get",
+                Some(access_token.into()),
+                json!({ "tagid": tag_id.into(), "next_openid": next_openid.into() }),
+            )
+            .await
+    }
+
+    pub async fn tag_users(
+        &self,
+        access_token: impl Into<String>,
+        openid_list: Vec<String>,
+        tag_id: i64,
+    ) -> Result<OfficialTagUsersResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tags/members/batchtagging",
+                Some(access_token.into()),
+                json!({ "openid_list": openid_list, "tagid": tag_id }),
+            )
+            .await
+    }
+
+    pub async fn untag_users(
+        &self,
+        access_token: impl Into<String>,
+        openid_list: Vec<String>,
+        tag_id: i64,
+    ) -> Result<OfficialTagUsersResponse> {
+        self.inner
+            .post(
+                "cgi-bin/tags/members/batchuntagging",
+                Some(access_token.into()),
+                json!({ "openid_list": openid_list, "tagid": tag_id }),
             )
             .await
     }
@@ -3824,6 +4152,238 @@ pub struct OfficialWifiShopListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialCallbackIpResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ip_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialCallbackCheckResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub dns: Vec<Value>,
+    #[serde(default)]
+    pub ping: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub card_id_list: Vec<String>,
+    #[serde(default)]
+    pub total_num: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardUpdateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub send_check: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceSession {
+    #[serde(default, rename = "createtime")]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceSessionListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub sessionlist: Vec<CustomerServiceSession>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceWaitCase {
+    #[serde(default)]
+    pub latest_time: Option<i64>,
+    #[serde(default)]
+    pub openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceWaitCaseListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub waitcaselist: Vec<CustomerServiceWaitCase>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceSessionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "createtime")]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub kf_account: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceMessageRecordRequest {
+    pub starttime: i64,
+    pub endtime: i64,
+    pub msgid: i64,
+    pub number: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceMessageRecord {
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub opercode: Option<i64>,
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub time: Option<i64>,
+    #[serde(default)]
+    pub worker: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceMessageRecordResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub recordlist: Vec<CustomerServiceMessageRecord>,
+    #[serde(default)]
+    pub number: Option<i64>,
+    #[serde(default)]
+    pub msgid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateSubscribeMessageRequest {
+    pub touser: String,
+    pub template_id: String,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub miniprogram: Option<Value>,
+    pub scene: String,
+    pub title: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialChangeOpenidResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub result_list: Vec<OfficialChangeOpenidResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialChangeOpenidResult {
+    #[serde(default)]
+    pub ori_openid: Option<String>,
+    #[serde(default)]
+    pub new_openid: Option<String>,
+    #[serde(default)]
+    pub err_msg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserTag {
+    pub id: i64,
+    pub name: String,
+    #[serde(default)]
+    pub count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserTagResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tag: Option<OfficialUserTag>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserTagListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<OfficialUserTag>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserTagIdsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tagid_list: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUsersOfTagData {
+    #[serde(default)]
+    pub openid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUsersOfTagResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub data: Option<OfficialUsersOfTagData>,
+    #[serde(default)]
+    pub next_openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialTagUsersResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub openid_list: Vec<String>,
+    #[serde(default)]
+    pub tagid: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4728,6 +5288,95 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_official_base_and_card_depth_responses() {
+        let callback: OfficialCallbackIpResponse = serde_json::from_value(json!({
+            "ip_list": ["127.0.0.1", "127.0.0.2"]
+        }))
+        .unwrap();
+        assert_eq!(callback.ip_list[0], "127.0.0.1");
+
+        let check: OfficialCallbackCheckResponse = serde_json::from_value(json!({
+            "dns": [{ "ip": "127.0.0.1", "real_operator": "UNICOM" }],
+            "ping": [{ "ip": "127.0.0.1", "package_loss": "0%" }]
+        }))
+        .unwrap();
+        assert_eq!(check.dns[0]["real_operator"], "UNICOM");
+
+        let cards: CardListResponse = serde_json::from_value(json!({
+            "card_id_list": ["card-1", "card-2"],
+            "total_num": 2
+        }))
+        .unwrap();
+        assert_eq!(cards.card_id_list[1], "card-2");
+        assert_eq!(cards.total_num, Some(2));
+
+        let update: CardUpdateResponse =
+            serde_json::from_value(json!({ "send_check": true })).unwrap();
+        assert_eq!(update.send_check, Some(true));
+    }
+
+    #[test]
+    fn serializes_customer_service_session_and_record_requests() {
+        let session = serde_json::to_value(json!({
+            "kf_account": "test@test",
+            "openid": "openid"
+        }))
+        .unwrap();
+        assert_eq!(session["kf_account"], "test@test");
+
+        let request = serde_json::to_value(CustomerServiceMessageRecordRequest {
+            starttime: 1,
+            endtime: 2,
+            msgid: 10,
+            number: 20,
+        })
+        .unwrap();
+        assert_eq!(
+            request,
+            json!({ "starttime": 1, "endtime": 2, "msgid": 10, "number": 20 })
+        );
+    }
+
+    #[test]
+    fn deserializes_customer_service_session_and_record_responses() {
+        let sessions: CustomerServiceSessionListResponse = serde_json::from_value(json!({
+            "sessionlist": [{ "createtime": 1800000000, "openid": "openid" }]
+        }))
+        .unwrap();
+        assert_eq!(sessions.sessionlist[0].create_time, Some(1800000000));
+
+        let waiting: CustomerServiceWaitCaseListResponse = serde_json::from_value(json!({
+            "count": 1,
+            "waitcaselist": [{ "latest_time": 1800000001, "openid": "openid" }]
+        }))
+        .unwrap();
+        assert_eq!(waiting.count, Some(1));
+        assert_eq!(waiting.waitcaselist[0].openid.as_deref(), Some("openid"));
+
+        let current: CustomerServiceSessionResponse = serde_json::from_value(json!({
+            "createtime": 1800000002,
+            "kf_account": "test@test"
+        }))
+        .unwrap();
+        assert_eq!(current.kf_account.as_deref(), Some("test@test"));
+
+        let records: CustomerServiceMessageRecordResponse = serde_json::from_value(json!({
+            "recordlist": [{
+                "openid": "openid",
+                "opercode": 2002,
+                "text": "hello",
+                "time": 1800000003,
+                "worker": "test@test"
+            }],
+            "number": 1,
+            "msgid": 11
+        }))
+        .unwrap();
+        assert_eq!(records.recordlist[0].text.as_deref(), Some("hello"));
+        assert_eq!(records.msgid, Some(11));
+    }
+
+    #[test]
     fn serializes_card_create_request() {
         let value = serde_json::to_value(CardCreateRequest {
             card: json!({
@@ -4751,6 +5400,75 @@ mod tests {
 
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.card_id.as_deref(), Some("card"));
+    }
+
+    #[test]
+    fn serializes_template_subscribe_and_user_tag_requests() {
+        let subscribe = serde_json::to_value(TemplateSubscribeMessageRequest {
+            touser: "openid".to_string(),
+            template_id: "template".to_string(),
+            url: "https://example.com".to_string(),
+            miniprogram: None,
+            scene: "1000".to_string(),
+            title: "subscribe".to_string(),
+            data: json!({ "content": { "value": "hello" } }),
+        })
+        .unwrap();
+        assert_eq!(subscribe["touser"], "openid");
+        assert_eq!(subscribe["scene"], "1000");
+        assert!(subscribe.get("miniprogram").is_none());
+
+        let tag_create = json!({ "tag": { "name": "vip" } });
+        assert_eq!(tag_create["tag"]["name"], "vip");
+
+        let tag_users = json!({ "openid_list": ["openid"], "tagid": 2 });
+        assert_eq!(tag_users["openid_list"][0], "openid");
+        assert_eq!(tag_users["tagid"], 2);
+    }
+
+    #[test]
+    fn deserializes_user_tag_and_change_openid_responses() {
+        let created: OfficialUserTagResponse = serde_json::from_value(json!({
+            "tag": { "id": 2, "name": "vip", "count": 10 }
+        }))
+        .unwrap();
+        assert_eq!(created.tag.as_ref().map(|tag| tag.id), Some(2));
+
+        let tags: OfficialUserTagListResponse = serde_json::from_value(json!({
+            "tags": [{ "id": 2, "name": "vip", "count": 10 }]
+        }))
+        .unwrap();
+        assert_eq!(tags.tags[0].name, "vip");
+
+        let tag_ids: OfficialUserTagIdsResponse =
+            serde_json::from_value(json!({ "tagid_list": [2, 3] })).unwrap();
+        assert_eq!(tag_ids.tagid_list, vec![2, 3]);
+
+        let users: OfficialUsersOfTagResponse = serde_json::from_value(json!({
+            "count": 1,
+            "data": { "openid": ["openid"] },
+            "next_openid": "next"
+        }))
+        .unwrap();
+        assert_eq!(users.data.as_ref().unwrap().openid[0], "openid");
+        assert_eq!(users.next_openid.as_deref(), Some("next"));
+
+        let tagged: OfficialTagUsersResponse = serde_json::from_value(json!({
+            "openid_list": ["openid"],
+            "tagid": 2
+        }))
+        .unwrap();
+        assert_eq!(tagged.tagid, Some(2));
+
+        let changed: OfficialChangeOpenidResponse = serde_json::from_value(json!({
+            "result_list": [{
+                "ori_openid": "old",
+                "new_openid": "new",
+                "err_msg": "ok"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(changed.result_list[0].new_openid.as_deref(), Some("new"));
     }
 
     #[test]
