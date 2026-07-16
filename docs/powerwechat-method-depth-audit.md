@@ -141,6 +141,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - corp-group app-share responses now expose typed shared-corp records.
 - OA check-in option, record, data, and schedule responses now expose typed
   group, user-option, record, data-item, and schedule DTOs.
+- OA calendar, dial, PSTNCC, and schedule responses now expose typed calendar,
+  dial-record, call-state, and schedule DTOs.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 

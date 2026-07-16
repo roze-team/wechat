@@ -7358,13 +7358,41 @@ pub struct WorkCalendarAddResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarShare {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub readonly: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarInfo {
+    #[serde(default)]
+    pub cal_id: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub shares: Vec<WorkCalendarShare>,
+    #[serde(default)]
+    pub organizer: Option<String>,
+    #[serde(default)]
+    pub readonly: Option<i64>,
+    #[serde(default)]
+    pub set_as_default: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarGetResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub calendar_list: Vec<Value>,
+    pub calendar_list: Vec<WorkCalendarInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7376,13 +7404,31 @@ pub struct WorkDialRecordRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDialRecord {
+    #[serde(default)]
+    pub callee: Option<String>,
+    #[serde(default)]
+    pub caller: Option<String>,
+    #[serde(default)]
+    pub duration: Option<i64>,
+    #[serde(default)]
+    pub dial_time: Option<i64>,
+    #[serde(default)]
+    pub call_type: Option<i64>,
+    #[serde(default)]
+    pub call_result: Option<i64>,
+    #[serde(default)]
+    pub callid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDialRecordResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub record: Vec<Value>,
+    pub record: Vec<WorkDialRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7437,13 +7483,29 @@ pub struct WorkJournalStatListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkPstnccCallState {
+    #[serde(default)]
+    pub callee_userid: Option<String>,
+    #[serde(default)]
+    pub callid: Option<String>,
+    #[serde(default)]
+    pub state: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<i64>,
+    #[serde(default)]
+    pub callee: Option<String>,
+    #[serde(default)]
+    pub caller: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkPstnccCallResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub states: Vec<Value>,
+    pub states: Vec<WorkPstnccCallState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8007,13 +8069,35 @@ pub struct WorkScheduleAddResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleInfo {
+    #[serde(default)]
+    pub schedule_id: Option<String>,
+    #[serde(default)]
+    pub organizer: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub start_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub attendees: Option<Value>,
+    #[serde(default)]
+    pub location: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleGetResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub schedule_list: Vec<Value>,
+    pub schedule_list: Vec<WorkScheduleInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9798,22 +9882,35 @@ mod tests {
         assert_eq!(calendar_add.cal_id.as_deref(), Some("wc100"));
 
         let calendar_get: WorkCalendarGetResponse = serde_json::from_value(json!({
-            "calendar_list": [{ "cal_id": "wc100", "summary": "Team" }]
+            "calendar_list": [{
+                "cal_id": "wc100",
+                "summary": "Team",
+                "shares": [{ "userid": "user", "readonly": 1 }]
+            }]
         }))
         .unwrap();
-        assert_eq!(calendar_get.calendar_list[0]["summary"], "Team");
+        assert_eq!(
+            calendar_get.calendar_list[0].summary.as_deref(),
+            Some("Team")
+        );
+        assert_eq!(
+            calendar_get.calendar_list[0].shares[0].userid.as_deref(),
+            Some("user")
+        );
 
         let dial: WorkDialRecordResponse = serde_json::from_value(json!({
-            "record": [{ "callee": "user", "duration": 60 }]
+            "record": [{ "callee": "user", "caller": "agent", "duration": 60 }]
         }))
         .unwrap();
-        assert_eq!(dial.record[0]["callee"], "user");
+        assert_eq!(dial.record[0].callee.as_deref(), Some("user"));
+        assert_eq!(dial.record[0].duration, Some(60));
 
         let call: WorkPstnccCallResponse = serde_json::from_value(json!({
-            "states": [{ "callee_userid": "user", "callid": "call-1" }]
+            "states": [{ "callee_userid": "user", "callid": "call-1", "state": 1 }]
         }))
         .unwrap();
-        assert_eq!(call.states[0]["callid"], "call-1");
+        assert_eq!(call.states[0].callid.as_deref(), Some("call-1"));
+        assert_eq!(call.states[0].state, Some(1));
 
         let states: WorkPstnccGetStatesResponse = serde_json::from_value(json!({
             "istalked": 1,
@@ -9975,10 +10072,26 @@ mod tests {
         assert_eq!(schedule_add.schedule_id.as_deref(), Some("schedule-1"));
 
         let schedule_get: WorkScheduleGetResponse = serde_json::from_value(json!({
-            "schedule_list": [{ "schedule_id": "schedule-1", "summary": "Daily" }]
+            "schedule_list": [{
+                "schedule_id": "schedule-1",
+                "summary": "Daily",
+                "organizer": "user",
+                "start_time": 1_800_000_000,
+                "end_time": 1_800_003_600,
+                "attendees": [{ "userid": "user" }],
+                "status": 1
+            }]
         }))
         .unwrap();
-        assert_eq!(schedule_get.schedule_list[0]["summary"], "Daily");
+        assert_eq!(
+            schedule_get.schedule_list[0].schedule_id.as_deref(),
+            Some("schedule-1")
+        );
+        assert_eq!(
+            schedule_get.schedule_list[0].summary.as_deref(),
+            Some("Daily")
+        );
+        assert_eq!(schedule_get.schedule_list[0].status, Some(1));
     }
 
     #[test]
