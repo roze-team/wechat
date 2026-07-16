@@ -200,6 +200,12 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   security check responses now expose typed Mini Program DTOs.
 - wxa code QR/code/unlimited JSON response paths now expose typed ticket, URL,
   buffer, and error metadata DTOs alongside existing bytes helpers.
+- Channels shop/store basic info now share the typed basic-info response DTO.
+- Official Account module response surfaces no longer expose `Result<Value>`;
+  OAuth user info, broadcasting, customer-service account lists, material,
+  menu, semantic, template-message, user-list, and blacklist paths now return
+  explicit typed response DTOs with compatibility extension fields where the
+  upstream payload remains open-ended.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and

@@ -83,7 +83,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         openid: impl Into<String>,
         lang: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OauthUserInfoResponse> {
         self.inner
             .get_with_query(
                 "sns/userinfo",
@@ -157,7 +157,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: MassSendAllRequest,
-    ) -> Result<Value> {
+    ) -> Result<MassSendResponse> {
         self.inner
             .post(
                 "cgi-bin/message/mass/sendall",
@@ -171,7 +171,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: MassSendOpenIdsRequest,
-    ) -> Result<Value> {
+    ) -> Result<MassSendResponse> {
         self.inner
             .post(
                 "cgi-bin/message/mass/send",
@@ -204,7 +204,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: Value,
-    ) -> Result<Value> {
+    ) -> Result<MassPreviewResponse> {
         self.inner
             .post(
                 "cgi-bin/message/mass/preview",
@@ -218,7 +218,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         msg_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<MassStatusResponse> {
         self.inner
             .post(
                 "cgi-bin/message/mass/get",
@@ -652,7 +652,7 @@ impl OfficialAccount {
     pub async fn list_customer_service_accounts(
         &self,
         access_token: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<CustomerServiceAccountListResponse> {
         self.inner
             .get("cgi-bin/customservice/getkflist", Some(access_token.into()))
             .await
@@ -661,7 +661,7 @@ impl OfficialAccount {
     pub async fn list_online_customer_service_accounts(
         &self,
         access_token: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<CustomerServiceOnlineAccountListResponse> {
         self.inner
             .get(
                 "cgi-bin/customservice/getonlinekflist",
@@ -1021,7 +1021,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         media_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<MaterialGetResponse> {
         self.inner
             .post(
                 "cgi-bin/material/get_material",
@@ -1049,7 +1049,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: MaterialListRequest,
-    ) -> Result<Value> {
+    ) -> Result<MaterialListResponse> {
         self.inner
             .post(
                 "cgi-bin/material/batchget_material",
@@ -1059,7 +1059,10 @@ impl OfficialAccount {
             .await
     }
 
-    pub async fn material_stats(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn material_stats(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<MaterialStatsResponse> {
         self.inner
             .post(
                 "cgi-bin/material/get_materialcount",
@@ -1239,13 +1242,16 @@ impl OfficialAccount {
         DomainModule::new(self.inner.clone(), "official_account.menu")
     }
 
-    pub async fn get_menu(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn get_menu(&self, access_token: impl Into<String>) -> Result<MenuGetResponse> {
         self.inner
             .get("cgi-bin/menu/get", Some(access_token.into()))
             .await
     }
 
-    pub async fn current_self_menu(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn current_self_menu(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<CurrentSelfMenuResponse> {
         self.inner
             .get(
                 "cgi-bin/get_current_selfmenu_info",
@@ -1312,7 +1318,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         user_id: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<MenuTryMatchResponse> {
         self.inner
             .post(
                 "cgi-bin/menu/trymatch",
@@ -1346,7 +1352,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: OfficialSemanticQueryRequest,
-    ) -> Result<Value> {
+    ) -> Result<OfficialSemanticQueryResponse> {
         self.inner
             .post(
                 "semantic/semproxy/search",
@@ -3196,7 +3202,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: TemplateMessageRequest,
-    ) -> Result<Value> {
+    ) -> Result<TemplateMessageSendResponse> {
         self.inner
             .post(
                 "cgi-bin/message/template/send",
@@ -3238,7 +3244,10 @@ impl OfficialAccount {
             .await
     }
 
-    pub async fn get_template_industry(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn get_template_industry(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<TemplateIndustryResponse> {
         self.inner
             .get("cgi-bin/template/get_industry", Some(access_token.into()))
             .await
@@ -3248,7 +3257,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         template_id_short: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<TemplateAddResponse> {
         self.inner
             .post(
                 "cgi-bin/template/api_add_template",
@@ -3258,7 +3267,10 @@ impl OfficialAccount {
             .await
     }
 
-    pub async fn list_private_templates(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn list_private_templates(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<PrivateTemplateListResponse> {
         self.inner
             .get(
                 "cgi-bin/template/get_all_private_template",
@@ -3290,7 +3302,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         openid: impl Into<String>,
         lang: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OfficialUserInfoResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/user/info",
@@ -3307,7 +3319,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         request: BatchGetUserInfoRequest,
-    ) -> Result<Value> {
+    ) -> Result<OfficialBatchUserInfoResponse> {
         self.inner
             .post(
                 "cgi-bin/user/info/batchget",
@@ -3321,7 +3333,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         next_openid: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OfficialUserListResponse> {
         self.inner
             .get_with_query(
                 "cgi-bin/user/get",
@@ -3482,7 +3494,7 @@ impl OfficialAccount {
         &self,
         access_token: impl Into<String>,
         begin_openid: impl Into<String>,
-    ) -> Result<Value> {
+    ) -> Result<OfficialBlacklistResponse> {
         self.inner
             .post(
                 "cgi-bin/tags/members/getblacklist",
@@ -3571,6 +3583,34 @@ pub struct OauthAccessTokenResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OauthUserInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub sex: Option<i64>,
+    #[serde(default)]
+    pub province: Option<String>,
+    #[serde(default)]
+    pub city: Option<String>,
+    #[serde(default)]
+    pub country: Option<String>,
+    #[serde(default)]
+    pub headimgurl: Option<String>,
+    #[serde(default)]
+    pub privilege: Vec<String>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateMenuRequest {
     pub button: Vec<MenuButton>,
 }
@@ -3610,6 +3650,46 @@ pub struct CreateConditionalMenuResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub menu: Option<Value>,
+    #[serde(default)]
+    pub conditionalmenu: Vec<Value>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSelfMenuResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub is_menu_open: Option<i64>,
+    #[serde(default)]
+    pub selfmenu_info: Option<Value>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuTryMatchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub button: Vec<Value>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MassSendAllRequest {
     pub filter: MassSendFilter,
     pub msgtype: String,
@@ -3637,6 +3717,46 @@ pub struct MassSendOpenIdsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MassSendResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msg_id: Option<i64>,
+    #[serde(default)]
+    pub msg_data_id: Option<i64>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MassPreviewResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msg_id: Option<i64>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MassStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msg_id: Option<i64>,
+    #[serde(default)]
+    pub msg_status: Option<String>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfficialAutoReplyInfoResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -3661,6 +3781,22 @@ pub struct OfficialSemanticQueryRequest {
     pub appid: String,
     #[serde(flatten)]
     pub optional: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialSemanticQueryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub result: Option<Value>,
+    #[serde(default)]
+    pub semantic: Option<Value>,
+    #[serde(flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4207,6 +4343,50 @@ pub struct CustomerServiceSession {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceAccount {
+    #[serde(default)]
+    pub kf_account: Option<String>,
+    #[serde(default)]
+    pub kf_nick: Option<String>,
+    #[serde(default)]
+    pub kf_id: Option<String>,
+    #[serde(default)]
+    pub kf_headimgurl: Option<String>,
+    #[serde(default)]
+    pub kf_wx: Option<String>,
+    #[serde(default)]
+    pub invite_wx: Option<String>,
+    #[serde(default)]
+    pub invite_expire_time: Option<i64>,
+    #[serde(default)]
+    pub invite_status: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub accepted_case: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceAccountListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub kf_list: Vec<CustomerServiceAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerServiceOnlineAccountListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub kf_online_list: Vec<CustomerServiceAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerServiceSessionListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -4384,6 +4564,98 @@ pub struct OfficialTagUsersResponse {
     pub openid_list: Vec<String>,
     #[serde(default)]
     pub tagid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub subscribe: Option<i64>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub sex: Option<i64>,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub city: Option<String>,
+    #[serde(default)]
+    pub province: Option<String>,
+    #[serde(default)]
+    pub country: Option<String>,
+    #[serde(default)]
+    pub headimgurl: Option<String>,
+    #[serde(default)]
+    pub subscribe_time: Option<i64>,
+    #[serde(default)]
+    pub unionid: Option<String>,
+    #[serde(default)]
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub groupid: Option<i64>,
+    #[serde(default)]
+    pub tagid_list: Vec<i64>,
+    #[serde(default)]
+    pub subscribe_scene: Option<String>,
+    #[serde(default)]
+    pub qr_scene: Option<i64>,
+    #[serde(default)]
+    pub qr_scene_str: Option<String>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialBatchUserInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub user_info_list: Vec<OfficialUserInfoResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserOpenidData {
+    #[serde(default)]
+    pub openid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialUserListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub data: Option<OfficialUserOpenidData>,
+    #[serde(default)]
+    pub next_openid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialBlacklistResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default)]
+    pub data: Option<OfficialUserOpenidData>,
+    #[serde(default)]
+    pub next_openid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5194,11 +5466,77 @@ pub struct MaterialMediaResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub news_item: Vec<PublishNewsItem>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub down_url: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaterialListRequest {
     #[serde(rename = "type")]
     pub kind: String,
     pub offset: i64,
     pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialListItem {
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub content: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
+    #[serde(default)]
+    pub item_count: Option<i64>,
+    #[serde(default)]
+    pub item: Vec<MaterialListItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialStatsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub voice_count: Option<i64>,
+    #[serde(default)]
+    pub video_count: Option<i64>,
+    #[serde(default)]
+    pub image_count: Option<i64>,
+    #[serde(default)]
+    pub news_count: Option<i64>,
+    #[serde(flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5219,6 +5557,72 @@ pub struct TemplateMiniProgram {
     pub appid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateMessageSendResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msgid: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateIndustryInfo {
+    #[serde(default)]
+    pub first_class: Option<String>,
+    #[serde(default)]
+    pub second_class: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateIndustryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub primary_industry: Option<TemplateIndustryInfo>,
+    #[serde(default)]
+    pub secondary_industry: Option<TemplateIndustryInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrivateTemplateInfo {
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub primary_industry: Option<String>,
+    #[serde(default)]
+    pub deputy_industry: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub example: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrivateTemplateListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_list: Vec<PrivateTemplateInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5316,6 +5720,44 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_oauth_and_mass_message_responses() {
+        let user: OauthUserInfoResponse = serde_json::from_value(json!({
+            "openid": "openid",
+            "nickname": "Roze",
+            "sex": 1,
+            "province": "Guangdong",
+            "city": "Shenzhen",
+            "country": "CN",
+            "headimgurl": "https://example.com/avatar.png",
+            "privilege": ["chinaunicom"],
+            "unionid": "unionid"
+        }))
+        .unwrap();
+        assert_eq!(user.openid.as_deref(), Some("openid"));
+        assert_eq!(user.privilege[0], "chinaunicom");
+
+        let send: MassSendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "msg_id": 1000000001,
+            "msg_data_id": 2247483650i64
+        }))
+        .unwrap();
+        assert_eq!(send.msg_id, Some(1000000001));
+        assert_eq!(send.msg_data_id, Some(2247483650));
+
+        let preview: MassPreviewResponse =
+            serde_json::from_value(json!({ "errcode": 0, "msg_id": 1001 })).unwrap();
+        assert_eq!(preview.msg_id, Some(1001));
+
+        let status: MassStatusResponse = serde_json::from_value(json!({
+            "msg_id": 1001,
+            "msg_status": "SEND_SUCCESS"
+        }))
+        .unwrap();
+        assert_eq!(status.msg_status.as_deref(), Some("SEND_SUCCESS"));
+    }
+
+    #[test]
     fn serializes_customer_service_session_and_record_requests() {
         let session = serde_json::to_value(json!({
             "kf_account": "test@test",
@@ -5339,6 +5781,27 @@ mod tests {
 
     #[test]
     fn deserializes_customer_service_session_and_record_responses() {
+        let accounts: CustomerServiceAccountListResponse = serde_json::from_value(json!({
+            "kf_list": [{
+                "kf_account": "test@test",
+                "kf_nick": "Roze Support",
+                "kf_id": "1001",
+                "kf_headimgurl": "https://example.com/kf.png"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(accounts.kf_list[0].kf_account.as_deref(), Some("test@test"));
+
+        let online: CustomerServiceOnlineAccountListResponse = serde_json::from_value(json!({
+            "kf_online_list": [{
+                "kf_account": "test@test",
+                "status": 1,
+                "accepted_case": 2
+            }]
+        }))
+        .unwrap();
+        assert_eq!(online.kf_online_list[0].accepted_case, Some(2));
+
         let sessions: CustomerServiceSessionListResponse = serde_json::from_value(json!({
             "sessionlist": [{ "createtime": 1800000000, "openid": "openid" }]
         }))
@@ -5391,6 +5854,120 @@ mod tests {
 
         assert_eq!(value["card"]["card_type"], "GROUPON");
         assert_eq!(value["card"]["groupon"]["base_info"]["brand_name"], "brand");
+    }
+
+    #[test]
+    fn deserializes_material_menu_template_and_user_depth_responses() {
+        let material: MaterialGetResponse = serde_json::from_value(json!({
+            "news_item": [{
+                "title": "title",
+                "author": "author",
+                "digest": "digest",
+                "content": "content",
+                "content_source_url": "https://example.com",
+                "thumb_media_id": "thumb"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(material.news_item[0].title.as_deref(), Some("title"));
+
+        let materials: MaterialListResponse = serde_json::from_value(json!({
+            "total_count": 2,
+            "item_count": 1,
+            "item": [{ "media_id": "media", "name": "image.png", "url": "https://example.com/i.png" }]
+        }))
+        .unwrap();
+        assert_eq!(materials.total_count, Some(2));
+        assert_eq!(materials.item[0].media_id.as_deref(), Some("media"));
+
+        let stats: MaterialStatsResponse = serde_json::from_value(json!({
+            "voice_count": 1,
+            "video_count": 2,
+            "image_count": 3,
+            "news_count": 4
+        }))
+        .unwrap();
+        assert_eq!(stats.news_count, Some(4));
+
+        let menu: MenuGetResponse = serde_json::from_value(json!({
+            "menu": { "button": [{ "name": "Open", "type": "view" }] },
+            "conditionalmenu": [{ "button": [] }]
+        }))
+        .unwrap();
+        assert_eq!(menu.conditionalmenu.len(), 1);
+
+        let current: CurrentSelfMenuResponse = serde_json::from_value(json!({
+            "is_menu_open": 1,
+            "selfmenu_info": { "button": [] }
+        }))
+        .unwrap();
+        assert_eq!(current.is_menu_open, Some(1));
+
+        let matched: MenuTryMatchResponse =
+            serde_json::from_value(json!({ "button": [{ "name": "Open" }] })).unwrap();
+        assert_eq!(matched.button[0]["name"], "Open");
+
+        let semantic: OfficialSemanticQueryResponse = serde_json::from_value(json!({
+            "query": "weather",
+            "result": { "answer": "sunny" }
+        }))
+        .unwrap();
+        assert_eq!(semantic.query.as_deref(), Some("weather"));
+
+        let send: TemplateMessageSendResponse =
+            serde_json::from_value(json!({ "errcode": 0, "msgid": 10001 })).unwrap();
+        assert_eq!(send.msgid, Some(10001));
+
+        let industry: TemplateIndustryResponse = serde_json::from_value(json!({
+            "primary_industry": { "first_class": "IT", "second_class": "Software" }
+        }))
+        .unwrap();
+        assert_eq!(
+            industry.primary_industry.unwrap().second_class.as_deref(),
+            Some("Software")
+        );
+
+        let added: TemplateAddResponse =
+            serde_json::from_value(json!({ "template_id": "template" })).unwrap();
+        assert_eq!(added.template_id.as_deref(), Some("template"));
+
+        let templates: PrivateTemplateListResponse = serde_json::from_value(json!({
+            "template_list": [{ "template_id": "template", "title": "Notice" }]
+        }))
+        .unwrap();
+        assert_eq!(templates.template_list[0].title.as_deref(), Some("Notice"));
+
+        let user: OfficialUserInfoResponse = serde_json::from_value(json!({
+            "subscribe": 1,
+            "openid": "openid",
+            "tagid_list": [1, 2],
+            "subscribe_scene": "ADD_SCENE_SEARCH"
+        }))
+        .unwrap();
+        assert_eq!(user.tagid_list, vec![1, 2]);
+
+        let batch: OfficialBatchUserInfoResponse = serde_json::from_value(json!({
+            "user_info_list": [{ "openid": "openid" }]
+        }))
+        .unwrap();
+        assert_eq!(batch.user_info_list[0].openid.as_deref(), Some("openid"));
+
+        let users: OfficialUserListResponse = serde_json::from_value(json!({
+            "total": 2,
+            "count": 1,
+            "data": { "openid": ["openid"] },
+            "next_openid": "next"
+        }))
+        .unwrap();
+        assert_eq!(users.data.unwrap().openid[0], "openid");
+
+        let blacklist: OfficialBlacklistResponse = serde_json::from_value(json!({
+            "total": 1,
+            "count": 1,
+            "data": { "openid": ["blocked"] }
+        }))
+        .unwrap();
+        assert_eq!(blacklist.data.unwrap().openid[0], "blocked");
     }
 
     #[test]

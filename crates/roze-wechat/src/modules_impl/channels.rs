@@ -28,7 +28,10 @@ impl Channels {
         DomainModule::new(self.inner.clone(), "channels.e_commerce.store")
     }
 
-    pub async fn shop_basic_info(&self, access_token: impl Into<String>) -> Result<Value> {
+    pub async fn shop_basic_info(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ChannelsStoreBasicInfoResponse> {
         self.inner
             .get("channels/ec/basics/info/get", Some(access_token.into()))
             .await
