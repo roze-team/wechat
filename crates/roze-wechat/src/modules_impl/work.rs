@@ -7089,7 +7089,35 @@ pub struct WorkCheckinCorpOptionResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub group: Vec<Value>,
+    pub group: Vec<WorkCheckinGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinGroup {
+    #[serde(default)]
+    pub groupid: Option<i64>,
+    #[serde(default)]
+    pub groupname: Option<String>,
+    #[serde(default)]
+    pub checkindate: Vec<WorkCheckinDateRule>,
+    #[serde(default)]
+    pub spe_workdays: Vec<Value>,
+    #[serde(default)]
+    pub spe_offdays: Vec<Value>,
+    #[serde(default)]
+    pub wifimac_infos: Vec<Value>,
+    #[serde(default)]
+    pub loc_infos: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDateRule {
+    #[serde(default)]
+    pub workdays: Vec<i64>,
+    #[serde(default)]
+    pub checkintime: Vec<Value>,
+    #[serde(default)]
+    pub flex_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7099,7 +7127,21 @@ pub struct WorkCheckinOptionResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub info: Vec<Value>,
+    pub info: Vec<WorkCheckinUserOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinUserOption {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub groupid: Option<i64>,
+    #[serde(default)]
+    pub groupname: Option<String>,
+    #[serde(default)]
+    pub checkin_date: Option<i64>,
+    #[serde(default)]
+    pub day_type: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7109,7 +7151,29 @@ pub struct WorkCheckinRecordResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub checkindata: Vec<Value>,
+    pub checkindata: Vec<WorkCheckinRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinRecord {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub groupname: Option<String>,
+    #[serde(default)]
+    pub checkin_type: Option<String>,
+    #[serde(default)]
+    pub exception_type: Option<String>,
+    #[serde(default)]
+    pub checkin_time: Option<i64>,
+    #[serde(default)]
+    pub location_title: Option<String>,
+    #[serde(default)]
+    pub location_detail: Option<String>,
+    #[serde(default)]
+    pub wifiname: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7119,7 +7183,25 @@ pub struct WorkCheckinDataResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub datas: Vec<Value>,
+    pub datas: Vec<WorkCheckinDataItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDataItem {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub groupid: Option<i64>,
+    #[serde(default)]
+    pub date: Option<i64>,
+    #[serde(default)]
+    pub base_info: Option<Value>,
+    #[serde(default)]
+    pub summary_info: Option<Value>,
+    #[serde(default)]
+    pub exception_infos: Vec<Value>,
+    #[serde(default)]
+    pub holiday_infos: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7129,7 +7211,21 @@ pub struct WorkCheckinScheduleListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub schedule_list: Vec<Value>,
+    pub schedule_list: Vec<WorkCheckinSchedule>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinSchedule {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub schedule_id: Option<i64>,
+    #[serde(default)]
+    pub groupid: Option<i64>,
+    #[serde(default)]
+    pub day: Option<i64>,
+    #[serde(default)]
+    pub schedule: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9888,34 +9984,54 @@ mod tests {
     #[test]
     fn deserializes_work_oa_checkin_approval_and_vacation_responses() {
         let corp_option: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
-            "group": [{ "groupid": 1, "groupname": "Default" }]
+            "group": [{
+                "groupid": 1,
+                "groupname": "Default",
+                "checkindate": [{ "workdays": [1, 2, 3], "flex_time": 30 }]
+            }]
         }))
         .unwrap();
-        assert_eq!(corp_option.group[0]["groupid"], 1);
+        assert_eq!(corp_option.group[0].groupid, Some(1));
+        assert_eq!(corp_option.group[0].groupname.as_deref(), Some("Default"));
+        assert_eq!(corp_option.group[0].checkindate[0].flex_time, Some(30));
 
         let option: WorkCheckinOptionResponse = serde_json::from_value(json!({
-            "info": [{ "userid": "user", "groupid": 1 }]
+            "info": [{ "userid": "user", "groupid": 1, "groupname": "Default" }]
         }))
         .unwrap();
-        assert_eq!(option.info[0]["userid"], "user");
+        assert_eq!(option.info[0].userid.as_deref(), Some("user"));
+        assert_eq!(option.info[0].groupid, Some(1));
 
         let record: WorkCheckinRecordResponse = serde_json::from_value(json!({
-            "checkindata": [{ "userid": "user", "checkin_type": "上班打卡" }]
+            "checkindata": [{
+                "userid": "user",
+                "checkin_type": "上班打卡",
+                "checkin_time": 1_800_000_000
+            }]
         }))
         .unwrap();
-        assert_eq!(record.checkindata[0]["userid"], "user");
+        assert_eq!(record.checkindata[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            record.checkindata[0].checkin_type.as_deref(),
+            Some("上班打卡")
+        );
+        assert_eq!(record.checkindata[0].checkin_time, Some(1_800_000_000));
 
         let day: WorkCheckinDataResponse = serde_json::from_value(json!({
-            "datas": [{ "userid": "user", "base_info": {} }]
+            "datas": [{ "userid": "user", "groupid": 1, "base_info": {} }]
         }))
         .unwrap();
-        assert_eq!(day.datas[0]["userid"], "user");
+        assert_eq!(day.datas[0].userid.as_deref(), Some("user"));
+        assert_eq!(day.datas[0].groupid, Some(1));
+        assert!(day.datas[0].base_info.is_some());
 
         let schedule: WorkCheckinScheduleListResponse = serde_json::from_value(json!({
-            "schedule_list": [{ "userid": "user", "schedule_id": 1 }]
+            "schedule_list": [{ "userid": "user", "schedule_id": 1, "groupid": 2 }]
         }))
         .unwrap();
-        assert_eq!(schedule.schedule_list[0]["schedule_id"], 1);
+        assert_eq!(schedule.schedule_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(schedule.schedule_list[0].schedule_id, Some(1));
+        assert_eq!(schedule.schedule_list[0].groupid, Some(2));
 
         let template: WorkApprovalTemplateDetailResponse = serde_json::from_value(json!({
             "template_names": [{ "text": "Leave", "lang": "zh_CN" }],

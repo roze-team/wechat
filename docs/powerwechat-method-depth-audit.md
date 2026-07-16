@@ -139,6 +139,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-pay merchant and bill-list responses now expose typed use-scope and
   bill DTOs.
 - corp-group app-share responses now expose typed shared-corp records.
+- OA check-in option, record, data, and schedule responses now expose typed
+  group, user-option, record, data-item, and schedule DTOs.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 
