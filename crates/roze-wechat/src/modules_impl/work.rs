@@ -1125,6 +1125,189 @@ impl Work {
             .await
     }
 
+    pub async fn external_group_chat_open_gid_to_chat_id(
+        &self,
+        access_token: impl Into<String>,
+        open_gid: impl Into<String>,
+    ) -> Result<ExternalGroupChatOpenGidToChatIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/opengid_to_chatid",
+                Some(access_token.into()),
+                json!({ "opengid": open_gid.into() }),
+            )
+            .await
+    }
+
+    pub async fn add_external_group_chat_join_way(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupChatJoinWayRequest,
+    ) -> Result<ExternalGroupChatJoinWayAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/add_join_way",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_group_chat_join_way(
+        &self,
+        access_token: impl Into<String>,
+        config_id: impl Into<String>,
+    ) -> Result<ExternalGroupChatJoinWayResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/get_join_way",
+                Some(access_token.into()),
+                json!({ "config_id": config_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn update_external_group_chat_join_way(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupChatJoinWayUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/update_join_way",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_external_group_chat_join_way(
+        &self,
+        access_token: impl Into<String>,
+        config_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/del_join_way",
+                Some(access_token.into()),
+                json!({ "config_id": config_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_strategy_tag_list(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactStrategyTagListRequest,
+    ) -> Result<ExternalContactStrategyTagListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_strategy_tag_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_external_contact_strategy_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactStrategyTagAddRequest,
+    ) -> Result<ExternalContactStrategyTagAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/add_strategy_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_external_contact_strategy_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactStrategyTagEditRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/edit_strategy_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_external_contact_strategy_tag(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactStrategyTagDeleteRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/del_strategy_tag",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_external_group_welcome_template(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupWelcomeTemplateRequest,
+    ) -> Result<ExternalGroupWelcomeTemplateAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/group_welcome_template/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_external_group_welcome_template(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalGroupWelcomeTemplateUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/group_welcome_template/edit",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_group_welcome_template(
+        &self,
+        access_token: impl Into<String>,
+        template_id: impl Into<String>,
+    ) -> Result<ExternalGroupWelcomeTemplateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/group_welcome_template/get",
+                Some(access_token.into()),
+                json!({ "template_id": template_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn delete_external_group_welcome_template(
+        &self,
+        access_token: impl Into<String>,
+        template_id: impl Into<String>,
+        agent_id: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/group_welcome_template/del",
+                Some(access_token.into()),
+                json!({ "template_id": template_id.into(), "agentid": agent_id }),
+            )
+            .await
+    }
+
     pub async fn list_customer_acquisition_links(
         &self,
         access_token: impl Into<String>,
@@ -4492,6 +4675,178 @@ pub struct ExternalGroupChatTransferResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatOpenGidToChatIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub chat_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatJoinWayRequest {
+    pub scene: i64,
+    pub remark: String,
+    pub auto_create_room: i64,
+    pub room_base_name: String,
+    pub room_base_id: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chat_id_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatJoinWayUpdateRequest {
+    pub config_id: String,
+    pub scene: i64,
+    pub remark: String,
+    pub auto_create_room: i64,
+    pub room_base_name: String,
+    pub room_base_id: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chat_id_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatJoinWayAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub config_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatJoinWayResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub join_way: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagListRequest {
+    pub strategy_id: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag_id: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group_id: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagAddRequest {
+    pub strategy_id: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<String>,
+    pub group_name: String,
+    pub order: i64,
+    pub tag: Vec<ExternalContactStrategyTagAddItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagAddItem {
+    pub name: String,
+    pub order: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagEditRequest {
+    pub id: String,
+    pub name: String,
+    pub order: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagDeleteRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag_id: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group_id: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tag_group: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactStrategyTagAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub tag_group: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupWelcomeTemplateRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub miniprogram: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video: Option<Value>,
+    pub agentid: i64,
+    pub notify: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupWelcomeTemplateUpdateRequest {
+    pub template_id: String,
+    #[serde(flatten)]
+    pub template: ExternalGroupWelcomeTemplateRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupWelcomeTemplateAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupWelcomeTemplateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub text: Option<Value>,
+    #[serde(default)]
+    pub image: Option<Value>,
+    #[serde(default)]
+    pub link: Option<Value>,
+    #[serde(default)]
+    pub miniprogram: Option<Value>,
+    #[serde(default)]
+    pub file: Option<Value>,
+    #[serde(default)]
+    pub video: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionLinkListRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -6476,6 +6831,59 @@ mod tests {
         .unwrap();
         assert_eq!(mark["add_tag"][0], "tag-add");
         assert!(mark.get("remove_tag").is_none());
+
+        let strategy_list = serde_json::to_value(ExternalContactStrategyTagListRequest {
+            strategy_id: 1,
+            tag_id: vec!["tag".to_string()],
+            group_id: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(strategy_list["strategy_id"], 1);
+        assert_eq!(strategy_list["tag_id"][0], "tag");
+        assert!(strategy_list.get("group_id").is_none());
+
+        let strategy_add = serde_json::to_value(ExternalContactStrategyTagAddRequest {
+            strategy_id: 1,
+            group_id: None,
+            group_name: "strategy".to_string(),
+            order: 1,
+            tag: vec![ExternalContactStrategyTagAddItem {
+                name: "gold".to_string(),
+                order: 1,
+            }],
+        })
+        .unwrap();
+        assert_eq!(strategy_add["group_name"], "strategy");
+        assert_eq!(strategy_add["tag"][0]["name"], "gold");
+
+        let strategy_edit = serde_json::to_value(ExternalContactStrategyTagEditRequest {
+            id: "tag".to_string(),
+            name: "platinum".to_string(),
+            order: 2,
+        })
+        .unwrap();
+        assert_eq!(strategy_edit["id"], "tag");
+
+        let strategy_delete = serde_json::to_value(ExternalContactStrategyTagDeleteRequest {
+            tag_id: Vec::new(),
+            group_id: vec!["group".to_string()],
+        })
+        .unwrap();
+        assert_eq!(strategy_delete["group_id"][0], "group");
+        assert!(strategy_delete.get("tag_id").is_none());
+
+        let strategy_tags: ExternalContactStrategyTagListResponse = serde_json::from_value(json!({
+            "tag_group": [{ "group_id": "group", "strategy_id": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(strategy_tags.tag_group[0]["group_id"], "group");
+
+        let strategy_created: ExternalContactStrategyTagAddResponse =
+            serde_json::from_value(json!({
+                "tag_group": { "group_id": "group", "tag": [{ "id": "tag" }] }
+            }))
+            .unwrap();
+        assert_eq!(strategy_created.tag_group.unwrap()["group_id"], "group");
     }
 
     #[test]
@@ -6513,6 +6921,85 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(transfer.failed_chat_list[0]["chat_id"], "bad");
+
+        let open_gid: ExternalGroupChatOpenGidToChatIdResponse =
+            serde_json::from_value(json!({ "chat_id": "chat" })).unwrap();
+        assert_eq!(open_gid.chat_id.as_deref(), Some("chat"));
+
+        let join = serde_json::to_value(ExternalGroupChatJoinWayRequest {
+            scene: 2,
+            remark: "remark".to_string(),
+            auto_create_room: 1,
+            room_base_name: "room".to_string(),
+            room_base_id: 100,
+            chat_id_list: vec!["chat".to_string()],
+            state: Some("state".to_string()),
+        })
+        .unwrap();
+        assert_eq!(join["scene"], 2);
+        assert_eq!(join["chat_id_list"][0], "chat");
+
+        let join_update = serde_json::to_value(ExternalGroupChatJoinWayUpdateRequest {
+            config_id: "config".to_string(),
+            scene: 2,
+            remark: "new".to_string(),
+            auto_create_room: 0,
+            room_base_name: "room".to_string(),
+            room_base_id: 101,
+            chat_id_list: Vec::new(),
+            state: None,
+        })
+        .unwrap();
+        assert_eq!(join_update["config_id"], "config");
+        assert!(join_update.get("chat_id_list").is_none());
+
+        let join_add: ExternalGroupChatJoinWayAddResponse =
+            serde_json::from_value(json!({ "config_id": "config" })).unwrap();
+        assert_eq!(join_add.config_id.as_deref(), Some("config"));
+
+        let join_detail: ExternalGroupChatJoinWayResponse = serde_json::from_value(json!({
+            "join_way": { "config_id": "config", "qr_code": "https://example.com/qr" }
+        }))
+        .unwrap();
+        assert_eq!(join_detail.join_way.unwrap()["config_id"], "config");
+    }
+
+    #[test]
+    fn serializes_external_group_welcome_templates() {
+        let template = ExternalGroupWelcomeTemplateRequest {
+            text: Some(json!({ "content": "welcome" })),
+            image: None,
+            link: Some(json!({ "title": "docs", "url": "https://example.com" })),
+            miniprogram: None,
+            file: None,
+            video: None,
+            agentid: 100001,
+            notify: 1,
+        };
+        let value = serde_json::to_value(&template).unwrap();
+        assert_eq!(value["text"]["content"], "welcome");
+        assert_eq!(value["link"]["title"], "docs");
+        assert!(value.get("image").is_none());
+
+        let update = serde_json::to_value(ExternalGroupWelcomeTemplateUpdateRequest {
+            template_id: "template".to_string(),
+            template,
+        })
+        .unwrap();
+        assert_eq!(update["template_id"], "template");
+        assert_eq!(update["agentid"], 100001);
+
+        let added: ExternalGroupWelcomeTemplateAddResponse =
+            serde_json::from_value(json!({ "template_id": "template" })).unwrap();
+        assert_eq!(added.template_id.as_deref(), Some("template"));
+
+        let detail: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
+            "text": { "content": "welcome" },
+            "image": { "media_id": "media" }
+        }))
+        .unwrap();
+        assert_eq!(detail.text.unwrap()["content"], "welcome");
+        assert_eq!(detail.image.unwrap()["media_id"], "media");
     }
 
     #[test]
