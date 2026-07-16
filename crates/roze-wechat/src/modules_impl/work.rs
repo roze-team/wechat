@@ -4354,7 +4354,15 @@ pub struct WorkCorpGroupAppShareInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub corp_list: Vec<Value>,
+    pub corp_list: Vec<WorkCorpGroupAppShareCorp>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCorpGroupAppShareCorp {
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default)]
+    pub agentid: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9186,7 +9194,8 @@ mod tests {
             "corp_list": [{ "corpid": "corp", "agentid": 100001 }]
         }))
         .unwrap();
-        assert_eq!(share.corp_list[0]["corpid"], "corp");
+        assert_eq!(share.corp_list[0].corpid.as_deref(), Some("corp"));
+        assert_eq!(share.corp_list[0].agentid, Some(100001));
 
         let token: WorkCorpGroupTokenResponse = serde_json::from_value(json!({
             "access_token": "token",

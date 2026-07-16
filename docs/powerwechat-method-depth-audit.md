@@ -138,6 +138,7 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   now expose typed invoice user-info, invoice batch-item, tag-user, and tag DTOs.
 - external-pay merchant and bill-list responses now expose typed use-scope and
   bill DTOs.
+- corp-group app-share responses now expose typed shared-corp records.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 
