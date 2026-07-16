@@ -4500,13 +4500,33 @@ pub struct MiniDramaVideoMediaUploadByFileResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaVideoMediaTaskInfo {
+    #[serde(default)]
+    pub id: Option<i64>,
+    #[serde(default)]
+    pub task_id: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub media_id: Option<i64>,
+    #[serde(default)]
+    pub err_msg: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaVideoMediaTaskResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub task_info: Option<Value>,
+    pub task_info: Option<MiniDramaVideoMediaTaskInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4540,13 +4560,39 @@ pub struct MiniDramaVideoChunkUploadCompleteResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaMediaInfo {
+    #[serde(default)]
+    pub media_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub media_url: Option<String>,
+    #[serde(default)]
+    pub cover_url: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub duration: Option<i64>,
+    #[serde(default)]
+    pub size: Option<i64>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaMediaListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub media_info_list: Vec<Value>,
+    pub media_info_list: Vec<MiniDramaMediaInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4556,7 +4602,7 @@ pub struct MiniDramaMediaInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub media_info: Option<Value>,
+    pub media_info: Option<MiniDramaMediaInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4566,7 +4612,7 @@ pub struct MiniDramaMediaLinkResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub media_info: Option<Value>,
+    pub media_info: Option<MiniDramaMediaInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4580,13 +4626,39 @@ pub struct MiniDramaSubmitAuditResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaInfo {
+    #[serde(default)]
+    pub drama_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub media_count: Option<i64>,
+    #[serde(default)]
+    pub cover_material_id: Option<String>,
+    #[serde(default)]
+    pub promotion_poster_material_id: Option<String>,
+    #[serde(default)]
+    pub producer: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub drama_info_list: Vec<Value>,
+    pub drama_info_list: Vec<MiniDramaInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4596,7 +4668,25 @@ pub struct MiniDramaInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub drama_info: Option<Value>,
+    pub drama_info: Option<MiniDramaInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuditDetail {
+    #[serde(default)]
+    pub drama_id: Option<i64>,
+    #[serde(default)]
+    pub audit_id: Option<i64>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4606,7 +4696,21 @@ pub struct MiniDramaAuditInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub audit_detail: Option<Value>,
+    pub audit_detail: Option<MiniDramaAuditDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaCdnUsageItem {
+    #[serde(default)]
+    pub time: Option<i64>,
+    #[serde(default)]
+    pub value: Option<i64>,
+    #[serde(default)]
+    pub flux: Option<i64>,
+    #[serde(default)]
+    pub bandwidth: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4618,7 +4722,23 @@ pub struct MiniDramaCdnUsageResponse {
     #[serde(default)]
     pub data_interval: Option<i64>,
     #[serde(default)]
-    pub item_list: Vec<Value>,
+    pub item_list: Vec<MiniDramaCdnUsageItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaCdnLog {
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub start_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub size: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4628,9 +4748,27 @@ pub struct MiniDramaCdnLogsResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub domestic_cdn_logs: Vec<Value>,
+    pub domestic_cdn_logs: Vec<MiniDramaCdnLog>,
     #[serde(default)]
     pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaPackageInfo {
+    #[serde(default)]
+    pub package_id: Option<i64>,
+    #[serde(default)]
+    pub drama_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4640,9 +4778,23 @@ pub struct MiniDramaPackageListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub package_list: Vec<Value>,
+    pub package_list: Vec<MiniDramaPackageInfo>,
     #[serde(default)]
     pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizationResult {
+    #[serde(default)]
+    pub drama_id: Option<i64>,
+    #[serde(default)]
+    pub authorized_appid: Option<String>,
+    #[serde(default)]
+    pub result_code: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4652,7 +4804,21 @@ pub struct MiniDramaAuthorizationResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub result: Vec<Value>,
+    pub result: Vec<MiniDramaAuthorizationResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaAuthorizationObject {
+    #[serde(default)]
+    pub drama_id: Option<i64>,
+    #[serde(default)]
+    pub authorized_appid: Option<String>,
+    #[serde(default)]
+    pub authorized_time: Option<i64>,
+    #[serde(default)]
+    pub authz_expire_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4662,7 +4828,7 @@ pub struct MiniDramaAuthorizationSearchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub objects: Vec<Value>,
+    pub objects: Vec<MiniDramaAuthorizationObject>,
     #[serde(default)]
     pub total_count: Option<i64>,
 }
@@ -4674,7 +4840,7 @@ pub struct MiniDramaAccountAuthorizationSearchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub objects: Vec<Value>,
+    pub objects: Vec<MiniDramaAuthorizationObject>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7010,7 +7176,7 @@ mod tests {
             "task_info": { "id": 123, "status": 3, "media_id": 456 }
         }))
         .unwrap();
-        assert_eq!(task.task_info.unwrap()["media_id"], 456);
+        assert_eq!(task.task_info.unwrap().media_id, Some(456));
 
         let file: MiniDramaVideoMediaUploadByFileResponse =
             serde_json::from_value(json!({ "media_id": 456 })).unwrap();
@@ -7025,16 +7191,51 @@ mod tests {
         assert_eq!(chunk.etag.as_deref(), Some("etag"));
 
         let media_list: MiniDramaMediaListResponse = serde_json::from_value(json!({
-            "media_info_list": [{ "media_id": 1, "name": "Drama - EP01" }]
+            "media_info_list": [{ "media_id": 1, "name": "Drama - EP01", "custom": "kept" }]
         }))
         .unwrap();
-        assert_eq!(media_list.media_info_list[0]["media_id"], 1);
+        assert_eq!(media_list.media_info_list[0].media_id, Some(1));
+        assert_eq!(
+            media_list.media_info_list[0].name.as_deref(),
+            Some("Drama - EP01")
+        );
+        assert_eq!(media_list.media_info_list[0].extra["custom"], "kept");
+
+        let media: MiniDramaMediaInfoResponse = serde_json::from_value(json!({
+            "media_info": { "media_id": 1, "media_url": "https://example.com/video.mp4" }
+        }))
+        .unwrap();
+        assert_eq!(
+            media.media_info.unwrap().media_url.as_deref(),
+            Some("https://example.com/video.mp4")
+        );
+
+        let link: MiniDramaMediaLinkResponse = serde_json::from_value(json!({
+            "media_info": { "media_id": 1, "cover_url": "https://example.com/cover.jpg" }
+        }))
+        .unwrap();
+        assert_eq!(
+            link.media_info.unwrap().cover_url.as_deref(),
+            Some("https://example.com/cover.jpg")
+        );
 
         let drama: MiniDramaInfoResponse = serde_json::from_value(json!({
             "drama_info": { "drama_id": 100, "name": "Drama" }
         }))
         .unwrap();
-        assert_eq!(drama.drama_info.unwrap()["name"], "Drama");
+        assert_eq!(drama.drama_info.unwrap().name.as_deref(), Some("Drama"));
+
+        let drama_list: MiniDramaListResponse = serde_json::from_value(json!({
+            "drama_info_list": [{ "drama_id": 100, "name": "Drama", "status": 2 }]
+        }))
+        .unwrap();
+        assert_eq!(drama_list.drama_info_list[0].status, Some(2));
+
+        let audit: MiniDramaAuditInfoResponse = serde_json::from_value(json!({
+            "audit_detail": { "drama_id": 100, "audit_id": 9, "status": 1, "reason": "ok" }
+        }))
+        .unwrap();
+        assert_eq!(audit.audit_detail.unwrap().reason.as_deref(), Some("ok"));
 
         let cdn: MiniDramaCdnUsageResponse = serde_json::from_value(json!({
             "data_interval": 3600,
@@ -7042,7 +7243,25 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(cdn.data_interval, Some(3600));
-        assert_eq!(cdn.item_list[0]["value"], 1024);
+        assert_eq!(cdn.item_list[0].value, Some(1024));
+
+        let logs: MiniDramaCdnLogsResponse = serde_json::from_value(json!({
+            "domestic_cdn_logs": [{ "url": "https://example.com/log.gz", "size": 2048 }],
+            "total_count": 1
+        }))
+        .unwrap();
+        assert_eq!(logs.total_count, Some(1));
+        assert_eq!(
+            logs.domestic_cdn_logs[0].url.as_deref(),
+            Some("https://example.com/log.gz")
+        );
+
+        let packages: MiniDramaPackageListResponse = serde_json::from_value(json!({
+            "package_list": [{ "package_id": 7, "drama_id": 100, "name": "Package" }],
+            "total_count": 1
+        }))
+        .unwrap();
+        assert_eq!(packages.package_list[0].package_id, Some(7));
 
         let auth: MiniDramaAuthorizationSearchResponse = serde_json::from_value(json!({
             "objects": [{ "drama_id": 100, "authorized_appid": "wxauth" }],
@@ -7050,13 +7269,22 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(auth.total_count, Some(1));
-        assert_eq!(auth.objects[0]["authorized_appid"], "wxauth");
+        assert_eq!(auth.objects[0].authorized_appid.as_deref(), Some("wxauth"));
+
+        let auth_result: MiniDramaAuthorizationResponse = serde_json::from_value(json!({
+            "result": [{ "drama_id": 100, "authorized_appid": "wxauth", "result_code": 0 }]
+        }))
+        .unwrap();
+        assert_eq!(auth_result.result[0].result_code, Some(0));
 
         let account: MiniDramaAccountAuthorizationSearchResponse = serde_json::from_value(json!({
             "objects": [{ "authorized_appid": "wxauth", "authorized_time": 1800000000 }]
         }))
         .unwrap();
-        assert_eq!(account.objects[0]["authorized_appid"], "wxauth");
+        assert_eq!(
+            account.objects[0].authorized_appid.as_deref(),
+            Some("wxauth")
+        );
     }
 
     #[test]

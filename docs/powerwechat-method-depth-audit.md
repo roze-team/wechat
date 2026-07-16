@@ -228,6 +228,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   payloads.
 - wxa code QR/code/unlimited JSON response paths now expose typed ticket, URL,
   buffer, and error metadata DTOs alongside existing bytes helpers.
+- miniDrama/VOD upload-task, media-list/info/link, drama-list/info,
+  latest-audit, CDN usage/log, package-list, and authorization responses now
+  expose typed DTOs instead of generic JSON arrays/objects.
 - Channels shop/store basic info now share the typed basic-info response DTO.
 - Official Account module response surfaces no longer expose `Result<Value>`;
   OAuth user info, broadcasting, customer-service account lists, material,
