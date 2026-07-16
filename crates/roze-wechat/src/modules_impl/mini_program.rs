@@ -4409,7 +4409,21 @@ pub struct ImmediateDeliveryBindAccountResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub shop_list: Vec<Value>,
+    pub shop_list: Vec<ImmediateDeliveryShop>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryShop {
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub delivery_name: Option<String>,
+    #[serde(default)]
+    pub shopid: Option<String>,
+    #[serde(default)]
+    pub shop_no: Option<String>,
+    #[serde(default)]
+    pub shop_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4419,7 +4433,19 @@ pub struct ImmediateDeliveryDeliveryListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub list: Vec<Value>,
+    pub list: Vec<ImmediateDeliveryProvider>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryProvider {
+    #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub delivery_name: Option<String>,
+    #[serde(default)]
+    pub can_use_cash: Option<bool>,
+    #[serde(default)]
+    pub can_get_quota: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4441,9 +4467,23 @@ pub struct ImmediateDeliveryGetOrderResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
+    pub delivery_id: Option<String>,
+    #[serde(default)]
+    pub delivery_name: Option<String>,
+    #[serde(default)]
+    pub shopid: Option<String>,
+    #[serde(default)]
+    pub shop_order_id: Option<String>,
+    #[serde(default)]
+    pub shop_no: Option<String>,
+    #[serde(default)]
     pub order_status: Option<i64>,
     #[serde(default)]
     pub waybill_id: Option<String>,
+    #[serde(default)]
+    pub pickup_code: Option<i64>,
+    #[serde(default)]
+    pub finish_code: Option<i64>,
     #[serde(default)]
     pub rider_name: Option<String>,
     #[serde(default)]
@@ -6355,17 +6395,37 @@ mod tests {
     fn deserializes_immediate_delivery_responses() {
         let shops: ImmediateDeliveryBindAccountResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "shop_list": [{ "delivery_id": "delivery-id", "shopid": "shop-id" }]
+            "shop_list": [{
+                "delivery_id": "delivery-id",
+                "delivery_name": "Fast Delivery",
+                "shopid": "shop-id",
+                "shop_no": "shop-no",
+                "shop_name": "Roze Shop"
+            }]
         }))
         .unwrap();
-        assert_eq!(shops.shop_list[0]["delivery_id"], "delivery-id");
+        assert_eq!(
+            shops.shop_list[0].delivery_id.as_deref(),
+            Some("delivery-id")
+        );
+        assert_eq!(shops.shop_list[0].shopid.as_deref(), Some("shop-id"));
+        assert_eq!(shops.shop_list[0].shop_name.as_deref(), Some("Roze Shop"));
 
         let delivery_list: ImmediateDeliveryDeliveryListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "list": [{ "delivery_id": "delivery-id", "delivery_name": "Fast Delivery" }]
+            "list": [{
+                "delivery_id": "delivery-id",
+                "delivery_name": "Fast Delivery",
+                "can_use_cash": true,
+                "can_get_quota": false
+            }]
         }))
         .unwrap();
-        assert_eq!(delivery_list.list[0]["delivery_name"], "Fast Delivery");
+        assert_eq!(
+            delivery_list.list[0].delivery_name.as_deref(),
+            Some("Fast Delivery")
+        );
+        assert_eq!(delivery_list.list[0].can_use_cash, Some(true));
 
         let cancel: ImmediateDeliveryCancelOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6378,8 +6438,15 @@ mod tests {
 
         let order: ImmediateDeliveryGetOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "delivery_id": "delivery-id",
+            "delivery_name": "Fast Delivery",
+            "shopid": "shop-id",
+            "shop_order_id": "order-id",
+            "shop_no": "shop-no",
             "order_status": 101,
             "waybill_id": "waybill-id",
+            "pickup_code": 2048,
+            "finish_code": 1024,
             "rider_name": "Alex",
             "rider_phone": "13800000000",
             "rider_lng": 120.1,
@@ -6387,8 +6454,11 @@ mod tests {
             "reach_time": 300
         }))
         .unwrap();
+        assert_eq!(order.delivery_id.as_deref(), Some("delivery-id"));
+        assert_eq!(order.shop_order_id.as_deref(), Some("order-id"));
         assert_eq!(order.order_status, Some(101));
         assert_eq!(order.waybill_id.as_deref(), Some("waybill-id"));
+        assert_eq!(order.pickup_code, Some(2048));
         assert_eq!(order.rider_lng, Some(120.1));
 
         let pre_add: ImmediateDeliveryPreAddOrderResponse = serde_json::from_value(json!({
