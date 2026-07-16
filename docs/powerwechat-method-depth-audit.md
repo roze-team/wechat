@@ -127,6 +127,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-contact moment and statistics responses now expose typed moment,
   task, customer, comment/like, task-result, behavior, and group-chat statistic
   DTOs.
+- external-customer transfer and unassigned-customer responses now expose typed
+  customer transfer records and unassigned customer metadata.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 

@@ -5986,12 +5986,28 @@ pub struct ExternalCustomerTransferResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub customer: Vec<Value>,
+    pub customer: Vec<ExternalCustomerTransferRecord>,
     #[serde(default)]
     pub next_cursor: Option<String>,
 }
 
 pub type ExternalCustomerTransferResultResponse = ExternalCustomerTransferResponse;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalCustomerTransferRecord {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub takeover_time: Option<i64>,
+    #[serde(default)]
+    pub handover_userid: Option<String>,
+    #[serde(default)]
+    pub takeover_userid: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactUnassignedListRequest {
@@ -6008,11 +6024,21 @@ pub struct ExternalContactUnassignedListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub info: Vec<Value>,
+    pub info: Vec<ExternalContactUnassignedInfo>,
     #[serde(default)]
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub is_last: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUnassignedInfo {
+    #[serde(default)]
+    pub handover_userid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub dimission_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8485,21 +8511,44 @@ mod tests {
 
         let response: ExternalCustomerTransferResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "customer": [{ "external_userid": "external" }],
+            "customer": [{
+                "external_userid": "external",
+                "status": 1,
+                "takeover_time": 100,
+                "handover_userid": "old",
+                "takeover_userid": "new"
+            }],
             "next_cursor": "cursor"
         }))
         .unwrap();
-        assert_eq!(response.customer[0]["external_userid"], "external");
+        assert_eq!(
+            response.customer[0].external_userid.as_deref(),
+            Some("external")
+        );
+        assert_eq!(response.customer[0].status, Some(1));
+        assert_eq!(response.customer[0].takeover_time, Some(100));
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
 
         let unassigned_response: ExternalContactUnassignedListResponse =
             serde_json::from_value(json!({
-                "info": [{ "handover_userid": "old" }],
+                "info": [{
+                    "handover_userid": "old",
+                    "external_userid": "external",
+                    "dimission_time": 100
+                }],
                 "is_last": false,
                 "next_cursor": "next"
             }))
             .unwrap();
-        assert_eq!(unassigned_response.info[0]["handover_userid"], "old");
+        assert_eq!(
+            unassigned_response.info[0].handover_userid.as_deref(),
+            Some("old")
+        );
+        assert_eq!(
+            unassigned_response.info[0].external_userid.as_deref(),
+            Some("external")
+        );
+        assert_eq!(unassigned_response.info[0].dimission_time, Some(100));
         assert_eq!(unassigned_response.is_last, Some(false));
     }
 
