@@ -385,7 +385,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: LiveRoomRequest,
-    ) -> Result<Value> {
+    ) -> Result<MiniProgramCreateLiveRoomResponse> {
         self.inner
             .post(
                 "wxaapi/broadcast/room/create",
@@ -399,7 +399,7 @@ impl MiniProgram {
         &self,
         access_token: impl Into<String>,
         request: LiveInfoRequest,
-    ) -> Result<Value> {
+    ) -> Result<MiniProgramLiveInfoResponse> {
         self.inner
             .post(
                 "wxa/business/getliveinfo",
@@ -415,7 +415,7 @@ impl MiniProgram {
         room_id: i64,
         start: i64,
         limit: i64,
-    ) -> Result<Value> {
+    ) -> Result<MiniProgramLiveReplayResponse> {
         self.inner
             .post(
                 "wxa/business/getliveinfo",
@@ -5072,13 +5072,121 @@ pub struct LiveInfoRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramCreateLiveRoomResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "roomId")]
+    pub room_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub room_info: Vec<MiniProgramLiveRoomInfo>,
+    #[serde(default)]
+    pub total: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoomInfo {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub roomid: Option<i64>,
+    #[serde(default, alias = "coverImg")]
+    pub cover_img: Option<String>,
+    #[serde(default, alias = "shareImg")]
+    pub share_img: Option<String>,
+    #[serde(default, alias = "liveStatus")]
+    pub live_status: Option<i64>,
+    #[serde(default, alias = "startTime")]
+    pub start_time: Option<i64>,
+    #[serde(default, alias = "endTime")]
+    pub end_time: Option<i64>,
+    #[serde(default, alias = "anchorName")]
+    pub anchor_name: Option<String>,
+    #[serde(default, alias = "anchorWechat")]
+    pub anchor_wechat: Option<String>,
+    #[serde(default)]
+    pub goods: Vec<MiniProgramLiveRoomGoods>,
+    #[serde(default)]
+    pub total: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoomGoods {
+    #[serde(default, alias = "goodsId")]
+    pub goods_id: Option<i64>,
+    #[serde(default, alias = "coverImg")]
+    pub cover_img: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub price: Option<i64>,
+    #[serde(default)]
+    pub price2: Option<i64>,
+    #[serde(default, alias = "priceType")]
+    pub price_type: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveReplayResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub live_replay: Vec<MiniProgramLiveReplay>,
+    #[serde(default)]
+    pub total: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveReplay {
+    #[serde(default)]
+    pub create_time: Option<String>,
+    #[serde(default)]
+    pub expire_time: Option<String>,
+    #[serde(default)]
+    pub media_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniProgramLiveGoodsWarehouseResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub goods: Vec<Value>,
+    pub goods: Vec<MiniProgramLiveWarehouseGoods>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveWarehouseGoods {
+    #[serde(default, alias = "goodsId")]
+    pub goods_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default, alias = "coverImgUrl")]
+    pub cover_img_url: Option<String>,
+    #[serde(default)]
+    pub price: Option<i64>,
+    #[serde(default)]
+    pub price2: Option<i64>,
+    #[serde(default, alias = "priceType")]
+    pub price_type: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default, alias = "auditStatus")]
+    pub audit_status: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5088,9 +5196,21 @@ pub struct MiniProgramLiveFollowersResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub followers: Vec<Value>,
+    pub followers: Vec<MiniProgramLiveFollower>,
     #[serde(default)]
-    pub page_break: Option<Value>,
+    pub page_break: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveFollower {
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub headimg: Option<String>,
+    #[serde(default, alias = "subscribeTime")]
+    pub subscribe_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7094,18 +7214,87 @@ mod tests {
 
         assert_eq!(value, json!({ "start": 0, "limit": 20 }));
 
-        let goods: MiniProgramLiveGoodsWarehouseResponse = serde_json::from_value(json!({
-            "goods": [{ "goodsId": 100, "name": "item" }]
+        let create: MiniProgramCreateLiveRoomResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "roomId": 1000
         }))
         .unwrap();
-        assert_eq!(goods.goods[0]["goodsId"], 100);
+        assert_eq!(create.room_id, Some(1000));
+
+        let info: MiniProgramLiveInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "room_info": [{
+                "name": "launch",
+                "roomid": 1000,
+                "coverImg": "cover-url",
+                "shareImg": "share-url",
+                "liveStatus": 101,
+                "startTime": 1_800_000_000,
+                "endTime": 1_800_003_600,
+                "anchorName": "host",
+                "anchorWechat": "host-wechat",
+                "goods": [{
+                    "goodsId": 200,
+                    "coverImg": "goods-cover",
+                    "url": "pages/goods",
+                    "name": "item",
+                    "price": 100,
+                    "price2": 200,
+                    "priceType": 1
+                }]
+            }]
+        }))
+        .unwrap();
+        assert_eq!(info.total, Some(1));
+        assert_eq!(info.room_info[0].roomid, Some(1000));
+        assert_eq!(info.room_info[0].cover_img.as_deref(), Some("cover-url"));
+        assert_eq!(info.room_info[0].goods[0].goods_id, Some(200));
+        assert_eq!(info.room_info[0].goods[0].price_type, Some(1));
+
+        let replay: MiniProgramLiveReplayResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "live_replay": [{
+                "create_time": "2026-07-16 10:00:00",
+                "expire_time": "2026-08-16 10:00:00",
+                "media_url": "https://example.com/replay.mp4"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            replay.live_replay[0].media_url.as_deref(),
+            Some("https://example.com/replay.mp4")
+        );
+
+        let goods: MiniProgramLiveGoodsWarehouseResponse = serde_json::from_value(json!({
+            "goods": [{
+                "goodsId": 100,
+                "name": "item",
+                "coverImgUrl": "cover",
+                "price": 100,
+                "price2": 200,
+                "priceType": 1,
+                "auditStatus": 2
+            }]
+        }))
+        .unwrap();
+        assert_eq!(goods.goods[0].goods_id, Some(100));
+        assert_eq!(goods.goods[0].cover_img_url.as_deref(), Some("cover"));
+        assert_eq!(goods.goods[0].audit_status, Some(2));
 
         let followers: MiniProgramLiveFollowersResponse = serde_json::from_value(json!({
-            "followers": [{ "openid": "openid" }],
+            "followers": [{
+                "openid": "openid",
+                "nickname": "viewer",
+                "headimg": "avatar",
+                "subscribeTime": 1_800_000_000
+            }],
             "page_break": 10
         }))
         .unwrap();
-        assert_eq!(followers.followers[0]["openid"], "openid");
+        assert_eq!(followers.followers[0].openid.as_deref(), Some("openid"));
+        assert_eq!(followers.followers[0].subscribe_time, Some(1_800_000_000));
         assert_eq!(followers.page_break.unwrap(), 10);
     }
 }

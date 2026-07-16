@@ -170,6 +170,8 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 - data-cube performance data wrapper;
 - live-business goods warehouse, follower list, and push-message wrappers;
 - image security multipart upload wrapper.
+- liveBroadcast create-room, live-info, replay, goods warehouse, and follower
+  responses now expose typed room/goods/replay/follower DTOs.
 - express order, account, delivery, waybill, path, and contact responses now
   expose typed logistics DTOs.
 - immediateDelivery bind-account, provider-list, and order-detail responses now
