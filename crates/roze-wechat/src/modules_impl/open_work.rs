@@ -880,6 +880,100 @@ pub struct OpenWorkSessionInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkAuthCorpInfo {
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default)]
+    pub corp_name: Option<String>,
+    #[serde(default)]
+    pub corp_type: Option<String>,
+    #[serde(default)]
+    pub corp_square_logo_url: Option<String>,
+    #[serde(default)]
+    pub corp_user_max: Option<i64>,
+    #[serde(default)]
+    pub corp_agent_max: Option<i64>,
+    #[serde(default)]
+    pub corp_full_name: Option<String>,
+    #[serde(default)]
+    pub verified_end_time: Option<i64>,
+    #[serde(default)]
+    pub subject_type: Option<i64>,
+    #[serde(default)]
+    pub corp_wxqrcode: Option<String>,
+    #[serde(default)]
+    pub corp_scale: Option<String>,
+    #[serde(default)]
+    pub corp_industry: Option<String>,
+    #[serde(default)]
+    pub corp_sub_industry: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkAuthInfo {
+    #[serde(default)]
+    pub agent: Vec<OpenWorkAuthAgent>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkAuthAgent {
+    #[serde(default)]
+    pub agentid: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub square_logo_url: Option<String>,
+    #[serde(default)]
+    pub round_logo_url: Option<String>,
+    #[serde(default)]
+    pub appid: Option<i64>,
+    #[serde(default)]
+    pub auth_mode: Option<i64>,
+    #[serde(default)]
+    pub privilege: Option<Value>,
+    #[serde(default)]
+    pub shared_from: Option<Value>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkAuthUserInfo {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub mobile: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkRegisterCodeInfo {
+    #[serde(default)]
+    pub register_code: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub follow_user: Vec<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkPermanentCodeResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -892,17 +986,17 @@ pub struct OpenWorkPermanentCodeResponse {
     #[serde(default)]
     pub permanent_code: Option<String>,
     #[serde(default)]
-    pub auth_corp_info: Option<Value>,
+    pub auth_corp_info: Option<OpenWorkAuthCorpInfo>,
     #[serde(default)]
-    pub auth_info: Option<Value>,
+    pub auth_info: Option<OpenWorkAuthInfo>,
     #[serde(default)]
-    pub auth_user_info: Option<Value>,
+    pub auth_user_info: Option<OpenWorkAuthUserInfo>,
     #[serde(default)]
-    pub register_code_info: Option<Value>,
+    pub register_code_info: Option<OpenWorkRegisterCodeInfo>,
     #[serde(default)]
     pub state: Option<String>,
     #[serde(default)]
-    pub dealer_corp_info: Option<Value>,
+    pub dealer_corp_info: Option<OpenWorkAuthCorpInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1475,8 +1569,22 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(permanent.access_token.as_deref(), Some("corp-token"));
-        assert_eq!(permanent.auth_corp_info.unwrap()["corp_name"], "Corp");
-        assert_eq!(permanent.register_code_info.unwrap()["template_id"], "tpl");
+        let auth_corp = permanent.auth_corp_info.expect("auth corp");
+        assert_eq!(auth_corp.corpid.as_deref(), Some("corp"));
+        assert_eq!(auth_corp.corp_name.as_deref(), Some("Corp"));
+        let auth_info = permanent.auth_info.expect("auth info");
+        assert_eq!(auth_info.agent[0].agentid, Some(100001));
+        assert_eq!(auth_info.agent[0].name.as_deref(), Some("App"));
+        let auth_user = permanent.auth_user_info.expect("auth user");
+        assert_eq!(auth_user.userid.as_deref(), Some("admin"));
+        assert_eq!(auth_user.name.as_deref(), Some("Admin"));
+        let register = permanent.register_code_info.expect("register code");
+        assert_eq!(register.register_code.as_deref(), Some("register"));
+        assert_eq!(register.template_id.as_deref(), Some("tpl"));
+        assert_eq!(register.state.as_deref(), Some("state"));
+        let dealer = permanent.dealer_corp_info.expect("dealer corp");
+        assert_eq!(dealer.corpid.as_deref(), Some("dealer"));
+        assert_eq!(dealer.corp_name.as_deref(), Some("Dealer"));
 
         let convert: OpenWorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
             "open_userid_list": [{
@@ -1513,7 +1621,20 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(permanent.permanent_code.as_deref(), Some("permanent"));
-        assert_eq!(permanent.auth_user_info.unwrap()["userid"], "admin");
+        assert_eq!(
+            permanent
+                .auth_corp_info
+                .as_ref()
+                .and_then(|corp| corp.corpid.as_deref()),
+            Some("corp")
+        );
+        assert_eq!(
+            permanent
+                .auth_user_info
+                .as_ref()
+                .and_then(|user| user.userid.as_deref()),
+            Some("admin")
+        );
 
         let corp_token: OpenWorkCorpTokenResponse = serde_json::from_value(json!({
             "errcode": 0,
