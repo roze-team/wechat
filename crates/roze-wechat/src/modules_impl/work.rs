@@ -5499,7 +5499,7 @@ pub struct WorkUserRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external_profile: Option<WorkUserExternalProfile>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub extattr: Option<Value>,
+    pub extattr: Option<WorkUserExtAttr>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5553,6 +5553,75 @@ pub struct WorkUserDetail {
     pub external_position: Option<String>,
     #[serde(default)]
     pub external_profile: Option<WorkUserExternalProfile>,
+    #[serde(default)]
+    pub extattr: Option<WorkUserExtAttr>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExtAttr {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attrs: Vec<WorkUserExtAttrItem>,
+}
+
+impl WorkUserExtAttr {
+    pub fn text(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            attrs: vec![WorkUserExtAttrItem::text(name, value)],
+        }
+    }
+
+    pub fn web(name: impl Into<String>, title: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            attrs: vec![WorkUserExtAttrItem::web(name, title, url)],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExtAttrItem {
+    #[serde(rename = "type")]
+    pub attr_type: i64,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<WorkUserExtAttrText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web: Option<WorkUserExtAttrWeb>,
+}
+
+impl WorkUserExtAttrItem {
+    pub fn text(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            attr_type: 0,
+            name: name.into(),
+            text: Some(WorkUserExtAttrText {
+                value: value.into(),
+            }),
+            web: None,
+        }
+    }
+
+    pub fn web(name: impl Into<String>, title: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            attr_type: 1,
+            name: name.into(),
+            text: None,
+            web: Some(WorkUserExtAttrWeb {
+                title: title.into(),
+                url: url.into(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExtAttrText {
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserExtAttrWeb {
+    pub title: String,
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5730,7 +5799,7 @@ pub struct WorkLinkedCorpUserInfo {
     #[serde(default)]
     pub corp_id: Option<String>,
     #[serde(default)]
-    pub extattr: Option<Value>,
+    pub extattr: Option<WorkUserExtAttr>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5750,7 +5819,14 @@ pub struct WorkUserBatchJobRequest {
     pub media_id: String,
     pub to_invite: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub callbacks: Option<Value>,
+    pub callbacks: Option<WorkUserBatchJobCallback>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserBatchJobCallback {
+    pub url: String,
+    pub token: String,
+    pub encodingaeskey: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11487,7 +11563,12 @@ mod tests {
                     miniprogram: None,
                 }],
             }),
-            extattr: None,
+            extattr: Some(WorkUserExtAttr {
+                attrs: vec![
+                    WorkUserExtAttrItem::text("level", "gold"),
+                    WorkUserExtAttrItem::web("site", "Portal", "https://example.com"),
+                ],
+            }),
         })
         .unwrap();
         assert_eq!(create["userid"], "user");
@@ -11503,6 +11584,11 @@ mod tests {
             .unwrap()
             .get("web")
             .is_none());
+        assert_eq!(create["extattr"]["attrs"][0]["text"]["value"], "gold");
+        assert_eq!(
+            create["extattr"]["attrs"][1]["web"]["url"],
+            "https://example.com"
+        );
 
         let update = serde_json::to_value(WorkUserRequest {
             userid: "user".to_string(),
@@ -11716,11 +11802,11 @@ mod tests {
         let batch = serde_json::to_value(WorkUserBatchJobRequest {
             media_id: "media".to_string(),
             to_invite: true,
-            callbacks: Some(json!({
-                "url": "https://example.com/callback",
-                "token": "token",
-                "encodingaeskey": "key"
-            })),
+            callbacks: Some(WorkUserBatchJobCallback {
+                url: "https://example.com/callback".to_string(),
+                token: "token".to_string(),
+                encodingaeskey: "key".to_string(),
+            }),
         })
         .unwrap();
         assert_eq!(batch["media_id"], "media");
