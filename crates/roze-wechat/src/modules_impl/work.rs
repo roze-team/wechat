@@ -143,6 +143,54 @@ impl Work {
             .await
     }
 
+    pub async fn create_user(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/user/create", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn update_user(
+        &self,
+        access_token: impl Into<String>,
+        request: Value,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/user/update", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn delete_user(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/user/delete",
+                Some(access_token.into()),
+                vec![("userid".to_string(), user_id.into())],
+            )
+            .await
+    }
+
+    pub async fn batch_delete_users(
+        &self,
+        access_token: impl Into<String>,
+        user_id_list: Vec<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/user/batchdelete",
+                Some(access_token.into()),
+                json!({ "useridlist": user_id_list }),
+            )
+            .await
+    }
+
     pub async fn list_department_users(
         &self,
         access_token: impl Into<String>,
@@ -181,6 +229,21 @@ impl Work {
                         if fetch_child { "1" } else { "0" }.to_string(),
                     ),
                 ],
+            )
+            .await
+    }
+
+    pub async fn list_user_ids(
+        &self,
+        access_token: impl Into<String>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Result<WorkUserListIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/user/list_id",
+                Some(access_token.into()),
+                json!({ "cursor": cursor.into(), "limit": limit }),
             )
             .await
     }
@@ -295,6 +358,87 @@ impl Work {
                 "cgi-bin/export/get_result",
                 Some(access_token.into()),
                 vec![("jobid".to_string(), job_id.into())],
+            )
+            .await
+    }
+
+    pub async fn mobile_to_user_id(
+        &self,
+        access_token: impl Into<String>,
+        mobile: impl Into<String>,
+    ) -> Result<WorkUserIdLookupResponse> {
+        self.inner
+            .post(
+                "cgi-bin/user/getuserid",
+                Some(access_token.into()),
+                json!({ "mobile": mobile.into() }),
+            )
+            .await
+    }
+
+    pub async fn email_to_user_id(
+        &self,
+        access_token: impl Into<String>,
+        email: impl Into<String>,
+        email_type: i64,
+    ) -> Result<WorkUserIdLookupResponse> {
+        self.inner
+            .post(
+                "cgi-bin/user/get_userid_by_email",
+                Some(access_token.into()),
+                json!({ "email": email.into(), "email_type": email_type }),
+            )
+            .await
+    }
+
+    pub async fn accept_user_auth_success(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/user/authsucc",
+                Some(access_token.into()),
+                vec![("userid".to_string(), user_id.into())],
+            )
+            .await
+    }
+
+    pub async fn invite_users(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserInviteRequest,
+    ) -> Result<WorkUserInviteResponse> {
+        self.inner
+            .post("cgi-bin/batch/invite", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_join_qrcode(
+        &self,
+        access_token: impl Into<String>,
+        size_type: i64,
+    ) -> Result<WorkJoinQrCodeResponse> {
+        self.inner
+            .get_with_query(
+                "cgi-bin/corp/get_join_qrcode",
+                Some(access_token.into()),
+                vec![("size_type".to_string(), size_type.to_string())],
+            )
+            .await
+    }
+
+    pub async fn get_user_active_stat(
+        &self,
+        access_token: impl Into<String>,
+        date: impl Into<String>,
+    ) -> Result<WorkUserActiveStatResponse> {
+        self.inner
+            .post(
+                "cgi-bin/user/get_active_stat",
+                Some(access_token.into()),
+                json!({ "date": date.into() }),
             )
             .await
     }
@@ -3525,6 +3669,80 @@ pub struct WorkMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDepartmentUserId {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub department: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserListIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub dept_user: Vec<WorkDepartmentUserId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserIdLookupResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserInviteRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub party: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserInviteResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub invaliduser: Vec<String>,
+    #[serde(default)]
+    pub invalidparty: Vec<i64>,
+    #[serde(default)]
+    pub invalidtag: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJoinQrCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub join_qrcode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserActiveStatResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub active_cnt: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserBatchJobRequest {
     pub media_id: String,
     pub to_invite: bool,
@@ -6311,6 +6529,65 @@ mod tests {
         assert_eq!(to_openid.openid.as_deref(), Some("openid"));
         assert_eq!(to_openid.appid.as_deref(), Some("wxappid"));
         assert_eq!(to_userid.userid.as_deref(), Some("user"));
+    }
+
+    #[test]
+    fn serializes_work_user_management_requests_and_responses() {
+        let create = json!({
+            "userid": "user",
+            "name": "User",
+            "mobile": "13800000000",
+            "department": [1],
+            "to_invite": true
+        });
+        assert_eq!(create["userid"], "user");
+        assert_eq!(create["department"][0], 1);
+
+        let batch_delete = json!({ "useridlist": ["user1", "user2"] });
+        assert_eq!(batch_delete["useridlist"][1], "user2");
+
+        let list_id: WorkUserListIdResponse = serde_json::from_value(json!({
+            "next_cursor": "cursor",
+            "dept_user": [{ "userid": "user", "department": 1 }]
+        }))
+        .unwrap();
+        assert_eq!(list_id.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(list_id.dept_user[0].userid.as_deref(), Some("user"));
+
+        let lookup: WorkUserIdLookupResponse =
+            serde_json::from_value(json!({ "userid": "user" })).unwrap();
+        assert_eq!(lookup.userid.as_deref(), Some("user"));
+
+        let invite = serde_json::to_value(WorkUserInviteRequest {
+            user: vec!["user".to_string()],
+            party: vec![1],
+            tag: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(invite["user"][0], "user");
+        assert_eq!(invite["party"][0], 1);
+        assert!(invite.get("tag").is_none());
+
+        let invite_response: WorkUserInviteResponse = serde_json::from_value(json!({
+            "invaliduser": ["bad-user"],
+            "invalidparty": [2],
+            "invalidtag": [3]
+        }))
+        .unwrap();
+        assert_eq!(invite_response.invaliduser[0], "bad-user");
+        assert_eq!(invite_response.invalidparty[0], 2);
+        assert_eq!(invite_response.invalidtag[0], 3);
+
+        let qrcode: WorkJoinQrCodeResponse =
+            serde_json::from_value(json!({ "join_qrcode": "https://example.com/qr" })).unwrap();
+        assert_eq!(
+            qrcode.join_qrcode.as_deref(),
+            Some("https://example.com/qr")
+        );
+
+        let active: WorkUserActiveStatResponse =
+            serde_json::from_value(json!({ "active_cnt": "42" })).unwrap();
+        assert_eq!(active.active_cnt.as_deref(), Some("42"));
     }
 
     #[test]
