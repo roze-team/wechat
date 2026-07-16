@@ -15,7 +15,7 @@ but these areas should be expanded for stricter production parity.
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
 | Work | 363 | 274 | high |
-| Payment | 165 | 93 | high |
+| Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
 | Official Account | 283 | 222 | medium |
@@ -35,9 +35,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    `media`, and webhook/token flows.
 
 2. Payment method-depth parity:
-   continue expanding `merchantService`, `notify`, `order`, and remaining
-   download/statement helper variants. These are production-sensitive and
-   should keep strong typed request/response DTOs plus signature/decryption
+   stream-download bill helpers and merchant-service complaint DTOs have been
+   deepened. Continue expanding `notify`, `order`, and remaining payment method
+   variants with strong typed request/response DTOs plus signature/decryption
    tests where applicable.
 
 3. Open Platform authorizer depth:
@@ -146,6 +146,17 @@ need review. Some are formatting false positives, but the real update areas are:
 - remaining payment stream-download helpers, statement helpers, and deeper
   merchant-service response DTO normalization;
 
+Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
+
+- signed WeChat Pay v3 bill download bytes helper with absolute/relative
+  download URL parsing;
+- trade-bill and fund-flow-bill download convenience wrappers;
+- optional SHA-1/SHA-256 download hash verification for returned bill bytes;
+- shared signed bytes GET support in `PlatformClient`;
+- structured merchant-service complaint list/detail/negotiation DTOs covering
+  order info, media lists, service-order info, user tags, refund amount, and
+  additional shared-power return details.
+
 Implemented on 2026-07-10 in Roze WeChat payment depth:
 
 - legacy balance transfer query/create and bank-card transfer query:
@@ -164,8 +175,8 @@ Implemented on 2026-07-10 in Roze WeChat payment depth:
 
 Recommended implementation order:
 
-1. Payment remaining stream-download/statement helper depth, because these
-   touch money movement and need stronger typed DTOs plus signing tests.
+1. Payment remaining method-depth review for `notify`, `order`, refunds,
+   partner flows, statement variants, and typed response normalization.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
 3. Mini Program DTO/method-depth review for `liveBroadcast`,

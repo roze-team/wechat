@@ -1,10 +1,12 @@
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_value, Value};
+use sha1::Digest as _;
 
 use crate::{
     config::Platform,
     crypto,
-    error::Result,
+    error::{Result, WechatError},
     modules::{DomainModule, PlatformClient},
     Client,
 };
@@ -1311,6 +1313,63 @@ impl Payment {
             .await
     }
 
+    pub async fn download_bill_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+    ) -> Result<Bytes> {
+        let (path, query) = split_payment_download_url(&request.download_url)?;
+        let path_query = path_with_query(&path, &query);
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization("GET", &path_query, "")?,
+        )];
+        let bytes = self
+            .inner
+            .get_bytes_with_headers(path, query, headers)
+            .await?;
+        verify_payment_download_hash(
+            &bytes,
+            request.hash_type.as_deref(),
+            request.hash_value.as_deref(),
+        )?;
+        Ok(bytes)
+    }
+
+    pub async fn download_trade_bill_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+    ) -> Result<Bytes> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill_bytes(
+            credentials,
+            PaymentBillDownloadRequest {
+                download_url: bill.download_url,
+                hash_type: bill.hash_type,
+                hash_value: bill.hash_value,
+            },
+        )
+        .await
+    }
+
+    pub async fn download_fund_flow_bill_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+    ) -> Result<Bytes> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill_bytes(
+            credentials,
+            PaymentBillDownloadRequest {
+                download_url: bill.download_url,
+                hash_type: bill.hash_type,
+                hash_value: bill.hash_value,
+            },
+        )
+        .await
+    }
+
     async fn post_v3<R>(
         &self,
         credentials: &PaymentCredentials,
@@ -1442,6 +1501,63 @@ fn path_with_query(path: &str, query: &[(String, String)]) -> String {
             .join("&");
         format!("{path}?{query_text}")
     }
+}
+
+fn split_payment_download_url(download_url: &str) -> Result<(String, Vec<(String, String)>)> {
+    if let Ok(url) = reqwest::Url::parse(download_url) {
+        let query = parse_raw_query(url.query().unwrap_or(""));
+        return Ok((url.path().to_string(), query));
+    }
+
+    let (path, query_text) = download_url.split_once('?').unwrap_or((download_url, ""));
+    if path.is_empty() {
+        return Err(WechatError::Config(
+            "payment download url path is empty".to_string(),
+        ));
+    }
+    let query = parse_raw_query(query_text);
+    Ok((path.to_string(), query))
+}
+
+fn parse_raw_query(query_text: &str) -> Vec<(String, String)> {
+    query_text
+        .split('&')
+        .filter(|item| !item.is_empty())
+        .map(|item| {
+            let (key, value) = item.split_once('=').unwrap_or((item, ""));
+            (key.to_string(), value.to_string())
+        })
+        .collect()
+}
+
+fn verify_payment_download_hash(
+    bytes: &[u8],
+    hash_type: Option<&str>,
+    hash_value: Option<&str>,
+) -> Result<()> {
+    let Some(hash_value) = hash_value.filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+    let actual = match hash_type.unwrap_or("SHA1").to_ascii_uppercase().as_str() {
+        "SHA1" | "SHA-1" => {
+            let mut hasher = sha1::Sha1::new();
+            hasher.update(bytes);
+            hex::encode(hasher.finalize())
+        }
+        "SHA256" | "SHA-256" => crypto::sha256_hex(bytes),
+        other => {
+            return Err(WechatError::Crypto(format!(
+                "unsupported payment download hash type: {other}"
+            )));
+        }
+    };
+
+    if !actual.eq_ignore_ascii_case(hash_value) {
+        return Err(WechatError::Crypto(
+            "payment download hash mismatch".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn build_sandbox_sign_key_xml(
@@ -2951,6 +3067,19 @@ impl BillRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillResponse {
     pub download_url: String,
+    #[serde(default)]
+    pub hash_type: Option<String>,
+    #[serde(default)]
+    pub hash_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentBillDownloadRequest {
+    pub download_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash_value: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3107,14 +3236,106 @@ impl ComplaintListRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintListResponse {
-    #[serde(flatten)]
-    pub value: Value,
+    #[serde(default)]
+    pub data: Vec<ComplaintDetailResponse>,
+    #[serde(default)]
+    pub limit: Option<i64>,
+    #[serde(default)]
+    pub offset: Option<i64>,
+    #[serde(default)]
+    pub total_count: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintDetailResponse {
-    #[serde(flatten)]
-    pub value: Value,
+    #[serde(default)]
+    pub complaint_id: Option<String>,
+    #[serde(default)]
+    pub complaint_time: Option<String>,
+    #[serde(default)]
+    pub complaint_detail: Option<String>,
+    #[serde(default)]
+    pub complaint_state: Option<String>,
+    #[serde(default)]
+    pub payer_phone: Option<String>,
+    #[serde(default)]
+    pub complaint_order_info: Vec<ComplaintOrderInfo>,
+    #[serde(default)]
+    pub complaint_full_refunded: Option<bool>,
+    #[serde(default)]
+    pub incoming_user_response: Option<bool>,
+    #[serde(default)]
+    pub user_complaint_times: Option<i64>,
+    #[serde(default)]
+    pub complaint_media_list: Vec<ComplaintMedia>,
+    #[serde(default)]
+    pub problem_description: Option<String>,
+    #[serde(default)]
+    pub problem_type: Option<String>,
+    #[serde(default)]
+    pub apply_refund_amount: Option<i64>,
+    #[serde(default)]
+    pub user_tag_list: Vec<String>,
+    #[serde(default)]
+    pub service_order_info: Vec<ComplaintServiceOrderInfo>,
+    #[serde(default)]
+    pub additional_info: Option<ComplaintAdditionalInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintOrderInfo {
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub amount: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMedia {
+    #[serde(default)]
+    pub media_type: Option<String>,
+    #[serde(default)]
+    pub media_url: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintServiceOrderInfo {
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub out_order_no: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintAdditionalInfo {
+    #[serde(default, rename = "type")]
+    pub info_type: Option<String>,
+    #[serde(default)]
+    pub share_power_info: Option<ComplaintSharePowerInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintSharePowerInfo {
+    #[serde(default)]
+    pub return_time: Option<String>,
+    #[serde(default)]
+    pub return_address_info: Option<ComplaintReturnAddressInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintReturnAddressInfo {
+    #[serde(default)]
+    pub return_address: Option<String>,
+    #[serde(default)]
+    pub longitude: Option<String>,
+    #[serde(default)]
+    pub latitude: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3135,13 +3356,31 @@ impl ComplaintNegotiationHistoryRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintNegotiationHistoryResponse {
     #[serde(default)]
-    pub data: Vec<Value>,
+    pub data: Vec<ComplaintNegotiationHistoryRecord>,
     #[serde(default)]
     pub limit: Option<i64>,
     #[serde(default)]
     pub offset: Option<i64>,
     #[serde(default)]
     pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNegotiationHistoryRecord {
+    #[serde(default)]
+    pub log_id: Option<String>,
+    #[serde(default)]
+    pub operator: Option<String>,
+    #[serde(default)]
+    pub operate_time: Option<String>,
+    #[serde(default)]
+    pub operate_type: Option<String>,
+    #[serde(default)]
+    pub operate_details: Option<String>,
+    #[serde(default)]
+    pub image_list: Vec<String>,
+    #[serde(default)]
+    pub complaint_media_list: Option<ComplaintMedia>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3323,38 +3562,42 @@ impl PaymentNotification {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use sha1::Digest as _;
 
     use crate::crypto;
 
     use super::{
-        build_merchant_media_upload_body, build_sandbox_sign_key_xml, multipart_quoted, Amount,
-        AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
-        BillRequest, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
+        build_merchant_media_upload_body, build_sandbox_sign_key_xml, multipart_quoted,
+        split_payment_download_url, verify_payment_download_hash, Amount, AppPayParams,
+        Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse, BillRequest,
+        BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
         CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
-        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintListRequest,
-        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
-        ComplaintNotificationRequest, ComplaintNotificationResponse,
-        ComplaintRefundProgressRequest, ComplaintReplyRequest, CouponStockCreateRequest,
-        CouponStockListRequest, CouponStockListResponse, CouponStockOperationRequest,
-        CouponStockResponse, FundAppElecSignResponse, FundAppTransferBillRequest,
-        FundAppTransferBillResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
-        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
-        MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
-        MiniProgramRedpackRequest, NativePrepayRequest, PartnerCloseOrderRequest,
-        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
-        PartnerRefundQuery, PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
-        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentCredentials, PaymentNotification,
-        PaymentResource, ProfitSharingBillRequest, ProfitSharingOrderRequest,
-        ProfitSharingReceiver, ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
-        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
-        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
-        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
-        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
-        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
-        TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
-        TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
-        UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
+        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintDetailResponse,
+        ComplaintListRequest, ComplaintListResponse, ComplaintNegotiationHistoryRequest,
+        ComplaintNegotiationHistoryResponse, ComplaintNotificationRequest,
+        ComplaintNotificationResponse, ComplaintRefundProgressRequest, ComplaintReplyRequest,
+        CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
+        CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
+        FundAppTransferBillRequest, FundAppTransferBillResponse, JsapiPayParams,
+        LegacyProfitSharingReturnRequest, LegacyProfitSharingReturnResponse,
+        LegacyTransferInfoResponse, MerchantFundBalanceResponse, MerchantMediaUploadRequest,
+        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
+        NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
+        PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PartnerRefundQuery,
+        PartnerTransactionQuery, PayScoreRiskFund, PayScoreServiceOrderQuery,
+        PayScoreServiceOrderRequest, PayScoreTimeRange, PaymentBillDownloadRequest,
+        PaymentCredentials, PaymentNotification, PaymentResource, ProfitSharingBillRequest,
+        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
+        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
+        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
+        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundDetailResponse, RefundRequest,
+        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
+        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
+        TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery, TransferBatchRequest,
+        TransferBillReceiptResponse, TransferDetailInput, TransferDetailReceiptQuery,
+        TransferDetailReceiptRequest, TransferDetailReceiptResponse, TransferSceneReportInfo,
+        TransferToBalanceRequest, TransferToBalanceResponse, UserCouponListRequest,
+        UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
     };
 
     #[test]
@@ -4165,6 +4408,62 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_bill_response_with_download_hash() {
+        let response: BillResponse = serde_json::from_value(json!({
+            "download_url": "https://api.mch.weixin.qq.com/v3/billdownload/file?token=abc",
+            "hash_type": "SHA256",
+            "hash_value": "hash"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            response.download_url,
+            "https://api.mch.weixin.qq.com/v3/billdownload/file?token=abc"
+        );
+        assert_eq!(response.hash_type.as_deref(), Some("SHA256"));
+
+        let request = PaymentBillDownloadRequest {
+            download_url: response.download_url,
+            hash_type: response.hash_type,
+            hash_value: response.hash_value,
+        };
+        assert_eq!(request.hash_value.as_deref(), Some("hash"));
+    }
+
+    #[test]
+    fn splits_payment_download_url_and_verifies_hash() {
+        let (path, query) = split_payment_download_url(
+            "https://api.mch.weixin.qq.com/v3/billdownload/file?token=a%2Bb&nonce=n",
+        )
+        .unwrap();
+        assert_eq!(path, "/v3/billdownload/file");
+        assert_eq!(
+            query,
+            vec![
+                ("token".to_string(), "a%2Bb".to_string()),
+                ("nonce".to_string(), "n".to_string())
+            ]
+        );
+
+        let (relative_path, relative_query) =
+            split_payment_download_url("/v3/billdownload/file?token=abc").unwrap();
+        assert_eq!(relative_path, "/v3/billdownload/file");
+        assert_eq!(
+            relative_query,
+            vec![("token".to_string(), "abc".to_string())]
+        );
+
+        let sha256 = crypto::sha256_hex(b"bill-bytes");
+        verify_payment_download_hash(b"bill-bytes", Some("SHA256"), Some(&sha256)).unwrap();
+
+        let mut sha1_hasher = sha1::Sha1::new();
+        sha1_hasher.update(b"bill-bytes");
+        let sha1 = hex::encode(sha1_hasher.finalize());
+        verify_payment_download_hash(b"bill-bytes", Some("SHA1"), Some(&sha1)).unwrap();
+        assert!(verify_payment_download_hash(b"bill-bytes", Some("SHA256"), Some("bad")).is_err());
+    }
+
+    #[test]
     fn serializes_refund_request() {
         let value = serde_json::to_value(RefundRequest {
             transaction_id: None,
@@ -4524,6 +4823,80 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_complaint_detail_and_list_response() {
+        let detail: ComplaintDetailResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-1",
+            "complaint_time": "2026-07-16T10:00:00+08:00",
+            "complaint_detail": "item not received",
+            "complaint_state": "PENDING",
+            "payer_phone": "13800000000",
+            "complaint_order_info": [{
+                "transaction_id": "transaction-1",
+                "out_trade_no": "order-1",
+                "amount": 100
+            }],
+            "complaint_full_refunded": false,
+            "incoming_user_response": true,
+            "user_complaint_times": 2,
+            "complaint_media_list": [{
+                "media_type": "IMAGE",
+                "media_url": ["https://example.com/image.jpg"]
+            }],
+            "problem_description": "shipping issue",
+            "problem_type": "SERVICE",
+            "apply_refund_amount": 100,
+            "user_tag_list": ["HIGH_RISK"],
+            "service_order_info": [{
+                "order_id": "service-order-1",
+                "out_order_no": "out-service-1",
+                "state": "DOING"
+            }],
+            "additional_info": {
+                "type": "SHARE_POWER_BANK",
+                "share_power_info": {
+                    "return_time": "2026-07-16T11:00:00+08:00",
+                    "return_address_info": {
+                        "return_address": "Shanghai",
+                        "longitude": "121.47",
+                        "latitude": "31.23"
+                    }
+                }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(detail.complaint_id.as_deref(), Some("complaint-1"));
+        assert_eq!(
+            detail.complaint_order_info[0].transaction_id.as_deref(),
+            Some("transaction-1")
+        );
+        assert_eq!(
+            detail.complaint_media_list[0].media_url[0],
+            "https://example.com/image.jpg"
+        );
+        assert_eq!(
+            detail
+                .additional_info
+                .as_ref()
+                .and_then(|info| info.share_power_info.as_ref())
+                .and_then(|info| info.return_address_info.as_ref())
+                .and_then(|info| info.return_address.as_deref()),
+            Some("Shanghai")
+        );
+
+        let list: ComplaintListResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "limit": 10,
+            "offset": 0,
+            "data": [detail]
+        }))
+        .unwrap();
+
+        assert_eq!(list.total_count, Some(1));
+        assert_eq!(list.data[0].complaint_state.as_deref(), Some("PENDING"));
+    }
+
+    #[test]
     fn serializes_complaint_notification_request() {
         let value = serde_json::to_value(ComplaintNotificationRequest {
             url: "https://example.com/complaints".to_string(),
@@ -4594,7 +4967,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(response.total_count, Some(1));
-        assert_eq!(response.data[0]["log_id"], "log-1");
+        assert_eq!(response.data[0].log_id.as_deref(), Some("log-1"));
+        assert_eq!(response.data[0].operate_type.as_deref(), Some("RESPONSE"));
     }
 
     #[test]

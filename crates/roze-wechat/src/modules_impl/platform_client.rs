@@ -82,6 +82,19 @@ impl PlatformClient {
         self.client.execute_bytes(endpoint, query, None).await
     }
 
+    pub async fn get_bytes_with_headers(
+        &self,
+        path: impl Into<String>,
+        query: Vec<(String, String)>,
+        headers: Vec<(String, String)>,
+    ) -> Result<Bytes> {
+        let mut endpoint = Endpoint::get(path);
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client.execute_bytes(endpoint, query, None).await
+    }
+
     pub async fn post_json_bytes(
         &self,
         path: impl Into<String>,
@@ -352,6 +365,17 @@ impl DomainModule {
         query: Vec<(String, String)>,
     ) -> Result<Bytes> {
         self.inner.get_bytes(path, access_token, query).await
+    }
+
+    pub async fn get_bytes_with_headers(
+        &self,
+        path: impl Into<String>,
+        query: Vec<(String, String)>,
+        headers: Vec<(String, String)>,
+    ) -> Result<Bytes> {
+        self.inner
+            .get_bytes_with_headers(path, query, headers)
+            .await
     }
 
     pub async fn post_json_bytes(
