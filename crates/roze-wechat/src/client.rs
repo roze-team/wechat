@@ -33,6 +33,22 @@ pub struct ApiRequest<T> {
     pub body: Option<T>,
 }
 
+#[derive(Debug, Clone)]
+pub struct HttpBytesResponse {
+    pub status: u16,
+    pub headers: Vec<(String, String)>,
+    pub body: Bytes,
+}
+
+impl HttpBytesResponse {
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
+    }
+}
+
 impl Client {
     pub fn new(config: WechatConfig) -> Result<Self> {
         let mut builder = reqwest::Client::builder()
@@ -148,6 +164,18 @@ impl Client {
         query: Vec<(String, String)>,
         body: Option<Value>,
     ) -> Result<Bytes> {
+        Ok(self
+            .execute_bytes_response(endpoint, query, body)
+            .await?
+            .body)
+    }
+
+    pub async fn execute_bytes_response(
+        &self,
+        endpoint: Endpoint,
+        query: Vec<(String, String)>,
+        body: Option<Value>,
+    ) -> Result<HttpBytesResponse> {
         let mut url = Url::parse(&self.config.base_url)
             .map_err(|err| WechatError::Config(format!("invalid base_url: {err}")))?;
         url.set_path(endpoint.path.trim_start_matches('/'));
@@ -172,7 +200,29 @@ impl Client {
                 .body(body.to_string());
         }
 
-        Ok(builder.send().await?.error_for_status()?.bytes().await?)
+        let response = builder.send().await?.error_for_status()?;
+        let status = response.status().as_u16();
+        let headers = response
+            .headers()
+            .iter()
+            .filter_map(|(name, value)| {
+                value
+                    .to_str()
+                    .ok()
+                    .map(|value| (name.as_str().to_string(), value.to_string()))
+            })
+            .collect();
+        let body = response.bytes().await?;
+
+        if let Some(error) = api_error_from_bytes(&body) {
+            return Err(error);
+        }
+
+        Ok(HttpBytesResponse {
+            status,
+            headers,
+            body,
+        })
     }
 
     pub async fn execute_form_bytes(
@@ -340,6 +390,20 @@ impl Client {
     }
 }
 
+fn api_error_from_bytes(body: &[u8]) -> Option<WechatError> {
+    let value = serde_json::from_slice::<Value>(body).ok()?;
+    let code = value.get("errcode").and_then(Value::as_i64)?;
+    if code == 0 {
+        return None;
+    }
+    let message = value
+        .get("errmsg")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown wechat error")
+        .to_string();
+    Some(WechatError::Api { code, message })
+}
+
 fn form_urlencoded_body(form: Vec<(String, String)>) -> String {
     form.into_iter()
         .map(|(key, value)| format!("{}={}", percent_encode(&key), percent_encode(&value)))
@@ -406,5 +470,33 @@ impl Endpoint {
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.push((key.into(), value.into()));
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_api_errors_in_binary_responses() {
+        let error = api_error_from_bytes(br#"{"errcode":40007,"errmsg":"invalid media_id"}"#)
+            .expect("api error");
+        match error {
+            WechatError::Api { code, message } => {
+                assert_eq!(code, 40007);
+                assert_eq!(message, "invalid media_id");
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+
+        assert!(api_error_from_bytes(br#"{"errcode":0,"errmsg":"ok"}"#).is_none());
+        assert!(api_error_from_bytes(b"binary payload").is_none());
+
+        let response = HttpBytesResponse {
+            status: 206,
+            headers: vec![("Content-Range".to_string(), "bytes 0-9/10".to_string())],
+            body: Bytes::from_static(b"0123456789"),
+        };
+        assert_eq!(response.header("content-range"), Some("bytes 0-9/10"));
     }
 }

@@ -6,7 +6,7 @@ pub mod modules;
 pub mod token;
 pub mod types;
 
-pub use client::{ApiRequest, Client, Endpoint};
+pub use client::{ApiRequest, Client, Endpoint, HttpBytesResponse};
 pub use config::{AppConfig, Platform, WechatConfig};
 pub use error::{Result, WechatError};
 pub use modules::Wechat;

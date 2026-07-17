@@ -258,6 +258,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   interaction cards while retaining upstream `card_type` strings.
 - Work upload-media responses now expose semantic media-type helpers for image,
   voice, video, and file while retaining the original upstream `type` string.
+- Work temporary-media downloads now expose HTTP status, headers, content type,
+  filename, length, byte-range metadata, and resumable range requests; binary
+  download paths also surface WeChat JSON error payloads as API errors.
 - Work invoice status requests and batch invoice responses now expose semantic
   reimbursement-status helpers for init, locked, and closure states while
   retaining the original upstream string values.

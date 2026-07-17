@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 
 use crate::{
-    client::{ApiRequest, Client, Endpoint},
+    client::{ApiRequest, Client, Endpoint, HttpBytesResponse},
     config::Platform,
     error::Result,
 };
@@ -93,6 +93,25 @@ impl PlatformClient {
             endpoint = endpoint.with_header(key, value);
         }
         self.client.execute_bytes(endpoint, query, None).await
+    }
+
+    pub async fn get_bytes_response(
+        &self,
+        path: impl Into<String>,
+        access_token: Option<String>,
+        query: Vec<(String, String)>,
+        headers: Vec<(String, String)>,
+    ) -> Result<HttpBytesResponse> {
+        let mut endpoint = Endpoint::get(path);
+        if let Some(token) = access_token {
+            endpoint = endpoint.with_access_token(token);
+        }
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client
+            .execute_bytes_response(endpoint, query, None)
+            .await
     }
 
     pub async fn post_json_bytes(
@@ -375,6 +394,18 @@ impl DomainModule {
     ) -> Result<Bytes> {
         self.inner
             .get_bytes_with_headers(path, query, headers)
+            .await
+    }
+
+    pub async fn get_bytes_response(
+        &self,
+        path: impl Into<String>,
+        access_token: Option<String>,
+        query: Vec<(String, String)>,
+        headers: Vec<(String, String)>,
+    ) -> Result<HttpBytesResponse> {
+        self.inner
+            .get_bytes_response(path, access_token, query, headers)
             .await
     }
 

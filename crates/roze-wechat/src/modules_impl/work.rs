@@ -4,7 +4,7 @@ use serde_json::{json, to_value, Value};
 use crate::{
     config::Platform,
     crypto,
-    error::Result,
+    error::{Result, WechatError},
     modules::{DomainModule, PlatformClient},
     Client,
 };
@@ -2132,6 +2132,43 @@ impl Work {
             .await
     }
 
+    pub async fn get_media_download(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<WorkMediaDownload> {
+        let response = self
+            .inner
+            .get_bytes_response(
+                "cgi-bin/media/get",
+                Some(access_token.into()),
+                vec![("media_id".to_string(), media_id.into())],
+                Vec::new(),
+            )
+            .await?;
+        Ok(response.into())
+    }
+
+    pub async fn get_media_range(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+        start: u64,
+        end_inclusive: Option<u64>,
+    ) -> Result<WorkMediaDownload> {
+        let range = work_media_range_header(start, end_inclusive)?;
+        let response = self
+            .inner
+            .get_bytes_response(
+                "cgi-bin/media/get",
+                Some(access_token.into()),
+                vec![("media_id".to_string(), media_id.into())],
+                vec![("range".to_string(), range)],
+            )
+            .await?;
+        Ok(response.into())
+    }
+
     pub async fn get_jssdk_media(
         &self,
         access_token: impl Into<String>,
@@ -2144,6 +2181,23 @@ impl Work {
                 vec![("media_id".to_string(), media_id.into())],
             )
             .await
+    }
+
+    pub async fn get_jssdk_media_download(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<WorkMediaDownload> {
+        let response = self
+            .inner
+            .get_bytes_response(
+                "cgi-bin/media/get/jssdk",
+                Some(access_token.into()),
+                vec![("media_id".to_string(), media_id.into())],
+                Vec::new(),
+            )
+            .await?;
+        Ok(response.into())
     }
 
     pub async fn upload_work_image_from_bytes(
@@ -9101,6 +9155,119 @@ pub struct WorkUploadImageResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone)]
+pub struct WorkMediaDownload {
+    pub status: u16,
+    pub headers: Vec<(String, String)>,
+    pub body: bytes::Bytes,
+}
+
+fn work_media_range_header(start: u64, end_inclusive: Option<u64>) -> Result<String> {
+    if end_inclusive.is_some_and(|end| end < start) {
+        return Err(WechatError::Config(
+            "media range end must be greater than or equal to start".to_string(),
+        ));
+    }
+    Ok(match end_inclusive {
+        Some(end) => format!("bytes={start}-{end}"),
+        None => format!("bytes={start}-"),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorkMediaContentRange {
+    pub start: u64,
+    pub end_inclusive: u64,
+    pub total: Option<u64>,
+}
+
+impl From<crate::client::HttpBytesResponse> for WorkMediaDownload {
+    fn from(response: crate::client::HttpBytesResponse) -> Self {
+        Self {
+            status: response.status,
+            headers: response.headers,
+            body: response.body,
+        }
+    }
+}
+
+impl WorkMediaDownload {
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
+    }
+
+    pub fn content_type(&self) -> Option<&str> {
+        self.header("content-type")
+    }
+
+    pub fn content_disposition(&self) -> Option<&str> {
+        self.header("content-disposition")
+    }
+
+    pub fn file_name(&self) -> Option<&str> {
+        let name = self.content_disposition().and_then(|value| {
+            value.split(';').find_map(|part| {
+                let (name, value) = part.trim().split_once('=')?;
+                name.eq_ignore_ascii_case("filename")
+                    .then(|| value.trim().trim_matches('"'))
+            })
+        })?;
+        let name = name.rsplit(['/', '\\']).next()?.trim();
+        (!name.is_empty() && name != "." && name != "..").then_some(name)
+    }
+
+    pub fn content_length(&self) -> Option<u64> {
+        self.header("content-length")?.parse().ok()
+    }
+
+    pub fn accepts_byte_ranges(&self) -> bool {
+        self.header("accept-ranges")
+            .is_some_and(|value| value.eq_ignore_ascii_case("bytes"))
+    }
+
+    pub fn content_range(&self) -> Option<WorkMediaContentRange> {
+        let value = self.header("content-range")?.trim();
+        let value = value.strip_prefix("bytes ")?;
+        let (range, total) = value.split_once('/')?;
+        let (start, end) = range.split_once('-')?;
+        Some(WorkMediaContentRange {
+            start: start.parse().ok()?,
+            end_inclusive: end.parse().ok()?,
+            total: if total == "*" {
+                None
+            } else {
+                total.parse().ok()
+            },
+        })
+    }
+
+    pub fn is_partial(&self) -> bool {
+        self.status == 206
+    }
+
+    pub fn total_length(&self) -> Option<u64> {
+        if let Some(total) = self.content_range().and_then(|range| range.total) {
+            Some(total)
+        } else if self.is_partial() {
+            None
+        } else {
+            self.content_length()
+        }
+    }
+
+    pub fn next_range_start(&self) -> Option<u64> {
+        let range = self.content_range()?;
+        let next = range.end_inclusive.checked_add(1)?;
+        match range.total {
+            Some(total) if next >= total => None,
+            _ => Some(next),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUploadMediaResponse {
     #[serde(default)]
@@ -15301,6 +15468,60 @@ mod tests {
         assert!(!WorkMediaTypeKind::Other.is_binary_file());
         assert_eq!(response.created_at.as_deref(), Some("1800000000"));
         assert_eq!(response.extra["file_size"], 1024);
+
+        let full = WorkMediaDownload {
+            status: 200,
+            headers: vec![
+                ("Content-Type".to_string(), "image/jpeg".to_string()),
+                (
+                    "Content-Disposition".to_string(),
+                    "attachment; filename=\"../media.jpg\"".to_string(),
+                ),
+                ("Content-Length".to_string(), "10".to_string()),
+                ("Accept-Ranges".to_string(), "bytes".to_string()),
+            ],
+            body: bytes::Bytes::from_static(b"0123456789"),
+        };
+        assert_eq!(full.content_type(), Some("image/jpeg"));
+        assert_eq!(full.file_name(), Some("media.jpg"));
+        assert_eq!(full.content_length(), Some(10));
+        assert_eq!(full.total_length(), Some(10));
+        assert!(full.accepts_byte_ranges());
+        assert!(!full.is_partial());
+        assert_eq!(full.body.len(), 10);
+
+        let partial = WorkMediaDownload {
+            status: 206,
+            headers: vec![
+                ("Content-Range".to_string(), "bytes 10-19/25".to_string()),
+                ("Content-Length".to_string(), "10".to_string()),
+            ],
+            body: bytes::Bytes::from_static(b"0123456789"),
+        };
+        assert_eq!(
+            partial.content_range(),
+            Some(WorkMediaContentRange {
+                start: 10,
+                end_inclusive: 19,
+                total: Some(25),
+            })
+        );
+        assert!(partial.is_partial());
+        assert_eq!(partial.total_length(), Some(25));
+        assert_eq!(partial.next_range_start(), Some(20));
+
+        let final_chunk = WorkMediaDownload {
+            status: 206,
+            headers: vec![("content-range".to_string(), "bytes 20-24/25".to_string())],
+            body: bytes::Bytes::from_static(b"01234"),
+        };
+        assert_eq!(final_chunk.next_range_start(), None);
+        assert_eq!(
+            work_media_range_header(0, Some(1023)).unwrap(),
+            "bytes=0-1023"
+        );
+        assert_eq!(work_media_range_header(1024, None).unwrap(), "bytes=1024-");
+        assert!(work_media_range_header(10, Some(9)).is_err());
     }
 
     #[test]
