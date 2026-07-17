@@ -157,6 +157,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   DTOs.
 - external-customer transfer and unassigned-customer responses now expose typed
   customer transfer records and unassigned customer metadata.
+- external-customer transfer-result and unassigned-customer DTOs now preserve
+  unknown upstream fields across response wrappers and per-customer records.
 - account-service responses now expose typed customer-service accounts,
   customers, synchronized messages, servicer operation results, and servicer
   list records.

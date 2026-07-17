@@ -7407,6 +7407,8 @@ pub struct ExternalCustomerTransferResponse {
     pub customer: Vec<ExternalCustomerTransferRecord>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 pub type ExternalCustomerTransferResultResponse = ExternalCustomerTransferResponse;
@@ -7425,6 +7427,8 @@ pub struct ExternalCustomerTransferRecord {
     pub handover_userid: Option<String>,
     #[serde(default)]
     pub takeover_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7447,6 +7451,8 @@ pub struct ExternalContactUnassignedListResponse {
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub is_last: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7457,6 +7463,8 @@ pub struct ExternalContactUnassignedInfo {
     pub external_userid: Option<String>,
     #[serde(default)]
     pub dimission_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11489,9 +11497,11 @@ mod tests {
                 "status": 1,
                 "takeover_time": 100,
                 "handover_userid": "old",
-                "takeover_userid": "new"
+                "takeover_userid": "new",
+                "transfer_remark": "manual"
             }],
-            "next_cursor": "cursor"
+            "next_cursor": "cursor",
+            "job_id": "transfer-job-1"
         }))
         .unwrap();
         assert_eq!(
@@ -11500,17 +11510,21 @@ mod tests {
         );
         assert_eq!(response.customer[0].status, Some(1));
         assert_eq!(response.customer[0].takeover_time, Some(100));
+        assert_eq!(response.customer[0].extra["transfer_remark"], "manual");
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(response.extra["job_id"], "transfer-job-1");
 
         let unassigned_response: ExternalContactUnassignedListResponse =
             serde_json::from_value(json!({
                 "info": [{
                     "handover_userid": "old",
                     "external_userid": "external",
-                    "dimission_time": 100
+                    "dimission_time": 100,
+                    "handover_department": 1
                 }],
                 "is_last": false,
-                "next_cursor": "next"
+                "next_cursor": "next",
+                "total": 1
             }))
             .unwrap();
         assert_eq!(
@@ -11522,7 +11536,9 @@ mod tests {
             Some("external")
         );
         assert_eq!(unassigned_response.info[0].dimission_time, Some(100));
+        assert_eq!(unassigned_response.info[0].extra["handover_department"], 1);
         assert_eq!(unassigned_response.is_last, Some(false));
+        assert_eq!(unassigned_response.extra["total"], 1);
     }
 
     #[test]
