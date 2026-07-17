@@ -274,6 +274,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   and waybill-id DTOs instead of raw JSON order entries.
 - immediateDelivery bind-account, provider-list, and order-detail responses now
   expose typed shop/provider/order DTOs instead of raw JSON arrays.
+- immediateDelivery bind-account, provider-list, cancel/pre-cancel, pre-add,
+  order-detail, and re-order responses now preserve unknown upstream fields
+  across wrappers and nested shop/provider payloads.
 - operation feedback, gray-release, JS-error, scene, client-version, and
   real-time-log responses now expose typed operation DTOs.
 - wxa sec-order detail/list responses now expose typed order, amount, shipping,
