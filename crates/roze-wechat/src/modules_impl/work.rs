@@ -4980,6 +4980,8 @@ pub struct WorkInvoiceInfoResponse {
     pub detail: Option<String>,
     #[serde(default)]
     pub user_info: Option<WorkInvoiceUserInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5010,6 +5012,8 @@ pub struct WorkInvoiceUserInfo {
     pub check_code: Option<String>,
     #[serde(default)]
     pub info: Vec<WorkInvoiceLineItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5028,6 +5032,8 @@ pub struct WorkInvoiceLineItem {
     pub tax_rate: Option<String>,
     #[serde(default)]
     pub tax_amount: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5038,6 +5044,8 @@ pub struct WorkInvoiceInfoBatchResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub item_list: Vec<WorkInvoiceInfoBatchItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5054,6 +5062,8 @@ pub struct WorkInvoiceInfoBatchItem {
     pub reimburse_status: Option<String>,
     #[serde(default)]
     pub user_info: Option<WorkInvoiceUserInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5086,6 +5096,8 @@ pub struct WorkExternalPayMerchantResponse {
     pub merchant_name: Option<String>,
     #[serde(default)]
     pub allow_use_scope: Vec<WorkExternalPayUseScope>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5098,6 +5110,8 @@ pub struct WorkExternalPayUseScope {
     pub partyid: Option<i64>,
     #[serde(default)]
     pub tagid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5110,6 +5124,8 @@ pub struct WorkExternalPayBillListResponse {
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub bill_list: Vec<WorkExternalPayBill>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5138,6 +5154,8 @@ pub struct WorkExternalPayBill {
     pub pay_time: Option<i64>,
     #[serde(default)]
     pub create_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6177,6 +6195,8 @@ pub struct WorkMenuResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub button: Vec<WorkMenuButton>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6187,6 +6207,8 @@ pub struct WorkMenuCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub button: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8895,6 +8917,8 @@ pub struct WorkAppChatCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub chatid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8905,6 +8929,8 @@ pub struct WorkAppChatGetResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub chat_info: Option<WorkAppChatInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8917,6 +8943,8 @@ pub struct WorkAppChatInfo {
     pub owner: Option<String>,
     #[serde(default)]
     pub userlist: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11144,6 +11172,7 @@ mod tests {
     fn deserializes_work_menu_response() {
         let menu: WorkMenuResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "menu_version": 2,
             "button": [{
                 "type": "click",
                 "name": "Today",
@@ -11155,6 +11184,16 @@ mod tests {
 
         assert_eq!(menu.button[0].kind.as_deref(), Some("click"));
         assert_eq!(menu.button[0].key.as_deref(), Some("today"));
+        assert_eq!(menu.extra["menu_version"], 2);
+
+        let created: WorkMenuCreateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "button": [{ "name": "Today", "source": "api" }],
+            "request_id": "menu-create"
+        }))
+        .unwrap();
+        assert_eq!(created.button[0]["source"], "api");
+        assert_eq!(created.extra["request_id"], "menu-create");
     }
 
     #[test]
@@ -13331,21 +13370,26 @@ mod tests {
                     "fee": 100,
                     "price": "100.00",
                     "tax_rate": "0.06",
-                    "tax_amount": 6
+                    "tax_amount": 6,
+                    "discount_amount": 2
                 }]
-            }
+            },
+            "invoice_source": "wechat"
         }))
         .unwrap();
         assert_eq!(info.card_id.as_deref(), Some("card"));
         assert_eq!(info.invoice_type.as_deref(), Some("vat"));
+        assert_eq!(info.extra["invoice_source"], "wechat");
         let user_info = info.user_info.unwrap();
         assert_eq!(user_info.fee, Some(100));
         assert_eq!(user_info.title.as_deref(), Some("Roze"));
         assert_eq!(user_info.billing_no.as_deref(), Some("NO100"));
         assert_eq!(user_info.info[0].name.as_deref(), Some("Cloud service"));
         assert_eq!(user_info.info[0].tax_amount, Some(6));
+        assert_eq!(user_info.info[0].extra["discount_amount"], 2);
 
         let batch: WorkInvoiceInfoBatchResponse = serde_json::from_value(json!({
+            "trace_id": "invoice-batch",
             "item_list": [{
                 "card_id": "card",
                 "encrypt_code": "encrypted",
@@ -13354,15 +13398,18 @@ mod tests {
                     "fee": 100,
                     "title": "Roze",
                     "info": [{ "name": "Cloud service", "fee": 100 }]
-                }
+                },
+                "item_source": "batch"
             }]
         }))
         .unwrap();
+        assert_eq!(batch.extra["trace_id"], "invoice-batch");
         assert_eq!(batch.item_list[0].card_id.as_deref(), Some("card"));
         assert_eq!(
             batch.item_list[0].reimburse_status.as_deref(),
             Some("INVOICE_REIMBURSE_INIT")
         );
+        assert_eq!(batch.item_list[0].extra["item_source"], "batch");
         assert_eq!(
             batch.item_list[0]
                 .user_info
@@ -13409,7 +13456,8 @@ mod tests {
             "bind_status": "bind",
             "mch_id": "1900000109",
             "merchant_name": "Roze Shop",
-            "allow_use_scope": [{ "type": "all" }]
+            "allow_use_scope": [{ "type": "all", "scope_name": "all staff" }],
+            "merchant_status": "active"
         }))
         .unwrap();
         assert_eq!(merchant.mch_id.as_deref(), Some("1900000109"));
@@ -13417,9 +13465,12 @@ mod tests {
             merchant.allow_use_scope[0].scope_type.as_deref(),
             Some("all")
         );
+        assert_eq!(merchant.extra["merchant_status"], "active");
+        assert_eq!(merchant.allow_use_scope[0].extra["scope_name"], "all staff");
 
         let bills: WorkExternalPayBillListResponse = serde_json::from_value(json!({
             "next_cursor": "cursor",
+            "total_count": 1,
             "bill_list": [{
                 "out_trade_no": "trade-no",
                 "transaction_id": "transaction",
@@ -13427,14 +13478,17 @@ mod tests {
                 "payer_userid": "payer",
                 "amount": 100,
                 "status": "success",
-                "pay_time": 1_800_000_000
+                "pay_time": 1_800_000_000,
+                "trade_type": "JSAPI"
             }]
         }))
         .unwrap();
         assert_eq!(bills.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(bills.extra["total_count"], 1);
         assert_eq!(bills.bill_list[0].out_trade_no.as_deref(), Some("trade-no"));
         assert_eq!(bills.bill_list[0].amount, Some(100));
         assert_eq!(bills.bill_list[0].payee_userid.as_deref(), Some("payee"));
+        assert_eq!(bills.bill_list[0].extra["trade_type"], "JSAPI");
     }
 
     #[test]
@@ -15150,24 +15204,31 @@ mod tests {
         assert_eq!(message["chatid"], "chatid");
         assert_eq!(message["text"]["content"], "hello");
 
-        let created: WorkAppChatCreateResponse =
-            serde_json::from_value(json!({ "errcode": 0, "chatid": "chatid" })).unwrap();
+        let created: WorkAppChatCreateResponse = serde_json::from_value(
+            json!({ "errcode": 0, "chatid": "chatid", "request_id": "appchat-create" }),
+        )
+        .unwrap();
         assert_eq!(created.chatid.as_deref(), Some("chatid"));
+        assert_eq!(created.extra["request_id"], "appchat-create");
 
         let got: WorkAppChatGetResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "trace_id": "appchat-get",
             "chat_info": {
                 "chatid": "chatid",
                 "name": "chat",
                 "owner": "owner",
-                "userlist": ["user"]
+                "userlist": ["user"],
+                "member_count": 1
             }
         }))
         .unwrap();
+        assert_eq!(got.extra["trace_id"], "appchat-get");
         let chat = got.chat_info.unwrap();
         assert_eq!(chat.chatid.as_deref(), Some("chatid"));
         assert_eq!(chat.owner.as_deref(), Some("owner"));
         assert_eq!(chat.userlist[0], "user");
+        assert_eq!(chat.extra["member_count"], 1);
     }
 
     #[test]
