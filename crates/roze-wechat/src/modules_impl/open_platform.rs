@@ -1356,6 +1356,8 @@ pub struct OpenPlatformMiniProgramCategoryResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub category_list: Vec<OpenPlatformMiniProgramCategory>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1366,6 +1368,8 @@ pub struct OpenPlatformMiniProgramPageResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub page_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1380,6 +1384,8 @@ pub struct OpenPlatformMiniProgramSubmitAuditResponse {
     pub mediaid: Option<String>,
     #[serde(default)]
     pub auditid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1394,6 +1400,8 @@ pub struct OpenPlatformMiniProgramAuditStatusResponse {
     pub reason: Option<String>,
     #[serde(default)]
     pub screenshot: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1416,6 +1424,8 @@ pub struct OpenPlatformMiniProgramLatestAuditStatusResponse {
     pub user_desc: Option<String>,
     #[serde(default)]
     pub submit_audit_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1442,6 +1452,8 @@ pub struct OpenPlatformMiniProgramRollbackReleaseResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub version_list: Vec<OpenPlatformMiniProgramReleaseVersion>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1468,6 +1480,8 @@ pub struct OpenPlatformMiniProgramGrayReleasePlanResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub gray_release_plan: Option<OpenPlatformMiniProgramGrayReleasePlan>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1500,6 +1514,8 @@ pub struct OpenPlatformMiniProgramSupportVersionResponse {
     pub now_version: Option<String>,
     #[serde(default)]
     pub uv_info: Option<OpenPlatformMiniProgramUvInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1516,6 +1532,8 @@ pub struct OpenPlatformMiniProgramAuditQuotaResponse {
     pub speedup_rest: Option<i64>,
     #[serde(default)]
     pub speedup_limit: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2296,7 +2314,8 @@ mod tests {
     #[test]
     fn deserializes_authorizer_mini_program_code_responses() {
         let categories: OpenPlatformMiniProgramCategoryResponse = serde_json::from_value(json!({
-            "category_list": [{ "first_class": "tool", "first_id": 1, "extra_field": "kept" }]
+            "category_list": [{ "first_class": "tool", "first_id": 1, "extra_field": "kept" }],
+            "request_id": "category"
         }))
         .unwrap();
         assert_eq!(categories.category_list[0].first_id, Some(1));
@@ -2305,28 +2324,37 @@ mod tests {
             Some("tool")
         );
         assert_eq!(categories.category_list[0].extra["extra_field"], "kept");
+        assert_eq!(categories.extra["request_id"], "category");
 
-        let pages: OpenPlatformMiniProgramPageResponse =
-            serde_json::from_value(json!({ "page_list": ["pages/index/index"] })).unwrap();
+        let pages: OpenPlatformMiniProgramPageResponse = serde_json::from_value(json!({
+            "page_list": ["pages/index/index"],
+            "request_id": "pages"
+        }))
+        .unwrap();
         assert_eq!(pages.page_list[0], "pages/index/index");
+        assert_eq!(pages.extra["request_id"], "pages");
 
         let submitted: OpenPlatformMiniProgramSubmitAuditResponse = serde_json::from_value(json!({
             "type": "audit",
             "mediaid": "media",
-            "auditid": 123
+            "auditid": 123,
+            "request_id": "submit"
         }))
         .unwrap();
         assert_eq!(submitted.audit_type.as_deref(), Some("audit"));
         assert_eq!(submitted.auditid, Some(123));
+        assert_eq!(submitted.extra["request_id"], "submit");
 
         let status: OpenPlatformMiniProgramAuditStatusResponse = serde_json::from_value(json!({
             "status": 0,
             "reason": "ok",
-            "screenshot": "https://example.com/s.png"
+            "screenshot": "https://example.com/s.png",
+            "request_id": "status"
         }))
         .unwrap();
         assert_eq!(status.status, Some(0));
         assert_eq!(status.reason.as_deref(), Some("ok"));
+        assert_eq!(status.extra["request_id"], "status");
 
         let latest: OpenPlatformMiniProgramLatestAuditStatusResponse =
             serde_json::from_value(json!({
@@ -2334,7 +2362,8 @@ mod tests {
                 "status": 0,
                 "ScreenShot": "https://example.com/latest.png",
                 "user_version": "1.0.0",
-                "submit_audit_time": 1800000000
+                "submit_audit_time": 1800000000,
+                "request_id": "latest"
             }))
             .unwrap();
         assert_eq!(latest.auditid, Some(124));
@@ -2342,10 +2371,12 @@ mod tests {
             latest.screenshot.as_deref(),
             Some("https://example.com/latest.png")
         );
+        assert_eq!(latest.extra["request_id"], "latest");
 
         let rollback: OpenPlatformMiniProgramRollbackReleaseResponse =
             serde_json::from_value(json!({
-                "version_list": [{ "user_version": "1.0.0", "app_version": 1 }]
+                "version_list": [{ "user_version": "1.0.0", "app_version": 1 }],
+                "request_id": "rollback"
             }))
             .unwrap();
         assert_eq!(
@@ -2353,34 +2384,46 @@ mod tests {
             Some("1.0.0")
         );
         assert_eq!(rollback.version_list[0].extra["app_version"], 1);
+        assert_eq!(rollback.extra["request_id"], "rollback");
 
         let gray: OpenPlatformMiniProgramGrayReleasePlanResponse = serde_json::from_value(json!({
-            "gray_release_plan": { "status": 1, "gray_percentage": 10 }
+            "gray_release_plan": { "status": 1, "gray_percentage": 10, "plan_extra": "kept" },
+            "request_id": "gray"
         }))
         .unwrap();
-        assert_eq!(gray.gray_release_plan.unwrap().gray_percentage, Some(10));
+        assert_eq!(gray.extra["request_id"], "gray");
+        let gray_plan = gray.gray_release_plan.unwrap();
+        assert_eq!(gray_plan.gray_percentage, Some(10));
+        assert_eq!(gray_plan.extra["plan_extra"], "kept");
 
         let support: OpenPlatformMiniProgramSupportVersionResponse =
             serde_json::from_value(json!({
                 "now_version": "3.0.0",
-                "uv_info": { "items": [{ "visit_uv": 90, "version": "3.0.0" }] }
+                "uv_info": {
+                    "items": [{ "visit_uv": 90, "version": "3.0.0", "uv_extra": "kept" }],
+                    "uv_total": 1
+                },
+                "request_id": "support"
             }))
             .unwrap();
         assert_eq!(support.now_version.as_deref(), Some("3.0.0"));
-        assert_eq!(
-            support.uv_info.unwrap().items[0].version.as_deref(),
-            Some("3.0.0")
-        );
+        assert_eq!(support.extra["request_id"], "support");
+        let uv_info = support.uv_info.unwrap();
+        assert_eq!(uv_info.extra["uv_total"], 1);
+        assert_eq!(uv_info.items[0].version.as_deref(), Some("3.0.0"));
+        assert_eq!(uv_info.items[0].extra["uv_extra"], "kept");
 
         let quota: OpenPlatformMiniProgramAuditQuotaResponse = serde_json::from_value(json!({
             "rest": 10,
             "limit": 100,
             "speedup_rest": 1,
-            "speedup_limit": 10
+            "speedup_limit": 10,
+            "request_id": "quota"
         }))
         .unwrap();
         assert_eq!(quota.rest, Some(10));
         assert_eq!(quota.speedup_limit, Some(10));
+        assert_eq!(quota.extra["request_id"], "quota");
     }
 
     #[test]

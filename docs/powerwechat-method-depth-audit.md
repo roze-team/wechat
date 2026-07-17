@@ -252,6 +252,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
   versions, gray-release plans, support-version UV info, domain mutation
   results, tester members, and privacy setting payloads now expose typed DTOs
   while keeping extension fields for future WeChat additions.
+- authorizer mini-program code/audit category, page, submit, status, latest,
+  rollback, gray-release, support-version, and quota response wrappers now
+  preserve unknown upstream fields alongside typed DTOs.
 - authorizer mini-program privacy-interface responses now expose typed
   interface status/audit DTOs and preserve upstream extension fields across
   list and apply responses.
