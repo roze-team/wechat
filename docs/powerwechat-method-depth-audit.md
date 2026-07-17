@@ -440,6 +440,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 - merchant-service complaint media DTOs now expose typed media id and thumbnail
   URL fields, negotiation image lists accept single-string or array shapes, and
   notification query responses tolerate WeChat code/message error payloads.
+- merchant-service complaint media DTOs now expose semantic media-kind helpers
+  for image/video/other classification while retaining the original upstream
+  media type string.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 

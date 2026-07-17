@@ -3856,6 +3856,35 @@ pub struct ComplaintMedia {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintMediaType {
+    Image,
+    Video,
+    Other,
+}
+
+impl ComplaintMedia {
+    pub fn media_kind(&self) -> Option<ComplaintMediaType> {
+        self.media_type.as_deref().map(|media_type| {
+            if media_type.eq_ignore_ascii_case("IMAGE") {
+                ComplaintMediaType::Image
+            } else if media_type.eq_ignore_ascii_case("VIDEO") {
+                ComplaintMediaType::Video
+            } else {
+                ComplaintMediaType::Other
+            }
+        })
+    }
+
+    pub fn is_image(&self) -> bool {
+        self.media_kind() == Some(ComplaintMediaType::Image)
+    }
+
+    pub fn is_video(&self) -> bool {
+        self.media_kind() == Some(ComplaintMediaType::Video)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintServiceOrderInfo {
     #[serde(default)]
@@ -4441,25 +4470,26 @@ mod tests {
         BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
         CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
         CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintCompleteResponse,
-        ComplaintDetailResponse, ComplaintListRequest, ComplaintListResponse,
-        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
-        ComplaintNotificationDeleteResponse, ComplaintNotificationRequest,
-        ComplaintNotificationResponse, ComplaintRefundProgressRequest,
-        ComplaintRefundProgressResponse, ComplaintReplyRequest, ComplaintReplyResponse,
-        CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
-        CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
-        FundAppTransferBillRequest, FundAppTransferBillResponse, H5PrepayResponse, JsapiPayParams,
-        LegacyProfitSharingReturnRequest, LegacyProfitSharingReturnResponse,
-        LegacyTransferInfoResponse, MerchantFundBalanceResponse, MerchantMediaUploadRequest,
-        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
-        NativePrepayRequest, NativePrepayResponse, PartnerCloseOrderRequest,
-        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
-        PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
-        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
-        PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill,
-        PaymentNotification, PaymentOrderResponse, PaymentRefundNotification, PaymentResource,
-        PaymentStatusResponse, PaymentTransactionNotification, PaymentTransferBillNotification,
-        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ComplaintDetailResponse, ComplaintListRequest, ComplaintListResponse, ComplaintMedia,
+        ComplaintMediaType, ComplaintNegotiationHistoryRequest,
+        ComplaintNegotiationHistoryResponse, ComplaintNotificationDeleteResponse,
+        ComplaintNotificationRequest, ComplaintNotificationResponse,
+        ComplaintRefundProgressRequest, ComplaintRefundProgressResponse, ComplaintReplyRequest,
+        ComplaintReplyResponse, CouponStockCreateRequest, CouponStockListRequest,
+        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
+        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
+        H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
+        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
+        MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
+        MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
+        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
+        PartnerOrderQuery, PartnerPayer, PartnerRefundQuery, PartnerTransactionQuery,
+        PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
+        PayScoreServiceOrderResponse, PayScoreTimeRange, PaymentBillDownloadRequest,
+        PaymentCredentials, PaymentDownloadedBill, PaymentNotification, PaymentOrderResponse,
+        PaymentRefundNotification, PaymentResource, PaymentStatusResponse,
+        PaymentTransactionNotification, PaymentTransferBillNotification, PrepayResponse,
+        ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
         ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
@@ -6421,6 +6451,12 @@ mod tests {
             Some("media-detail-1")
         );
         assert_eq!(
+            detail.complaint_media_list[0].media_kind(),
+            Some(ComplaintMediaType::Image)
+        );
+        assert!(detail.complaint_media_list[0].is_image());
+        assert!(!detail.complaint_media_list[0].is_video());
+        assert_eq!(
             detail.complaint_media_list[0].thumbnail_url.as_deref(),
             Some("https://example.com/thumb.jpg")
         );
@@ -6447,6 +6483,19 @@ mod tests {
                 .as_deref(),
             Some("VIDEO")
         );
+        assert_eq!(
+            single_media_detail.complaint_media_list[0].media_kind(),
+            Some(ComplaintMediaType::Video)
+        );
+        assert!(single_media_detail.complaint_media_list[0].is_video());
+        let other_media = ComplaintMedia {
+            media_id: None,
+            media_type: Some("AUDIO".to_string()),
+            media_url: Vec::new(),
+            thumbnail_url: None,
+            extra: serde_json::Value::Null,
+        };
+        assert_eq!(other_media.media_kind(), Some(ComplaintMediaType::Other));
         assert_eq!(
             detail
                 .additional_info
