@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 304 | high |
+| Work | 363 | 320 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -107,6 +107,13 @@ Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
   ranges, and deleting row/column dimensions. Range and batch responses follow
   the upstream `data.result` and `data.responses` wrappers with typed cells,
   links, text formats, colors, operation results, and extension fields.
+- OA WeDoc smart-sheet support now covers sub-sheet, view, field, and record
+  create/read/update/delete lifecycles through 16 current
+  `wedoc/smartsheet/*` endpoints. Stable identifiers, pagination, versions,
+  timestamps, and response envelopes are typed and preserve upstream extension
+  fields. Polymorphic properties, cell values, sorts, and filters remain
+  structured JSON so every current and future field type can round-trip without
+  lossy SDK updates.
 
 Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 

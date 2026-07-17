@@ -3621,6 +3621,230 @@ impl Work {
             .await
     }
 
+    pub async fn add_wedoc_smartsheet(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetAddRequest,
+    ) -> Result<WorkWeDocSmartSheetAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/add_sheet",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheets(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetGetRequest,
+    ) -> Result<WorkWeDocSmartSheetGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/get_sheet",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_wedoc_smartsheet(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/update_sheet",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_smartsheet(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetDeleteRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/delete_sheet",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_wedoc_smartsheet_view(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetAddViewRequest,
+    ) -> Result<WorkWeDocSmartSheetViewResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/add_view",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheet_views(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetGetViewsRequest,
+    ) -> Result<WorkWeDocSmartSheetGetViewsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/get_views",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_wedoc_smartsheet_view(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetUpdateViewRequest,
+    ) -> Result<WorkWeDocSmartSheetViewResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/update_view",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_smartsheet_views(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetDeleteViewsRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/delete_views",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_wedoc_smartsheet_fields(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetFieldsMutationRequest,
+    ) -> Result<WorkWeDocSmartSheetFieldsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/add_fields",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheet_fields(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetGetFieldsRequest,
+    ) -> Result<WorkWeDocSmartSheetGetFieldsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/get_fields",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_wedoc_smartsheet_fields(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetFieldsMutationRequest,
+    ) -> Result<WorkWeDocSmartSheetFieldsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/update_fields",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_smartsheet_fields(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetDeleteFieldsRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/delete_fields",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_wedoc_smartsheet_records(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetRecordsMutationRequest,
+    ) -> Result<WorkWeDocSmartSheetRecordsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/add_records",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheet_records(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetGetRecordsRequest,
+    ) -> Result<WorkWeDocSmartSheetGetRecordsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/get_records",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_wedoc_smartsheet_records(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetRecordsMutationRequest,
+    ) -> Result<WorkWeDocSmartSheetRecordsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/update_records",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_smartsheet_records(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetDeleteRecordsRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/delete_records",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn create_wedoc_form(
         &self,
         access_token: impl Into<String>,
@@ -13784,6 +14008,319 @@ pub struct WorkWeDocSpreadsheetDeleteDimensionResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAddRequest {
+    pub docid: String,
+    pub properties: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub properties: Option<WorkWeDocSmartSheetProperties>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sheet_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub need_all_type_sheet: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub sheet_list: Vec<WorkWeDocSmartSheetProperties>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetProperties {
+    #[serde(default)]
+    pub sheet_id: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub index: Option<i64>,
+    #[serde(default)]
+    pub sheet_type: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetUpdateRequest {
+    pub docid: String,
+    pub properties: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetDeleteRequest {
+    pub docid: String,
+    pub sheet_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAddViewRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub view_title: String,
+    pub view_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub property_gantt: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub property_calendar: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetUpdateViewRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub view_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub property: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetViewResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub view: Option<WorkWeDocSmartSheetView>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetView {
+    #[serde(default)]
+    pub view_id: Option<String>,
+    #[serde(default)]
+    pub view_title: Option<String>,
+    #[serde(default)]
+    pub view_type: Option<String>,
+    #[serde(default)]
+    pub property: Option<Value>,
+    #[serde(default)]
+    pub property_gantt: Option<Value>,
+    #[serde(default)]
+    pub property_calendar: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetViewsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub view_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetViewsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub next: Option<i64>,
+    #[serde(default)]
+    pub views: Vec<WorkWeDocSmartSheetView>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetDeleteViewsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub view_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldsMutationRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub fields: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetFieldsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub field_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub field_titles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub fields: Vec<WorkWeDocSmartSheetField>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetFieldsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub fields: Vec<WorkWeDocSmartSheetField>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetField {
+    #[serde(default)]
+    pub field_id: Option<String>,
+    #[serde(default)]
+    pub field_title: Option<String>,
+    #[serde(default)]
+    pub field_type: Option<String>,
+    #[serde(default)]
+    pub property: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetDeleteFieldsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub field_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetRecordsMutationRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_type: Option<String>,
+    pub records: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetRecordsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub record_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub field_titles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub field_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sort: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ver: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter_spec: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetRecordsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub records: Vec<WorkWeDocSmartSheetRecord>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetRecordsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub next: Option<i64>,
+    #[serde(default)]
+    pub records: Vec<WorkWeDocSmartSheetRecord>,
+    #[serde(default)]
+    pub ver: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetRecord {
+    #[serde(default)]
+    pub record_id: Option<String>,
+    #[serde(default)]
+    pub values: Option<Value>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetDeleteRecordsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub record_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocCreateFormRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spaceid: Option<String>,
@@ -22824,5 +23361,162 @@ mod tests {
         assert_eq!(detail.name.as_deref(), Some("User"));
         assert_eq!(detail.mobile.as_deref(), Some("13800000000"));
         assert_eq!(detail.extra["department"][0], 1);
+    }
+
+    #[test]
+    fn serializes_work_wedoc_smartsheet_requests() {
+        let add = serde_json::to_value(WorkWeDocSmartSheetAddRequest {
+            docid: "doc".to_string(),
+            properties: json!({
+                "title": "Tasks",
+                "row_count": 100
+            }),
+        })
+        .unwrap();
+        assert_eq!(add["properties"]["title"], "Tasks");
+
+        let get = serde_json::to_value(WorkWeDocSmartSheetGetRequest {
+            docid: "doc".to_string(),
+            sheet_id: Some("sheet".to_string()),
+            need_all_type_sheet: Some(true),
+        })
+        .unwrap();
+        assert_eq!(get["sheet_id"], "sheet");
+        assert_eq!(get["need_all_type_sheet"], true);
+
+        let view = serde_json::to_value(WorkWeDocSmartSheetAddViewRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            view_title: "Calendar".to_string(),
+            view_type: "VIEW_TYPE_CALENDAR".to_string(),
+            property_gantt: None,
+            property_calendar: Some(json!({ "date_field_id": "field-date" })),
+        })
+        .unwrap();
+        assert!(view.get("property_gantt").is_none());
+        assert_eq!(view["property_calendar"]["date_field_id"], "field-date");
+
+        let fields = serde_json::to_value(WorkWeDocSmartSheetFieldsMutationRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            fields: vec![json!({
+                "field_title": "Owner",
+                "field_type": "FIELD_TYPE_USER"
+            })],
+        })
+        .unwrap();
+        assert_eq!(fields["fields"][0]["field_title"], "Owner");
+
+        let records = serde_json::to_value(WorkWeDocSmartSheetGetRecordsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            view_id: Some("view".to_string()),
+            record_ids: vec!["record".to_string()],
+            key_type: Some("CELL_VALUE_KEY_TYPE_FIELD_ID".to_string()),
+            field_titles: Vec::new(),
+            field_ids: vec!["field-owner".to_string()],
+            sort: vec![json!({ "field_id": "field-owner", "desc": true })],
+            offset: Some(10),
+            limit: Some(100),
+            ver: Some(7),
+            filter_spec: Some(json!({ "condition": "AND" })),
+        })
+        .unwrap();
+        assert!(records.get("field_titles").is_none());
+        assert_eq!(records["record_ids"][0], "record");
+        assert_eq!(records["sort"][0]["desc"], true);
+        assert_eq!(records["filter_spec"]["condition"], "AND");
+
+        let deletes = serde_json::to_value(WorkWeDocSmartSheetDeleteRecordsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            record_ids: vec!["record-1".to_string(), "record-2".to_string()],
+        })
+        .unwrap();
+        assert_eq!(deletes["record_ids"][1], "record-2");
+    }
+
+    #[test]
+    fn deserializes_work_wedoc_smartsheet_responses() {
+        let sheets: WorkWeDocSmartSheetGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "sheet_list": [{
+                "sheet_id": "sheet",
+                "title": "Tasks",
+                "index": 2,
+                "sheet_type": "SMART_SHEET",
+                "frozen_row_count": 1
+            }],
+            "request_id": "sheet-request"
+        }))
+        .unwrap();
+        assert_eq!(sheets.sheet_list[0].sheet_id.as_deref(), Some("sheet"));
+        assert_eq!(sheets.sheet_list[0].extra["frozen_row_count"], 1);
+        assert_eq!(sheets.extra["request_id"], "sheet-request");
+
+        let views: WorkWeDocSmartSheetGetViewsResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "has_more": false,
+            "next": 1,
+            "views": [{
+                "view_id": "view",
+                "view_title": "Calendar",
+                "view_type": "VIEW_TYPE_CALENDAR",
+                "property": {"groups": []},
+                "display_density": "compact"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(views.total, Some(1));
+        assert_eq!(views.views[0].view_id.as_deref(), Some("view"));
+        assert_eq!(views.views[0].extra["display_density"], "compact");
+
+        let fields: WorkWeDocSmartSheetGetFieldsResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "fields": [{
+                "field_id": "field-owner",
+                "field_title": "Owner",
+                "field_type": "FIELD_TYPE_USER",
+                "property": {"multiple": true},
+                "is_primary": false
+            }]
+        }))
+        .unwrap();
+        assert_eq!(fields.fields[0].field_title.as_deref(), Some("Owner"));
+        assert_eq!(
+            fields.fields[0].property.as_ref().unwrap()["multiple"],
+            true
+        );
+        assert_eq!(fields.fields[0].extra["is_primary"], false);
+
+        let records: WorkWeDocSmartSheetGetRecordsResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "has_more": true,
+            "next": 100,
+            "ver": 8,
+            "records": [{
+                "record_id": "record",
+                "values": {
+                    "field-owner": [{"userid": "user"}],
+                    "field-score": 98.5
+                },
+                "create_time": 1710000000,
+                "update_time": 1710000100,
+                "creator_userid": "creator"
+            }],
+            "trace_id": "record-request"
+        }))
+        .unwrap();
+        assert_eq!(records.next, Some(100));
+        assert_eq!(records.ver, Some(8));
+        assert_eq!(
+            records.records[0].values.as_ref().unwrap()["field-score"],
+            98.5
+        );
+        assert_eq!(records.records[0].extra["creator_userid"], "creator");
+        assert_eq!(records.extra["trace_id"], "record-request");
     }
 }
