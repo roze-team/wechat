@@ -6098,6 +6098,8 @@ pub struct ExternalContactListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub external_userid: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6108,6 +6110,8 @@ pub struct ExternalContactFollowUserListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub follow_user: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6122,6 +6126,8 @@ pub struct ExternalContactDetailResponse {
     pub follow_user: Vec<ExternalContactFollowInfo>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6134,6 +6140,8 @@ pub struct ExternalContactBatchGetResponse {
     pub external_contact_list: Vec<ExternalContactBatchItem>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6142,6 +6150,8 @@ pub struct ExternalContactBatchItem {
     pub external_contact: Option<ExternalContactInfo>,
     #[serde(default)]
     pub follow_info: Option<ExternalContactFollowInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6166,6 +6176,8 @@ pub struct ExternalContactInfo {
     pub corp_full_name: Option<String>,
     #[serde(default)]
     pub external_profile: Option<ExternalContactProfile>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6174,6 +6186,8 @@ pub struct ExternalContactProfile {
     pub external_corp_name: Option<String>,
     #[serde(default)]
     pub external_attr: Vec<ExternalContactAttribute>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6188,12 +6202,16 @@ pub struct ExternalContactAttribute {
     pub web: Option<ExternalContactAttributeWeb>,
     #[serde(default)]
     pub miniprogram: Option<ExternalContactAttributeMiniProgram>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactAttributeText {
     #[serde(default)]
     pub value: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6202,6 +6220,8 @@ pub struct ExternalContactAttributeWeb {
     pub url: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6212,6 +6232,8 @@ pub struct ExternalContactAttributeMiniProgram {
     pub pagepath: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6236,6 +6258,8 @@ pub struct ExternalContactFollowInfo {
     pub state: Option<String>,
     #[serde(default)]
     pub oper_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6248,6 +6272,8 @@ pub struct ExternalContactFollowTag {
     pub tag_id: Option<String>,
     #[serde(default)]
     pub r#type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10387,17 +10413,21 @@ mod tests {
     fn deserializes_external_contact_base_responses() {
         let list: ExternalContactListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "external_userid": ["wm-external"]
+            "external_userid": ["wm-external"],
+            "next_openid": "open-cursor"
         }))
         .unwrap();
         assert_eq!(list.external_userid[0], "wm-external");
+        assert_eq!(list.extra["next_openid"], "open-cursor");
 
         let follow_users: ExternalContactFollowUserListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "follow_user": ["user-a", "user-b"]
+            "follow_user": ["user-a", "user-b"],
+            "department_scope": [1, 2]
         }))
         .unwrap();
         assert_eq!(follow_users.follow_user[1], "user-b");
+        assert_eq!(follow_users.extra["department_scope"][0], 1);
 
         let detail: ExternalContactDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -10411,14 +10441,18 @@ mod tests {
                 "unionid": "unionid",
                 "corp_name": "Roze",
                 "corp_full_name": "Roze Inc.",
+                "wechat_channels": { "nickname": "Roze Shop" },
                 "external_profile": {
                     "external_corp_name": "Roze",
+                    "external_extra_profile": "profile-extra",
                     "external_attr": [{
                         "type": 0,
                         "name": "Website",
+                        "attr_extra": "attr-extra",
                         "web": {
                             "url": "https://example.com",
-                            "title": "Home"
+                            "title": "Home",
+                            "source": "official"
                         }
                     }]
                 }
@@ -10438,31 +10472,43 @@ mod tests {
                 "remark_mobiles": ["13800000000"],
                 "add_way": 1,
                 "state": "state",
-                "oper_userid": "operator"
+                "oper_userid": "operator",
+                "tag_source": "crm"
             }],
-            "next_cursor": "cursor"
+            "next_cursor": "cursor",
+            "detail_extra": true
         }))
         .unwrap();
         let contact = detail.external_contact.expect("external_contact");
         assert_eq!(contact.external_userid.as_deref(), Some("wm-external"));
         assert_eq!(contact.contact_type, Some(2));
+        assert_eq!(contact.extra["wechat_channels"]["nickname"], "Roze Shop");
         assert_eq!(
             contact
                 .external_profile
-                .expect("external_profile")
-                .external_attr[0]
-                .web
                 .as_ref()
-                .expect("web")
-                .url
-                .as_deref(),
+                .expect("external_profile")
+                .extra["external_extra_profile"],
+            "profile-extra"
+        );
+        let attr = &contact
+            .external_profile
+            .as_ref()
+            .expect("external_profile")
+            .external_attr[0];
+        assert_eq!(attr.extra["attr_extra"], "attr-extra");
+        assert_eq!(
+            attr.web.as_ref().expect("web").url.as_deref(),
             Some("https://example.com")
         );
+        assert_eq!(attr.web.as_ref().unwrap().extra["source"], "official");
         assert_eq!(
             detail.follow_user[0].tags[0].tag_name.as_deref(),
             Some("Gold")
         );
+        assert_eq!(detail.follow_user[0].extra["tag_source"], "crm");
         assert_eq!(detail.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(detail.extra["detail_extra"], true);
 
         let batch: ExternalContactBatchGetResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -10474,9 +10520,11 @@ mod tests {
                 "follow_info": {
                     "userid": "user-a",
                     "remark": "VIP"
-                }
+                },
+                "batch_item_extra": "item-extra"
             }],
-            "next_cursor": "next"
+            "next_cursor": "next",
+            "batch_extra": "batch-extra"
         }))
         .unwrap();
         assert_eq!(
@@ -10497,7 +10545,12 @@ mod tests {
                 .as_deref(),
             Some("user-a")
         );
+        assert_eq!(
+            batch.external_contact_list[0].extra["batch_item_extra"],
+            "item-extra"
+        );
         assert_eq!(batch.next_cursor.as_deref(), Some("next"));
+        assert_eq!(batch.extra["batch_extra"], "batch-extra");
     }
 
     #[test]
