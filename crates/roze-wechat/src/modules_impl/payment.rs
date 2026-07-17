@@ -2203,6 +2203,71 @@ pub struct PaymentOrderResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaymentTradeStateKind {
+    Success,
+    Refund,
+    NotPay,
+    Closed,
+    Revoked,
+    UserPaying,
+    PayError,
+    Accept,
+    Other,
+}
+
+impl PaymentTradeStateKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("SUCCESS") {
+            Self::Success
+        } else if value.eq_ignore_ascii_case("REFUND") {
+            Self::Refund
+        } else if value.eq_ignore_ascii_case("NOTPAY") {
+            Self::NotPay
+        } else if value.eq_ignore_ascii_case("CLOSED") {
+            Self::Closed
+        } else if value.eq_ignore_ascii_case("REVOKED") {
+            Self::Revoked
+        } else if value.eq_ignore_ascii_case("USERPAYING") {
+            Self::UserPaying
+        } else if value.eq_ignore_ascii_case("PAYERROR") {
+            Self::PayError
+        } else if value.eq_ignore_ascii_case("ACCEPT") {
+            Self::Accept
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_success(self) -> bool {
+        matches!(self, Self::Success)
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Success | Self::Refund | Self::Closed | Self::Revoked | Self::PayError
+        )
+    }
+
+    pub fn needs_polling(self) -> bool {
+        matches!(self, Self::NotPay | Self::UserPaying | Self::Accept)
+    }
+}
+
+impl PaymentOrderResponse {
+    pub fn trade_state_kind(&self) -> Option<PaymentTradeStateKind> {
+        self.trade_state
+            .as_deref()
+            .map(PaymentTradeStateKind::from_code)
+    }
+
+    pub fn is_paid(&self) -> bool {
+        self.trade_state_kind()
+            .is_some_and(PaymentTradeStateKind::is_success)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentStatusResponse {
     #[serde(default)]
@@ -2304,6 +2369,53 @@ pub struct RefundDetailResponse {
     pub promotion_detail: Vec<RefundPromotionDetail>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaymentRefundStatusKind {
+    Success,
+    Closed,
+    Processing,
+    Abnormal,
+    Other,
+}
+
+impl PaymentRefundStatusKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("SUCCESS") {
+            Self::Success
+        } else if value.eq_ignore_ascii_case("CLOSED") {
+            Self::Closed
+        } else if value.eq_ignore_ascii_case("PROCESSING") {
+            Self::Processing
+        } else if value.eq_ignore_ascii_case("ABNORMAL") {
+            Self::Abnormal
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_success(self) -> bool {
+        matches!(self, Self::Success)
+    }
+
+    pub fn is_terminal(self) -> bool {
+        !matches!(self, Self::Processing)
+    }
+
+    pub fn needs_attention(self) -> bool {
+        matches!(self, Self::Closed | Self::Abnormal | Self::Other)
+    }
+}
+
+impl RefundDetailResponse {
+    pub fn status_kind(&self) -> PaymentRefundStatusKind {
+        PaymentRefundStatusKind::from_code(&self.status)
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.status_kind().is_success()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4542,6 +4654,19 @@ pub struct PaymentTransactionNotification {
     pub extra: Value,
 }
 
+impl PaymentTransactionNotification {
+    pub fn trade_state_kind(&self) -> Option<PaymentTradeStateKind> {
+        self.trade_state
+            .as_deref()
+            .map(PaymentTradeStateKind::from_code)
+    }
+
+    pub fn is_paid(&self) -> bool {
+        self.trade_state_kind()
+            .is_some_and(PaymentTradeStateKind::is_success)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentTransactionAmount {
     #[serde(default)]
@@ -4648,6 +4773,19 @@ pub struct PaymentRefundNotification {
     pub extra: Value,
 }
 
+impl PaymentRefundNotification {
+    pub fn refund_status_kind(&self) -> Option<PaymentRefundStatusKind> {
+        self.refund_status
+            .as_deref()
+            .map(PaymentRefundStatusKind::from_code)
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.refund_status_kind()
+            .is_some_and(PaymentRefundStatusKind::is_success)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentRefundNotificationAmount {
     #[serde(default)]
@@ -4714,9 +4852,10 @@ mod tests {
         PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
         PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
         PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill,
-        PaymentNotification, PaymentOrderResponse, PaymentRefundNotification, PaymentResource,
-        PaymentStatusResponse, PaymentTransactionNotification, PaymentTransferBillNotification,
-        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        PaymentNotification, PaymentOrderResponse, PaymentRefundNotification,
+        PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse, PaymentTradeStateKind,
+        PaymentTransactionNotification, PaymentTransferBillNotification, PrepayResponse,
+        ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
         ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
@@ -4843,6 +4982,26 @@ mod tests {
         .unwrap();
 
         assert_eq!(order.trade_state.as_deref(), Some("SUCCESS"));
+        assert_eq!(
+            order.trade_state_kind(),
+            Some(PaymentTradeStateKind::Success)
+        );
+        assert!(order.is_paid());
+        assert!(order.trade_state_kind().expect("trade state").is_terminal());
+        assert_eq!(
+            PaymentTradeStateKind::from_code("notpay"),
+            PaymentTradeStateKind::NotPay
+        );
+        assert!(PaymentTradeStateKind::NotPay.needs_polling());
+        assert!(PaymentTradeStateKind::UserPaying.needs_polling());
+        assert!(PaymentTradeStateKind::Accept.needs_polling());
+        assert!(PaymentTradeStateKind::Closed.is_terminal());
+        assert!(PaymentTradeStateKind::Revoked.is_terminal());
+        assert!(PaymentTradeStateKind::PayError.is_terminal());
+        assert_eq!(
+            PaymentTradeStateKind::from_code("UNKNOWN"),
+            PaymentTradeStateKind::Other
+        );
         assert_eq!(order.sp_mchid.as_deref(), Some("sp-mchid"));
         assert_eq!(order.sub_mchid.as_deref(), Some("sub-mchid"));
         assert_eq!(
@@ -4919,6 +5078,11 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(transaction.trade_state.as_deref(), Some("SUCCESS"));
+        assert_eq!(
+            transaction.trade_state_kind(),
+            Some(PaymentTradeStateKind::Success)
+        );
+        assert!(transaction.is_paid());
         let amount = transaction.amount.as_ref().expect("amount");
         assert_eq!(amount.total, Some(100));
         assert_eq!(amount.extra["settlement_rate"], "1.0");
@@ -4962,6 +5126,11 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(refund.refund_status.as_deref(), Some("SUCCESS"));
+        assert_eq!(
+            refund.refund_status_kind(),
+            Some(PaymentRefundStatusKind::Success)
+        );
+        assert!(refund.is_success());
         let refund_amount = refund.amount.as_ref().expect("refund amount");
         assert_eq!(refund_amount.payer_refund, Some(100));
         assert_eq!(refund_amount.extra["settlement_refund"], 100);
@@ -6404,6 +6573,17 @@ mod tests {
         .unwrap();
 
         assert_eq!(response.refund_id, "refund-id");
+        assert_eq!(response.status_kind(), PaymentRefundStatusKind::Success);
+        assert!(response.is_success());
+        assert!(response.status_kind().is_terminal());
+        assert_eq!(
+            PaymentRefundStatusKind::from_code("processing"),
+            PaymentRefundStatusKind::Processing
+        );
+        assert!(!PaymentRefundStatusKind::Processing.is_terminal());
+        assert!(PaymentRefundStatusKind::Closed.needs_attention());
+        assert!(PaymentRefundStatusKind::Abnormal.needs_attention());
+        assert!(PaymentRefundStatusKind::Other.needs_attention());
         assert_eq!(response.amount.from[0].account, "AVAILABLE");
         assert_eq!(response.amount.from[0].extra["account_extra"], "retained");
         assert_eq!(response.amount.payer_refund, Some(50));

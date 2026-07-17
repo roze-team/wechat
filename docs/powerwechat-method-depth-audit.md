@@ -499,6 +499,9 @@ Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
   payload DTOs for production webhook handlers;
 - transaction/refund notification nested amount, payer, scene, promotion, and
   goods DTOs now preserve unknown upstream fields for forward compatibility.
+- order query and transaction notification DTOs now expose semantic trade-state
+  helpers, and refund detail/notification DTOs expose semantic refund-status
+  helpers while retaining the original upstream status strings.
 - refund detail responses now preserve unknown upstream fields across wrapper,
   amount, source-account, promotion, and goods DTO payloads.
 - order and partner-order responses now expose typed transaction fields,
