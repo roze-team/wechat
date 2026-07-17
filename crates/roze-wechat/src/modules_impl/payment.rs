@@ -3762,6 +3762,8 @@ pub struct ComplaintNotificationResponse {
     #[serde(default, rename = "mchid")]
     pub mch_id: Option<String>,
     pub url: String,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5950,53 +5952,65 @@ mod tests {
     fn deserializes_complaint_notification_response() {
         let response: ComplaintNotificationResponse = serde_json::from_value(json!({
             "mchid": "1900000109",
-            "url": "https://example.com/complaints"
+            "url": "https://example.com/complaints",
+            "notify_scene": "merchant-service"
         }))
         .unwrap();
 
         assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
         assert_eq!(response.url, "https://example.com/complaints");
+        assert_eq!(response.extra["notify_scene"], "merchant-service");
     }
 
     #[test]
     fn deserializes_complaint_action_responses() {
         let deleted: ComplaintNotificationDeleteResponse = serde_json::from_value(json!({
-            "mchid": "1900000109"
+            "mchid": "1900000109",
+            "request_id": "delete-1"
         }))
         .unwrap();
         assert_eq!(deleted.mch_id.as_deref(), Some("1900000109"));
+        assert_eq!(deleted.extra["request_id"], "delete-1");
 
         let reply: ComplaintReplyResponse = serde_json::from_value(json!({
             "complaint_id": "complaint-1",
-            "response_result": "SUCCESS"
+            "response_result": "SUCCESS",
+            "request_id": "reply-1"
         }))
         .unwrap();
         assert_eq!(reply.complaint_id.as_deref(), Some("complaint-1"));
         assert_eq!(reply.response_result.as_deref(), Some("SUCCESS"));
+        assert_eq!(reply.extra["request_id"], "reply-1");
 
         let completed: ComplaintCompleteResponse = serde_json::from_value(json!({
             "complaint_id": "complaint-1",
-            "complaint_state": "COMPLETED"
+            "complaint_state": "COMPLETED",
+            "request_id": "complete-1"
         }))
         .unwrap();
         assert_eq!(completed.complaint_state.as_deref(), Some("COMPLETED"));
+        assert_eq!(completed.extra["request_id"], "complete-1");
 
         let progress: ComplaintRefundProgressResponse = serde_json::from_value(json!({
             "complaint_id": "complaint-1",
             "action": "APPROVE",
-            "refund_progress": "REFUNDING"
+            "refund_progress": "REFUNDING",
+            "request_id": "progress-1"
         }))
         .unwrap();
         assert_eq!(progress.action.as_deref(), Some("APPROVE"));
         assert_eq!(progress.refund_progress.as_deref(), Some("REFUNDING"));
+        assert_eq!(progress.extra["request_id"], "progress-1");
 
         let error: ComplaintReplyResponse = serde_json::from_value(json!({
             "code": "INVALID_REQUEST",
-            "message": "bad request"
+            "message": "bad request",
+            "request_id": "error-1"
         }))
         .unwrap();
         assert_eq!(error.code.as_deref(), Some("INVALID_REQUEST"));
         assert_eq!(error.message.as_deref(), Some("bad request"));
+        assert_eq!(error.extra["request_id"], "error-1");
     }
 
     #[test]

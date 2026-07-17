@@ -373,6 +373,8 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 - merchant-service complaint notification delete, user reply, completion, and
   refund-progress mutation paths now return dedicated response DTOs instead of
   the generic payment status response.
+- merchant-service complaint notification query and action response DTOs now
+  preserve unknown upstream fields across success and error payloads.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 
