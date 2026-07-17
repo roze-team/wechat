@@ -1069,8 +1069,8 @@ impl Payment {
     pub async fn delete_complaint_notification(
         &self,
         credentials: &PaymentCredentials,
-    ) -> Result<ComplaintNotificationDeleteResponse> {
-        self.delete_v3(credentials, "/v3/merchant-service/complaint-notifications")
+    ) -> Result<()> {
+        self.delete_v3_empty(credentials, "/v3/merchant-service/complaint-notifications")
             .await
     }
 
@@ -1079,24 +1079,26 @@ impl Payment {
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
         request: ComplaintReplyRequest,
-    ) -> Result<ComplaintReplyResponse> {
+    ) -> Result<()> {
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/response",
             complaint_id.as_ref()
         );
-        self.post_v3(credentials, &path, to_value(request)?).await
+        self.post_v3_empty(credentials, &path, to_value(request)?)
+            .await
     }
 
     pub async fn complete_complaint(
         &self,
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
-    ) -> Result<ComplaintCompleteResponse> {
+        request: ComplaintCompleteRequest,
+    ) -> Result<()> {
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/complete",
             complaint_id.as_ref()
         );
-        self.post_v3(credentials, &path, serde_json::json!({}))
+        self.post_v3_empty(credentials, &path, to_value(request)?)
             .await
     }
 
@@ -1105,12 +1107,13 @@ impl Payment {
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
         request: ComplaintRefundProgressRequest,
-    ) -> Result<ComplaintRefundProgressResponse> {
+    ) -> Result<()> {
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/update-refund-progress",
             complaint_id.as_ref()
         );
-        self.post_v3(credentials, &path, to_value(request)?).await
+        self.post_v3_empty(credentials, &path, to_value(request)?)
+            .await
     }
 
     pub async fn upload_complaint_image(
@@ -1561,6 +1564,20 @@ impl Payment {
         self.inner.post_json(path, None, body, headers).await
     }
 
+    async fn post_v3_empty(
+        &self,
+        credentials: &PaymentCredentials,
+        path: &str,
+        body: Value,
+    ) -> Result<()> {
+        let body_text = body.to_string();
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization("POST", path, &body_text)?,
+        )];
+        self.inner.post_json_empty(path, body, headers).await
+    }
+
     async fn post_v3_with_query<R>(
         &self,
         credentials: &PaymentCredentials,
@@ -1599,15 +1616,12 @@ impl Payment {
         self.inner.put_json(path, body, headers).await
     }
 
-    async fn delete_v3<R>(&self, credentials: &PaymentCredentials, path: &str) -> Result<R>
-    where
-        R: serde::de::DeserializeOwned,
-    {
+    async fn delete_v3_empty(&self, credentials: &PaymentCredentials, path: &str) -> Result<()> {
         let headers = vec![(
             "authorization".to_string(),
             credentials.authorization("DELETE", path, "")?,
         )];
-        self.inner.delete_json(path, headers).await
+        self.inner.delete_empty(path, headers).await
     }
 
     async fn get_v3<R>(
@@ -4261,6 +4275,8 @@ pub struct ComplaintDetailResponse {
     #[serde(default)]
     pub payer_phone: Option<String>,
     #[serde(default)]
+    pub payer_openid: Option<String>,
+    #[serde(default)]
     pub complaint_order_info: Vec<ComplaintOrderInfo>,
     #[serde(default)]
     pub complaint_full_refunded: Option<bool>,
@@ -4282,6 +4298,12 @@ pub struct ComplaintDetailResponse {
     pub service_order_info: Vec<ComplaintServiceOrderInfo>,
     #[serde(default)]
     pub additional_info: Option<ComplaintAdditionalInfo>,
+    #[serde(default)]
+    pub in_platform_service: Option<bool>,
+    #[serde(default)]
+    pub need_immediate_service: Option<bool>,
+    #[serde(default)]
+    pub is_agent_mode: Option<bool>,
     #[serde(default, flatten)]
     pub extra: Value,
 }
@@ -4319,6 +4341,56 @@ impl ComplaintDetailResponse {
             .as_deref()
             .map(ComplaintStateKind::from_code)
     }
+
+    pub fn problem_type_kind(&self) -> Option<ComplaintProblemType> {
+        self.problem_type
+            .as_deref()
+            .map(ComplaintProblemType::from_code)
+    }
+
+    pub fn user_tag_kinds(&self) -> impl Iterator<Item = ComplaintUserTag> + '_ {
+        self.user_tag_list
+            .iter()
+            .map(|value| ComplaintUserTag::from_code(value))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintProblemType {
+    Refund,
+    ServiceNotWork,
+    Others,
+    Other,
+}
+
+impl ComplaintProblemType {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "REFUND" => Self::Refund,
+            "SERVICE_NOT_WORK" => Self::ServiceNotWork,
+            "OTHERS" => Self::Others,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintUserTag {
+    Trusted,
+    HighRisk,
+    Other,
+}
+
+impl ComplaintUserTag {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("TRUSTED") {
+            Self::Trusted
+        } else if value.eq_ignore_ascii_case("HIGH_RISK") {
+            Self::HighRisk
+        } else {
+            Self::Other
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4349,6 +4421,8 @@ pub struct ComplaintMedia {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ComplaintMediaType {
+    UserComplaintImage,
+    OperationImage,
     Image,
     Video,
     Other,
@@ -4357,7 +4431,11 @@ pub enum ComplaintMediaType {
 impl ComplaintMedia {
     pub fn media_kind(&self) -> Option<ComplaintMediaType> {
         self.media_type.as_deref().map(|media_type| {
-            if media_type.eq_ignore_ascii_case("IMAGE") {
+            if media_type.eq_ignore_ascii_case("USER_COMPLAINT_IMAGE") {
+                ComplaintMediaType::UserComplaintImage
+            } else if media_type.eq_ignore_ascii_case("OPERATION_IMAGE") {
+                ComplaintMediaType::OperationImage
+            } else if media_type.eq_ignore_ascii_case("IMAGE") {
                 ComplaintMediaType::Image
             } else if media_type.eq_ignore_ascii_case("VIDEO") {
                 ComplaintMediaType::Video
@@ -4368,7 +4446,14 @@ impl ComplaintMedia {
     }
 
     pub fn is_image(&self) -> bool {
-        self.media_kind() == Some(ComplaintMediaType::Image)
+        matches!(
+            self.media_kind(),
+            Some(
+                ComplaintMediaType::UserComplaintImage
+                    | ComplaintMediaType::OperationImage
+                    | ComplaintMediaType::Image
+            )
+        )
     }
 
     pub fn is_video(&self) -> bool {
@@ -4435,12 +4520,40 @@ pub struct ComplaintAdditionalInfo {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintAdditionalInfoType {
+    SharePower,
+    Other,
+}
+
+impl ComplaintAdditionalInfoType {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("SHARE_POWER_TYPE")
+            || value.eq_ignore_ascii_case("SHARE_POWER_BANK")
+        {
+            Self::SharePower
+        } else {
+            Self::Other
+        }
+    }
+}
+
+impl ComplaintAdditionalInfo {
+    pub fn info_type_kind(&self) -> Option<ComplaintAdditionalInfoType> {
+        self.info_type
+            .as_deref()
+            .map(ComplaintAdditionalInfoType::from_code)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintSharePowerInfo {
     #[serde(default)]
     pub return_time: Option<String>,
     #[serde(default)]
     pub return_address_info: Option<ComplaintReturnAddressInfo>,
+    #[serde(default)]
+    pub is_returned_to_same_machine: Option<bool>,
     #[serde(default, flatten)]
     pub extra: Value,
 }
@@ -4502,6 +4615,316 @@ pub struct ComplaintNegotiationHistoryRecord {
     pub image_list: Vec<String>,
     #[serde(default, deserialize_with = "deserialize_complaint_media_list")]
     pub complaint_media_list: Vec<ComplaintMedia>,
+    #[serde(default)]
+    pub user_appy_platform_service_reason: Option<String>,
+    #[serde(default)]
+    pub user_appy_platform_service_reason_description: Option<String>,
+    #[serde(default)]
+    pub normal_message: Option<ComplaintNormalMessage>,
+    #[serde(default)]
+    pub click_message: Option<ComplaintClickMessage>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintNegotiationOperateType {
+    UserCreateComplaint,
+    UserContinueComplaint,
+    UserResponse,
+    PlatformResponse,
+    MerchantResponse,
+    MerchantConfirmComplete,
+    UserApplyPlatformService,
+    UserCancelPlatformService,
+    PlatformServiceFinished,
+    MerchantApproveRefund,
+    MerchantRejectRefund,
+    UserClickResponse,
+    SystemMessage,
+    Other,
+}
+
+impl ComplaintNegotiationOperateType {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "USER_CREATE_COMPLAINT" => Self::UserCreateComplaint,
+            "USER_CONTINUE_COMPLAINT" => Self::UserContinueComplaint,
+            "USER_RESPONSE" => Self::UserResponse,
+            "PLATFORM_RESPONSE" => Self::PlatformResponse,
+            "MERCHANT_RESPONSE" => Self::MerchantResponse,
+            "MERCHANT_CONFIRM_COMPLETE" => Self::MerchantConfirmComplete,
+            "USER_APPLY_PLATFORM_SERVICE" => Self::UserApplyPlatformService,
+            "USER_CANCEL_PLATFORM_SERVICE" => Self::UserCancelPlatformService,
+            "PLATFORM_SERVICE_FINISHED" => Self::PlatformServiceFinished,
+            "MERCHANT_APPROVE_REFUND" => Self::MerchantApproveRefund,
+            "MERCHANT_REFUSE_RERUND" | "MERCHANT_REJECT_REFUND" => Self::MerchantRejectRefund,
+            "USER_CLICK_RESPONSE" => Self::UserClickResponse,
+            value if value.ends_with("_SYSTEM_MESSAGE") => Self::SystemMessage,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl ComplaintNegotiationHistoryRecord {
+    pub fn operate_type_kind(&self) -> Option<ComplaintNegotiationOperateType> {
+        self.operate_type
+            .as_deref()
+            .map(ComplaintNegotiationOperateType::from_code)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNormalMessage {
+    #[serde(default)]
+    pub blocks: Vec<ComplaintMessageBlock>,
+    #[serde(default)]
+    pub sender_identity: Option<String>,
+    #[serde(default)]
+    pub custom_data: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintMessageSenderIdentity {
+    Unknown,
+    Manual,
+    Machine,
+    Other,
+}
+
+impl ComplaintMessageSenderIdentity {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "UNKNOWN" => Self::Unknown,
+            "MANUAL" => Self::Manual,
+            "MACHINE" => Self::Machine,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl ComplaintNormalMessage {
+    pub fn sender_identity_kind(&self) -> Option<ComplaintMessageSenderIdentity> {
+        self.sender_identity
+            .as_deref()
+            .map(ComplaintMessageSenderIdentity::from_code)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintClickMessage {
+    #[serde(default)]
+    pub message_content: Option<String>,
+    #[serde(default)]
+    pub action_id: Option<String>,
+    #[serde(default)]
+    pub clicked_log_id: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageBlock {
+    #[serde(default, rename = "type")]
+    pub block_type: Option<String>,
+    #[serde(default)]
+    pub text: Option<ComplaintMessageText>,
+    #[serde(default)]
+    pub image: Option<ComplaintMessageImage>,
+    #[serde(default)]
+    pub link: Option<ComplaintMessageLink>,
+    #[serde(default)]
+    pub faq_list: Option<ComplaintMessageFaqList>,
+    #[serde(default)]
+    pub button: Option<ComplaintMessageButton>,
+    #[serde(default)]
+    pub button_group: Option<ComplaintMessageButtonGroup>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintMessageBlockType {
+    Text,
+    Image,
+    Link,
+    FaqList,
+    Button,
+    ButtonGroup,
+    Other,
+}
+
+impl ComplaintMessageBlockType {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "TEXT" => Self::Text,
+            "IMAGE" => Self::Image,
+            "LINK" => Self::Link,
+            "FAQ_LIST" => Self::FaqList,
+            "BUTTON" => Self::Button,
+            "BUTTON_GROUP" => Self::ButtonGroup,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl ComplaintMessageBlock {
+    pub fn block_type_kind(&self) -> Option<ComplaintMessageBlockType> {
+        self.block_type
+            .as_deref()
+            .map(ComplaintMessageBlockType::from_code)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageText {
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub is_bold: Option<bool>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageImage {
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub image_style_type: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageLink {
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub action: Option<ComplaintMessageAction>,
+    #[serde(default)]
+    pub invalid_info: Option<ComplaintMessageInvalidInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageFaqList {
+    #[serde(default)]
+    pub faqs: Vec<ComplaintMessageFaq>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageFaq {
+    #[serde(default)]
+    pub faq_id: Option<String>,
+    #[serde(default)]
+    pub faq_title: Option<String>,
+    #[serde(default)]
+    pub action: Option<ComplaintMessageAction>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageButton {
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub action: Option<ComplaintMessageAction>,
+    #[serde(default)]
+    pub invalid_info: Option<ComplaintMessageInvalidInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageButtonGroup {
+    #[serde(default)]
+    pub buttons: Vec<ComplaintMessageButton>,
+    #[serde(default)]
+    pub button_layout: Option<String>,
+    #[serde(default)]
+    pub invalid_info: Option<ComplaintMessageInvalidInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageAction {
+    #[serde(default)]
+    pub action_type: Option<String>,
+    #[serde(default)]
+    pub jump_url: Option<String>,
+    #[serde(default)]
+    pub mini_program_jump_info: Option<ComplaintMiniProgramJumpInfo>,
+    #[serde(default)]
+    pub message_info: Option<ComplaintMessageInfo>,
+    #[serde(default)]
+    pub action_id: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintMessageActionType {
+    SendMessage,
+    JumpUrl,
+    JumpMiniProgram,
+    Other,
+}
+
+impl ComplaintMessageActionType {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "ACTION_TYPE_SEND_MESSAGE" => Self::SendMessage,
+            "ACTION_TYPE_JUMP_URL" => Self::JumpUrl,
+            "ACTION_TYPE_JUMP_MINI_PROGRAM" => Self::JumpMiniProgram,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl ComplaintMessageAction {
+    pub fn action_type_kind(&self) -> Option<ComplaintMessageActionType> {
+        self.action_type
+            .as_deref()
+            .map(ComplaintMessageActionType::from_code)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageInvalidInfo {
+    #[serde(default)]
+    pub expired_time: Option<String>,
+    #[serde(default)]
+    pub multi_clickable: Option<bool>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMiniProgramJumpInfo {
+    pub appid: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintMessageInfo {
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub custom_data: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
 }
@@ -4526,18 +4949,6 @@ pub struct ComplaintNotificationResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComplaintNotificationDeleteResponse {
-    #[serde(default)]
-    pub code: Option<String>,
-    #[serde(default)]
-    pub message: Option<String>,
-    #[serde(default, rename = "mchid")]
-    pub mch_id: Option<String>,
-    #[serde(default, flatten)]
-    pub extra: Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintReplyRequest {
     pub complainted_mchid: String,
     pub response_content: String,
@@ -4547,42 +4958,13 @@ pub struct ComplaintReplyRequest {
     pub jump_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump_url_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mini_program_jump_info: Option<ComplaintMiniProgramJumpInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComplaintReplyResponse {
-    #[serde(default)]
-    pub code: Option<String>,
-    #[serde(default)]
-    pub message: Option<String>,
-    #[serde(default)]
-    pub complaint_id: Option<String>,
-    #[serde(default)]
-    pub response_result: Option<String>,
-    #[serde(default, flatten)]
-    pub extra: Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComplaintCompleteResponse {
-    #[serde(default)]
-    pub code: Option<String>,
-    #[serde(default)]
-    pub message: Option<String>,
-    #[serde(default)]
-    pub complaint_id: Option<String>,
-    #[serde(default)]
-    pub complaint_state: Option<String>,
-    #[serde(default, flatten)]
-    pub extra: Value,
-}
-
-impl ComplaintCompleteResponse {
-    pub fn complaint_state_kind(&self) -> Option<ComplaintStateKind> {
-        self.complaint_state
-            .as_deref()
-            .map(ComplaintStateKind::from_code)
-    }
+pub struct ComplaintCompleteRequest {
+    pub complainted_mchid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4598,20 +4980,29 @@ pub struct ComplaintRefundProgressRequest {
     pub remark: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComplaintRefundProgressResponse {
-    #[serde(default)]
-    pub code: Option<String>,
-    #[serde(default)]
-    pub message: Option<String>,
-    #[serde(default)]
-    pub complaint_id: Option<String>,
-    #[serde(default)]
-    pub action: Option<String>,
-    #[serde(default)]
-    pub refund_progress: Option<String>,
-    #[serde(default, flatten)]
-    pub extra: Value,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ComplaintRefundAction {
+    Approve,
+    Reject,
+    Other,
+}
+
+impl ComplaintRefundAction {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("APPROVE") {
+            Self::Approve
+        } else if value.eq_ignore_ascii_case("REJECT") {
+            Self::Reject
+        } else {
+            Self::Other
+        }
+    }
+}
+
+impl ComplaintRefundProgressRequest {
+    pub fn action_kind(&self) -> ComplaintRefundAction {
+        ComplaintRefundAction::from_code(&self.action)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4806,6 +5197,73 @@ impl PaymentNotification {
             &self.resource.ciphertext,
         )?;
         Ok(serde_json::from_slice(&plaintext)?)
+    }
+
+    pub fn decrypt_complaint_resource(
+        &self,
+        api_v3_key: &str,
+    ) -> Result<ComplaintNotificationResource> {
+        self.decrypt_resource(api_v3_key)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplaintNotificationResource {
+    pub complaint_id: String,
+    pub action_type: String,
+    #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintNotificationActionKind {
+    CreateComplaint,
+    ContinueComplaint,
+    UserResponse,
+    PlatformResponse,
+    SellerRefund,
+    MerchantResponse,
+    MerchantConfirmComplete,
+    UserApplyPlatformService,
+    UserCancelPlatformService,
+    PlatformServiceFinished,
+    MerchantApproveRefund,
+    MerchantRejectRefund,
+    RefundSuccess,
+    Other,
+}
+
+impl ComplaintNotificationActionKind {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "CREATE_COMPLAINT" => Self::CreateComplaint,
+            "CONTINUE_COMPLAINT" => Self::ContinueComplaint,
+            "USER_RESPONSE" => Self::UserResponse,
+            "RESPONSE_BY_PLATFORM" => Self::PlatformResponse,
+            "SELLER_REFUND" => Self::SellerRefund,
+            "MERCHANT_RESPONSE" => Self::MerchantResponse,
+            "MERCHANT_CONFIRM_COMPLETE" => Self::MerchantConfirmComplete,
+            "USER_APPLY_PLATFORM_SERVICE" => Self::UserApplyPlatformService,
+            "USER_CANCEL_PLATFORM_SERVICE" => Self::UserCancelPlatformService,
+            "PLATFORM_SERVICE_FINISHED" => Self::PlatformServiceFinished,
+            "MERCHANT_APPROVE_REFUND" => Self::MerchantApproveRefund,
+            "MERCHANT_REJECT_REFUND" => Self::MerchantRejectRefund,
+            "REFUND_SUCCESS" => Self::RefundSuccess,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn changes_complaint_state(self) -> bool {
+        matches!(
+            self,
+            Self::MerchantApproveRefund | Self::MerchantRejectRefund | Self::RefundSuccess
+        )
+    }
+}
+
+impl ComplaintNotificationResource {
+    pub fn action_kind(&self) -> ComplaintNotificationActionKind {
+        ComplaintNotificationActionKind::from_code(&self.action_type)
     }
 }
 
@@ -5031,35 +5489,38 @@ mod tests {
         Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse, BillRequest,
         BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
         CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
-        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintCompleteResponse,
-        ComplaintDetailResponse, ComplaintListRequest, ComplaintListResponse, ComplaintMedia,
-        ComplaintMediaType, ComplaintNegotiationHistoryRequest,
-        ComplaintNegotiationHistoryResponse, ComplaintNotificationDeleteResponse,
-        ComplaintNotificationRequest, ComplaintNotificationResponse,
-        ComplaintRefundProgressRequest, ComplaintRefundProgressResponse, ComplaintReplyRequest,
-        ComplaintReplyResponse, ComplaintServiceOrderStateKind, ComplaintStateKind,
-        CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
-        CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
-        FundAppTransferBillRequest, FundAppTransferBillResponse, H5PrepayResponse, JsapiPayParams,
-        LegacyProfitSharingReturnRequest, LegacyProfitSharingReturnResponse,
-        LegacyTransferInfoResponse, MerchantFundBalanceResponse, MerchantMediaUploadRequest,
-        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
-        NativePrepayRequest, NativePrepayResponse, PartnerCloseOrderRequest,
-        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
-        PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
-        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
-        PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadHasher,
-        PaymentDownloadedBill, PaymentNotification, PaymentOrderResponse,
-        PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse,
-        PaymentTradeStateKind, PaymentTransactionNotification, PaymentTransferBillNotification,
-        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
-        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
-        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
-        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
-        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard,
-        TransferBatchQuery, TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintAdditionalInfoType,
+        ComplaintCompleteRequest, ComplaintDetailResponse, ComplaintListRequest,
+        ComplaintListResponse, ComplaintMedia, ComplaintMediaType, ComplaintMessageActionType,
+        ComplaintMessageBlockType, ComplaintMessageSenderIdentity, ComplaintMiniProgramJumpInfo,
+        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
+        ComplaintNegotiationOperateType, ComplaintNotificationActionKind,
+        ComplaintNotificationRequest, ComplaintNotificationResource, ComplaintNotificationResponse,
+        ComplaintProblemType, ComplaintRefundAction, ComplaintRefundProgressRequest,
+        ComplaintReplyRequest, ComplaintServiceOrderStateKind, ComplaintStateKind,
+        ComplaintUserTag, CouponStockCreateRequest, CouponStockListRequest,
+        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
+        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
+        H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
+        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
+        MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
+        MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
+        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
+        PartnerOrderQuery, PartnerPayer, PartnerRefundQuery, PartnerTransactionQuery,
+        PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
+        PayScoreServiceOrderResponse, PayScoreTimeRange, PaymentBillDownloadRequest,
+        PaymentCredentials, PaymentDownloadHasher, PaymentDownloadedBill, PaymentNotification,
+        PaymentOrderResponse, PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource,
+        PaymentStatusResponse, PaymentTradeStateKind, PaymentTransactionNotification,
+        PaymentTransferBillNotification, PrepayResponse, ProfitSharingBillRequest,
+        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
+        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
+        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
+        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundDetailResponse, RefundRequest,
+        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
+        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
+        TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard, TransferBatchQuery,
+        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
         TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
         TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
         UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
@@ -5094,6 +5555,44 @@ mod tests {
             notification.resource.original_type.as_deref(),
             Some("transaction")
         );
+    }
+
+    #[test]
+    fn decrypts_typed_complaint_notification_resource() {
+        let key = "0123456789abcdef0123456789abcdef";
+        let nonce = "nonce-123456";
+        let aad = "complaint";
+        let ciphertext = crypto::payment_v3_encrypt_for_test(
+            key,
+            nonce,
+            aad,
+            br#"{"complaint_id":"complaint-1","action_type":"REFUND_SUCCESS","trace_id":"trace-1"}"#,
+        )
+        .unwrap();
+        let notification = PaymentNotification {
+            id: "notice-1".to_string(),
+            create_time: "2026-07-17T10:00:00+08:00".to_string(),
+            event_type: "COMPLAINT.STATE_CHANGE".to_string(),
+            resource_type: "encrypt-resource".to_string(),
+            resource: PaymentResource {
+                algorithm: "AEAD_AES_256_GCM".to_string(),
+                ciphertext,
+                nonce: nonce.to_string(),
+                associated_data: aad.to_string(),
+                original_type: Some("complaint".to_string()),
+            },
+            summary: "complaint changed".to_string(),
+        };
+
+        let resource: ComplaintNotificationResource =
+            notification.decrypt_complaint_resource(key).unwrap();
+        assert_eq!(resource.complaint_id, "complaint-1");
+        assert_eq!(
+            resource.action_kind(),
+            ComplaintNotificationActionKind::RefundSuccess
+        );
+        assert!(resource.action_kind().changes_complaint_state());
+        assert_eq!(resource.extra["trace_id"], "trace-1");
     }
 
     #[test]
@@ -7122,6 +7621,7 @@ mod tests {
             "complaint_detail": "item not received",
             "complaint_state": "PENDING",
             "payer_phone": "13800000000",
+            "payer_openid": "openid-1",
             "complaint_order_info": [{
                 "transaction_id": "transaction-1",
                 "out_trade_no": "order-1",
@@ -7133,13 +7633,13 @@ mod tests {
             "user_complaint_times": 2,
             "complaint_media_list": [{
                 "media_id": "media-detail-1",
-                "media_type": "IMAGE",
+                "media_type": "USER_COMPLAINT_IMAGE",
                 "media_url": ["https://example.com/image.jpg"],
                 "thumbnail_url": "https://example.com/thumb.jpg",
                 "duration": 10
             }],
             "problem_description": "shipping issue",
-            "problem_type": "SERVICE",
+            "problem_type": "SERVICE_NOT_WORK",
             "apply_refund_amount": 100,
             "user_tag_list": ["HIGH_RISK"],
             "service_order_info": [{
@@ -7152,6 +7652,7 @@ mod tests {
                 "type": "SHARE_POWER_BANK",
                 "share_power_info": {
                     "return_time": "2026-07-16T11:00:00+08:00",
+                    "is_returned_to_same_machine": true,
                     "return_status": "RETURNED",
                     "return_address_info": {
                         "return_address": "Shanghai",
@@ -7161,6 +7662,9 @@ mod tests {
                     }
                 }
             },
+            "in_platform_service": true,
+            "need_immediate_service": true,
+            "is_agent_mode": false,
             "merchant_extra_detail": "retained"
         }))
         .unwrap();
@@ -7184,7 +7688,7 @@ mod tests {
         );
         assert_eq!(
             detail.complaint_media_list[0].media_kind(),
-            Some(ComplaintMediaType::Image)
+            Some(ComplaintMediaType::UserComplaintImage)
         );
         assert!(detail.complaint_media_list[0].is_image());
         assert!(!detail.complaint_media_list[0].is_video());
@@ -7206,6 +7710,18 @@ mod tests {
             Some(ComplaintServiceOrderStateKind::Doing)
         );
         assert_eq!(detail.extra["merchant_extra_detail"], "retained");
+        assert_eq!(detail.payer_openid.as_deref(), Some("openid-1"));
+        assert_eq!(detail.in_platform_service, Some(true));
+        assert_eq!(detail.need_immediate_service, Some(true));
+        assert_eq!(detail.is_agent_mode, Some(false));
+        assert_eq!(
+            detail.problem_type_kind(),
+            Some(ComplaintProblemType::ServiceNotWork)
+        );
+        assert_eq!(
+            detail.user_tag_kinds().collect::<Vec<_>>(),
+            vec![ComplaintUserTag::HighRisk]
+        );
         let single_media_detail: ComplaintDetailResponse = serde_json::from_value(json!({
             "complaint_media_list": {
                 "media_type": "VIDEO",
@@ -7236,10 +7752,25 @@ mod tests {
             detail
                 .additional_info
                 .as_ref()
+                .and_then(|info| info.info_type_kind()),
+            Some(ComplaintAdditionalInfoType::SharePower)
+        );
+        assert_eq!(
+            detail
+                .additional_info
+                .as_ref()
                 .and_then(|info| info.share_power_info.as_ref())
                 .and_then(|info| info.return_address_info.as_ref())
                 .and_then(|info| info.return_address.as_deref()),
             Some("Shanghai")
+        );
+        assert_eq!(
+            detail
+                .additional_info
+                .as_ref()
+                .and_then(|info| info.share_power_info.as_ref())
+                .and_then(|info| info.is_returned_to_same_machine),
+            Some(true)
         );
         assert_eq!(
             detail
@@ -7335,58 +7866,12 @@ mod tests {
     }
 
     #[test]
-    fn deserializes_complaint_action_responses() {
-        let deleted: ComplaintNotificationDeleteResponse = serde_json::from_value(json!({
-            "mchid": "1900000109",
-            "request_id": "delete-1"
-        }))
+    fn serializes_complaint_complete_request() {
+        let value = serde_json::to_value(ComplaintCompleteRequest {
+            complainted_mchid: "1900000109".to_string(),
+        })
         .unwrap();
-        assert_eq!(deleted.mch_id.as_deref(), Some("1900000109"));
-        assert_eq!(deleted.extra["request_id"], "delete-1");
-
-        let reply: ComplaintReplyResponse = serde_json::from_value(json!({
-            "complaint_id": "complaint-1",
-            "response_result": "SUCCESS",
-            "request_id": "reply-1"
-        }))
-        .unwrap();
-        assert_eq!(reply.complaint_id.as_deref(), Some("complaint-1"));
-        assert_eq!(reply.response_result.as_deref(), Some("SUCCESS"));
-        assert_eq!(reply.extra["request_id"], "reply-1");
-
-        let completed: ComplaintCompleteResponse = serde_json::from_value(json!({
-            "complaint_id": "complaint-1",
-            "complaint_state": "COMPLETED",
-            "request_id": "complete-1"
-        }))
-        .unwrap();
-        assert_eq!(completed.complaint_state.as_deref(), Some("COMPLETED"));
-        assert_eq!(
-            completed.complaint_state_kind(),
-            Some(ComplaintStateKind::Processed)
-        );
-        assert_eq!(completed.extra["request_id"], "complete-1");
-
-        let progress: ComplaintRefundProgressResponse = serde_json::from_value(json!({
-            "complaint_id": "complaint-1",
-            "action": "APPROVE",
-            "refund_progress": "REFUNDING",
-            "request_id": "progress-1"
-        }))
-        .unwrap();
-        assert_eq!(progress.action.as_deref(), Some("APPROVE"));
-        assert_eq!(progress.refund_progress.as_deref(), Some("REFUNDING"));
-        assert_eq!(progress.extra["request_id"], "progress-1");
-
-        let error: ComplaintReplyResponse = serde_json::from_value(json!({
-            "code": "INVALID_REQUEST",
-            "message": "bad request",
-            "request_id": "error-1"
-        }))
-        .unwrap();
-        assert_eq!(error.code.as_deref(), Some("INVALID_REQUEST"));
-        assert_eq!(error.message.as_deref(), Some("bad request"));
-        assert_eq!(error.extra["request_id"], "error-1");
+        assert_eq!(value["complainted_mchid"], "1900000109");
     }
 
     #[test]
@@ -7397,6 +7882,12 @@ mod tests {
             response_images: vec!["media-1".to_string()],
             jump_url: Some("https://example.com/detail".to_string()),
             jump_url_text: Some("detail".to_string()),
+            mini_program_jump_info: Some(ComplaintMiniProgramJumpInfo {
+                appid: "wx-app".to_string(),
+                path: "/pages/complaint".to_string(),
+                text: Some("complaint".to_string()),
+                extra: serde_json::Value::Null,
+            }),
         })
         .unwrap();
 
@@ -7404,18 +7895,20 @@ mod tests {
         assert_eq!(value["response_content"], "handled");
         assert_eq!(value["response_images"][0], "media-1");
         assert_eq!(value["jump_url_text"], "detail");
+        assert_eq!(value["mini_program_jump_info"]["appid"], "wx-app");
     }
 
     #[test]
     fn serializes_complaint_refund_progress_request() {
-        let value = serde_json::to_value(ComplaintRefundProgressRequest {
+        let request = ComplaintRefundProgressRequest {
             action: "APPROVE".to_string(),
             launch_refund_day: Some(3),
             reject_reason: None,
             reject_media_list: Vec::new(),
             remark: Some("refund accepted".to_string()),
-        })
-        .unwrap();
+        };
+        assert_eq!(request.action_kind(), ComplaintRefundAction::Approve);
+        let value = serde_json::to_value(request).unwrap();
 
         assert_eq!(value["action"], "APPROVE");
         assert_eq!(value["launch_refund_day"], 3);
@@ -7432,7 +7925,7 @@ mod tests {
             "data": [{
                 "log_id": "log-1",
                 "operator": "MERCHANT",
-                "operate_type": "RESPONSE",
+                "operate_type": "MERCHANT_RESPONSE",
                 "merchant_history_state": "OPEN",
                 "image_list": "https://example.com/history-inline.jpg",
                 "complaint_media_list": [{
@@ -7440,7 +7933,37 @@ mod tests {
                     "media_type": "IMAGE",
                     "media_url": "https://example.com/history.jpg",
                     "thumbnail_url": "https://example.com/history-thumb.jpg"
-                }]
+                }],
+                "normal_message": {
+                    "sender_identity": "MANUAL",
+                    "custom_data": "merchant-data",
+                    "blocks": [{
+                        "type": "TEXT",
+                        "text": {
+                            "text": "handled",
+                            "color": "DEFAULT",
+                            "is_bold": true
+                        }
+                    }, {
+                        "type": "BUTTON",
+                        "button": {
+                            "text": "details",
+                            "action": {
+                                "action_type": "ACTION_TYPE_JUMP_MINI_PROGRAM",
+                                "mini_program_jump_info": {
+                                    "appid": "wx-app",
+                                    "path": "/pages/detail"
+                                },
+                                "action_id": "action-1"
+                            }
+                        }
+                    }]
+                },
+                "click_message": {
+                    "message_content": "details",
+                    "action_id": "action-1",
+                    "clicked_log_id": "log-0"
+                }
             }],
             "next_key": "history-cursor-1"
         }))
@@ -7448,7 +7971,10 @@ mod tests {
 
         assert_eq!(response.total_count, Some(1));
         assert_eq!(response.data[0].log_id.as_deref(), Some("log-1"));
-        assert_eq!(response.data[0].operate_type.as_deref(), Some("RESPONSE"));
+        assert_eq!(
+            response.data[0].operate_type_kind(),
+            Some(ComplaintNegotiationOperateType::MerchantResponse)
+        );
         assert_eq!(
             response.data[0].complaint_media_list[0]
                 .media_type
@@ -7474,6 +8000,47 @@ mod tests {
                 .thumbnail_url
                 .as_deref(),
             Some("https://example.com/history-thumb.jpg")
+        );
+        let normal = response.data[0].normal_message.as_ref().unwrap();
+        assert_eq!(normal.sender_identity.as_deref(), Some("MANUAL"));
+        assert_eq!(
+            normal.sender_identity_kind(),
+            Some(ComplaintMessageSenderIdentity::Manual)
+        );
+        assert_eq!(
+            normal.blocks[0].block_type_kind(),
+            Some(ComplaintMessageBlockType::Text)
+        );
+        assert_eq!(
+            normal.blocks[0]
+                .text
+                .as_ref()
+                .and_then(|text| text.text.as_deref()),
+            Some("handled")
+        );
+        assert_eq!(
+            normal.blocks[1]
+                .button
+                .as_ref()
+                .and_then(|button| button.action.as_ref())
+                .and_then(|action| action.mini_program_jump_info.as_ref())
+                .map(|jump| jump.appid.as_str()),
+            Some("wx-app")
+        );
+        assert_eq!(
+            normal.blocks[1]
+                .button
+                .as_ref()
+                .and_then(|button| button.action.as_ref())
+                .and_then(|action| action.action_type_kind()),
+            Some(ComplaintMessageActionType::JumpMiniProgram)
+        );
+        assert_eq!(
+            response.data[0]
+                .click_message
+                .as_ref()
+                .and_then(|message| message.clicked_log_id.as_deref()),
+            Some("log-0")
         );
     }
 

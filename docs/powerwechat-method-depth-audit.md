@@ -517,11 +517,8 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   upstream array and single-object shapes.
 - merchant-service complaint list/detail/history/nested DTOs now preserve
   unknown upstream fields and accept both string and array media URLs.
-- merchant-service complaint notification delete, user reply, completion, and
-  refund-progress mutation paths now return dedicated response DTOs instead of
-  the generic payment status response.
-- merchant-service complaint notification query and action response DTOs now
-  preserve unknown upstream fields across success and error payloads.
+- merchant-service complaint notification queries preserve unknown upstream
+  fields and tolerate code/message error payloads.
 - merchant-service complaint image and merchant media upload responses now
   preserve unknown upstream fields alongside typed media ids.
 - merchant-service complaint media DTOs now expose typed media id and thumbnail
@@ -534,6 +531,15 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   DTOs now expose semantic complaint/service-order state helpers while
   retaining original upstream strings and tolerating legacy completed-state
   spelling.
+- merchant-service reply, completion, refund-approval, and callback deletion
+  now follow the upstream 204 No Content contract; completion sends the
+  required complained merchant id, and replies support typed mini-program
+  jumps.
+- complaint details now expose payer OpenID, platform-service flags, agent mode,
+  immediate-service priority, and shared-power same-machine return status.
+- complaint negotiation history now exposes typed normal/click messages,
+  content blocks, actions, FAQ/buttons, and semantic operation kinds; encrypted
+  complaint callbacks decrypt directly into typed complaint/action resources.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 

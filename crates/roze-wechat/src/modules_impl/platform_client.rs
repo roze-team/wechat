@@ -204,6 +204,22 @@ impl PlatformClient {
             .await
     }
 
+    pub async fn post_json_empty(
+        &self,
+        path: impl Into<String>,
+        body: Value,
+        headers: Vec<(String, String)>,
+    ) -> Result<()> {
+        let mut endpoint = Endpoint::post(path);
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client
+            .execute_bytes(endpoint, Vec::new(), Some(body))
+            .await?;
+        Ok(())
+    }
+
     pub async fn post_json_with_query<R>(
         &self,
         path: impl Into<String>,
@@ -273,6 +289,21 @@ impl PlatformClient {
             endpoint = endpoint.with_header(key, value);
         }
         self.client.execute_json(endpoint, Vec::new(), None).await
+    }
+
+    pub async fn delete_empty(
+        &self,
+        path: impl Into<String>,
+        headers: Vec<(String, String)>,
+    ) -> Result<()> {
+        let mut endpoint = Endpoint::delete(path);
+        for (key, value) in headers {
+            endpoint = endpoint.with_header(key, value);
+        }
+        self.client
+            .execute_bytes(endpoint, Vec::new(), None)
+            .await?;
+        Ok(())
     }
 
     pub async fn post_multipart<R>(
@@ -479,6 +510,15 @@ impl DomainModule {
             .await
     }
 
+    pub async fn post_json_empty(
+        &self,
+        path: impl Into<String>,
+        body: Value,
+        headers: Vec<(String, String)>,
+    ) -> Result<()> {
+        self.inner.post_json_empty(path, body, headers).await
+    }
+
     pub async fn post_json_with_query<R>(
         &self,
         path: impl Into<String>,
@@ -515,6 +555,14 @@ impl DomainModule {
         R: DeserializeOwned,
     {
         self.inner.delete_json(path, headers).await
+    }
+
+    pub async fn delete_empty(
+        &self,
+        path: impl Into<String>,
+        headers: Vec<(String, String)>,
+    ) -> Result<()> {
+        self.inner.delete_empty(path, headers).await
     }
 
     pub async fn post_multipart<R>(

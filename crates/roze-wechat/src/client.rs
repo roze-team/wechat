@@ -596,6 +596,39 @@ mod tests {
         server.join().unwrap();
     }
 
+    #[tokio::test]
+    async fn accepts_no_content_bytes_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 256];
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let read = socket.read(&mut buffer).unwrap();
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..read]);
+            }
+            socket
+                .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+                .unwrap();
+        });
+        let client = Client::new(WechatConfig {
+            base_url: format!("http://{address}"),
+            ..WechatConfig::default()
+        })
+        .unwrap();
+
+        let body = client
+            .execute_bytes(Endpoint::delete("/notification"), Vec::new(), None)
+            .await
+            .unwrap();
+        assert!(body.is_empty());
+        server.join().unwrap();
+    }
+
     #[test]
     fn detects_api_errors_in_binary_responses() {
         let error = api_error_from_bytes(br#"{"errcode":40007,"errmsg":"invalid media_id"}"#)
