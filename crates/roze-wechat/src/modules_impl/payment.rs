@@ -3323,6 +3323,43 @@ impl PaymentBillStatement {
             .collect())
     }
 
+    pub fn records_matching_all(
+        &self,
+        filters: &[(&str, &str)],
+    ) -> Result<Vec<&PaymentBillRecord>> {
+        let columns = filters.iter().map(|(name, _)| *name).collect::<Vec<_>>();
+        self.require_columns(&columns)?;
+        Ok(self
+            .records
+            .iter()
+            .filter(|record| {
+                filters
+                    .iter()
+                    .all(|(name, value)| record.get(name) == Some(*value))
+            })
+            .collect())
+    }
+
+    pub fn record_by_unique_column(
+        &self,
+        name: &str,
+        value: &str,
+    ) -> Result<Option<&PaymentBillRecord>> {
+        self.require_columns(&[name])?;
+        let mut matched = None;
+        for record in &self.records {
+            if record.get(name) == Some(value) {
+                if matched.is_some() {
+                    return Err(WechatError::Config(format!(
+                        "payment bill unique column {name} contains duplicate value {value}"
+                    )));
+                }
+                matched = Some(record);
+            }
+        }
+        Ok(matched)
+    }
+
     pub fn sum_i64_where(
         &self,
         filter_name: &str,
@@ -3332,6 +3369,22 @@ impl PaymentBillStatement {
         self.require_columns(&[filter_name, amount_name])?;
         self.records.iter().try_fold(0_i64, |sum, record| {
             if record.get(filter_name) == Some(filter_value) {
+                record.require_i64(amount_name).map(|amount| sum + amount)
+            } else {
+                Ok(sum)
+            }
+        })
+    }
+
+    pub fn sum_i64_where_all(&self, filters: &[(&str, &str)], amount_name: &str) -> Result<i64> {
+        let mut columns = filters.iter().map(|(name, _)| *name).collect::<Vec<_>>();
+        columns.push(amount_name);
+        self.require_columns(&columns)?;
+        self.records.iter().try_fold(0_i64, |sum, record| {
+            if filters
+                .iter()
+                .all(|(name, value)| record.get(name) == Some(*value))
+            {
                 record.require_i64(amount_name).map(|amount| sum + amount)
             } else {
                 Ok(sum)
@@ -3356,6 +3409,36 @@ impl PaymentBillStatement {
                         .is_some_and(|value| !value.is_empty())
             })
             .count())
+    }
+
+    pub fn group_count(&self, group_name: &str) -> Result<BTreeMap<String, usize>> {
+        self.require_columns(&[group_name])?;
+        let mut counts = BTreeMap::new();
+        for record in &self.records {
+            let group = record.require(group_name)?.to_string();
+            *counts.entry(group).or_insert(0) += 1;
+        }
+        Ok(counts)
+    }
+
+    pub fn group_non_empty_count(
+        &self,
+        group_name: &str,
+        count_name: &str,
+    ) -> Result<BTreeMap<String, usize>> {
+        self.require_columns(&[group_name, count_name])?;
+        let mut counts = BTreeMap::new();
+        for record in &self.records {
+            let group = record.require(group_name)?.to_string();
+            let entry = counts.entry(group).or_insert(0);
+            if record
+                .get(count_name)
+                .is_some_and(|value| !value.is_empty())
+            {
+                *entry += 1;
+            }
+        }
+        Ok(counts)
     }
 
     pub fn index_by_unique_column(
@@ -5825,6 +5908,14 @@ mod tests {
         assert_eq!(grouped.get("order-1"), Some(&100));
         assert_eq!(grouped.get("order-2"), Some(&50));
         assert_eq!(grouped.get(""), Some(&25));
+        let grouped_counts = statement.group_count("trade_state").unwrap();
+        assert_eq!(grouped_counts.get("SUCCESS"), Some(&2));
+        assert_eq!(grouped_counts.get("REFUND"), Some(&1));
+        let grouped_non_empty = statement
+            .group_non_empty_count("trade_state", "out_trade_no")
+            .unwrap();
+        assert_eq!(grouped_non_empty.get("SUCCESS"), Some(&1));
+        assert_eq!(grouped_non_empty.get("REFUND"), Some(&1));
         assert_eq!(
             statement
                 .records_matching("trade_state", "SUCCESS")
@@ -5848,6 +5939,17 @@ mod tests {
         );
         assert_eq!(
             statement
+                .records_matching_all(&[("trade_state", "SUCCESS"), ("out_trade_no", "")])
+                .unwrap()[0]
+                .get("transaction_id"),
+            Some("4200003")
+        );
+        assert!(statement
+            .records_matching_all(&[("trade_state", "SUCCESS"), ("amount", "999")])
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            statement
                 .sum_i64_where("trade_state", "SUCCESS", "amount")
                 .unwrap(),
             125
@@ -5857,6 +5959,15 @@ mod tests {
                 .sum_i64_where("trade_state", "REFUND", "amount")
                 .unwrap(),
             50
+        );
+        assert_eq!(
+            statement
+                .sum_i64_where_all(
+                    &[("trade_state", "SUCCESS"), ("out_trade_no", "")],
+                    "amount"
+                )
+                .unwrap(),
+            25
         );
         assert_eq!(
             statement
@@ -5873,6 +5984,17 @@ mod tests {
         );
         assert_eq!(
             statement
+                .record_by_unique_column("transaction_id", "4200002")
+                .unwrap()
+                .and_then(|record| record.get("out_trade_no")),
+            Some("order-2")
+        );
+        assert!(statement
+            .record_by_unique_column("transaction_id", "missing")
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            statement
                 .assert_non_empty_count_matches_summary("transaction_id", 1)
                 .unwrap(),
             3
@@ -5887,14 +6009,30 @@ mod tests {
             .records_matching("missing", "SUCCESS")
             .expect_err("missing filter column should fail");
         assert!(missing_filter_column.to_string().contains("missing"));
+        let missing_multi_filter_column = statement
+            .records_matching_all(&[("trade_state", "SUCCESS"), ("missing", "value")])
+            .expect_err("missing multi filter column should fail");
+        assert!(missing_multi_filter_column.to_string().contains("missing"));
         let missing_sum_column = statement
             .sum_i64_where("trade_state", "SUCCESS", "missing")
             .expect_err("missing sum column should fail");
         assert!(missing_sum_column.to_string().contains("missing"));
+        let missing_multi_sum_column = statement
+            .sum_i64_where_all(&[("missing", "SUCCESS")], "amount")
+            .expect_err("missing multi sum column should fail");
+        assert!(missing_multi_sum_column.to_string().contains("missing"));
         let missing_count_column = statement
             .non_empty_count_where("trade_state", "SUCCESS", "missing")
             .expect_err("missing count column should fail");
         assert!(missing_count_column.to_string().contains("missing"));
+        let missing_group_column = statement
+            .group_count("missing")
+            .expect_err("missing group column should fail");
+        assert!(missing_group_column.to_string().contains("missing"));
+        let missing_group_count_column = statement
+            .group_non_empty_count("trade_state", "missing")
+            .expect_err("missing group count column should fail");
+        assert!(missing_group_count_column.to_string().contains("missing"));
 
         let mismatched = PaymentDownloadedBill::from_verified_bytes(
             bytes::Bytes::from_static(
@@ -5955,6 +6093,10 @@ mod tests {
             .index_by_unique_column("transaction_id")
             .expect_err("duplicate unique key should fail");
         assert!(duplicate_err.to_string().contains("duplicate value"));
+        let duplicate_lookup_err = duplicate_key
+            .record_by_unique_column("transaction_id", "4200001")
+            .expect_err("duplicate unique lookup should fail");
+        assert!(duplicate_lookup_err.to_string().contains("duplicate value"));
 
         let empty_key = PaymentDownloadedBill::from_verified_bytes(
             bytes::Bytes::from_static(

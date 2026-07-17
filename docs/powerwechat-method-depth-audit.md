@@ -419,6 +419,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   production reconciliation checks;
 - downloaded bill statements now provide filter-by-column helpers with
   filtered amount sums and non-empty counts for partial reconciliation checks.
+- downloaded bill statements now provide multi-column filters, filtered amount
+  sums, unique-column lookup, grouped record counts, and grouped non-empty
+  counts for production reconciliation code.
 - generic payment status responses now preserve unknown upstream fields such
   as request ids across mutation endpoints.
 - shared signed bytes GET support in `PlatformClient`;
