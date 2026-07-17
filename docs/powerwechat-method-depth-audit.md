@@ -221,6 +221,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   group, user-option, record, data-item, and schedule DTOs.
 - OA calendar, dial, PSTNCC, and schedule responses now expose typed calendar,
   dial-record, call-state, and schedule DTOs.
+- OA calendar, dial, PSTNCC, journal, and schedule response DTOs now preserve
+  unknown upstream fields across wrappers and nested records.
 - OA meeting-room and WeDrive responses now expose typed room, booking, space,
   file, and move-result DTOs.
 - OA journal detail/stat and living info/watch-stat responses now expose typed

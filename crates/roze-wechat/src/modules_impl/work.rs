@@ -9119,6 +9119,8 @@ pub struct WorkCalendarAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub cal_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9127,6 +9129,8 @@ pub struct WorkCalendarShare {
     pub userid: Option<String>,
     #[serde(default)]
     pub readonly: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9147,6 +9151,8 @@ pub struct WorkCalendarInfo {
     pub readonly: Option<i64>,
     #[serde(default)]
     pub set_as_default: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9157,6 +9163,8 @@ pub struct WorkCalendarGetResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub calendar_list: Vec<WorkCalendarInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9183,6 +9191,8 @@ pub struct WorkDialRecord {
     pub call_result: Option<i64>,
     #[serde(default)]
     pub callid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9193,6 +9203,8 @@ pub struct WorkDialRecordResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub record: Vec<WorkDialRecord>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9217,6 +9229,8 @@ pub struct WorkJournalRecordListResponse {
     pub next_cursor: Option<i64>,
     #[serde(default)]
     pub endflag: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9235,6 +9249,8 @@ pub struct WorkJournalRecordInfo {
     pub apply_data: Option<Value>,
     #[serde(default)]
     pub comments: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9245,6 +9261,8 @@ pub struct WorkJournalRecordDetailResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub info: Option<WorkJournalRecordInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9260,6 +9278,8 @@ pub struct WorkJournalStatSummary {
     pub userid: Option<String>,
     #[serde(default)]
     pub count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9270,6 +9290,8 @@ pub struct WorkJournalStatList {
     pub total: Option<i64>,
     #[serde(default)]
     pub details: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9280,6 +9302,8 @@ pub struct WorkJournalStatListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub stat_list: Option<WorkJournalStatList>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9296,6 +9320,8 @@ pub struct WorkPstnccCallState {
     pub callee: Option<String>,
     #[serde(default)]
     pub caller: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9306,6 +9332,8 @@ pub struct WorkPstnccCallResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub states: Vec<WorkPstnccCallState>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9322,6 +9350,8 @@ pub struct WorkPstnccGetStatesResponse {
     pub talktime: Option<i64>,
     #[serde(default)]
     pub reason: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10024,6 +10054,8 @@ pub struct WorkScheduleAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub schedule_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10046,6 +10078,8 @@ pub struct WorkScheduleInfo {
     pub location: Option<String>,
     #[serde(default)]
     pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10056,6 +10090,8 @@ pub struct WorkScheduleGetResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub schedule_list: Vec<WorkScheduleInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13105,15 +13141,22 @@ mod tests {
 
     #[test]
     fn deserializes_work_oa_calendar_dial_and_pstncc_responses() {
-        let calendar_add: WorkCalendarAddResponse =
-            serde_json::from_value(json!({ "errcode": 0, "cal_id": "wc100" })).unwrap();
+        let calendar_add: WorkCalendarAddResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "cal_id": "wc100",
+            "request_id": "calendar-add-1"
+        }))
+        .unwrap();
         assert_eq!(calendar_add.cal_id.as_deref(), Some("wc100"));
+        assert_eq!(calendar_add.extra["request_id"], "calendar-add-1");
 
         let calendar_get: WorkCalendarGetResponse = serde_json::from_value(json!({
+            "next_cursor": "calendar-cursor",
             "calendar_list": [{
                 "cal_id": "wc100",
                 "summary": "Team",
-                "shares": [{ "userid": "user", "readonly": 1 }]
+                "shares": [{ "userid": "user", "readonly": 1, "share_type": "member" }],
+                "timezone": "Asia/Shanghai"
             }]
         }))
         .unwrap();
@@ -13125,30 +13168,47 @@ mod tests {
             calendar_get.calendar_list[0].shares[0].userid.as_deref(),
             Some("user")
         );
+        assert_eq!(calendar_get.extra["next_cursor"], "calendar-cursor");
+        assert_eq!(
+            calendar_get.calendar_list[0].extra["timezone"],
+            "Asia/Shanghai"
+        );
+        assert_eq!(
+            calendar_get.calendar_list[0].shares[0].extra["share_type"],
+            "member"
+        );
 
         let dial: WorkDialRecordResponse = serde_json::from_value(json!({
-            "record": [{ "callee": "user", "caller": "agent", "duration": 60 }]
+            "record": [{ "callee": "user", "caller": "agent", "duration": 60, "call_scene": "pstn" }],
+            "has_more": false
         }))
         .unwrap();
         assert_eq!(dial.record[0].callee.as_deref(), Some("user"));
         assert_eq!(dial.record[0].duration, Some(60));
+        assert_eq!(dial.record[0].extra["call_scene"], "pstn");
+        assert_eq!(dial.extra["has_more"], false);
 
         let call: WorkPstnccCallResponse = serde_json::from_value(json!({
-            "states": [{ "callee_userid": "user", "callid": "call-1", "state": 1 }]
+            "states": [{ "callee_userid": "user", "callid": "call-1", "state": 1, "state_text": "ringing" }],
+            "session_id": "pstn-session"
         }))
         .unwrap();
         assert_eq!(call.states[0].callid.as_deref(), Some("call-1"));
         assert_eq!(call.states[0].state, Some(1));
+        assert_eq!(call.states[0].extra["state_text"], "ringing");
+        assert_eq!(call.extra["session_id"], "pstn-session");
 
         let states: WorkPstnccGetStatesResponse = serde_json::from_value(json!({
             "istalked": 1,
             "calltime": 1_800_000_000,
             "talktime": 30,
-            "reason": 0
+            "reason": 0,
+            "state_detail": "completed"
         }))
         .unwrap();
         assert_eq!(states.istalked, Some(1));
         assert_eq!(states.reason, Some(0));
+        assert_eq!(states.extra["state_detail"], "completed");
     }
 
     #[test]
@@ -13317,13 +13377,16 @@ mod tests {
         let records: WorkJournalRecordListResponse = serde_json::from_value(json!({
             "journaluuid_list": ["journal-1"],
             "next_cursor": 10,
-            "endflag": false
+            "endflag": false,
+            "trace_id": "journal-list"
         }))
         .unwrap();
         assert_eq!(records.journaluuid_list[0], "journal-1");
         assert_eq!(records.next_cursor, Some(10));
+        assert_eq!(records.extra["trace_id"], "journal-list");
 
         let detail: WorkJournalRecordDetailResponse = serde_json::from_value(json!({
+            "trace_id": "journal-detail",
             "info": {
                 "journaluuid": "journal-1",
                 "template_id": "template-1",
@@ -13331,33 +13394,46 @@ mod tests {
                 "apply_time": 1_800_000_000,
                 "state": 1,
                 "apply_data": { "contents": [] },
-                "comments": [{ "comment_userid": "manager" }]
+                "comments": [{ "comment_userid": "manager" }],
+                "form_version": 2
             }
         }))
         .unwrap();
+        assert_eq!(detail.extra["trace_id"], "journal-detail");
         let detail = detail.info.unwrap();
         assert_eq!(detail.journaluuid.as_deref(), Some("journal-1"));
         assert_eq!(detail.creator.as_deref(), Some("user"));
         assert_eq!(detail.comments[0]["comment_userid"], "manager");
+        assert_eq!(detail.extra["form_version"], 2);
 
         let stats: WorkJournalStatListResponse = serde_json::from_value(json!({
+            "trace_id": "journal-stat",
             "stat_list": {
-                "summary": [{ "userid": "user", "count": 3 }],
+                "summary": [{ "userid": "user", "count": 3, "rank": 1 }],
                 "total": 3,
-                "details": [{ "journaluuid": "journal-1" }]
+                "details": [{ "journaluuid": "journal-1" }],
+                "department_id": 1
             }
         }))
         .unwrap();
+        assert_eq!(stats.extra["trace_id"], "journal-stat");
         let stats = stats.stat_list.unwrap();
         assert_eq!(stats.summary[0].userid.as_deref(), Some("user"));
         assert_eq!(stats.summary[0].count, Some(3));
+        assert_eq!(stats.summary[0].extra["rank"], 1);
         assert_eq!(stats.total, Some(3));
+        assert_eq!(stats.extra["department_id"], 1);
 
-        let schedule_add: WorkScheduleAddResponse =
-            serde_json::from_value(json!({ "schedule_id": "schedule-1" })).unwrap();
+        let schedule_add: WorkScheduleAddResponse = serde_json::from_value(json!({
+            "schedule_id": "schedule-1",
+            "request_id": "schedule-add"
+        }))
+        .unwrap();
         assert_eq!(schedule_add.schedule_id.as_deref(), Some("schedule-1"));
+        assert_eq!(schedule_add.extra["request_id"], "schedule-add");
 
         let schedule_get: WorkScheduleGetResponse = serde_json::from_value(json!({
+            "next_cursor": "schedule-cursor",
             "schedule_list": [{
                 "schedule_id": "schedule-1",
                 "summary": "Daily",
@@ -13365,7 +13441,8 @@ mod tests {
                 "start_time": 1_800_000_000,
                 "end_time": 1_800_003_600,
                 "attendees": [{ "userid": "user" }],
-                "status": 1
+                "status": 1,
+                "timezone": "Asia/Shanghai"
             }]
         }))
         .unwrap();
@@ -13378,6 +13455,11 @@ mod tests {
             Some("Daily")
         );
         assert_eq!(schedule_get.schedule_list[0].status, Some(1));
+        assert_eq!(schedule_get.extra["next_cursor"], "schedule-cursor");
+        assert_eq!(
+            schedule_get.schedule_list[0].extra["timezone"],
+            "Asia/Shanghai"
+        );
     }
 
     #[test]
