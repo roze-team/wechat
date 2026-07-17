@@ -4969,6 +4969,77 @@ pub struct ImmediateDeliveryGetOrderResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImmediateDeliveryOrderStatusKind {
+    WaitingForRiderAssignment,
+    RiderAssigned,
+    MerchantCancelledBeforePickup,
+    RiderArrivedAtShop,
+    PickedUp,
+    PickupFailedMerchantCancelled,
+    PickupFailedRiderCancelled,
+    PickupFailedMerchantReasonCancelled,
+    Delivering,
+    Delivered,
+    MerchantCancelledReturning,
+    ReceiverUnreachableReturning,
+    ReceiverRejectedReturning,
+    ReturnedToMerchant,
+    CapacitySystemCancelled,
+    ForceMajeureCancelled,
+    Other(i64),
+}
+
+impl From<i64> for ImmediateDeliveryOrderStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            101 => Self::WaitingForRiderAssignment,
+            102 => Self::RiderAssigned,
+            103 => Self::MerchantCancelledBeforePickup,
+            201 => Self::RiderArrivedAtShop,
+            202 => Self::PickedUp,
+            203 => Self::PickupFailedMerchantCancelled,
+            204 => Self::PickupFailedRiderCancelled,
+            205 => Self::PickupFailedMerchantReasonCancelled,
+            301 => Self::Delivering,
+            302 => Self::Delivered,
+            303 => Self::MerchantCancelledReturning,
+            304 => Self::ReceiverUnreachableReturning,
+            305 => Self::ReceiverRejectedReturning,
+            401 => Self::ReturnedToMerchant,
+            501 => Self::CapacitySystemCancelled,
+            502 => Self::ForceMajeureCancelled,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl ImmediateDeliveryOrderStatusKind {
+    pub fn is_success_terminal(self) -> bool {
+        matches!(self, Self::Delivered)
+    }
+
+    pub fn is_failure_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::MerchantCancelledBeforePickup
+                | Self::PickupFailedMerchantCancelled
+                | Self::PickupFailedRiderCancelled
+                | Self::PickupFailedMerchantReasonCancelled
+                | Self::ReturnedToMerchant
+                | Self::CapacitySystemCancelled
+                | Self::ForceMajeureCancelled
+        )
+    }
+}
+
+impl ImmediateDeliveryGetOrderResponse {
+    pub fn order_status_kind(&self) -> Option<ImmediateDeliveryOrderStatusKind> {
+        self.order_status
+            .map(ImmediateDeliveryOrderStatusKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImmediateDeliveryPreAddOrderResponse {
     #[serde(default)]
@@ -5039,6 +5110,13 @@ pub struct ImmediateDeliveryReOrderResponse {
     pub dispatch_duration: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ImmediateDeliveryReOrderResponse {
+    pub fn order_status_kind(&self) -> Option<ImmediateDeliveryOrderStatusKind> {
+        self.order_status
+            .map(ImmediateDeliveryOrderStatusKind::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5532,6 +5610,35 @@ pub struct WxaSecOrder {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WxaSecOrderStateKind {
+    PendingShipment,
+    Shipped,
+    ConfirmedReceived,
+    Completed,
+    Refunded,
+    Other(i64),
+}
+
+impl From<i64> for WxaSecOrderStateKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::PendingShipment,
+            2 => Self::Shipped,
+            3 => Self::ConfirmedReceived,
+            4 => Self::Completed,
+            5 => Self::Refunded,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WxaSecOrder {
+    pub fn order_state_kind(&self) -> Option<WxaSecOrderStateKind> {
+        self.order_state.map(WxaSecOrderStateKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderAmount {
     #[serde(default)]
@@ -5728,6 +5835,39 @@ pub struct MiniProgramLiveRoomInfo {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MiniProgramLiveStatusKind {
+    Living,
+    NotStarted,
+    Ended,
+    Forbidden,
+    Paused,
+    Abnormal,
+    Expired,
+    Other(i64),
+}
+
+impl From<i64> for MiniProgramLiveStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            101 => Self::Living,
+            102 => Self::NotStarted,
+            103 => Self::Ended,
+            104 => Self::Forbidden,
+            105 => Self::Paused,
+            106 => Self::Abnormal,
+            107 => Self::Expired,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl MiniProgramLiveRoomInfo {
+    pub fn live_status_kind(&self) -> Option<MiniProgramLiveStatusKind> {
+        self.live_status.map(MiniProgramLiveStatusKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniProgramLiveRoomGoods {
     #[serde(default, alias = "goodsId")]
@@ -5746,6 +5886,31 @@ pub struct MiniProgramLiveRoomGoods {
     pub price_type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MiniProgramLiveGoodsPriceType {
+    Fixed,
+    Range,
+    Discount,
+    Other(i64),
+}
+
+impl From<i64> for MiniProgramLiveGoodsPriceType {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Fixed,
+            2 => Self::Range,
+            3 => Self::Discount,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl MiniProgramLiveRoomGoods {
+    pub fn price_type_kind(&self) -> Option<MiniProgramLiveGoodsPriceType> {
+        self.price_type.map(MiniProgramLiveGoodsPriceType::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5806,6 +5971,38 @@ pub struct MiniProgramLiveWarehouseGoods {
     pub audit_status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MiniProgramLiveGoodsAuditStatusKind {
+    NotSubmitted,
+    Auditing,
+    Approved,
+    Rejected,
+    Other(i64),
+}
+
+impl From<i64> for MiniProgramLiveGoodsAuditStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::NotSubmitted,
+            1 => Self::Auditing,
+            2 => Self::Approved,
+            3 => Self::Rejected,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl MiniProgramLiveWarehouseGoods {
+    pub fn price_type_kind(&self) -> Option<MiniProgramLiveGoodsPriceType> {
+        self.price_type.map(MiniProgramLiveGoodsPriceType::from)
+    }
+
+    pub fn audit_status_kind(&self) -> Option<MiniProgramLiveGoodsAuditStatusKind> {
+        self.audit_status
+            .map(MiniProgramLiveGoodsAuditStatusKind::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7477,6 +7674,10 @@ mod tests {
         assert_eq!(order.delivery_id.as_deref(), Some("delivery-id"));
         assert_eq!(order.shop_order_id.as_deref(), Some("order-id"));
         assert_eq!(order.order_status, Some(101));
+        assert_eq!(
+            order.order_status_kind(),
+            Some(ImmediateDeliveryOrderStatusKind::WaitingForRiderAssignment)
+        );
         assert_eq!(order.waybill_id.as_deref(), Some("waybill-id"));
         assert_eq!(order.pickup_code, Some(2048));
         assert_eq!(order.rider_lng, Some(120.1));
@@ -7528,7 +7729,18 @@ mod tests {
         assert_eq!(reorder.insurance_fee, Some(0.0));
         assert_eq!(reorder.waybill_id, Some(123456789));
         assert_eq!(reorder.pickup_code, Some(2048));
+        assert_eq!(
+            reorder.order_status_kind(),
+            Some(ImmediateDeliveryOrderStatusKind::WaitingForRiderAssignment)
+        );
         assert_eq!(reorder.extra["request_id"], "reorder");
+
+        assert!(ImmediateDeliveryOrderStatusKind::Delivered.is_success_terminal());
+        assert!(ImmediateDeliveryOrderStatusKind::ReturnedToMerchant.is_failure_terminal());
+        assert_eq!(
+            ImmediateDeliveryOrderStatusKind::from(999),
+            ImmediateDeliveryOrderStatusKind::Other(999)
+        );
     }
 
     #[test]
@@ -7980,6 +8192,10 @@ mod tests {
         let order_detail = order.order.expect("order");
         assert_eq!(order_detail.transaction_id.as_deref(), Some("tx"));
         assert_eq!(order_detail.merchant_trade_no.as_deref(), Some("trade-no"));
+        assert_eq!(
+            order_detail.order_state_kind(),
+            Some(WxaSecOrderStateKind::Shipped)
+        );
         assert_eq!(order_detail.extra["order_extra"], "retained");
         let amount = order_detail.amount.expect("amount");
         assert_eq!(amount.total, Some(100));
@@ -8010,6 +8226,10 @@ mod tests {
         assert_eq!(list.extra["request_id"], "list");
         assert_eq!(list.order_list[0].transaction_id.as_deref(), Some("tx"));
         assert_eq!(list.order_list[0].order_state, Some(2));
+        assert_eq!(
+            list.order_list[0].order_state_kind(),
+            Some(WxaSecOrderStateKind::Shipped)
+        );
         assert_eq!(list.order_list[0].extra["order_extra"], "retained");
         assert_eq!(
             list.order_list[0].amount.as_ref().expect("amount").total,
@@ -8018,6 +8238,10 @@ mod tests {
         assert_eq!(
             list.order_list[0].amount.as_ref().expect("amount").extra["amount_extra"],
             "retained"
+        );
+        assert_eq!(
+            WxaSecOrderStateKind::from(99),
+            WxaSecOrderStateKind::Other(99)
         );
 
         let managed: WxaSecTradeManagedResponse = serde_json::from_value(json!({
@@ -8303,9 +8527,17 @@ mod tests {
         assert_eq!(info.extra["request_id"], "live-info");
         assert_eq!(info.room_info[0].roomid, Some(1000));
         assert_eq!(info.room_info[0].cover_img.as_deref(), Some("cover-url"));
+        assert_eq!(
+            info.room_info[0].live_status_kind(),
+            Some(MiniProgramLiveStatusKind::Living)
+        );
         assert_eq!(info.room_info[0].extra["room_extra"], "retained");
         assert_eq!(info.room_info[0].goods[0].goods_id, Some(200));
         assert_eq!(info.room_info[0].goods[0].price_type, Some(1));
+        assert_eq!(
+            info.room_info[0].goods[0].price_type_kind(),
+            Some(MiniProgramLiveGoodsPriceType::Fixed)
+        );
         assert_eq!(info.room_info[0].goods[0].extra["goods_extra"], "retained");
 
         let replay: MiniProgramLiveReplayResponse = serde_json::from_value(json!({
@@ -8344,8 +8576,28 @@ mod tests {
         assert_eq!(goods.goods[0].goods_id, Some(100));
         assert_eq!(goods.goods[0].cover_img_url.as_deref(), Some("cover"));
         assert_eq!(goods.goods[0].audit_status, Some(2));
+        assert_eq!(
+            goods.goods[0].price_type_kind(),
+            Some(MiniProgramLiveGoodsPriceType::Fixed)
+        );
+        assert_eq!(
+            goods.goods[0].audit_status_kind(),
+            Some(MiniProgramLiveGoodsAuditStatusKind::Approved)
+        );
         assert_eq!(goods.extra["request_id"], "warehouse");
         assert_eq!(goods.goods[0].extra["audit_reason"], "ok");
+        assert_eq!(
+            MiniProgramLiveStatusKind::from(199),
+            MiniProgramLiveStatusKind::Other(199)
+        );
+        assert_eq!(
+            MiniProgramLiveGoodsPriceType::from(9),
+            MiniProgramLiveGoodsPriceType::Other(9)
+        );
+        assert_eq!(
+            MiniProgramLiveGoodsAuditStatusKind::from(9),
+            MiniProgramLiveGoodsAuditStatusKind::Other(9)
+        );
 
         let followers: MiniProgramLiveFollowersResponse = serde_json::from_value(json!({
             "followers": [{

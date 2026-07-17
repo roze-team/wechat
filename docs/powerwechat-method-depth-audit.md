@@ -358,6 +358,17 @@ The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and
 `wxa/sec/order/request` rather than callable PowerWeChat endpoints.
 
+Implemented on 2026-07-17 in Roze WeChat Mini Program response depth:
+
+- live room responses now expose semantic helper enums for `liveStatus`, live
+  goods `priceType`, and warehouse `auditStatus`, while retaining raw upstream
+  numeric fields and unknown-field capture.
+- immediate-delivery order/reorder responses now expose semantic order-status
+  helpers, including success/failure terminal checks and `Other(i64)` fallback.
+- WXA security order-shipping responses now expose semantic order-state helpers
+  for pending shipment, shipped, confirmed received, completed, and refunded
+  states while retaining raw `order_state`.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
