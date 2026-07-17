@@ -289,6 +289,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   real-time-log responses now expose typed operation DTOs.
 - wxa sec-order detail/list responses now expose typed order, amount, shipping,
   and shipping-item DTOs.
+- wxa sec-order detail/list and trade-management response DTOs now preserve
+  unknown upstream fields across wrappers, orders, amount, shipping, and
+  shipping-item payloads.
 - dataCube visit-trend, retain, visit-page, user-portrait, performance, and
   security check responses now expose typed Mini Program DTOs.
 - uniform-message send, updatable-message send, and dataCube performance-data

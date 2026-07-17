@@ -5498,6 +5498,8 @@ pub struct WxaSecOrderResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub order: Option<WxaSecOrder>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5526,6 +5528,8 @@ pub struct WxaSecOrder {
     pub shipping: Option<WxaSecOrderShipping>,
     #[serde(default)]
     pub receive_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5538,6 +5542,8 @@ pub struct WxaSecOrderAmount {
     pub currency: Option<String>,
     #[serde(default)]
     pub payer_currency: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5552,6 +5558,8 @@ pub struct WxaSecOrderShipping {
     pub shipping_list: Vec<WxaSecOrderShippingItem>,
     #[serde(default)]
     pub upload_time: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5564,6 +5572,8 @@ pub struct WxaSecOrderShippingItem {
     pub item_desc: Option<String>,
     #[serde(default)]
     pub contact: Option<WxaSecShippingContact>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5578,6 +5588,8 @@ pub struct WxaSecOrderListResponse {
     pub has_more: Option<bool>,
     #[serde(default)]
     pub order_list: Vec<WxaSecOrder>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5588,6 +5600,8 @@ pub struct WxaSecTradeManagedResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub is_trade_managed: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5598,6 +5612,8 @@ pub struct WxaSecTradeManagementConfirmationResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub completed: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7934,13 +7950,15 @@ mod tests {
                     "total": 100,
                     "payer_total": 100,
                     "currency": "CNY",
-                    "payer_currency": "CNY"
+                    "payer_currency": "CNY",
+                    "amount_extra": "retained"
                 },
                 "shipping": {
                     "logistics_type": 1,
                     "delivery_mode": 1,
                     "is_all_delivered": true,
                     "upload_time": "2026-07-16T10:00:00+08:00",
+                    "shipping_extra": "retained",
                     "shipping_list": [{
                         "tracking_no": "tracking",
                         "express_company": "SF",
@@ -7948,58 +7966,78 @@ mod tests {
                         "contact": {
                             "consignor_contact": "13800000000",
                             "receiver_contact": "13900000000"
-                        }
+                        },
+                        "item_extra": "retained"
                     }]
-                }
-            }
+                },
+                "order_extra": "retained"
+            },
+            "request_id": "order"
         }))
         .unwrap();
         assert_eq!(order.errcode, Some(0));
+        assert_eq!(order.extra["request_id"], "order");
         let order_detail = order.order.expect("order");
         assert_eq!(order_detail.transaction_id.as_deref(), Some("tx"));
         assert_eq!(order_detail.merchant_trade_no.as_deref(), Some("trade-no"));
-        assert_eq!(order_detail.amount.expect("amount").total, Some(100));
+        assert_eq!(order_detail.extra["order_extra"], "retained");
+        let amount = order_detail.amount.expect("amount");
+        assert_eq!(amount.total, Some(100));
+        assert_eq!(amount.extra["amount_extra"], "retained");
+        let shipping = order_detail.shipping.expect("shipping");
+        assert_eq!(shipping.extra["shipping_extra"], "retained");
         assert_eq!(
-            order_detail.shipping.expect("shipping").shipping_list[0]
-                .tracking_no
-                .as_deref(),
+            shipping.shipping_list[0].tracking_no.as_deref(),
             Some("tracking")
         );
+        assert_eq!(shipping.shipping_list[0].extra["item_extra"], "retained");
 
         let list: WxaSecOrderListResponse = serde_json::from_value(json!({
             "errcode": 0,
             "last_index": "cursor",
             "has_more": true,
+            "request_id": "list",
             "order_list": [{
                 "transaction_id": "tx",
                 "order_state": 2,
-                "amount": { "total": 100 }
+                "amount": { "total": 100, "amount_extra": "retained" },
+                "order_extra": "retained"
             }]
         }))
         .unwrap();
         assert_eq!(list.last_index.as_deref(), Some("cursor"));
         assert_eq!(list.has_more, Some(true));
+        assert_eq!(list.extra["request_id"], "list");
         assert_eq!(list.order_list[0].transaction_id.as_deref(), Some("tx"));
         assert_eq!(list.order_list[0].order_state, Some(2));
+        assert_eq!(list.order_list[0].extra["order_extra"], "retained");
         assert_eq!(
             list.order_list[0].amount.as_ref().expect("amount").total,
             Some(100)
         );
+        assert_eq!(
+            list.order_list[0].amount.as_ref().expect("amount").extra["amount_extra"],
+            "retained"
+        );
 
         let managed: WxaSecTradeManagedResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "is_trade_managed": true
+            "is_trade_managed": true,
+            "request_id": "managed"
         }))
         .unwrap();
         assert_eq!(managed.is_trade_managed, Some(true));
+        assert_eq!(managed.extra["request_id"], "managed");
 
         let confirmation: WxaSecTradeManagementConfirmationResponse =
             serde_json::from_value(json!({
                 "errcode": 0,
-                "completed": true
+                "completed": true,
+                "request_id": "confirmation"
             }))
             .unwrap();
         assert_eq!(confirmation.completed, Some(true));
+        assert_eq!(confirmation.extra["request_id"], "confirmation");
     }
 
     #[test]
