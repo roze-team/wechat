@@ -8322,6 +8322,8 @@ pub struct WorkAccountServiceAccountAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub open_kfid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8332,6 +8334,8 @@ pub struct WorkAccountServiceAccountListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub account_list: Vec<WorkAccountServiceAccount>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8342,6 +8346,8 @@ pub struct WorkAccountServiceAccount {
     pub name: Option<String>,
     #[serde(default)]
     pub avatar: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8352,6 +8358,8 @@ pub struct WorkAccountServiceAddContactWayResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8370,6 +8378,8 @@ pub struct WorkAccountServiceCustomerBatchGetResponse {
     pub customer_list: Vec<WorkAccountServiceCustomer>,
     #[serde(default)]
     pub invalid_external_userid: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8386,6 +8396,8 @@ pub struct WorkAccountServiceCustomer {
     pub unionid: Option<String>,
     #[serde(default)]
     pub enter_session_context: Option<WorkAccountServiceEnterSessionContext>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8396,6 +8408,8 @@ pub struct WorkAccountServiceEnterSessionContext {
     pub scene_param: Option<String>,
     #[serde(default)]
     pub wechat_channels: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8408,6 +8422,8 @@ pub struct WorkAccountServiceCustomerUpgradeServiceConfigResponse {
     pub member_range: Option<Value>,
     #[serde(default)]
     pub groupchat_range: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14472,35 +14488,58 @@ mod tests {
 
     #[test]
     fn deserializes_work_account_service_and_aibot_responses() {
-        let account_add: WorkAccountServiceAccountAddResponse =
-            serde_json::from_value(json!({ "open_kfid": "kf" })).unwrap();
-        assert_eq!(account_add.open_kfid.as_deref(), Some("kf"));
-
-        let accounts: WorkAccountServiceAccountListResponse = serde_json::from_value(json!({
-            "account_list": [{ "open_kfid": "kf", "name": "Support", "avatar": "https://example.com/a.png" }]
+        let account_add: WorkAccountServiceAccountAddResponse = serde_json::from_value(json!({
+            "open_kfid": "kf",
+            "request_id": "account-add"
         }))
         .unwrap();
+        assert_eq!(account_add.open_kfid.as_deref(), Some("kf"));
+        assert_eq!(account_add.extra["request_id"], "account-add");
+
+        let accounts: WorkAccountServiceAccountListResponse = serde_json::from_value(json!({
+            "account_list": [{
+                "open_kfid": "kf",
+                "name": "Support",
+                "avatar": "https://example.com/a.png",
+                "account_extra": "retained"
+            }],
+            "request_id": "account-list"
+        }))
+        .unwrap();
+        assert_eq!(accounts.extra["request_id"], "account-list");
         assert_eq!(accounts.account_list[0].open_kfid.as_deref(), Some("kf"));
         assert_eq!(accounts.account_list[0].name.as_deref(), Some("Support"));
         assert_eq!(
             accounts.account_list[0].avatar.as_deref(),
             Some("https://example.com/a.png")
         );
+        assert_eq!(accounts.account_list[0].extra["account_extra"], "retained");
 
-        let contact_way: WorkAccountServiceAddContactWayResponse =
-            serde_json::from_value(json!({ "url": "https://example.com/kf" })).unwrap();
+        let contact_way: WorkAccountServiceAddContactWayResponse = serde_json::from_value(json!({
+            "url": "https://example.com/kf",
+            "request_id": "contact-way"
+        }))
+        .unwrap();
         assert_eq!(contact_way.url.as_deref(), Some("https://example.com/kf"));
+        assert_eq!(contact_way.extra["request_id"], "contact-way");
 
         let customers: WorkAccountServiceCustomerBatchGetResponse = serde_json::from_value(json!({
             "customer_list": [{
                 "external_userid": "external",
                 "nickname": "Customer",
                 "gender": 1,
-                "enter_session_context": { "scene": "scene", "scene_param": "param" }
+                "enter_session_context": {
+                    "scene": "scene",
+                    "scene_param": "param",
+                    "context_extra": "retained"
+                },
+                "customer_extra": "retained"
             }],
-            "invalid_external_userid": ["bad"]
+            "invalid_external_userid": ["bad"],
+            "request_id": "customer-batch"
         }))
         .unwrap();
+        assert_eq!(customers.extra["request_id"], "customer-batch");
         assert_eq!(
             customers.customer_list[0].external_userid.as_deref(),
             Some("external")
@@ -14518,14 +14557,31 @@ mod tests {
                 .as_deref(),
             Some("scene")
         );
+        assert_eq!(
+            customers.customer_list[0].extra["customer_extra"],
+            "retained"
+        );
+        assert_eq!(
+            customers.customer_list[0]
+                .enter_session_context
+                .as_ref()
+                .unwrap()
+                .extra["context_extra"],
+            "retained"
+        );
 
         let config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
             serde_json::from_value(json!({
                 "member_range": { "userid": ["servicer"] },
-                "groupchat_range": { "chat_id": ["chat"] }
+                "groupchat_range": { "chat_id": ["chat"] },
+                "request_id": "upgrade-config"
             }))
             .unwrap();
-        assert_eq!(config.member_range.unwrap()["userid"][0], "servicer");
+        assert_eq!(
+            config.member_range.as_ref().unwrap()["userid"][0],
+            "servicer"
+        );
+        assert_eq!(config.extra["request_id"], "upgrade-config");
 
         let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
             "next_cursor": "next",
