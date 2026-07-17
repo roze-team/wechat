@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 283 | high |
+| Work | 363 | 292 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,19 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
+
+- OA WeDoc now covers document create/rename/delete/base-info/share and
+  collection-form create/modify/info/statistics/answer lifecycles. The
+  collection-form create/modify paths use the current upstream
+  `create_collect` and `modify_collect` endpoints instead of PowerWeChat's
+  stale `create_form` path.
+- OA WeDoc form definitions now expose typed questions, options, fill and
+  manager ranges, repeat settings, statistics, submitters, unfilled members,
+  answers, option/file/department/member/duration replies, and pagination
+  metadata. Polymorphic question extension settings remain structured JSON,
+  while response wrappers and nested records preserve unknown upstream fields.
 
 Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 
@@ -356,7 +369,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - OA meeting-room and WeDrive responses now expose typed room, booking, space,
   file, and move-result DTOs.
 - OA meeting, meeting-room, and WeDoc response DTOs now preserve unknown
-  upstream fields across wrappers and nested room/booking records.
+  upstream fields across wrappers and nested room, booking, document, form,
+  statistic, submitter, answer, and reply records.
 - OA journal detail/stat and living info/watch-stat responses now expose typed
   journal, statistic, live-info, and watch-stat DTOs.
 - OA living and WeDrive response DTOs now preserve unknown upstream fields

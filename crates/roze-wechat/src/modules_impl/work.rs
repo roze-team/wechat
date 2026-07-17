@@ -3391,6 +3391,72 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.oa.wedoc")
     }
 
+    pub async fn create_wedoc_document(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocCreateDocumentRequest,
+    ) -> Result<WorkWeDocCreateDocumentResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/create_doc",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn rename_wedoc_document(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocRenameDocumentRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/rename_doc",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_document(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocDocumentTargetRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/wedoc/del_doc", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_wedoc_document_base_info(
+        &self,
+        access_token: impl Into<String>,
+        docid: impl Into<String>,
+    ) -> Result<WorkWeDocDocumentBaseInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/get_doc_base_info",
+                Some(access_token.into()),
+                json!({ "docid": docid.into() }),
+            )
+            .await
+    }
+
+    pub async fn share_wedoc_document(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocDocumentTargetRequest,
+    ) -> Result<WorkWeDocShareDocumentResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/doc_share",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn create_wedoc_form(
         &self,
         access_token: impl Into<String>,
@@ -3398,7 +3464,63 @@ impl Work {
     ) -> Result<WorkWeDocCreateFormResponse> {
         self.inner
             .post(
-                "cgi-bin/wedoc/create_form",
+                "cgi-bin/wedoc/create_collect",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_wedoc_form(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocModifyFormRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/modify_collect",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_form_info(
+        &self,
+        access_token: impl Into<String>,
+        formid: impl Into<String>,
+    ) -> Result<WorkWeDocFormInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/get_form_info",
+                Some(access_token.into()),
+                json!({ "formid": formid.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_form_statistics(
+        &self,
+        access_token: impl Into<String>,
+        requests: Vec<WorkWeDocFormStatisticRequest>,
+    ) -> Result<WorkWeDocFormStatisticsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/get_form_statistic",
+                Some(access_token.into()),
+                requests,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_form_answers(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocFormAnswerRequest,
+    ) -> Result<WorkWeDocFormAnswersResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/get_form_answer",
                 Some(access_token.into()),
                 request,
             )
@@ -12963,10 +13085,95 @@ pub struct WorkMeetingRoomBookResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocCreateDocumentRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spaceid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fatherid: Option<String>,
+    pub doc_type: i64,
+    pub doc_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admin_users: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocCreateDocumentResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub docid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocRenameDocumentRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub docid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formid: Option<String>,
+    pub new_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentTargetRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub docid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentBaseInfo {
+    #[serde(default)]
+    pub docid: Option<String>,
+    #[serde(default)]
+    pub doc_name: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub modify_time: Option<i64>,
+    #[serde(default)]
+    pub doc_type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentBaseInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub doc_base_info: Option<WorkWeDocDocumentBaseInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocShareDocumentResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub share_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocCreateFormRequest {
-    pub spaceid: String,
-    pub fatherid: String,
-    pub form_info: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spaceid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fatherid: Option<String>,
+    pub form_info: WorkWeDocFormInfo,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12977,6 +13184,381 @@ pub struct WorkWeDocCreateFormResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub formid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocModifyFormRequest {
+    pub oper: i64,
+    pub formid: String,
+    pub form_info: WorkWeDocFormInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub form_info: Option<WorkWeDocFormInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_desc: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_header: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_question: Option<WorkWeDocFormQuestion>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_setting: Option<WorkWeDocFormSetting>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repeated_id: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormQuestion {
+    #[serde(default)]
+    pub items: Vec<WorkWeDocFormQuestionItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormQuestionItem {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub question_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pos: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub must_reply: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub option_item: Vec<WorkWeDocFormQuestionOption>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placeholder: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub question_extend_setting: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormQuestionOption {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormSetting {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fill_out_auth: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fill_in_range: Option<WorkWeDocFormFillInRange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub setting_manager_range: Option<WorkWeDocFormManagerRange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timed_repeat_info: Option<WorkWeDocFormTimedRepeatInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_multi_fill: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_fill_cnt: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timed_finish: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub can_anonymous: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub can_notify_submit: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormFillInRange {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub departmentids: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormManagerRange {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userids: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormTimedRepeatInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub week_flag: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remind_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_holiday: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub day_of_month: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fork_finish_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_ctime: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_mtime: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormStatisticRequest {
+    pub repeated_id: String,
+    pub req_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormStatisticsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub statistic_list: Vec<WorkWeDocFormStatistic>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormStatistic {
+    #[serde(default)]
+    pub fill_cnt: Option<i64>,
+    #[serde(default)]
+    pub repeated_id: Option<String>,
+    #[serde(default)]
+    pub repeated_name: Option<String>,
+    #[serde(default)]
+    pub fill_user_cnt: Option<i64>,
+    #[serde(default)]
+    pub unfill_user_cnt: Option<i64>,
+    #[serde(default)]
+    pub submit_users: Vec<WorkWeDocFormSubmitUser>,
+    #[serde(default)]
+    pub unfill_users: Vec<WorkWeDocFormUnfillUser>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub cursor: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormSubmitUser {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub tmp_external_userid: Option<String>,
+    #[serde(default)]
+    pub submit_time: Option<i64>,
+    #[serde(default)]
+    pub answer_id: Option<i64>,
+    #[serde(default)]
+    pub user_name: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormUnfillUser {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub user_name: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormAnswerRequest {
+    pub repeated_id: String,
+    pub answer_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormAnswersResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub answer: Option<WorkWeDocFormAnswerList>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormAnswerList {
+    #[serde(default)]
+    pub answer_list: Vec<WorkWeDocFormAnswer>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormAnswer {
+    #[serde(default)]
+    pub answer_id: Option<i64>,
+    #[serde(default)]
+    pub user_name: Option<String>,
+    #[serde(default)]
+    pub ctime: Option<i64>,
+    #[serde(default)]
+    pub mtime: Option<i64>,
+    #[serde(default)]
+    pub reply: Option<WorkWeDocFormReply>,
+    #[serde(default)]
+    pub answer_status: Option<i64>,
+    #[serde(default)]
+    pub tmp_external_userid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormReply {
+    #[serde(default)]
+    pub items: Vec<WorkWeDocFormReplyItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormReplyItem {
+    #[serde(default)]
+    pub question_id: Option<i64>,
+    #[serde(default)]
+    pub text_reply: Option<String>,
+    #[serde(default)]
+    pub option_reply: Vec<i64>,
+    #[serde(default)]
+    pub option_extend_reply: Vec<WorkWeDocFormOptionExtendReply>,
+    #[serde(default)]
+    pub file_extend_reply: Vec<WorkWeDocFormFileReply>,
+    #[serde(default)]
+    pub department_reply: Option<WorkWeDocFormDepartmentReply>,
+    #[serde(default)]
+    pub member_reply: Option<WorkWeDocFormMemberReply>,
+    #[serde(default)]
+    pub duration_reply: Option<WorkWeDocFormDurationReply>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormOptionExtendReply {
+    #[serde(default)]
+    pub option_reply: Option<i64>,
+    #[serde(default)]
+    pub extend_text: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormFileReply {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormDepartmentReply {
+    #[serde(default)]
+    pub list: Vec<WorkWeDocFormDepartment>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormDepartment {
+    #[serde(default)]
+    pub department_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormMemberReply {
+    #[serde(default)]
+    pub list: Vec<WorkWeDocFormMember>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormMember {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocFormDurationReply {
+    #[serde(default)]
+    pub begin_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub time_scale: Option<i64>,
+    #[serde(default)]
+    pub day_range: Option<i64>,
+    #[serde(default)]
+    pub days: Option<f64>,
+    #[serde(default)]
+    pub hours: Option<f64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -19025,12 +19607,21 @@ mod tests {
         assert_eq!(cancel["meeting_id"], "meeting-1");
 
         let form = serde_json::to_value(WorkWeDocCreateFormRequest {
-            spaceid: "space".to_string(),
-            fatherid: "father".to_string(),
-            form_info: json!({
-                "form_title": "Survey",
-                "form_question": { "items": [] }
-            }),
+            spaceid: Some("space".to_string()),
+            fatherid: Some("father".to_string()),
+            form_info: WorkWeDocFormInfo {
+                formid: None,
+                form_title: Some("Survey".to_string()),
+                form_desc: None,
+                form_header: None,
+                form_question: Some(WorkWeDocFormQuestion {
+                    items: Vec::new(),
+                    extra: Value::Null,
+                }),
+                form_setting: None,
+                repeated_id: Vec::new(),
+                extra: Value::Null,
+            },
         })
         .unwrap();
         assert_eq!(form["spaceid"], "space");
@@ -19184,6 +19775,318 @@ mod tests {
         .unwrap();
         assert_eq!(form.formid.as_deref(), Some("form-1"));
         assert_eq!(form.extra["form_url"], "https://example.com/form");
+    }
+
+    #[test]
+    fn serializes_work_wedoc_document_and_form_lifecycle_requests() {
+        let create = serde_json::to_value(WorkWeDocCreateDocumentRequest {
+            spaceid: None,
+            fatherid: None,
+            doc_type: 10,
+            doc_name: "Operations".to_string(),
+            admin_users: vec!["manager".to_string()],
+        })
+        .unwrap();
+        assert_eq!(create["doc_type"], 10);
+        assert_eq!(create["admin_users"][0], "manager");
+        assert!(create.get("spaceid").is_none());
+
+        let rename = serde_json::to_value(WorkWeDocRenameDocumentRequest {
+            docid: Some("doc-1".to_string()),
+            formid: None,
+            new_name: "Operations 2026".to_string(),
+        })
+        .unwrap();
+        assert_eq!(rename["docid"], "doc-1");
+        assert!(rename.get("formid").is_none());
+
+        let target = serde_json::to_value(WorkWeDocDocumentTargetRequest {
+            docid: None,
+            formid: Some("form-1".to_string()),
+        })
+        .unwrap();
+        assert_eq!(target["formid"], "form-1");
+        assert!(target.get("docid").is_none());
+
+        let modify: WorkWeDocModifyFormRequest = serde_json::from_value(json!({
+            "oper": 1,
+            "formid": "form-1",
+            "form_info": {
+                "form_title": "Survey",
+                "form_question": {
+                    "items": [{
+                        "question_id": 1,
+                        "title": "Environment",
+                        "pos": 1,
+                        "status": 1,
+                        "reply_type": 2,
+                        "must_reply": true,
+                        "option_item": [{
+                            "key": 1,
+                            "value": "Production",
+                            "status": 1
+                        }],
+                        "question_extend_setting": {
+                            "allow_other": true
+                        }
+                    }]
+                }
+            }
+        }))
+        .unwrap();
+        let modify = serde_json::to_value(modify).unwrap();
+        assert_eq!(modify["oper"], 1);
+        assert_eq!(
+            modify["form_info"]["form_question"]["items"][0]["option_item"][0]["value"],
+            "Production"
+        );
+        assert_eq!(
+            modify["form_info"]["form_question"]["items"][0]["question_extend_setting"]
+                ["allow_other"],
+            true
+        );
+
+        let statistics = serde_json::to_value(vec![WorkWeDocFormStatisticRequest {
+            repeated_id: "cycle-1".to_string(),
+            req_type: 2,
+            start_time: Some(1_800_000_000),
+            end_time: Some(1_800_086_400),
+            limit: Some(100),
+            cursor: None,
+        }])
+        .unwrap();
+        assert!(statistics.is_array());
+        assert_eq!(statistics[0]["repeated_id"], "cycle-1");
+        assert!(statistics[0].get("cursor").is_none());
+
+        let answers = serde_json::to_value(WorkWeDocFormAnswerRequest {
+            repeated_id: "cycle-1".to_string(),
+            answer_ids: vec![1, 2],
+        })
+        .unwrap();
+        assert_eq!(answers["answer_ids"][1], 2);
+    }
+
+    #[test]
+    fn deserializes_work_wedoc_document_and_form_lifecycle_responses() {
+        let create: WorkWeDocCreateDocumentResponse = serde_json::from_value(json!({
+            "url": "https://example.com/doc",
+            "docid": "doc-1",
+            "request_id": "create-doc"
+        }))
+        .unwrap();
+        assert_eq!(create.docid.as_deref(), Some("doc-1"));
+        assert_eq!(create.extra["request_id"], "create-doc");
+
+        let info: WorkWeDocDocumentBaseInfoResponse = serde_json::from_value(json!({
+            "doc_base_info": {
+                "docid": "doc-1",
+                "doc_name": "Operations",
+                "create_time": 1_800_000_000,
+                "modify_time": 1_800_000_100,
+                "doc_type": 10,
+                "owner_userid": "manager"
+            },
+            "trace_id": "doc-info"
+        }))
+        .unwrap();
+        let base = info.doc_base_info.expect("document base info");
+        assert_eq!(base.doc_type, Some(10));
+        assert_eq!(base.extra["owner_userid"], "manager");
+        assert_eq!(info.extra["trace_id"], "doc-info");
+
+        let share: WorkWeDocShareDocumentResponse = serde_json::from_value(json!({
+            "share_url": "https://example.com/share",
+            "expires_in": 3600
+        }))
+        .unwrap();
+        assert_eq!(
+            share.share_url.as_deref(),
+            Some("https://example.com/share")
+        );
+        assert_eq!(share.extra["expires_in"], 3600);
+
+        let form: WorkWeDocFormInfoResponse = serde_json::from_value(json!({
+            "form_info": {
+                "formid": "form-1",
+                "form_title": "Survey",
+                "form_question": {
+                    "items": [{
+                        "question_id": 1,
+                        "title": "Environment",
+                        "reply_type": 2,
+                        "question_version": 3
+                    }],
+                    "question_trace": "typed"
+                },
+                "form_setting": {
+                    "fill_out_auth": 1,
+                    "max_fill_cnt": 2,
+                    "timed_repeat_info": {
+                        "enable": true,
+                        "repeat_type": 2,
+                        "rule_ctime": 1_800_000_000,
+                        "timezone": 8
+                    },
+                    "setting_version": 4
+                },
+                "repeated_id": ["cycle-1"],
+                "form_version": 5
+            },
+            "trace_id": "form-info"
+        }))
+        .unwrap();
+        let form_info = form.form_info.expect("form info");
+        assert_eq!(form_info.repeated_id[0], "cycle-1");
+        let questions = form_info.form_question.expect("form questions");
+        assert_eq!(questions.items[0].reply_type, Some(2));
+        assert_eq!(questions.items[0].extra["question_version"], 3);
+        assert_eq!(questions.extra["question_trace"], "typed");
+        let setting = form_info.form_setting.expect("form setting");
+        assert_eq!(setting.max_fill_cnt, Some(2));
+        assert_eq!(
+            setting.timed_repeat_info.expect("timed repeat").extra["timezone"],
+            8
+        );
+        assert_eq!(setting.extra["setting_version"], 4);
+        assert_eq!(form_info.extra["form_version"], 5);
+        assert_eq!(form.extra["trace_id"], "form-info");
+
+        let statistics: WorkWeDocFormStatisticsResponse = serde_json::from_value(json!({
+            "statistic_list": [{
+                "fill_cnt": 2,
+                "repeated_id": "cycle-1",
+                "fill_user_cnt": 2,
+                "unfill_user_cnt": 1,
+                "submit_users": [{
+                    "userid": "user-1",
+                    "submit_time": 1_800_000_000,
+                    "answer_id": 1,
+                    "user_name": "Alice",
+                    "source": "internal"
+                }],
+                "unfill_users": [{
+                    "userid": "user-2",
+                    "user_name": "Bob",
+                    "department": 2
+                }],
+                "has_more": false,
+                "cursor": 2,
+                "statistic_version": 3
+            }],
+            "trace_id": "statistics"
+        }))
+        .unwrap();
+        assert_eq!(statistics.statistic_list[0].fill_cnt, Some(2));
+        assert_eq!(
+            statistics.statistic_list[0].submit_users[0].extra["source"],
+            "internal"
+        );
+        assert_eq!(
+            statistics.statistic_list[0].unfill_users[0].extra["department"],
+            2
+        );
+        assert_eq!(statistics.statistic_list[0].extra["statistic_version"], 3);
+        assert_eq!(statistics.extra["trace_id"], "statistics");
+
+        let answers: WorkWeDocFormAnswersResponse = serde_json::from_value(json!({
+            "answer": {
+                "answer_list": [{
+                    "answer_id": 1,
+                    "user_name": "Alice",
+                    "ctime": 1_800_000_000,
+                    "mtime": 1_800_000_100,
+                    "reply": {
+                        "items": [{
+                            "question_id": 1,
+                            "text_reply": "Production",
+                            "option_reply": [1],
+                            "option_extend_reply": [{
+                                "option_reply": 1,
+                                "extend_text": "Primary",
+                                "locale": "zh-CN"
+                            }],
+                            "file_extend_reply": [{
+                                "name": "evidence.txt",
+                                "fileid": "file-1",
+                                "size": 10
+                            }],
+                            "department_reply": {
+                                "list": [{
+                                    "department_id": 2,
+                                    "name": "Engineering"
+                                }]
+                            },
+                            "member_reply": {
+                                "list": [{
+                                    "userid": "user-2",
+                                    "display_name": "Bob"
+                                }]
+                            },
+                            "duration_reply": {
+                                "begin_time": 1_800_000_000,
+                                "end_time": 1_800_003_600,
+                                "time_scale": 1,
+                                "day_range": 0,
+                                "days": 0.5,
+                                "hours": 1.0,
+                                "timezone": 8
+                            },
+                            "reply_version": 4
+                        }],
+                        "reply_trace": "typed"
+                    },
+                    "answer_status": 1,
+                    "userid": "user-1",
+                    "answer_version": 5
+                }],
+                "answer_trace": "list"
+            },
+            "trace_id": "answers"
+        }))
+        .unwrap();
+        let answer = &answers.answer.as_ref().expect("answer list").answer_list[0];
+        let reply = answer.reply.as_ref().expect("answer reply");
+        assert_eq!(reply.items[0].text_reply.as_deref(), Some("Production"));
+        assert_eq!(
+            reply.items[0].option_extend_reply[0].extra["locale"],
+            "zh-CN"
+        );
+        assert_eq!(reply.items[0].file_extend_reply[0].extra["size"], 10);
+        assert_eq!(
+            reply.items[0]
+                .department_reply
+                .as_ref()
+                .expect("department reply")
+                .list[0]
+                .extra["name"],
+            "Engineering"
+        );
+        assert_eq!(
+            reply.items[0]
+                .member_reply
+                .as_ref()
+                .expect("member reply")
+                .list[0]
+                .extra["display_name"],
+            "Bob"
+        );
+        assert_eq!(
+            reply.items[0]
+                .duration_reply
+                .as_ref()
+                .expect("duration reply")
+                .extra["timezone"],
+            8
+        );
+        assert_eq!(reply.items[0].extra["reply_version"], 4);
+        assert_eq!(reply.extra["reply_trace"], "typed");
+        assert_eq!(answer.extra["answer_version"], 5);
+        assert_eq!(
+            answers.answer.as_ref().expect("answer list").extra["answer_trace"],
+            "list"
+        );
+        assert_eq!(answers.extra["trace_id"], "answers");
     }
 
     #[test]
