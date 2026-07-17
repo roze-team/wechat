@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 320 | high |
+| Work | 363 | 325 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -114,6 +114,11 @@ Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
   fields. Polymorphic properties, cell values, sorts, and filters remain
   structured JSON so every current and future field type can round-trip without
   lossy SDK updates.
+- OA WeDoc smart-sheet field groups now cover add/update/list/delete with typed
+  field membership and offset pagination. Content-permission reads expose typed
+  rules, per-sheet capabilities, record ranges, field ranges, field-specific
+  and default permissions, while preserving mixed-format rule identifiers and
+  future extension fields.
 
 Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 

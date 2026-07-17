@@ -3789,6 +3789,76 @@ impl Work {
             .await
     }
 
+    pub async fn add_wedoc_smartsheet_field_group(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetAddFieldGroupRequest,
+    ) -> Result<WorkWeDocSmartSheetFieldGroupResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/add_field_group",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_wedoc_smartsheet_field_group(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetUpdateFieldGroupRequest,
+    ) -> Result<WorkWeDocSmartSheetFieldGroupResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/update_field_group",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheet_field_groups(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetGetFieldGroupsRequest,
+    ) -> Result<WorkWeDocSmartSheetGetFieldGroupsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/get_field_groups",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_smartsheet_field_groups(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetDeleteFieldGroupsRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/delete_field_groups",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheet_privileges(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetGetPrivilegesRequest,
+    ) -> Result<WorkWeDocSmartSheetGetPrivilegesResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/content_priv/get_sheet_priv",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn add_wedoc_smartsheet_records(
         &self,
         access_token: impl Into<String>,
@@ -14233,6 +14303,182 @@ pub struct WorkWeDocSmartSheetDeleteFieldsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldGroupChild {
+    pub field_id: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAddFieldGroupRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub name: String,
+    pub children: Vec<WorkWeDocSmartSheetFieldGroupChild>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetUpdateFieldGroupRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub field_group_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<WorkWeDocSmartSheetFieldGroupChild>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldGroupResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub field_group: Option<WorkWeDocSmartSheetFieldGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldGroup {
+    #[serde(default)]
+    pub field_group_id: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub children: Vec<WorkWeDocSmartSheetFieldGroupChild>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetFieldGroupsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetFieldGroupsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub next: Option<i64>,
+    #[serde(default)]
+    pub field_groups: Vec<WorkWeDocSmartSheetFieldGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetDeleteFieldGroupsRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub field_group_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetPrivilegesRequest {
+    pub docid: String,
+    #[serde(rename = "type")]
+    pub rule_type: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rule_id_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetGetPrivilegesResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub rule_list: Vec<WorkWeDocSmartSheetPrivilegeRule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetPrivilegeRule {
+    #[serde(default)]
+    pub rule_id: Option<Value>,
+    #[serde(rename = "type", default)]
+    pub rule_type: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub priv_list: Vec<WorkWeDocSmartSheetPrivilege>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetPrivilege {
+    #[serde(default)]
+    pub sheet_id: Option<String>,
+    #[serde(rename = "priv", default)]
+    pub priv_level: Option<i64>,
+    #[serde(default)]
+    pub can_insert_record: Option<bool>,
+    #[serde(default)]
+    pub can_delete_record: Option<bool>,
+    #[serde(default)]
+    pub record_priv: Option<WorkWeDocSmartSheetRecordPrivilege>,
+    #[serde(default)]
+    pub field_priv: Option<WorkWeDocSmartSheetFieldPrivilege>,
+    #[serde(default)]
+    pub can_create_modify_delete_view: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetRecordPrivilege {
+    #[serde(default)]
+    pub record_range_type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldPrivilege {
+    #[serde(default)]
+    pub field_range_type: Option<i64>,
+    #[serde(default)]
+    pub field_rule_list: Vec<WorkWeDocSmartSheetFieldPrivilegeRule>,
+    #[serde(default)]
+    pub field_default_rule: Option<WorkWeDocSmartSheetFieldPrivilegeRule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFieldPrivilegeRule {
+    #[serde(default)]
+    pub field_id: Option<String>,
+    #[serde(default)]
+    pub field_type: Option<String>,
+    #[serde(default)]
+    pub can_edit: Option<bool>,
+    #[serde(default)]
+    pub can_insert: Option<bool>,
+    #[serde(default)]
+    pub can_view: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetRecordsMutationRequest {
     pub docid: String,
     pub sheet_id: String,
@@ -23518,5 +23764,140 @@ mod tests {
         );
         assert_eq!(records.records[0].extra["creator_userid"], "creator");
         assert_eq!(records.extra["trace_id"], "record-request");
+    }
+
+    #[test]
+    fn serializes_work_wedoc_smartsheet_field_group_and_privilege_requests() {
+        let add = serde_json::to_value(WorkWeDocSmartSheetAddFieldGroupRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            name: "Ownership".to_string(),
+            children: vec![WorkWeDocSmartSheetFieldGroupChild {
+                field_id: "field-owner".to_string(),
+                extra: Value::Null,
+            }],
+        })
+        .unwrap();
+        assert_eq!(add["children"][0]["field_id"], "field-owner");
+
+        let update = serde_json::to_value(WorkWeDocSmartSheetUpdateFieldGroupRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            field_group_id: "group".to_string(),
+            name: None,
+            children: vec![WorkWeDocSmartSheetFieldGroupChild {
+                field_id: "field-status".to_string(),
+                extra: Value::Null,
+            }],
+        })
+        .unwrap();
+        assert!(update.get("name").is_none());
+        assert_eq!(update["field_group_id"], "group");
+
+        let list = serde_json::to_value(WorkWeDocSmartSheetGetFieldGroupsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            offset: Some(20),
+            limit: Some(10),
+        })
+        .unwrap();
+        assert_eq!(list["offset"], 20);
+        assert_eq!(list["limit"], 10);
+
+        let privileges = serde_json::to_value(WorkWeDocSmartSheetGetPrivilegesRequest {
+            docid: "doc".to_string(),
+            rule_type: 2,
+            rule_id_list: vec!["rule-1".to_string()],
+        })
+        .unwrap();
+        assert_eq!(privileges["type"], 2);
+        assert!(privileges.get("rule_type").is_none());
+        assert_eq!(privileges["rule_id_list"][0], "rule-1");
+    }
+
+    #[test]
+    fn deserializes_work_wedoc_smartsheet_field_groups_and_privileges() {
+        let groups: WorkWeDocSmartSheetGetFieldGroupsResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1,
+            "has_more": false,
+            "next": 0,
+            "field_groups": [{
+                "field_group_id": "group",
+                "name": "Ownership",
+                "children": [{
+                    "field_id": "field-owner",
+                    "position": 1
+                }],
+                "collapsed": false
+            }],
+            "request_id": "field-groups"
+        }))
+        .unwrap();
+        assert_eq!(groups.total, Some(1));
+        assert_eq!(
+            groups.field_groups[0].field_group_id.as_deref(),
+            Some("group")
+        );
+        assert_eq!(groups.field_groups[0].children[0].extra["position"], 1);
+        assert_eq!(groups.field_groups[0].extra["collapsed"], false);
+        assert_eq!(groups.extra["request_id"], "field-groups");
+
+        let privileges: WorkWeDocSmartSheetGetPrivilegesResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "rule_list": [{
+                "rule_id": 1,
+                "type": 1,
+                "name": "Default",
+                "priv_list": [{
+                    "sheet_id": "sheet",
+                    "priv": 2,
+                    "can_insert_record": true,
+                    "can_delete_record": false,
+                    "record_priv": {
+                        "record_range_type": 1,
+                        "owner_field_id": "field-owner"
+                    },
+                    "field_priv": {
+                        "field_range_type": 2,
+                        "field_rule_list": [{
+                            "field_id": "field-owner",
+                            "field_type": "FIELD_TYPE_USER",
+                            "can_edit": false,
+                            "can_insert": true,
+                            "can_view": true,
+                            "mask_mode": "none"
+                        }],
+                        "field_default_rule": {
+                            "can_edit": false,
+                            "can_insert": false,
+                            "can_view": true
+                        }
+                    },
+                    "can_create_modify_delete_view": true,
+                    "audit_required": true
+                }]
+            }],
+            "trace_id": "privileges"
+        }))
+        .unwrap();
+        let rule = &privileges.rule_list[0];
+        assert_eq!(rule.rule_id.as_ref().unwrap(), &json!(1));
+        assert_eq!(rule.rule_type, Some(1));
+        let sheet = &rule.priv_list[0];
+        assert_eq!(sheet.priv_level, Some(2));
+        assert_eq!(
+            sheet.record_priv.as_ref().unwrap().extra["owner_field_id"],
+            "field-owner"
+        );
+        let field_priv = sheet.field_priv.as_ref().unwrap();
+        assert_eq!(field_priv.field_range_type, Some(2));
+        assert_eq!(
+            field_priv.field_rule_list[0].field_type.as_deref(),
+            Some("FIELD_TYPE_USER")
+        );
+        assert_eq!(field_priv.field_rule_list[0].extra["mask_mode"], "none");
+        assert_eq!(sheet.extra["audit_required"], true);
+        assert_eq!(privileges.extra["trace_id"], "privileges");
     }
 }
