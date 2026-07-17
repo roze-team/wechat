@@ -5614,6 +5614,8 @@ pub struct MiniProgramCreateLiveRoomResponse {
     pub errmsg: Option<String>,
     #[serde(default, rename = "roomId")]
     pub room_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5626,6 +5628,8 @@ pub struct MiniProgramLiveInfoResponse {
     pub room_info: Vec<MiniProgramLiveRoomInfo>,
     #[serde(default)]
     pub total: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5652,6 +5656,8 @@ pub struct MiniProgramLiveRoomInfo {
     pub goods: Vec<MiniProgramLiveRoomGoods>,
     #[serde(default)]
     pub total: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5670,6 +5676,8 @@ pub struct MiniProgramLiveRoomGoods {
     pub price2: Option<i64>,
     #[serde(default, alias = "priceType")]
     pub price_type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5682,6 +5690,8 @@ pub struct MiniProgramLiveReplayResponse {
     pub live_replay: Vec<MiniProgramLiveReplay>,
     #[serde(default)]
     pub total: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5692,6 +5702,8 @@ pub struct MiniProgramLiveReplay {
     pub expire_time: Option<String>,
     #[serde(default)]
     pub media_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5702,6 +5714,8 @@ pub struct MiniProgramLiveGoodsWarehouseResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub goods: Vec<MiniProgramLiveWarehouseGoods>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5722,6 +5736,8 @@ pub struct MiniProgramLiveWarehouseGoods {
     pub url: Option<String>,
     #[serde(default, alias = "auditStatus")]
     pub audit_status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5734,6 +5750,8 @@ pub struct MiniProgramLiveFollowersResponse {
     pub followers: Vec<MiniProgramLiveFollower>,
     #[serde(default)]
     pub page_break: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5746,6 +5764,8 @@ pub struct MiniProgramLiveFollower {
     pub headimg: Option<String>,
     #[serde(default, alias = "subscribeTime")]
     pub subscribe_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8073,14 +8093,17 @@ mod tests {
 
         let create: MiniProgramCreateLiveRoomResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "roomId": 1000
+            "roomId": 1000,
+            "request_id": "create-live"
         }))
         .unwrap();
         assert_eq!(create.room_id, Some(1000));
+        assert_eq!(create.extra["request_id"], "create-live");
 
         let info: MiniProgramLiveInfoResponse = serde_json::from_value(json!({
             "errcode": 0,
             "total": 1,
+            "request_id": "live-info",
             "room_info": [{
                 "name": "launch",
                 "roomid": 1000,
@@ -8098,24 +8121,31 @@ mod tests {
                     "name": "item",
                     "price": 100,
                     "price2": 200,
-                    "priceType": 1
-                }]
+                    "priceType": 1,
+                    "goods_extra": "retained"
+                }],
+                "room_extra": "retained"
             }]
         }))
         .unwrap();
         assert_eq!(info.total, Some(1));
+        assert_eq!(info.extra["request_id"], "live-info");
         assert_eq!(info.room_info[0].roomid, Some(1000));
         assert_eq!(info.room_info[0].cover_img.as_deref(), Some("cover-url"));
+        assert_eq!(info.room_info[0].extra["room_extra"], "retained");
         assert_eq!(info.room_info[0].goods[0].goods_id, Some(200));
         assert_eq!(info.room_info[0].goods[0].price_type, Some(1));
+        assert_eq!(info.room_info[0].goods[0].extra["goods_extra"], "retained");
 
         let replay: MiniProgramLiveReplayResponse = serde_json::from_value(json!({
             "errcode": 0,
             "total": 1,
+            "request_id": "replay",
             "live_replay": [{
                 "create_time": "2026-07-16 10:00:00",
                 "expire_time": "2026-08-16 10:00:00",
-                "media_url": "https://example.com/replay.mp4"
+                "media_url": "https://example.com/replay.mp4",
+                "duration": 3600
             }]
         }))
         .unwrap();
@@ -8123,8 +8153,11 @@ mod tests {
             replay.live_replay[0].media_url.as_deref(),
             Some("https://example.com/replay.mp4")
         );
+        assert_eq!(replay.extra["request_id"], "replay");
+        assert_eq!(replay.live_replay[0].extra["duration"], 3600);
 
         let goods: MiniProgramLiveGoodsWarehouseResponse = serde_json::from_value(json!({
+            "request_id": "warehouse",
             "goods": [{
                 "goodsId": 100,
                 "name": "item",
@@ -8132,26 +8165,33 @@ mod tests {
                 "price": 100,
                 "price2": 200,
                 "priceType": 1,
-                "auditStatus": 2
+                "auditStatus": 2,
+                "audit_reason": "ok"
             }]
         }))
         .unwrap();
         assert_eq!(goods.goods[0].goods_id, Some(100));
         assert_eq!(goods.goods[0].cover_img_url.as_deref(), Some("cover"));
         assert_eq!(goods.goods[0].audit_status, Some(2));
+        assert_eq!(goods.extra["request_id"], "warehouse");
+        assert_eq!(goods.goods[0].extra["audit_reason"], "ok");
 
         let followers: MiniProgramLiveFollowersResponse = serde_json::from_value(json!({
             "followers": [{
                 "openid": "openid",
                 "nickname": "viewer",
                 "headimg": "avatar",
-                "subscribeTime": 1_800_000_000
+                "subscribeTime": 1_800_000_000,
+                "source": "share"
             }],
-            "page_break": 10
+            "page_break": 10,
+            "request_id": "followers"
         }))
         .unwrap();
         assert_eq!(followers.followers[0].openid.as_deref(), Some("openid"));
         assert_eq!(followers.followers[0].subscribe_time, Some(1_800_000_000));
+        assert_eq!(followers.followers[0].extra["source"], "share");
         assert_eq!(followers.page_break.unwrap(), 10);
+        assert_eq!(followers.extra["request_id"], "followers");
     }
 }
