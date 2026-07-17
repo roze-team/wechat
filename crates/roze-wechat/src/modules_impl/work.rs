@@ -7061,6 +7061,8 @@ pub struct ExternalGroupWelcomeTemplateAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub template_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7081,6 +7083,8 @@ pub struct ExternalGroupWelcomeTemplateResponse {
     pub file: Option<ExternalContactMessageFile>,
     #[serde(default)]
     pub video: Option<ExternalContactMessageVideo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11557,9 +11561,13 @@ mod tests {
         assert_eq!(update["template_id"], "template");
         assert_eq!(update["agentid"], 100001);
 
-        let added: ExternalGroupWelcomeTemplateAddResponse =
-            serde_json::from_value(json!({ "template_id": "template" })).unwrap();
+        let added: ExternalGroupWelcomeTemplateAddResponse = serde_json::from_value(json!({
+            "template_id": "template",
+            "request_id": "welcome-add"
+        }))
+        .unwrap();
         assert_eq!(added.template_id.as_deref(), Some("template"));
+        assert_eq!(added.extra["request_id"], "welcome-add");
 
         let detail: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
             "text": { "content": "welcome" },
@@ -11567,7 +11575,8 @@ mod tests {
             "link": { "title": "docs", "url": "https://example.com" },
             "miniprogram": { "title": "mini", "appid": "wx-app", "page": "pages/index" },
             "file": { "media_id": "file-media" },
-            "video": { "media_id": "video-media" }
+            "video": { "media_id": "video-media" },
+            "template_source": "api"
         }))
         .unwrap();
         assert_eq!(detail.text.unwrap().content.as_deref(), Some("welcome"));
@@ -11579,6 +11588,7 @@ mod tests {
             detail.video.unwrap().media_id.as_deref(),
             Some("video-media")
         );
+        assert_eq!(detail.extra["template_source"], "api");
     }
 
     #[test]

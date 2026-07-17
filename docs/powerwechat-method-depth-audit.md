@@ -88,6 +88,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   across wrappers, list items, and detail payloads.
 - external group-chat join-way add/get wrappers now preserve unknown upstream
   fields alongside typed join-way details.
+- external group welcome-template add/get wrappers now preserve unknown upstream
+  fields alongside typed message payload details.
 - customer-acquisition link list/get/create/update/delete wrappers;
 - customer-acquisition link create/get responses now expose typed link DTOs
   with range, priority, timestamp, URL, and extension-field preservation.
