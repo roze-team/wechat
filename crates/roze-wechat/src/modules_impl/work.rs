@@ -6739,7 +6739,31 @@ pub struct ExternalGroupChatJoinWayResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub join_way: Option<Value>,
+    pub join_way: Option<ExternalGroupChatJoinWay>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatJoinWay {
+    #[serde(default)]
+    pub config_id: Option<String>,
+    #[serde(default)]
+    pub qr_code: Option<String>,
+    #[serde(default)]
+    pub scene: Option<i64>,
+    #[serde(default)]
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub auto_create_room: Option<i64>,
+    #[serde(default)]
+    pub room_base_name: Option<String>,
+    #[serde(default)]
+    pub room_base_id: Option<i64>,
+    #[serde(default)]
+    pub chat_id_list: Vec<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10891,10 +10915,27 @@ mod tests {
         assert_eq!(join_add.config_id.as_deref(), Some("config"));
 
         let join_detail: ExternalGroupChatJoinWayResponse = serde_json::from_value(json!({
-            "join_way": { "config_id": "config", "qr_code": "https://example.com/qr" }
+            "join_way": {
+                "config_id": "config",
+                "qr_code": "https://example.com/qr",
+                "scene": 2,
+                "remark": "remark",
+                "auto_create_room": 1,
+                "room_base_name": "room",
+                "room_base_id": 100,
+                "chat_id_list": ["chat"],
+                "state": "state",
+                "future_field": "kept"
+            }
         }))
         .unwrap();
-        assert_eq!(join_detail.join_way.unwrap()["config_id"], "config");
+        let join_way = join_detail.join_way.unwrap();
+        assert_eq!(join_way.config_id.as_deref(), Some("config"));
+        assert_eq!(join_way.qr_code.as_deref(), Some("https://example.com/qr"));
+        assert_eq!(join_way.scene, Some(2));
+        assert_eq!(join_way.chat_id_list[0], "chat");
+        assert_eq!(join_way.state.as_deref(), Some("state"));
+        assert_eq!(join_way.extra["future_field"], "kept");
 
         let converted: WorkExternalUserIdConvertResponse =
             serde_json::from_value(json!({ "external_userid": "new-external" })).unwrap();
