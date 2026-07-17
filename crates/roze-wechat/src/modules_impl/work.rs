@@ -6487,6 +6487,8 @@ pub struct CorpTag {
     pub create_time: Option<i64>,
     #[serde(default)]
     pub deleted: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6505,6 +6507,8 @@ pub struct CorpTagGroup {
     pub strategy_id: Option<i64>,
     #[serde(default)]
     pub tag: Vec<CorpTag>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6515,6 +6519,8 @@ pub struct CorpTagListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub tag_group: Vec<CorpTagGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6544,6 +6550,8 @@ pub struct CorpTagAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub tag_group: Option<CorpTagGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6848,6 +6856,8 @@ pub struct ExternalContactMomentStrategy {
     pub admin_list: Vec<String>,
     #[serde(default)]
     pub create_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6860,6 +6870,8 @@ pub struct ExternalContactMomentStrategyRange {
     pub department_list: Vec<i64>,
     #[serde(default)]
     pub tag_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6872,6 +6884,8 @@ pub struct ExternalContactMomentStrategyListResponse {
     pub strategy: Vec<ExternalContactMomentStrategy>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6884,6 +6898,8 @@ pub struct ExternalContactMomentStrategyRangeResponse {
     pub range: Option<ExternalContactMomentStrategyRange>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6894,6 +6910,8 @@ pub struct ExternalContactMomentStrategyCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub strategy_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6944,6 +6962,8 @@ pub struct ExternalContactStrategyTagListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub tag_group: Vec<CorpTagGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6954,6 +6974,8 @@ pub struct ExternalContactStrategyTagAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub tag_group: Option<CorpTagGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7888,6 +7910,8 @@ pub struct ExternalContactCustomerStrategyRange {
     pub partyid: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7922,6 +7946,8 @@ pub struct ExternalContactCustomerStrategyListResponse {
     pub errmsg: Option<String>,
     #[serde(default, alias = "momentStrategy")]
     pub strategy: Vec<ExternalContactCustomerStrategy>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7932,6 +7958,8 @@ pub struct ExternalContactCustomerStrategyResponse {
     pub errmsg: Option<String>,
     #[serde(default, alias = "momentStrategy")]
     pub strategy: Option<ExternalContactCustomerStrategy>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7962,6 +7990,8 @@ pub struct ExternalContactCustomerStrategyRangeResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub range: Vec<ExternalContactCustomerStrategyRange>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7972,6 +8002,8 @@ pub struct ExternalContactCustomerStrategyCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub strategy_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10947,23 +10979,37 @@ mod tests {
                 "group_id": "level",
                 "group_name": "level",
                 "order": 1,
-                "tag": [{ "id": "vip", "name": "vip", "order": 1 }]
-            }]
+                "tag": [{ "id": "vip", "name": "vip", "order": 1, "tag_source": "crm" }],
+                "group_source": "crm"
+            }],
+            "tag_total": 1
         }))
         .unwrap();
         assert_eq!(corp_tags.tag_group[0].group_name.as_deref(), Some("level"));
         assert_eq!(corp_tags.tag_group[0].tag[0].id.as_deref(), Some("vip"));
+        assert_eq!(corp_tags.tag_group[0].tag[0].extra["tag_source"], "crm");
+        assert_eq!(corp_tags.tag_group[0].extra["group_source"], "crm");
+        assert_eq!(corp_tags.extra["tag_total"], 1);
 
         let corp_tag_created: CorpTagAddResponse = serde_json::from_value(json!({
             "tag_group": {
                 "group_id": "level",
-                "tag": [{ "id": "vip", "name": "vip" }]
-            }
+                "tag": [{ "id": "vip", "name": "vip" }],
+                "group_source": "api"
+            },
+            "request_id": "tag-create-1"
         }))
         .unwrap();
+        assert_eq!(corp_tag_created.extra["request_id"], "tag-create-1");
         assert_eq!(
-            corp_tag_created.tag_group.unwrap().tag[0].name.as_deref(),
+            corp_tag_created.tag_group.as_ref().unwrap().tag[0]
+                .name
+                .as_deref(),
             Some("vip")
+        );
+        assert_eq!(
+            corp_tag_created.tag_group.unwrap().extra["group_source"],
+            "api"
         );
 
         let mark = serde_json::to_value(ExternalContactMarkTagRequest {
@@ -11021,8 +11067,10 @@ mod tests {
                 "group_id": "group",
                 "group_name": "strategy",
                 "strategy_id": 1,
-                "tag": [{ "id": "tag", "name": "gold", "order": 1 }]
-            }]
+                "tag": [{ "id": "tag", "name": "gold", "order": 1, "tag_source": "strategy" }],
+                "group_source": "strategy"
+            }],
+            "tag_total": 1
         }))
         .unwrap();
         assert_eq!(
@@ -11034,15 +11082,24 @@ mod tests {
             strategy_tags.tag_group[0].tag[0].name.as_deref(),
             Some("gold")
         );
+        assert_eq!(
+            strategy_tags.tag_group[0].tag[0].extra["tag_source"],
+            "strategy"
+        );
+        assert_eq!(strategy_tags.tag_group[0].extra["group_source"], "strategy");
+        assert_eq!(strategy_tags.extra["tag_total"], 1);
 
         let strategy_created: ExternalContactStrategyTagAddResponse =
             serde_json::from_value(json!({
-                "tag_group": { "group_id": "group", "tag": [{ "id": "tag" }] }
+                "tag_group": { "group_id": "group", "tag": [{ "id": "tag" }], "group_source": "created" },
+                "request_id": "strategy-tag-create"
             }))
             .unwrap();
+        assert_eq!(strategy_created.extra["request_id"], "strategy-tag-create");
         let strategy_created = strategy_created.tag_group.unwrap();
         assert_eq!(strategy_created.group_id.as_deref(), Some("group"));
         assert_eq!(strategy_created.tag[0].id.as_deref(), Some("tag"));
+        assert_eq!(strategy_created.extra["group_source"], "created");
     }
 
     #[test]
@@ -11820,27 +11877,40 @@ mod tests {
                 "strategy_name": "vip",
                 "parent_id": 0,
                 "admin_list": ["admin"],
-                "create_time": 1_720_000_000
+                "create_time": 1_720_000_000,
+                "strategy_source": "moment"
             }],
-            "next_cursor": "next"
+            "next_cursor": "next",
+            "strategy_total": 1
         }))
         .unwrap();
         assert_eq!(strategies.strategy[0].strategy_name.as_deref(), Some("vip"));
         assert_eq!(strategies.strategy[0].admin_list[0], "admin");
+        assert_eq!(strategies.strategy[0].extra["strategy_source"], "moment");
         assert_eq!(strategies.next_cursor.as_deref(), Some("next"));
+        assert_eq!(strategies.extra["strategy_total"], 1);
 
         let range: ExternalContactMomentStrategyRangeResponse = serde_json::from_value(json!({
-            "range": { "user_list": ["user"], "party_list": [2], "tag_list": ["tag"] },
-            "next_cursor": "next"
+            "range": { "user_list": ["user"], "party_list": [2], "tag_list": ["tag"], "range_source": "manual" },
+            "next_cursor": "next",
+            "range_total": 1
         }))
         .unwrap();
+        assert_eq!(range.extra["range_total"], 1);
         let range_info = range.range.unwrap();
         assert_eq!(range_info.user_list[0], "user");
         assert_eq!(range_info.party_list[0], 2);
+        assert_eq!(range_info.extra["range_source"], "manual");
 
-        let created_strategy: ExternalContactMomentStrategyCreateResponse =
-            serde_json::from_value(json!({ "strategy_id": 100 })).unwrap();
+        let created_strategy: ExternalContactMomentStrategyCreateResponse = serde_json::from_value(
+            json!({ "strategy_id": 100, "request_id": "moment-strategy-create" }),
+        )
+        .unwrap();
         assert_eq!(created_strategy.strategy_id, Some(100));
+        assert_eq!(
+            created_strategy.extra["request_id"],
+            "moment-strategy-create"
+        );
     }
 
     #[test]
@@ -11967,6 +12037,7 @@ mod tests {
                 kind: 1,
                 partyid: Some(2),
                 userid: None,
+                extra: Value::Null,
             }],
         })
         .unwrap();
@@ -11984,6 +12055,7 @@ mod tests {
                 kind: 2,
                 partyid: None,
                 userid: Some("user".to_string()),
+                extra: Value::Null,
             }],
             range_del: Vec::new(),
         })
@@ -11998,13 +12070,17 @@ mod tests {
                 "strategy_name": "strategy",
                 "parent_id": 0,
                 "admin_list": ["admin"],
-                "create_time": 1_720_000_000
-            }]
+                "create_time": 1_720_000_000,
+                "strategy_source": "crm"
+            }],
+            "total": 1
         }))
         .unwrap();
         assert_eq!(list.strategy[0].strategy_id, Some(1));
         assert_eq!(list.strategy[0].strategy_name.as_deref(), Some("strategy"));
         assert_eq!(list.strategy[0].admin_list[0], "admin");
+        assert_eq!(list.strategy[0].extra["strategy_source"], "crm");
+        assert_eq!(list.extra["total"], 1);
 
         let detail: ExternalContactCustomerStrategyResponse = serde_json::from_value(json!({
             "momentStrategy": {
@@ -12031,24 +12107,33 @@ mod tests {
                     "export_customer_data": true,
                     "export_customer_group_list": true,
                     "manage_customer_tag": true
-                }
-            }
+                },
+                "strategy_source": "detail"
+            },
+            "request_id": "strategy-detail-1"
         }))
         .unwrap();
+        assert_eq!(detail.extra["request_id"], "strategy-detail-1");
         let strategy = detail.strategy.unwrap();
         assert_eq!(strategy.strategy_name.as_deref(), Some("strategy"));
         assert!(strategy.privilege.unwrap().view_customer_list);
+        assert_eq!(strategy.extra["strategy_source"], "detail");
 
         let range: ExternalContactCustomerStrategyRangeResponse = serde_json::from_value(json!({
-            "range": [{ "type": 2, "userid": "user" }]
+            "range": [{ "type": 2, "userid": "user", "range_source": "manual" }],
+            "range_total": 1
         }))
         .unwrap();
         assert_eq!(range.range[0].kind, 2);
         assert_eq!(range.range[0].userid.as_deref(), Some("user"));
+        assert_eq!(range.range[0].extra["range_source"], "manual");
+        assert_eq!(range.extra["range_total"], 1);
 
         let created: ExternalContactCustomerStrategyCreateResponse =
-            serde_json::from_value(json!({ "strategy_id": 3 })).unwrap();
+            serde_json::from_value(json!({ "strategy_id": 3, "request_id": "strategy-create-1" }))
+                .unwrap();
         assert_eq!(created.strategy_id, Some(3));
+        assert_eq!(created.extra["request_id"], "strategy-create-1");
     }
 
     #[test]
