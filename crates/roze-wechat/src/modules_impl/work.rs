@@ -8184,6 +8184,8 @@ pub struct WorkMsgAuditPermitUsersResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub ids: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8194,6 +8196,8 @@ pub struct WorkMsgAuditChatDataResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub chatdata: Vec<WorkMsgAuditChatData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8208,6 +8212,8 @@ pub struct WorkMsgAuditChatData {
     pub encrypt_random_key: Option<String>,
     #[serde(default)]
     pub encrypt_chat_msg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8226,6 +8232,8 @@ pub struct WorkMsgAuditRoomResponse {
     pub notice: Option<String>,
     #[serde(default)]
     pub members: Vec<WorkMsgAuditRoomMember>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8234,6 +8242,8 @@ pub struct WorkMsgAuditRoomMember {
     pub memberid: Option<String>,
     #[serde(default)]
     pub jointime: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8244,6 +8254,8 @@ pub struct WorkMsgAuditAgreeResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub agreeinfo: Vec<WorkMsgAuditAgreeInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8254,6 +8266,8 @@ pub struct WorkMsgAuditAgreeInfo {
     pub exteranalopenid: Option<String>,
     #[serde(default)]
     pub agree_status: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8264,6 +8278,8 @@ pub struct WorkMsgAuditRobotInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub robot_info: Option<WorkMsgAuditRobotInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8274,6 +8290,8 @@ pub struct WorkMsgAuditRobotInfo {
     pub name: Option<String>,
     #[serde(default)]
     pub creator_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 pub const WORK_AIBOT_CMD_SUBSCRIBE: &str = "aibot_subscribe";
@@ -14890,11 +14908,13 @@ mod tests {
 
         let permit: WorkMsgAuditPermitUsersResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "ids": ["user", "external-openid"]
+            "ids": ["user", "external-openid"],
+            "request_id": "permit-users"
         }))
         .unwrap();
         assert_eq!(permit.ids[0], "user");
         assert_eq!(permit.ids[1], "external-openid");
+        assert_eq!(permit.extra["request_id"], "permit-users");
 
         let chat_data: WorkMsgAuditChatDataResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -14903,13 +14923,17 @@ mod tests {
                 "msgid": "msg",
                 "publickey_ver": 2,
                 "encrypt_random_key": "random",
-                "encrypt_chat_msg": "cipher"
-            }]
+                "encrypt_chat_msg": "cipher",
+                "chat_type": "single"
+            }],
+            "next_seq": 2
         }))
         .unwrap();
         assert_eq!(chat_data.chatdata[0].seq, Some(1));
         assert_eq!(chat_data.chatdata[0].msgid.as_deref(), Some("msg"));
         assert_eq!(chat_data.chatdata[0].publickey_ver, Some(2));
+        assert_eq!(chat_data.chatdata[0].extra["chat_type"], "single");
+        assert_eq!(chat_data.extra["next_seq"], 2);
 
         let room: WorkMsgAuditRoomResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -14917,19 +14941,24 @@ mod tests {
             "creator": "creator",
             "room_create_time": 1_720_000_000,
             "notice": "notice",
-            "members": [{ "memberid": "user", "jointime": 1_720_000_001 }]
+            "members": [{ "memberid": "user", "jointime": 1_720_000_001, "member_role": "owner" }],
+            "room_status": "active"
         }))
         .unwrap();
         assert_eq!(room.roomname.as_deref(), Some("room"));
         assert_eq!(room.members[0].memberid.as_deref(), Some("user"));
+        assert_eq!(room.members[0].extra["member_role"], "owner");
+        assert_eq!(room.extra["room_status"], "active");
 
         let agree: WorkMsgAuditAgreeResponse = serde_json::from_value(json!({
             "errcode": 0,
             "agreeinfo": [{
                 "userid": "user",
                 "exteranalopenid": "openid",
-                "agree_status": "Agree"
-            }]
+                "agree_status": "Agree",
+                "agree_time": 1_720_000_003
+            }],
+            "agree_total": 1
         }))
         .unwrap();
         assert_eq!(agree.agreeinfo[0].userid.as_deref(), Some("user"));
@@ -14938,19 +14967,25 @@ mod tests {
             Some("openid")
         );
         assert_eq!(agree.agreeinfo[0].agree_status.as_deref(), Some("Agree"));
+        assert_eq!(agree.agreeinfo[0].extra["agree_time"], 1_720_000_003);
+        assert_eq!(agree.extra["agree_total"], 1);
 
         let robot: WorkMsgAuditRobotInfoResponse = serde_json::from_value(json!({
             "errcode": 0,
             "robot_info": {
                 "robot_id": "robot",
                 "name": "Robot",
-                "creator_userid": "creator"
-            }
+                "creator_userid": "creator",
+                "robot_status": "enabled"
+            },
+            "request_id": "robot-info"
         }))
         .unwrap();
+        assert_eq!(robot.extra["request_id"], "robot-info");
         let robot_info = robot.robot_info.unwrap();
         assert_eq!(robot_info.robot_id.as_deref(), Some("robot"));
         assert_eq!(robot_info.creator_userid.as_deref(), Some("creator"));
+        assert_eq!(robot_info.extra["robot_status"], "enabled");
     }
 
     #[test]
