@@ -85,6 +85,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - corp-tag list/add/edit/delete and customer tag-mark wrappers;
 - external group-chat list/get/transfer wrappers.
 - customer-acquisition link list/get/create/update/delete wrappers;
+- customer-acquisition link create/get responses now expose typed link DTOs
+  with range, priority, timestamp, URL, and extension-field preservation.
 - external-contact group message template, task/result, welcome, remind, and
   cancel wrappers;
 - external-customer transfer, transfer-result, unassigned-list, and resigned

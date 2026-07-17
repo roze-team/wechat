@@ -7001,7 +7001,7 @@ pub struct CustomerAcquisitionLinkCreateResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub link: Option<Value>,
+    pub link: Option<CustomerAcquisitionLink>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7011,7 +7011,29 @@ pub struct CustomerAcquisitionLinkResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub link: Option<Value>,
+    pub link: Option<CustomerAcquisitionLink>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionLink {
+    #[serde(default)]
+    pub link_id: Option<String>,
+    #[serde(default)]
+    pub link_name: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub skip_verify: Option<bool>,
+    #[serde(default)]
+    pub range: Option<CustomerAcquisitionRange>,
+    #[serde(default)]
+    pub priority_option: Option<CustomerAcquisitionPriorityOption>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11006,10 +11028,55 @@ mod tests {
 
         let created: CustomerAcquisitionLinkCreateResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "link": {
+                "link_id": "link",
+                "link_name": "summer",
+                "url": "https://example.com",
+                "skip_verify": true,
+                "range": { "user_list": ["user"] },
+                "priority_option": {
+                    "priority_type": 1,
+                    "priority_userid_list": ["priority"]
+                },
+                "create_time": 1_720_000_000,
+                "update_time": 1_720_000_001,
+                "future_field": "kept"
+            }
+        }))
+        .unwrap();
+        let created = created.link.unwrap();
+        assert_eq!(created.link_id.as_deref(), Some("link"));
+        assert_eq!(created.link_name.as_deref(), Some("summer"));
+        assert_eq!(created.url.as_deref(), Some("https://example.com"));
+        assert_eq!(created.skip_verify, Some(true));
+        assert_eq!(
+            created
+                .range
+                .as_ref()
+                .and_then(|range| range.user_list.first())
+                .map(String::as_str),
+            Some("user")
+        );
+        assert_eq!(
+            created
+                .priority_option
+                .as_ref()
+                .and_then(|option| option.priority_userid_list.first())
+                .map(String::as_str),
+            Some("priority")
+        );
+        assert_eq!(created.create_time, Some(1_720_000_000));
+        assert_eq!(created.extra["future_field"], "kept");
+
+        let got: CustomerAcquisitionLinkResponse = serde_json::from_value(json!({
+            "errcode": 0,
             "link": { "link_id": "link", "url": "https://example.com" }
         }))
         .unwrap();
-        assert_eq!(created.link.unwrap()["link_id"], "link");
+        assert_eq!(
+            got.link.and_then(|link| link.url).as_deref(),
+            Some("https://example.com")
+        );
     }
 
     #[test]
