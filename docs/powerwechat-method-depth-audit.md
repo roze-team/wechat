@@ -319,6 +319,14 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - corp-group app-share responses now expose typed shared-corp records.
 - OA check-in option, record, data, and schedule responses now expose typed
   group, user-option, record, data-item, and schedule DTOs.
+- OA check-in rules now expose typed fixed/special workdays, time sections,
+  Wi-Fi and location constraints, personnel ranges, reporters, shifts,
+  correction reminders, and overtime policies. Employee rules use the actual
+  `userid + group` response shape; day and month reports have separate typed
+  DTOs; personal schedules and schedule mutations no longer use raw JSON.
+- OA vacation configuration now exposes typed accrual, reset, quota, and
+  expiration policies. Member quota responses use a dedicated balance DTO,
+  and quota updates use the endpoint's direct single-balance request shape.
 - OA check-in, approval, and vacation response DTOs now preserve unknown
   upstream fields across wrappers and nested records.
 - OA calendar, dial, PSTNCC, and schedule responses now expose typed calendar,

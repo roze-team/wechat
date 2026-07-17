@@ -2740,7 +2740,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         request: WorkCheckinDateRangeRequest,
-    ) -> Result<WorkCheckinDataResponse> {
+    ) -> Result<WorkCheckinDayDataResponse> {
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckin_daydata",
@@ -2754,7 +2754,7 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         request: WorkCheckinDateRangeRequest,
-    ) -> Result<WorkCheckinDataResponse> {
+    ) -> Result<WorkCheckinMonthDataResponse> {
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckin_monthdata",
@@ -2802,7 +2802,10 @@ impl Work {
             .post(
                 "cgi-bin/checkin/addcheckinuserface",
                 Some(access_token.into()),
-                json!({ "userID": user_id.into(), "userface": user_face.into() }),
+                WorkCheckinUserFaceRequest {
+                    userid: user_id.into(),
+                    userface: user_face.into(),
+                },
             )
             .await
     }
@@ -10766,13 +10769,28 @@ pub struct WorkCheckinDateRangeRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinSetScheduleListRequest {
     pub groupid: i64,
-    pub items: Vec<Value>,
+    pub items: Vec<WorkCheckinSetScheduleItem>,
     pub yearmonth: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinSetScheduleItem {
+    pub userid: String,
+    pub day: i64,
+    pub schedule_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinUserFaceRequest {
+    pub userid: String,
+    pub userface: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinOptionMutationRequest {
-    pub group: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_now: Option<bool>,
+    pub group: WorkCheckinGroup,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10787,22 +10805,86 @@ pub struct WorkCheckinCorpOptionResponse {
     pub extra: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkCheckinGroup {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grouptype: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub groupid: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub groupname: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checkindate: Vec<WorkCheckinDateRule>,
-    #[serde(default)]
-    pub spe_workdays: Vec<Value>,
-    #[serde(default)]
-    pub spe_offdays: Vec<Value>,
-    #[serde(default)]
-    pub wifimac_infos: Vec<Value>,
-    #[serde(default)]
-    pub loc_infos: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spe_workdays: Vec<WorkCheckinSpecialWorkday>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spe_offdays: Vec<WorkCheckinSpecialOffday>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_holidays: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub need_photo: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_can_use_local_pic: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_checkin_offworkday: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_apply_offworkday: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wifimac_infos: Vec<WorkCheckinWifi>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub loc_infos: Vec<WorkCheckinLocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range: Vec<WorkCheckinRange>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub white_users: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reporterinfo: Option<WorkCheckinReporterInfo>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schedulelist: Vec<WorkCheckinRuleSchedule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_info: Option<WorkCheckinOvertimeRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_info_v2: Option<WorkCheckinOvertimeRuleV2>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub otapplyinfo: Option<WorkCheckinOvertimeApplyRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uptime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_userid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_userid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_apply_bk_cnt: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_apply_bk_day_limit: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option_out_range: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buka_restriction: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buka_limit_next_month: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buka_remind: Option<WorkCheckinCorrectionReminder>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offwork_interval_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span_day_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub standard_work_duration: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_sp_checkin: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_face_detect: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_face_live_detect: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkin_method_type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_out_checkin: Option<bool>,
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub rule_type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -10812,11 +10894,307 @@ pub struct WorkCheckinDateRule {
     #[serde(default)]
     pub workdays: Vec<i64>,
     #[serde(default)]
-    pub checkintime: Vec<Value>,
-    #[serde(default)]
+    pub checkintime: Vec<WorkCheckinTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flex_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noneed_offwork: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_aheadtime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_flex: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flex_on_duty_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flex_off_duty_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_allow_arrive_early: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_allow_arrive_late: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub late_rule: Option<WorkCheckinLateRule>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkCheckinTime {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_id: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub off_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remind_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remind_off_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_rest: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rest_begin_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rest_end_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub earliest_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub earliest_off_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_off_work_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_need_checkon: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_need_checkoff: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinSpecialWorkday {
+    pub timestamp: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checkintime: Vec<WorkCheckinTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub begtime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endtime: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinSpecialOffday {
+    pub timestamp: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checkintime: Vec<WorkCheckinTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub begtime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endtime: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinWifi {
+    pub wifiname: String,
+    pub wifimac: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinLocation {
+    pub lat: i64,
+    pub lng: i64,
+    pub loc_title: String,
+    pub loc_detail: String,
+    pub distance: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinRange {
+    #[serde(rename = "party_id", alias = "partyid", default)]
+    pub partyid: Vec<String>,
+    #[serde(default)]
+    pub userid: Vec<String>,
+    #[serde(default)]
+    pub tagid: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinReporterInfo {
+    #[serde(default)]
+    pub reporters: Vec<WorkCheckinReporter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updatetime: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinReporter {
+    pub userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tagid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinRuleSchedule {
+    pub schedule_id: i64,
+    pub schedule_name: String,
+    #[serde(default)]
+    pub time_section: Vec<WorkCheckinTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_aheadtime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noneed_offwork: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_offtime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flex_on_duty_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flex_off_duty_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_flex: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub late_rule: Option<WorkCheckinLateRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_allow_arrive_early: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_allow_arrive_late: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinLateRule {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_offwork_after_time: Option<WorkCheckinSwitch>,
+    #[serde(default)]
+    pub timerules: Vec<WorkCheckinLateTimeRule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WorkCheckinSwitch {
+    Boolean(bool),
+    Integer(i64),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinLateTimeRule {
+    pub offwork_after_time: i64,
+    pub onwork_flex_time: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeRule {
+    pub r#type: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_ot_workingday: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_ot_nonworkingday: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub otcheckinfo: Option<WorkCheckinOvertimeCheckInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeApplyRule {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_ot_workingday: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_ot_nonworkingday: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uptime: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_workingday_restinfo: Option<WorkCheckinOvertimeRestInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_nonworkingday_restinfo: Option<WorkCheckinOvertimeRestInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_nonworkingday_spanday_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeRuleV2 {
+    pub workdayconf: WorkCheckinOvertimeWorkdayConfig,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeWorkdayConfig {
+    pub allow_ot: bool,
+    #[serde(rename = "type")]
+    pub compensation_type: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinCorrectionReminder {
+    pub open_remind: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buka_remind_day: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buka_remind_month: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeCheckInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_workingday_time_start: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_workingday_time_min: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_workingday_time_max: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_nonworkingday_time_min: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_nonworkingday_time_max: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_nonworkingday_spanday_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_workingday_restinfo: Option<WorkCheckinOvertimeRestInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ot_nonworkingday_restinfo: Option<WorkCheckinOvertimeRestInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeRestInfo {
+    pub r#type: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fix_time_rule: Option<WorkCheckinOvertimeFixedRest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cal_ottime_rule: Option<WorkCheckinOvertimeCalculatedRest>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeFixedRest {
+    pub fix_time_begin_sec: i64,
+    pub fix_time_end_sec: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeCalculatedRest {
+    #[serde(default)]
+    pub items: Vec<WorkCheckinOvertimeCalculatedRestItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinOvertimeCalculatedRestItem {
+    pub ot_time: i64,
+    pub rest_time: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10833,16 +11211,8 @@ pub struct WorkCheckinOptionResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinUserOption {
-    #[serde(default)]
-    pub userid: Option<String>,
-    #[serde(default)]
-    pub groupid: Option<i64>,
-    #[serde(default)]
-    pub groupname: Option<String>,
-    #[serde(default)]
-    pub checkin_date: Option<i64>,
-    #[serde(default)]
-    pub day_type: Option<i64>,
+    pub userid: String,
+    pub group: WorkCheckinGroup,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -10879,38 +11249,237 @@ pub struct WorkCheckinRecord {
     pub wifiname: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
+    #[serde(default)]
+    pub wifimac: Option<String>,
+    #[serde(default)]
+    pub mediaids: Vec<String>,
+    #[serde(default)]
+    pub sch_checkin_time: Option<i64>,
+    #[serde(default)]
+    pub groupid: Option<i64>,
+    #[serde(default)]
+    pub schedule_id: Option<i64>,
+    #[serde(default)]
+    pub timeline_id: Option<i64>,
+    #[serde(default)]
+    pub lat: Option<i64>,
+    #[serde(default)]
+    pub lng: Option<i64>,
+    #[serde(default)]
+    pub deviceid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkCheckinDataResponse {
+pub struct WorkCheckinDayDataResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub datas: Vec<WorkCheckinDataItem>,
+    pub datas: Vec<WorkCheckinDayData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+pub type WorkCheckinDataResponse = WorkCheckinDayDataResponse;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDayData {
+    pub base_info: WorkCheckinDayBaseInfo,
+    pub summary_info: WorkCheckinDaySummary,
+    #[serde(default)]
+    pub exception_infos: Vec<WorkCheckinException>,
+    #[serde(default)]
+    pub holiday_infos: Vec<WorkCheckinHoliday>,
+    #[serde(default)]
+    pub sp_items: Vec<WorkCheckinSpItem>,
+    #[serde(default)]
+    pub ot_info: Option<WorkCheckinDayOvertime>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkCheckinDataItem {
+pub struct WorkCheckinDayBaseInfo {
+    pub date: i64,
+    pub record_type: i64,
+    pub name: String,
+    pub name_ex: String,
+    pub departs_name: String,
+    pub acctid: String,
+    pub day_type: i64,
+    pub rule_info: WorkCheckinDayRuleInfo,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDayRuleInfo {
+    pub groupid: i64,
+    pub groupname: String,
+    pub scheduleid: i64,
+    pub schedulename: String,
     #[serde(default)]
-    pub userid: Option<String>,
+    pub checkintime: Vec<WorkCheckinDayTime>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDayTime {
+    pub work_sec: i64,
+    pub off_work_sec: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDaySummary {
+    pub checkin_count: i64,
+    pub regular_work_sec: i64,
+    pub standard_work_sec: i64,
+    pub earliest_time: i64,
+    pub lastest_time: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinException {
+    pub count: i64,
+    pub duration: i64,
+    pub exception: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinHoliday {
+    pub sp_number: String,
+    pub sp_title: WorkCheckinLocalizedData,
+    pub sp_description: WorkCheckinLocalizedData,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinLocalizedData {
     #[serde(default)]
-    pub groupid: Option<i64>,
+    pub data: Vec<WorkApprovalLocalizedText>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinSpItem {
+    pub count: i64,
+    pub duration: i64,
+    pub time_type: i64,
+    pub r#type: i64,
+    pub vacation_id: i64,
+    pub name: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinDayOvertime {
+    pub ot_status: i64,
+    pub ot_duration: i64,
     #[serde(default)]
-    pub date: Option<i64>,
+    pub exception_duration: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workday_over_as_vacation: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workday_over_as_money: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restday_over_as_vacation: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restday_over_as_money: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holiday_over_as_vacation: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holiday_over_as_money: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinMonthDataResponse {
     #[serde(default)]
-    pub base_info: Option<Value>,
+    pub errcode: Option<i64>,
     #[serde(default)]
-    pub summary_info: Option<Value>,
+    pub errmsg: Option<String>,
     #[serde(default)]
-    pub exception_infos: Vec<Value>,
+    pub datas: Vec<WorkCheckinMonthData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinMonthData {
+    pub base_info: WorkCheckinMonthBaseInfo,
+    pub summary_info: WorkCheckinMonthSummary,
     #[serde(default)]
-    pub holiday_infos: Vec<Value>,
+    pub exception_infos: Vec<WorkCheckinException>,
+    #[serde(default)]
+    pub sp_items: Vec<WorkCheckinSpItem>,
+    #[serde(default)]
+    pub overwork_info: Option<WorkCheckinMonthOvertime>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinMonthBaseInfo {
+    pub record_type: i64,
+    pub name: String,
+    pub name_ex: String,
+    pub departs_name: String,
+    pub acctid: String,
+    pub rule_info: WorkCheckinMonthRuleInfo,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinMonthRuleInfo {
+    pub groupid: i64,
+    pub groupname: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinMonthSummary {
+    pub work_days: i64,
+    pub except_days: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regular_days: Option<i64>,
+    pub regular_work_sec: i64,
+    pub standard_work_sec: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rest_days: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinMonthOvertime {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workday_over_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holidays_over_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restdays_over_sec: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workdays_over_as_vacation: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workdays_over_as_money: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restdays_over_as_vacation: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restdays_over_as_money: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holidays_over_as_vacation: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holidays_over_as_money: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -10929,16 +11498,48 @@ pub struct WorkCheckinScheduleListResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinSchedule {
+    pub userid: String,
+    pub yearmonth: i64,
+    pub groupid: i64,
+    pub groupname: String,
+    pub schedule: WorkCheckinUserSchedule,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinUserSchedule {
+    #[serde(rename = "scheduleList", alias = "schedule_list", default)]
+    pub schedule_list: Vec<WorkCheckinUserScheduleDay>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinUserScheduleDay {
+    pub day: i64,
+    pub schedule_info: WorkCheckinUserScheduleInfo,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinUserScheduleInfo {
+    pub schedule_id: i64,
+    pub schedule_name: String,
     #[serde(default)]
-    pub userid: Option<String>,
-    #[serde(default)]
-    pub schedule_id: Option<i64>,
-    #[serde(default)]
-    pub groupid: Option<i64>,
-    #[serde(default)]
-    pub day: Option<i64>,
-    #[serde(default)]
-    pub schedule: Option<Value>,
+    pub time_section: Vec<WorkCheckinUserScheduleTime>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinUserScheduleTime {
+    pub id: i64,
+    pub work_sec: i64,
+    pub off_work_sec: i64,
+    pub remind_work_sec: i64,
+    pub remind_off_work_sec: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -11455,28 +12056,125 @@ pub struct WorkVacationConfigResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub lists: Vec<Value>,
+    pub lists: Vec<WorkVacationConfig>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
-pub type WorkVacationQuotaResponse = WorkVacationConfigResponse;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationConfig {
+    pub id: i64,
+    pub name: String,
+    pub time_attr: i64,
+    pub duration_type: i64,
+    #[serde(default)]
+    pub quota_attr: Option<WorkVacationQuotaPolicy>,
+    #[serde(default)]
+    pub perday_duration: Option<i64>,
+    #[serde(default)]
+    pub is_newovertime: Option<i64>,
+    #[serde(default)]
+    pub enter_comp_time_limit: Option<i64>,
+    #[serde(default)]
+    pub expire_rule: Option<WorkVacationExpireRule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuotaPolicy {
+    #[serde(rename = "type")]
+    pub policy_type: i64,
+    #[serde(default)]
+    pub autoreset_time: Option<i64>,
+    #[serde(default)]
+    pub autoreset_duration: Option<i64>,
+    #[serde(default)]
+    pub quota_rule_type: Option<i64>,
+    #[serde(default)]
+    pub quota_rules: Option<WorkVacationQuotaRules>,
+    #[serde(default)]
+    pub at_entry_date: Option<bool>,
+    #[serde(default)]
+    pub auto_reset_month_day: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuotaRules {
+    #[serde(default)]
+    pub list: Vec<WorkVacationQuotaRule>,
+    #[serde(default)]
+    pub based_on_actual_work_time: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuotaRule {
+    pub quota: i64,
+    pub begin: i64,
+    pub end: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationExpireRule {
+    #[serde(rename = "type")]
+    pub rule_type: i64,
+    #[serde(default)]
+    pub duration: Option<i64>,
+    #[serde(default)]
+    pub date: Option<WorkVacationMonthDay>,
+    #[serde(default)]
+    pub extern_duration_enable: Option<bool>,
+    #[serde(default)]
+    pub extern_duration: Option<WorkVacationMonthDay>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationMonthDay {
+    pub month: i64,
+    pub day: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuotaResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub lists: Vec<WorkVacationQuota>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkVacationQuota {
+    pub id: i64,
+    pub assignduration: i64,
+    pub usedduration: i64,
+    pub leftduration: i64,
+    pub vacationname: String,
+    #[serde(default)]
+    pub real_assignduration: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationQuotaUpdateRequest {
     pub userid: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub lists: Vec<WorkVacationQuotaUpdateItem>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkVacationQuotaUpdateItem {
     pub vacation_id: i64,
     pub leftduration: i64,
+    pub time_attr: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_attr: Option<i64>,
-    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
-    pub extra: Value,
+    pub remarks: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16906,23 +17604,84 @@ mod tests {
 
         let schedule = serde_json::to_value(WorkCheckinSetScheduleListRequest {
             groupid: 1,
-            items: vec![json!({ "userid": "user", "day": 20260716 })],
+            items: vec![WorkCheckinSetScheduleItem {
+                userid: "user".to_string(),
+                day: 16,
+                schedule_id: 2,
+            }],
             yearmonth: 202607,
         })
         .unwrap();
         assert_eq!(schedule["groupid"], 1);
         assert_eq!(schedule["items"][0]["userid"], "user");
+        assert_eq!(schedule["items"][0]["schedule_id"], 2);
 
-        let option = serde_json::to_value(WorkCheckinOptionMutationRequest {
-            group: json!({
-                "groupid": 1,
-                "groupname": "default",
-                "range": { "userid": ["user"] }
-            }),
+        let face = serde_json::to_value(WorkCheckinUserFaceRequest {
+            userid: "user".to_string(),
+            userface: "base64-image".to_string(),
         })
         .unwrap();
+        assert_eq!(face["userid"], "user");
+        assert!(face.get("userID").is_none());
+
+        let option = serde_json::to_value(WorkCheckinOptionMutationRequest {
+            effective_now: Some(true),
+            group: WorkCheckinGroup {
+                grouptype: Some(1),
+                groupid: Some(1),
+                groupname: Some("default".to_string()),
+                checkindate: vec![WorkCheckinDateRule {
+                    workdays: vec![1, 2, 3, 4, 5],
+                    checkintime: vec![WorkCheckinTime {
+                        work_sec: Some(32_400),
+                        off_work_sec: Some(61_200),
+                        ..WorkCheckinTime::default()
+                    }],
+                    flex_time: Some(300),
+                    noneed_offwork: Some(false),
+                    limit_aheadtime: None,
+                    allow_flex: None,
+                    flex_on_duty_time: None,
+                    flex_off_duty_time: None,
+                    max_allow_arrive_early: None,
+                    max_allow_arrive_late: None,
+                    late_rule: None,
+                    extra: Value::Null,
+                }],
+                range: vec![WorkCheckinRange {
+                    partyid: vec!["2".to_string()],
+                    userid: vec!["user".to_string()],
+                    tagid: Vec::new(),
+                    extra: Value::Null,
+                }],
+                ot_info_v2: Some(WorkCheckinOvertimeRuleV2 {
+                    workdayconf: WorkCheckinOvertimeWorkdayConfig {
+                        allow_ot: true,
+                        compensation_type: 1,
+                        extra: Value::Null,
+                    },
+                    extra: Value::Null,
+                }),
+                buka_remind: Some(WorkCheckinCorrectionReminder {
+                    open_remind: true,
+                    buka_remind_day: Some(1),
+                    buka_remind_month: None,
+                    extra: Value::Null,
+                }),
+                ..WorkCheckinGroup::default()
+            },
+        })
+        .unwrap();
+        assert_eq!(option["effective_now"], true);
         assert_eq!(option["group"]["groupname"], "default");
-        assert_eq!(option["group"]["range"]["userid"][0], "user");
+        assert_eq!(option["group"]["range"][0]["party_id"][0], "2");
+        assert_eq!(option["group"]["range"][0]["userid"][0], "user");
+        assert_eq!(
+            option["group"]["checkindate"][0]["checkintime"][0]["work_sec"],
+            32_400
+        );
+        assert_eq!(option["group"]["ot_info_v2"]["workdayconf"]["type"], 1);
+        assert_eq!(option["group"]["buka_remind"]["buka_remind_day"], 1);
 
         let apply = serde_json::to_value(WorkApprovalApplyEventRequest {
             creator_userid: "user".to_string(),
@@ -16985,17 +17744,16 @@ mod tests {
 
         let quota = serde_json::to_value(WorkVacationQuotaUpdateRequest {
             userid: "user".to_string(),
-            lists: vec![WorkVacationQuotaUpdateItem {
-                vacation_id: 1,
-                leftduration: 3600,
-                time_attr: Some(0),
-                extra: serde_json::Value::Null,
-            }],
+            vacation_id: 1,
+            leftduration: 3600,
+            time_attr: 0,
+            remarks: Some("annual adjustment".to_string()),
         })
         .unwrap();
         assert_eq!(quota["userid"], "user");
-        assert_eq!(quota["lists"][0]["vacation_id"], 1);
-        assert_eq!(quota["lists"][0]["leftduration"], 3600);
+        assert_eq!(quota["vacation_id"], 1);
+        assert_eq!(quota["leftduration"], 3600);
+        assert_eq!(quota["remarks"], "annual adjustment");
     }
 
     #[test]
@@ -17150,9 +17908,87 @@ mod tests {
         let corp_option: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
             "trace_id": "checkin-corp",
             "group": [{
+                "grouptype": 1,
                 "groupid": 1,
                 "groupname": "Default",
-                "checkindate": [{ "workdays": [1, 2, 3], "flex_time": 30, "rule_version": 2 }],
+                "checkindate": [{
+                    "workdays": [1, 2, 3],
+                    "checkintime": [{
+                        "time_id": 1,
+                        "work_sec": 32400,
+                        "off_work_sec": 61200,
+                        "allow_rest": true,
+                        "rest_begin_time": 43200,
+                        "rest_end_time": 46800
+                    }],
+                    "flex_time": 30,
+                    "rule_version": 2
+                }],
+                "spe_workdays": [{
+                    "timestamp": 1_800_000_000,
+                    "notes": "release",
+                    "checkintime": [{ "work_sec": 36000, "off_work_sec": 64800 }]
+                }],
+                "spe_offdays": [{
+                    "timestamp": 1_800_086_400,
+                    "notes": "holiday",
+                    "checkintime": []
+                }],
+                "sync_holidays": true,
+                "need_photo": true,
+                "wifimac_infos": [{
+                    "wifiname": "Office",
+                    "wifimac": "00:11:22:33:44:55",
+                    "wifi_version": 2
+                }],
+                "loc_infos": [{
+                    "lat": 30547030,
+                    "lng": 104062890,
+                    "loc_title": "Office",
+                    "loc_detail": "Building A",
+                    "distance": 300
+                }],
+                "range": [{
+                    "partyid": ["2"],
+                    "userid": ["user"],
+                    "tagid": [3]
+                }],
+                "reporterinfo": {
+                    "reporters": [{ "userid": "manager", "tagid": 4 }],
+                    "updatetime": 1_800_000_000
+                },
+                "schedulelist": [{
+                    "schedule_id": 2,
+                    "schedule_name": "Day",
+                    "time_section": [{
+                        "work_sec": 32400,
+                        "off_work_sec": 61200
+                    }],
+                    "late_rule": {
+                        "allow_offwork_after_time": true,
+                        "timerules": [{
+                            "offwork_after_time": 3600,
+                            "onwork_flex_time": 1800
+                        }]
+                    }
+                }],
+                "ot_info": {
+                    "type": 1,
+                    "allow_ot_workingday": true,
+                    "otcheckinfo": {
+                        "ot_workingday_time_start": 64800,
+                        "ot_workingday_restinfo": {
+                            "type": 2,
+                            "fix_time_rule": {
+                                "fix_time_begin_sec": 43200,
+                                "fix_time_end_sec": 46800
+                            },
+                            "cal_ottime_rule": {
+                                "items": [{ "ot_time": 18000, "rest_time": 3600 }]
+                            }
+                        }
+                    }
+                },
                 "group_owner": "admin"
             }]
         }))
@@ -17161,17 +17997,63 @@ mod tests {
         assert_eq!(corp_option.group[0].groupid, Some(1));
         assert_eq!(corp_option.group[0].groupname.as_deref(), Some("Default"));
         assert_eq!(corp_option.group[0].checkindate[0].flex_time, Some(30));
+        assert_eq!(
+            corp_option.group[0].checkindate[0].checkintime[0].work_sec,
+            Some(32_400)
+        );
+        assert_eq!(
+            corp_option.group[0].spe_workdays[0].notes.as_deref(),
+            Some("release")
+        );
+        assert_eq!(
+            corp_option.group[0].wifimac_infos[0].extra["wifi_version"],
+            2
+        );
+        assert_eq!(corp_option.group[0].loc_infos[0].distance, 300);
+        assert_eq!(corp_option.group[0].range[0].userid[0], "user");
+        assert_eq!(
+            corp_option.group[0]
+                .reporterinfo
+                .as_ref()
+                .expect("reporter info")
+                .reporters[0]
+                .userid,
+            "manager"
+        );
+        assert_eq!(corp_option.group[0].schedulelist[0].schedule_id, 2);
+        assert_eq!(
+            corp_option.group[0]
+                .ot_info
+                .as_ref()
+                .expect("overtime rule")
+                .otcheckinfo
+                .as_ref()
+                .expect("overtime check rule")
+                .ot_workingday_time_start,
+            Some(64_800)
+        );
         assert_eq!(corp_option.group[0].extra["group_owner"], "admin");
         assert_eq!(corp_option.group[0].checkindate[0].extra["rule_version"], 2);
 
         let option: WorkCheckinOptionResponse = serde_json::from_value(json!({
             "trace_id": "checkin-option",
-            "info": [{ "userid": "user", "groupid": 1, "groupname": "Default", "option_source": "rule" }]
+            "info": [{
+                "userid": "user",
+                "group": {
+                    "grouptype": 1,
+                    "groupid": 1,
+                    "groupname": "Default",
+                    "checkindate": [],
+                    "option_version": 2
+                },
+                "option_source": "rule"
+            }]
         }))
         .unwrap();
         assert_eq!(option.extra["trace_id"], "checkin-option");
-        assert_eq!(option.info[0].userid.as_deref(), Some("user"));
-        assert_eq!(option.info[0].groupid, Some(1));
+        assert_eq!(option.info[0].userid, "user");
+        assert_eq!(option.info[0].group.groupid, Some(1));
+        assert_eq!(option.info[0].group.extra["option_version"], 2);
         assert_eq!(option.info[0].extra["option_source"], "rule");
 
         let record: WorkCheckinRecordResponse = serde_json::from_value(json!({
@@ -17180,6 +18062,15 @@ mod tests {
                 "userid": "user",
                 "checkin_type": "上班打卡",
                 "checkin_time": 1_800_000_000,
+                "wifimac": "00:11:22:33:44:55",
+                "mediaids": ["media-1"],
+                "sch_checkin_time": 1_799_999_900,
+                "groupid": 1,
+                "schedule_id": 2,
+                "timeline_id": 3,
+                "lat": 30547030,
+                "lng": 104062890,
+                "deviceid": "device",
                 "device_id": "device"
             }]
         }))
@@ -17191,28 +18082,213 @@ mod tests {
             Some("上班打卡")
         );
         assert_eq!(record.checkindata[0].checkin_time, Some(1_800_000_000));
+        assert_eq!(record.checkindata[0].mediaids[0], "media-1");
+        assert_eq!(record.checkindata[0].deviceid.as_deref(), Some("device"));
+        assert_eq!(record.checkindata[0].schedule_id, Some(2));
         assert_eq!(record.checkindata[0].extra["device_id"], "device");
 
         let day: WorkCheckinDataResponse = serde_json::from_value(json!({
             "trace_id": "checkin-data",
-            "datas": [{ "userid": "user", "groupid": 1, "base_info": {}, "summary_score": 100 }]
+            "datas": [{
+                "base_info": {
+                    "date": 20260717,
+                    "record_type": 1,
+                    "name": "Alice",
+                    "name_ex": "Alice",
+                    "departs_name": "Engineering",
+                    "acctid": "user",
+                    "day_type": 1,
+                    "rule_info": {
+                        "groupid": 1,
+                        "groupname": "Default",
+                        "scheduleid": 2,
+                        "schedulename": "Day",
+                        "checkintime": [{ "work_sec": 32400, "off_work_sec": 61200 }]
+                    }
+                },
+                "summary_info": {
+                    "checkin_count": 2,
+                    "regular_work_sec": 28800,
+                    "standard_work_sec": 28800,
+                    "earliest_time": 1_800_000_000,
+                    "lastest_time": 1_800_028_800,
+                    "summary_version": 2
+                },
+                "exception_infos": [{ "count": 1, "duration": 300, "exception": 1 }],
+                "holiday_infos": [{
+                    "sp_number": "202607170001",
+                    "sp_title": {
+                        "data": [{ "text": "Annual leave", "lang": "zh_CN" }]
+                    },
+                    "sp_description": {
+                        "data": [{ "text": "Half day", "lang": "zh_CN" }]
+                    }
+                }],
+                "sp_items": [{
+                    "count": 1,
+                    "duration": 14400,
+                    "time_type": 0,
+                    "type": 1,
+                    "vacation_id": 1,
+                    "name": "Annual leave"
+                }],
+                "ot_info": {
+                    "ot_status": 1,
+                    "ot_duration": 3600,
+                    "exception_duration": [300]
+                },
+                "daily_version": 2
+            }]
         }))
         .unwrap();
         assert_eq!(day.extra["trace_id"], "checkin-data");
-        assert_eq!(day.datas[0].userid.as_deref(), Some("user"));
-        assert_eq!(day.datas[0].groupid, Some(1));
-        assert!(day.datas[0].base_info.is_some());
-        assert_eq!(day.datas[0].extra["summary_score"], 100);
+        assert_eq!(day.datas[0].base_info.acctid, "user");
+        assert_eq!(day.datas[0].base_info.rule_info.scheduleid, 2);
+        assert_eq!(day.datas[0].summary_info.checkin_count, 2);
+        assert_eq!(day.datas[0].summary_info.extra["summary_version"], 2);
+        assert_eq!(
+            day.datas[0].holiday_infos[0].sp_title.data[0].text,
+            "Annual leave"
+        );
+        assert_eq!(day.datas[0].sp_items[0].vacation_id, 1);
+        assert_eq!(
+            day.datas[0]
+                .ot_info
+                .as_ref()
+                .expect("day overtime")
+                .ot_duration,
+            3600
+        );
+        assert_eq!(day.datas[0].extra["daily_version"], 2);
+
+        let month: WorkCheckinMonthDataResponse = serde_json::from_value(json!({
+            "datas": [{
+                "base_info": {
+                    "record_type": 2,
+                    "name": "Alice",
+                    "name_ex": "Alice",
+                    "departs_name": "Engineering",
+                    "acctid": "user",
+                    "rule_info": { "groupid": 1, "groupname": "Default" }
+                },
+                "summary_info": {
+                    "work_days": 22,
+                    "except_days": 1,
+                    "regular_days": 21,
+                    "regular_work_sec": 604800,
+                    "standard_work_sec": 633600,
+                    "rest_days": 8,
+                    "month_version": 2
+                },
+                "exception_infos": [{ "count": 1, "duration": 300, "exception": 1 }],
+                "sp_items": [],
+                "overwork_info": {
+                    "workday_over_sec": 3600,
+                    "holidays_over_sec": 0,
+                    "restdays_over_sec": 7200,
+                    "workdays_over_as_vacation": 0,
+                    "workdays_over_as_money": 3600,
+                    "restdays_over_as_vacation": 7200,
+                    "restdays_over_as_money": 0,
+                    "holidays_over_as_vacation": 0,
+                    "holidays_over_as_money": 0
+                }
+            }]
+        }))
+        .unwrap();
+        assert_eq!(month.datas[0].base_info.rule_info.groupid, 1);
+        assert_eq!(month.datas[0].summary_info.work_days, 22);
+        assert_eq!(month.datas[0].summary_info.extra["month_version"], 2);
+        assert_eq!(
+            month.datas[0]
+                .overwork_info
+                .as_ref()
+                .expect("month overtime")
+                .restdays_over_sec,
+            Some(7200)
+        );
+
+        let sparse_month: WorkCheckinMonthDataResponse = serde_json::from_value(json!({
+            "datas": [{
+                "base_info": {
+                    "record_type": 1,
+                    "name": "Alice",
+                    "name_ex": "Alice",
+                    "departs_name": "Engineering",
+                    "acctid": "user",
+                    "rule_info": { "groupid": 1, "groupname": "Default" }
+                },
+                "summary_info": {
+                    "work_days": 3,
+                    "except_days": 1,
+                    "regular_work_sec": 31,
+                    "standard_work_sec": 29040
+                },
+                "exception_infos": [],
+                "sp_items": [],
+                "overwork_info": { "workday_over_sec": 10800 }
+            }]
+        }))
+        .unwrap();
+        assert_eq!(sparse_month.datas[0].summary_info.regular_days, None);
+        assert_eq!(
+            sparse_month.datas[0]
+                .overwork_info
+                .as_ref()
+                .expect("sparse month overtime")
+                .workday_over_sec,
+            Some(10800)
+        );
 
         let schedule: WorkCheckinScheduleListResponse = serde_json::from_value(json!({
             "trace_id": "checkin-schedule",
-            "schedule_list": [{ "userid": "user", "schedule_id": 1, "groupid": 2, "shift_name": "morning" }]
+            "schedule_list": [{
+                "userid": "user",
+                "yearmonth": 202607,
+                "groupid": 2,
+                "groupname": "Shift",
+                "schedule": {
+                    "scheduleList": [{
+                        "day": 17,
+                        "schedule_info": {
+                            "schedule_id": 1,
+                            "schedule_name": "Morning",
+                            "time_section": [{
+                                "id": 1,
+                                "work_sec": 32400,
+                                "off_work_sec": 61200,
+                                "remind_work_sec": 31800,
+                                "remind_off_work_sec": 61200,
+                                "section_version": 2
+                            }]
+                        }
+                    }],
+                    "schedule_version": 2
+                },
+                "shift_name": "morning"
+            }]
         }))
         .unwrap();
         assert_eq!(schedule.extra["trace_id"], "checkin-schedule");
-        assert_eq!(schedule.schedule_list[0].userid.as_deref(), Some("user"));
-        assert_eq!(schedule.schedule_list[0].schedule_id, Some(1));
-        assert_eq!(schedule.schedule_list[0].groupid, Some(2));
+        assert_eq!(schedule.schedule_list[0].userid, "user");
+        assert_eq!(schedule.schedule_list[0].groupid, 2);
+        assert_eq!(
+            schedule.schedule_list[0].schedule.schedule_list[0]
+                .schedule_info
+                .schedule_id,
+            1
+        );
+        assert_eq!(
+            schedule.schedule_list[0].schedule.schedule_list[0]
+                .schedule_info
+                .time_section[0]
+                .extra["section_version"],
+            2
+        );
+        assert_eq!(
+            schedule.schedule_list[0].schedule.extra["schedule_version"],
+            2
+        );
         assert_eq!(schedule.schedule_list[0].extra["shift_name"], "morning");
 
         let template: WorkApprovalTemplateDetailResponse = serde_json::from_value(json!({
@@ -17423,12 +18499,98 @@ mod tests {
         assert_eq!(data.extra["has_more"], true);
 
         let vacation: WorkVacationConfigResponse = serde_json::from_value(json!({
-            "lists": [{ "id": 1, "name": "Annual Leave" }],
+            "lists": [{
+                "id": 1,
+                "name": "Annual Leave",
+                "time_attr": 0,
+                "duration_type": 0,
+                "quota_attr": {
+                    "type": 1,
+                    "autoreset_time": 1_900_000_000,
+                    "autoreset_duration": 432000,
+                    "quota_rule_type": 1,
+                    "quota_rules": {
+                        "list": [{
+                            "quota": 432000,
+                            "begin": 0,
+                            "end": 1,
+                            "rule_version": 2
+                        }],
+                        "based_on_actual_work_time": true
+                    },
+                    "at_entry_date": true,
+                    "auto_reset_month_day": 101
+                },
+                "perday_duration": 86400,
+                "is_newovertime": 0,
+                "enter_comp_time_limit": 0,
+                "expire_rule": {
+                    "type": 2,
+                    "duration": 2,
+                    "date": { "month": 12, "day": 31 },
+                    "extern_duration_enable": false,
+                    "extern_duration": { "month": 1, "day": 31 }
+                },
+                "vacation_version": 2
+            }],
             "config_version": 2
         }))
         .unwrap();
-        assert_eq!(vacation.lists[0]["name"], "Annual Leave");
+        assert_eq!(vacation.lists[0].name, "Annual Leave");
+        let policy = vacation.lists[0]
+            .quota_attr
+            .as_ref()
+            .expect("vacation quota policy");
+        assert_eq!(policy.policy_type, 1);
+        assert_eq!(
+            policy
+                .quota_rules
+                .as_ref()
+                .expect("vacation quota rules")
+                .list[0]
+                .quota,
+            432000
+        );
+        assert_eq!(
+            policy
+                .quota_rules
+                .as_ref()
+                .expect("vacation quota rules")
+                .list[0]
+                .extra["rule_version"],
+            2
+        );
+        assert_eq!(
+            vacation.lists[0]
+                .expire_rule
+                .as_ref()
+                .expect("vacation expiration")
+                .date
+                .as_ref()
+                .expect("vacation expiration date")
+                .month,
+            12
+        );
+        assert_eq!(vacation.lists[0].extra["vacation_version"], 2);
         assert_eq!(vacation.extra["config_version"], 2);
+
+        let quota: WorkVacationQuotaResponse = serde_json::from_value(json!({
+            "lists": [{
+                "id": 1,
+                "assignduration": 604800,
+                "usedduration": 86400,
+                "leftduration": 518400,
+                "vacationname": "Annual Leave",
+                "real_assignduration": 604800,
+                "quota_version": 2
+            }],
+            "quota_trace": "vacation-quota"
+        }))
+        .unwrap();
+        assert_eq!(quota.lists[0].leftduration, 518400);
+        assert_eq!(quota.lists[0].real_assignduration, Some(604800));
+        assert_eq!(quota.lists[0].extra["quota_version"], 2);
+        assert_eq!(quota.extra["quota_trace"], "vacation-quota");
     }
 
     #[test]
