@@ -257,6 +257,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   create/edit, linked-corp and external-contact school message sends,
   template-card update, check-in option add/update, approval apply-event, and
   vacation quota update now accept explicit request DTOs.
+- Work user batch job results now expose semantic async job-type helpers for
+  contact import and export job families while retaining upstream `type`
+  strings.
 - invoice info/batch responses and account-service tag detail/list responses
   now expose typed invoice user-info, line-item, invoice batch-item, tag-user,
   and tag DTOs.

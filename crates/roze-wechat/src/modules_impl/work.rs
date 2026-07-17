@@ -6436,9 +6436,83 @@ impl WorkAsyncJobStatusKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAsyncJobTypeKind {
+    SyncUser,
+    ReplaceUser,
+    InviteUser,
+    ReplaceParty,
+    ExportUser,
+    ExportSimpleUser,
+    ExportDepartment,
+    ExportTagUser,
+    Other,
+}
+
+impl WorkAsyncJobTypeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("sync_user") {
+            Self::SyncUser
+        } else if value.eq_ignore_ascii_case("replace_user") {
+            Self::ReplaceUser
+        } else if value.eq_ignore_ascii_case("invite_user") {
+            Self::InviteUser
+        } else if value.eq_ignore_ascii_case("replace_party") {
+            Self::ReplaceParty
+        } else if value.eq_ignore_ascii_case("export_user") {
+            Self::ExportUser
+        } else if value.eq_ignore_ascii_case("export_simple_user") {
+            Self::ExportSimpleUser
+        } else if value.eq_ignore_ascii_case("export_department") {
+            Self::ExportDepartment
+        } else if value.eq_ignore_ascii_case("export_taguser") {
+            Self::ExportTagUser
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn as_code(self) -> &'static str {
+        match self {
+            Self::SyncUser => "sync_user",
+            Self::ReplaceUser => "replace_user",
+            Self::InviteUser => "invite_user",
+            Self::ReplaceParty => "replace_party",
+            Self::ExportUser => "export_user",
+            Self::ExportSimpleUser => "export_simple_user",
+            Self::ExportDepartment => "export_department",
+            Self::ExportTagUser => "export_taguser",
+            Self::Other => "unknown",
+        }
+    }
+
+    pub fn is_export(self) -> bool {
+        matches!(
+            self,
+            Self::ExportUser
+                | Self::ExportSimpleUser
+                | Self::ExportDepartment
+                | Self::ExportTagUser
+        )
+    }
+
+    pub fn is_contact_import(self) -> bool {
+        matches!(
+            self,
+            Self::SyncUser | Self::ReplaceUser | Self::InviteUser | Self::ReplaceParty
+        )
+    }
+}
+
 impl WorkUserBatchJobResultResponse {
     pub fn status_kind(&self) -> Option<WorkAsyncJobStatusKind> {
         self.status.map(WorkAsyncJobStatusKind::from)
+    }
+
+    pub fn job_type_kind(&self) -> Option<WorkAsyncJobTypeKind> {
+        self.job_type
+            .as_deref()
+            .map(WorkAsyncJobTypeKind::from_code)
     }
 }
 
@@ -14258,6 +14332,14 @@ mod tests {
             batch_result.status_kind(),
             Some(WorkAsyncJobStatusKind::Processing)
         );
+        assert_eq!(
+            batch_result.job_type_kind(),
+            Some(WorkAsyncJobTypeKind::SyncUser)
+        );
+        assert!(batch_result
+            .job_type_kind()
+            .expect("job type")
+            .is_contact_import());
         assert_eq!(batch_result.result[0].userid.as_deref(), Some("user"));
         assert_eq!(batch_result.result[0].errcode, Some(0));
         assert_eq!(batch_result.result[0].extra["row_num"], 3);
@@ -14299,6 +14381,20 @@ mod tests {
         assert_eq!(
             WorkAsyncJobStatusKind::from(99),
             WorkAsyncJobStatusKind::Other(99)
+        );
+        assert_eq!(
+            WorkAsyncJobTypeKind::from_code("REPLACE_PARTY"),
+            WorkAsyncJobTypeKind::ReplaceParty
+        );
+        assert_eq!(
+            WorkAsyncJobTypeKind::from_code("export_simple_user"),
+            WorkAsyncJobTypeKind::ExportSimpleUser
+        );
+        assert!(WorkAsyncJobTypeKind::ExportUser.is_export());
+        assert!(!WorkAsyncJobTypeKind::ReplaceUser.is_export());
+        assert_eq!(
+            WorkAsyncJobTypeKind::from_code("SOMETHING_NEW"),
+            WorkAsyncJobTypeKind::Other
         );
     }
 
