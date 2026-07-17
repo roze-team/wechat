@@ -5712,6 +5712,43 @@ pub struct WorkUserDetail {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkUserStatusKind {
+    Active,
+    Disabled,
+    Inactive,
+    Exited,
+    Other(i64),
+}
+
+impl From<i64> for WorkUserStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Active,
+            2 => Self::Disabled,
+            4 => Self::Inactive,
+            5 => Self::Exited,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkUserStatusKind {
+    pub fn can_login(self) -> bool {
+        matches!(self, Self::Active)
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Exited)
+    }
+}
+
+impl WorkUserDetail {
+    pub fn status_kind(&self) -> Option<WorkUserStatusKind> {
+        self.status.map(WorkUserStatusKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExtAttr {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -5977,6 +6014,12 @@ pub struct WorkLinkedCorpUserInfo {
     pub extra: Value,
 }
 
+impl WorkLinkedCorpUserInfo {
+    pub fn status_kind(&self) -> Option<WorkUserStatusKind> {
+        self.status.map(WorkUserStatusKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLinkedCorpDepartment {
     #[serde(default)]
@@ -6038,6 +6081,37 @@ pub struct WorkUserBatchJobResultResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAsyncJobStatusKind {
+    Started,
+    Processing,
+    Finished,
+    Other(i64),
+}
+
+impl From<i64> for WorkAsyncJobStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Started,
+            2 => Self::Processing,
+            3 => Self::Finished,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkAsyncJobStatusKind {
+    pub fn is_finished(self) -> bool {
+        matches!(self, Self::Finished)
+    }
+}
+
+impl WorkUserBatchJobResultResponse {
+    pub fn status_kind(&self) -> Option<WorkAsyncJobStatusKind> {
+        self.status.map(WorkAsyncJobStatusKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserBatchJobResultItem {
     #[serde(default)]
@@ -6093,6 +6167,12 @@ pub struct WorkUserExportJobResultResponse {
     pub extra: Value,
 }
 
+impl WorkUserExportJobResultResponse {
+    pub fn status_kind(&self) -> Option<WorkAsyncJobStatusKind> {
+        self.status.map(WorkAsyncJobStatusKind::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExportJobData {
     #[serde(default)]
@@ -6113,6 +6193,12 @@ pub struct WorkUserExportJobData {
     pub tagid: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserExportJobData {
+    pub fn status_kind(&self) -> Option<WorkUserStatusKind> {
+        self.status.map(WorkUserStatusKind::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6854,6 +6940,33 @@ pub struct ExternalGroupChatSummary {
     pub status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalGroupChatStatusKind {
+    Normal,
+    OwnerResignedPendingTransfer,
+    OwnerResignedTransferring,
+    OwnerResignedTransferred,
+    Other(i64),
+}
+
+impl From<i64> for ExternalGroupChatStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Normal,
+            1 => Self::OwnerResignedPendingTransfer,
+            2 => Self::OwnerResignedTransferring,
+            3 => Self::OwnerResignedTransferred,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl ExternalGroupChatSummary {
+    pub fn status_kind(&self) -> Option<ExternalGroupChatStatusKind> {
+        self.status.map(ExternalGroupChatStatusKind::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11709,9 +11822,21 @@ mod tests {
         .unwrap();
         assert_eq!(chats.group_chat_list[0].chat_id.as_deref(), Some("chat"));
         assert_eq!(chats.group_chat_list[0].status, Some(0));
+        assert_eq!(
+            chats.group_chat_list[0].status_kind(),
+            Some(ExternalGroupChatStatusKind::Normal)
+        );
         assert_eq!(chats.group_chat_list[0].extra["owner"], "owner");
         assert_eq!(chats.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(chats.extra["group_total"], 1);
+        assert_eq!(
+            ExternalGroupChatStatusKind::from(1),
+            ExternalGroupChatStatusKind::OwnerResignedPendingTransfer
+        );
+        assert_eq!(
+            ExternalGroupChatStatusKind::from(99),
+            ExternalGroupChatStatusKind::Other(99)
+        );
 
         let detail: ExternalGroupChatGetResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -13260,6 +13385,8 @@ mod tests {
         assert_eq!(user.errcode, Some(0));
         assert_eq!(user.user.userid.as_deref(), Some("user"));
         assert_eq!(user.user.department[0], 1);
+        assert_eq!(user.user.status_kind(), Some(WorkUserStatusKind::Active));
+        assert!(user.user.status_kind().expect("status").can_login());
         assert_eq!(user.user.extra["custom_status_text"], "busy");
         assert_eq!(
             user.user.external_profile.as_ref().unwrap().external_attr[0]
@@ -13350,6 +13477,10 @@ mod tests {
                 .unwrap();
         assert_eq!(active.active_cnt.as_deref(), Some("42"));
         assert_eq!(active.extra["stat_date"], "2026-07-17");
+        assert_eq!(WorkUserStatusKind::from(2), WorkUserStatusKind::Disabled);
+        assert_eq!(WorkUserStatusKind::from(4), WorkUserStatusKind::Inactive);
+        assert!(WorkUserStatusKind::Exited.is_terminal());
+        assert_eq!(WorkUserStatusKind::from(99), WorkUserStatusKind::Other(99));
     }
 
     #[test]
@@ -13371,6 +13502,7 @@ mod tests {
                 "name": "User",
                 "mobile": "13800000000",
                 "department": ["Corp/department"],
+                "status": 1,
                 "member_source": "linked"
             }
         }))
@@ -13381,6 +13513,7 @@ mod tests {
         assert_eq!(user_info.name.as_deref(), Some("User"));
         assert_eq!(user_info.mobile.as_deref(), Some("13800000000"));
         assert_eq!(user_info.department[0], "Corp/department");
+        assert_eq!(user_info.status_kind(), Some(WorkUserStatusKind::Active));
         assert_eq!(user_info.extra["member_source"], "linked");
 
         let simple: WorkLinkedCorpUserListResponse = serde_json::from_value(json!({
@@ -13469,6 +13602,10 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(batch_result.job_type.as_deref(), Some("sync_user"));
+        assert_eq!(
+            batch_result.status_kind(),
+            Some(WorkAsyncJobStatusKind::Processing)
+        );
         assert_eq!(batch_result.result[0].userid.as_deref(), Some("user"));
         assert_eq!(batch_result.result[0].errcode, Some(0));
         assert_eq!(batch_result.result[0].extra["row_num"], 3);
@@ -13493,11 +13630,24 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(export_result.status, Some(2));
+        assert_eq!(
+            export_result.status_kind(),
+            Some(WorkAsyncJobStatusKind::Processing)
+        );
         assert_eq!(export_result.data_list[0].userid.as_deref(), Some("user"));
         assert_eq!(export_result.data_list[0].name.as_deref(), Some("User"));
         assert_eq!(export_result.data_list[0].department[0], 1);
         assert_eq!(export_result.extra["next_cursor"], "cursor");
         assert_eq!(export_result.data_list[0].extra["biz_ext"]["grade"], "A");
+        assert_eq!(
+            WorkAsyncJobStatusKind::from(3),
+            WorkAsyncJobStatusKind::Finished
+        );
+        assert!(WorkAsyncJobStatusKind::Finished.is_finished());
+        assert_eq!(
+            WorkAsyncJobStatusKind::from(99),
+            WorkAsyncJobStatusKind::Other(99)
+        );
     }
 
     #[test]

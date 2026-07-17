@@ -171,6 +171,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-contact group-chat member DTOs now expose semantic member-kind
   helpers for enterprise members and external contacts while retaining the
   original upstream numeric member type.
+- Work user, linked-corp user, async import/export job, exported-user, and
+  external-contact group-chat status fields now expose semantic helper enums
+  while retaining original upstream numeric fields and `Other(i64)` fallbacks.
 - external-contact group-message template add/list/task/send-result responses
   now expose typed fail IDs, message text/attachments, tasks, and send results.
 - external-contact group-message template/list/task/send-result DTOs now
