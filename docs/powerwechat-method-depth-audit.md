@@ -270,6 +270,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   text, image, link, mini-program, file, and video DTOs instead of raw JSON.
 - external-contact group-chat owner filters, statistic owner filters, and
   moment-task visible ranges now use typed DTOs instead of raw JSON values.
+- external-contact moment task and customer records now expose semantic
+  publish-status helpers for unpublished/published states while retaining
+  upstream numeric status values.
 - external-pay merchant and bill-list responses now expose typed use-scope and
   bill DTOs.
 - external-pay merchant use-scope requests, scope responses, and bill records

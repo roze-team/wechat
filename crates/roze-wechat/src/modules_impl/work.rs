@@ -8516,6 +8516,39 @@ pub struct ExternalContactMomentTask {
     pub extra: Value,
 }
 
+impl ExternalContactMomentTask {
+    pub fn publish_status_kind(&self) -> Option<ExternalContactMomentPublishStatusKind> {
+        self.publish_status
+            .map(ExternalContactMomentPublishStatusKind::from_code)
+    }
+
+    pub fn is_published(&self) -> bool {
+        self.publish_status_kind()
+            .is_some_and(ExternalContactMomentPublishStatusKind::is_published)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactMomentPublishStatusKind {
+    Unpublished,
+    Published,
+    Other,
+}
+
+impl ExternalContactMomentPublishStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Unpublished,
+            1 => Self::Published,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_published(self) -> bool {
+        matches!(self, Self::Published)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentCustomerListResponse {
     #[serde(default)]
@@ -8540,6 +8573,18 @@ pub struct ExternalContactMomentCustomer {
     pub status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactMomentCustomer {
+    pub fn publish_status_kind(&self) -> Option<ExternalContactMomentPublishStatusKind> {
+        self.publish_status
+            .map(ExternalContactMomentPublishStatusKind::from_code)
+    }
+
+    pub fn is_published(&self) -> bool {
+        self.publish_status_kind()
+            .is_some_and(ExternalContactMomentPublishStatusKind::is_published)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13269,8 +13314,22 @@ mod tests {
         .unwrap();
         assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
         assert_eq!(tasks.task_list[0].publish_status, Some(2));
+        assert_eq!(
+            tasks.task_list[0].publish_status_kind(),
+            Some(ExternalContactMomentPublishStatusKind::Other)
+        );
+        assert!(!tasks.task_list[0].is_published());
         assert_eq!(tasks.task_list[0].extra["fail_reason"], "none");
         assert_eq!(tasks.extra["task_total"], 1);
+        assert_eq!(
+            ExternalContactMomentPublishStatusKind::from_code(0),
+            ExternalContactMomentPublishStatusKind::Unpublished
+        );
+        assert_eq!(
+            ExternalContactMomentPublishStatusKind::from_code(1),
+            ExternalContactMomentPublishStatusKind::Published
+        );
+        assert!(ExternalContactMomentPublishStatusKind::Published.is_published());
 
         let customers: ExternalContactMomentCustomerListResponse = serde_json::from_value(json!({
             "customer_list": [{
@@ -13286,6 +13345,11 @@ mod tests {
             Some("external")
         );
         assert_eq!(customers.customer_list[0].publish_status, Some(1));
+        assert_eq!(
+            customers.customer_list[0].publish_status_kind(),
+            Some(ExternalContactMomentPublishStatusKind::Published)
+        );
+        assert!(customers.customer_list[0].is_published());
         assert_eq!(customers.customer_list[0].extra["view_time"], 101);
         assert_eq!(customers.extra["customer_total"], 1);
 
