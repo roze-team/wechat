@@ -5478,6 +5478,8 @@ pub struct WorkDepartmentUserId {
     pub userid: Option<String>,
     #[serde(default)]
     pub department: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5498,6 +5500,8 @@ pub struct WorkDepartmentUserSimpleListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userlist: Vec<WorkDepartmentSimpleUser>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5510,6 +5514,8 @@ pub struct WorkDepartmentSimpleUser {
     pub department: Vec<i64>,
     #[serde(default)]
     pub open_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5520,6 +5526,8 @@ pub struct WorkDepartmentUserDetailListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userlist: Vec<WorkUserDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5620,6 +5628,8 @@ pub struct WorkUserDetail {
     pub external_profile: Option<WorkUserExternalProfile>,
     #[serde(default)]
     pub extattr: Option<WorkUserExtAttr>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5745,6 +5755,8 @@ pub struct WorkUserListIdResponse {
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub dept_user: Vec<WorkDepartmentUserId>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5755,6 +5767,8 @@ pub struct WorkUserIdLookupResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5779,6 +5793,8 @@ pub struct WorkUserInviteResponse {
     pub invalidparty: Vec<i64>,
     #[serde(default)]
     pub invalidtag: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5789,6 +5805,8 @@ pub struct WorkJoinQrCodeResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub join_qrcode: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5902,6 +5920,8 @@ pub struct WorkUserBatchJobResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub jobid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5920,6 +5940,8 @@ pub struct WorkUserBatchJobResultResponse {
     pub percentage: Option<i64>,
     #[serde(default)]
     pub result: Vec<WorkUserBatchJobResultItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5934,6 +5956,8 @@ pub struct WorkUserBatchJobResultItem {
     pub action: Option<i64>,
     #[serde(default)]
     pub partyid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5957,6 +5981,8 @@ pub struct WorkUserExportJobResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub jobid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5969,6 +5995,8 @@ pub struct WorkUserExportJobResultResponse {
     pub status: Option<i64>,
     #[serde(default)]
     pub data_list: Vec<WorkUserExportJobData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5989,6 +6017,8 @@ pub struct WorkUserExportJobData {
     pub status: Option<i64>,
     #[serde(default)]
     pub tagid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12514,15 +12544,19 @@ mod tests {
 
         let list_id: WorkUserListIdResponse = serde_json::from_value(json!({
             "next_cursor": "cursor",
-            "dept_user": [{ "userid": "user", "department": 1 }]
+            "dept_user": [{ "userid": "user", "department": 1, "dept_role": "owner" }],
+            "next_open_cursor": "open-cursor"
         }))
         .unwrap();
         assert_eq!(list_id.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(list_id.dept_user[0].userid.as_deref(), Some("user"));
+        assert_eq!(list_id.dept_user[0].extra["dept_role"], "owner");
+        assert_eq!(list_id.extra["next_open_cursor"], "open-cursor");
 
         let lookup: WorkUserIdLookupResponse =
-            serde_json::from_value(json!({ "userid": "user" })).unwrap();
+            serde_json::from_value(json!({ "userid": "user", "source": "mobile" })).unwrap();
         assert_eq!(lookup.userid.as_deref(), Some("user"));
+        assert_eq!(lookup.extra["source"], "mobile");
 
         let user: WorkUserDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -12554,12 +12588,14 @@ mod tests {
                     "name": "Website",
                     "web": { "url": "https://example.com", "title": "Home" }
                 }]
-            }
+            },
+            "custom_status_text": "busy"
         }))
         .unwrap();
         assert_eq!(user.errcode, Some(0));
         assert_eq!(user.user.userid.as_deref(), Some("user"));
         assert_eq!(user.user.department[0], 1);
+        assert_eq!(user.user.extra["custom_status_text"], "busy");
         assert_eq!(
             user.user.external_profile.as_ref().unwrap().external_attr[0]
                 .web
@@ -12572,11 +12608,13 @@ mod tests {
 
         let simple_list: WorkDepartmentUserSimpleListResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "has_more": true,
             "userlist": [{
                 "userid": "user",
                 "name": "User",
                 "department": [1],
-                "open_userid": "open-user"
+                "open_userid": "open-user",
+                "user_ticket": "ticket"
             }]
         }))
         .unwrap();
@@ -12586,14 +12624,18 @@ mod tests {
             simple_list.userlist[0].open_userid.as_deref(),
             Some("open-user")
         );
+        assert_eq!(simple_list.extra["has_more"], true);
+        assert_eq!(simple_list.userlist[0].extra["user_ticket"], "ticket");
 
         let detail_list: WorkDepartmentUserDetailListResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "cursor": "next",
             "userlist": [{
                 "userid": "user",
                 "name": "User",
                 "mobile": "13800000000",
-                "department": [1]
+                "department": [1],
+                "biz_ext": { "level": "gold" }
             }]
         }))
         .unwrap();
@@ -12602,6 +12644,8 @@ mod tests {
             detail_list.userlist[0].mobile.as_deref(),
             Some("13800000000")
         );
+        assert_eq!(detail_list.extra["cursor"], "next");
+        assert_eq!(detail_list.userlist[0].extra["biz_ext"]["level"], "gold");
 
         let invite = serde_json::to_value(WorkUserInviteRequest {
             user: vec!["user".to_string()],
@@ -12616,19 +12660,25 @@ mod tests {
         let invite_response: WorkUserInviteResponse = serde_json::from_value(json!({
             "invaliduser": ["bad-user"],
             "invalidparty": [2],
-            "invalidtag": [3]
+            "invalidtag": [3],
+            "invalid_open_userid": ["bad-open"]
         }))
         .unwrap();
         assert_eq!(invite_response.invaliduser[0], "bad-user");
         assert_eq!(invite_response.invalidparty[0], 2);
         assert_eq!(invite_response.invalidtag[0], 3);
+        assert_eq!(invite_response.extra["invalid_open_userid"][0], "bad-open");
 
-        let qrcode: WorkJoinQrCodeResponse =
-            serde_json::from_value(json!({ "join_qrcode": "https://example.com/qr" })).unwrap();
+        let qrcode: WorkJoinQrCodeResponse = serde_json::from_value(json!({
+            "join_qrcode": "https://example.com/qr",
+            "expires_in": 300
+        }))
+        .unwrap();
         assert_eq!(
             qrcode.join_qrcode.as_deref(),
             Some("https://example.com/qr")
         );
+        assert_eq!(qrcode.extra["expires_in"], 300);
 
         let active: WorkUserActiveStatResponse =
             serde_json::from_value(json!({ "active_cnt": "42" })).unwrap();
@@ -12725,32 +12775,40 @@ mod tests {
         assert_eq!(tag_export["tagid"], 1);
 
         let batch_job: WorkUserBatchJobResponse =
-            serde_json::from_value(json!({ "jobid": "batch-job" })).unwrap();
+            serde_json::from_value(json!({ "jobid": "batch-job", "job_source": "csv" })).unwrap();
         assert_eq!(batch_job.jobid.as_deref(), Some("batch-job"));
+        assert_eq!(batch_job.extra["job_source"], "csv");
 
         let batch_result: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
             "status": 2,
             "type": "sync_user",
             "total": 10,
             "percentage": 100,
-            "result": [{ "userid": "user", "errcode": 0 }]
+            "result": [{ "userid": "user", "errcode": 0, "row_num": 3 }],
+            "fail_count": 0
         }))
         .unwrap();
         assert_eq!(batch_result.job_type.as_deref(), Some("sync_user"));
         assert_eq!(batch_result.result[0].userid.as_deref(), Some("user"));
         assert_eq!(batch_result.result[0].errcode, Some(0));
+        assert_eq!(batch_result.result[0].extra["row_num"], 3);
+        assert_eq!(batch_result.extra["fail_count"], 0);
 
         let export_job: WorkUserExportJobResponse =
-            serde_json::from_value(json!({ "jobid": "export-job" })).unwrap();
+            serde_json::from_value(json!({ "jobid": "export-job", "export_type": "user" }))
+                .unwrap();
         assert_eq!(export_job.jobid.as_deref(), Some("export-job"));
+        assert_eq!(export_job.extra["export_type"], "user");
 
         let export_result: WorkUserExportJobResultResponse = serde_json::from_value(json!({
             "status": 2,
+            "next_cursor": "cursor",
             "data_list": [{
                 "userid": "user",
                 "name": "User",
                 "department": [1],
-                "mobile": "13800000000"
+                "mobile": "13800000000",
+                "biz_ext": { "grade": "A" }
             }]
         }))
         .unwrap();
@@ -12758,6 +12816,8 @@ mod tests {
         assert_eq!(export_result.data_list[0].userid.as_deref(), Some("user"));
         assert_eq!(export_result.data_list[0].name.as_deref(), Some("User"));
         assert_eq!(export_result.data_list[0].department[0], 1);
+        assert_eq!(export_result.extra["next_cursor"], "cursor");
+        assert_eq!(export_result.data_list[0].extra["biz_ext"]["grade"], "A");
     }
 
     #[test]
