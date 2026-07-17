@@ -4738,6 +4738,8 @@ pub struct UserIdToOpenIdResponse {
     pub openid: Option<String>,
     #[serde(default)]
     pub appid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4753,6 +4755,8 @@ pub struct OpenIdToUserIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4773,6 +4777,8 @@ pub struct WorkUnionIdToExternalUserIdResponse {
     pub external_userid: Option<String>,
     #[serde(default)]
     pub pending_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 pub type WorkExternalUserIdConvertResponse = WorkUnionIdToExternalUserIdResponse;
@@ -4790,6 +4796,8 @@ pub struct WorkExternalUserIdToPendingIdItem {
     pub external_userid: Option<String>,
     #[serde(default)]
     pub pending_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4800,6 +4808,8 @@ pub struct WorkExternalUserIdToPendingIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub result: Vec<WorkExternalUserIdToPendingIdItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4808,6 +4818,8 @@ pub struct WorkUserIdToOpenUserIdItem {
     pub userid: Option<String>,
     #[serde(default)]
     pub open_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4818,6 +4830,8 @@ pub struct WorkUserIdToOpenUserIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub open_userid_list: Vec<WorkUserIdToOpenUserIdItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4832,6 +4846,8 @@ pub struct WorkOpenUserIdToUserIdItem {
     pub userid: Option<String>,
     #[serde(default)]
     pub open_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4844,6 +4860,8 @@ pub struct WorkOpenUserIdToUserIdResponse {
     pub userid_list: Vec<WorkOpenUserIdToUserIdItem>,
     #[serde(default)]
     pub invalid_userid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4852,6 +4870,8 @@ pub struct WorkExternalTagIdToOpenExternalTagIdItem {
     pub external_tagid: Option<String>,
     #[serde(default)]
     pub open_external_tagid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4864,6 +4884,8 @@ pub struct WorkExternalTagIdToOpenExternalTagIdResponse {
     pub items: Vec<WorkExternalTagIdToOpenExternalTagIdItem>,
     #[serde(default)]
     pub invalid_tagid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4880,6 +4902,8 @@ pub struct WorkFromServiceExternalUserIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub external_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5817,6 +5841,8 @@ pub struct WorkUserActiveStatResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub active_cnt: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12703,14 +12729,21 @@ mod tests {
 
     #[test]
     fn deserializes_user_id_openid_conversion_responses() {
-        let to_openid: UserIdToOpenIdResponse =
-            serde_json::from_value(json!({ "openid": "openid", "appid": "wxappid" })).unwrap();
+        let to_openid: UserIdToOpenIdResponse = serde_json::from_value(json!({
+            "openid": "openid",
+            "appid": "wxappid",
+            "convert_source": "userid"
+        }))
+        .unwrap();
         let to_userid: OpenIdToUserIdResponse =
-            serde_json::from_value(json!({ "userid": "user" })).unwrap();
+            serde_json::from_value(json!({ "userid": "user", "convert_source": "openid" }))
+                .unwrap();
 
         assert_eq!(to_openid.openid.as_deref(), Some("openid"));
         assert_eq!(to_openid.appid.as_deref(), Some("wxappid"));
+        assert_eq!(to_openid.extra["convert_source"], "userid");
         assert_eq!(to_userid.userid.as_deref(), Some("user"));
+        assert_eq!(to_userid.extra["convert_source"], "openid");
     }
 
     #[test]
@@ -12948,8 +12981,10 @@ mod tests {
         assert_eq!(qrcode.extra["expires_in"], 300);
 
         let active: WorkUserActiveStatResponse =
-            serde_json::from_value(json!({ "active_cnt": "42" })).unwrap();
+            serde_json::from_value(json!({ "active_cnt": "42", "stat_date": "2026-07-17" }))
+                .unwrap();
         assert_eq!(active.active_cnt.as_deref(), Some("42"));
+        assert_eq!(active.extra["stat_date"], "2026-07-17");
     }
 
     #[test]
@@ -13092,47 +13127,65 @@ mod tests {
         let union: WorkUnionIdToExternalUserIdResponse = serde_json::from_value(json!({
             "errcode": 0,
             "external_userid": "external",
-            "pending_id": "pending"
+            "pending_id": "pending",
+            "convert_scene": "union"
         }))
         .unwrap();
         assert_eq!(union.external_userid.as_deref(), Some("external"));
+        assert_eq!(union.extra["convert_scene"], "union");
 
         let pending: WorkExternalUserIdToPendingIdResponse = serde_json::from_value(json!({
-            "result": [{ "external_userid": "external", "pending_id": "pending" }]
+            "result": [{ "external_userid": "external", "pending_id": "pending", "item_source": "batch" }],
+            "request_id": "pending-list"
         }))
         .unwrap();
         assert_eq!(pending.result[0].pending_id.as_deref(), Some("pending"));
+        assert_eq!(pending.result[0].extra["item_source"], "batch");
+        assert_eq!(pending.extra["request_id"], "pending-list");
 
         let user_to_open: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
-            "open_userid_list": [{ "userid": "user", "open_userid": "open-user" }]
+            "open_userid_list": [{ "userid": "user", "open_userid": "open-user", "source": "legacy" }],
+            "trace_id": "user-to-open"
         }))
         .unwrap();
         assert_eq!(
             user_to_open.open_userid_list[0].open_userid.as_deref(),
             Some("open-user")
         );
+        assert_eq!(user_to_open.open_userid_list[0].extra["source"], "legacy");
+        assert_eq!(user_to_open.extra["trace_id"], "user-to-open");
 
         let open_to_user: WorkOpenUserIdToUserIdResponse = serde_json::from_value(json!({
-            "userid_list": [{ "userid": "user", "open_userid": "open-user" }],
-            "invalid_userid_list": ["bad-open-user"]
+            "userid_list": [{ "userid": "user", "open_userid": "open-user", "user_source": "api" }],
+            "invalid_userid_list": ["bad-open-user"],
+            "trace_id": "open-to-user"
         }))
         .unwrap();
         assert_eq!(open_to_user.userid_list[0].userid.as_deref(), Some("user"));
         assert_eq!(open_to_user.invalid_userid_list[0], "bad-open-user");
+        assert_eq!(open_to_user.userid_list[0].extra["user_source"], "api");
+        assert_eq!(open_to_user.extra["trace_id"], "open-to-user");
 
         let tag: WorkExternalTagIdToOpenExternalTagIdResponse = serde_json::from_value(json!({
-            "items": [{ "external_tagid": "tag", "open_external_tagid": "open-tag" }],
-            "invalid_tagid_list": []
+            "items": [{ "external_tagid": "tag", "open_external_tagid": "open-tag", "tag_source": "crm" }],
+            "invalid_tagid_list": [],
+            "trace_id": "tag-open"
         }))
         .unwrap();
         assert_eq!(
             tag.items[0].open_external_tagid.as_deref(),
             Some("open-tag")
         );
+        assert_eq!(tag.items[0].extra["tag_source"], "crm");
+        assert_eq!(tag.extra["trace_id"], "tag-open");
 
-        let from_service: WorkFromServiceExternalUserIdResponse =
-            serde_json::from_value(json!({ "external_userid": "external" })).unwrap();
+        let from_service: WorkFromServiceExternalUserIdResponse = serde_json::from_value(json!({
+            "external_userid": "external",
+            "source_agentid": 100001
+        }))
+        .unwrap();
         assert_eq!(from_service.external_userid.as_deref(), Some("external"));
+        assert_eq!(from_service.extra["source_agentid"], 100001);
     }
 
     #[test]
