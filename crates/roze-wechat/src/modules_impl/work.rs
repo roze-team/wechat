@@ -9398,6 +9398,8 @@ pub struct WorkMeetingCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub meetingid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9410,6 +9412,8 @@ pub struct WorkMeetingGetUserMeetingIdResponse {
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub meetingid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9442,6 +9446,8 @@ pub struct WorkMeetingGetInfoResponse {
     pub remind_time: Option<i64>,
     #[serde(default)]
     pub attendees: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9509,6 +9515,8 @@ pub struct WorkMeetingRoomAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub meetingroom_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9529,6 +9537,8 @@ pub struct WorkMeetingRoomInfo {
     pub equipment: Vec<i64>,
     #[serde(default)]
     pub coordinate: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9539,6 +9549,8 @@ pub struct WorkMeetingRoomListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub meetingroom_list: Vec<WorkMeetingRoomInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9559,6 +9571,8 @@ pub struct WorkMeetingRoomBooking {
     pub booker: Option<String>,
     #[serde(default)]
     pub attendees: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9569,6 +9583,8 @@ pub struct WorkMeetingRoomGetBookingInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub booking_list: Vec<WorkMeetingRoomBooking>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9581,6 +9597,8 @@ pub struct WorkMeetingRoomBookResponse {
     pub meeting_id: Option<i64>,
     #[serde(default)]
     pub schedule_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9598,6 +9616,8 @@ pub struct WorkWeDocCreateFormResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub formid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13678,17 +13698,23 @@ mod tests {
 
     #[test]
     fn deserializes_work_oa_meeting_meetingroom_and_wedoc_responses() {
-        let meeting_create: WorkMeetingCreateResponse =
-            serde_json::from_value(json!({ "meetingid": 123 })).unwrap();
+        let meeting_create: WorkMeetingCreateResponse = serde_json::from_value(json!({
+            "meetingid": 123,
+            "request_id": "meeting-create"
+        }))
+        .unwrap();
         assert_eq!(meeting_create.meetingid, Some(123));
+        assert_eq!(meeting_create.extra["request_id"], "meeting-create");
 
         let meeting_ids: WorkMeetingGetUserMeetingIdResponse = serde_json::from_value(json!({
             "next_cursor": "next",
-            "meetingid_list": ["123"]
+            "meetingid_list": ["123"],
+            "total": 1
         }))
         .unwrap();
         assert_eq!(meeting_ids.next_cursor.as_deref(), Some("next"));
         assert_eq!(meeting_ids.meetingid_list[0], "123");
+        assert_eq!(meeting_ids.extra["total"], 1);
 
         let meeting_info: WorkMeetingGetInfoResponse = serde_json::from_value(json!({
             "creator_userid": "creator",
@@ -13702,23 +13728,31 @@ mod tests {
             "type": 1,
             "status": 2,
             "remind_time": 15,
-            "attendees": { "userids": ["user"] }
+            "attendees": { "userids": ["user"] },
+            "meeting_code": "8888"
         }))
         .unwrap();
         assert_eq!(meeting_info.creator_userid.as_deref(), Some("creator"));
         assert_eq!(meeting_info.meeting_type, Some(1));
         assert_eq!(meeting_info.attendees.unwrap()["userids"][0], "user");
+        assert_eq!(meeting_info.extra["meeting_code"], "8888");
 
-        let room_add: WorkMeetingRoomAddResponse =
-            serde_json::from_value(json!({ "meetingroom_id": 7 })).unwrap();
+        let room_add: WorkMeetingRoomAddResponse = serde_json::from_value(json!({
+            "meetingroom_id": 7,
+            "request_id": "room-add"
+        }))
+        .unwrap();
         assert_eq!(room_add.meetingroom_id, Some(7));
+        assert_eq!(room_add.extra["request_id"], "room-add");
 
         let room_list: WorkMeetingRoomListResponse = serde_json::from_value(json!({
+            "total": 1,
             "meetingroom_list": [{
                 "meetingroom_id": 7,
                 "name": "Room A",
                 "capacity": 12,
-                "equipment": [1, 2]
+                "equipment": [1, 2],
+                "room_status": "available"
             }]
         }))
         .unwrap();
@@ -13727,14 +13761,21 @@ mod tests {
             Some("Room A")
         );
         assert_eq!(room_list.meetingroom_list[0].capacity, Some(12));
+        assert_eq!(room_list.extra["total"], 1);
+        assert_eq!(
+            room_list.meetingroom_list[0].extra["room_status"],
+            "available"
+        );
 
         let room_booking: WorkMeetingRoomGetBookingInfoResponse = serde_json::from_value(json!({
+            "next_cursor": "booking-cursor",
             "booking_list": [{
                 "meeting_id": 123,
                 "schedule_id": 456,
                 "subject": "Weekly",
                 "booker": "user",
-                "attendees": ["user", "other"]
+                "attendees": ["user", "other"],
+                "booking_status": "confirmed"
             }]
         }))
         .unwrap();
@@ -13743,15 +13784,29 @@ mod tests {
             Some("Weekly")
         );
         assert_eq!(room_booking.booking_list[0].schedule_id, Some(456));
+        assert_eq!(room_booking.extra["next_cursor"], "booking-cursor");
+        assert_eq!(
+            room_booking.booking_list[0].extra["booking_status"],
+            "confirmed"
+        );
 
-        let room_book: WorkMeetingRoomBookResponse =
-            serde_json::from_value(json!({ "meeting_id": 123, "schedule_id": 456 })).unwrap();
+        let room_book: WorkMeetingRoomBookResponse = serde_json::from_value(json!({
+            "meeting_id": 123,
+            "schedule_id": 456,
+            "approval_status": "none"
+        }))
+        .unwrap();
         assert_eq!(room_book.meeting_id, Some(123));
         assert_eq!(room_book.schedule_id, Some(456));
+        assert_eq!(room_book.extra["approval_status"], "none");
 
-        let form: WorkWeDocCreateFormResponse =
-            serde_json::from_value(json!({ "formid": "form-1" })).unwrap();
+        let form: WorkWeDocCreateFormResponse = serde_json::from_value(json!({
+            "formid": "form-1",
+            "form_url": "https://example.com/form"
+        }))
+        .unwrap();
         assert_eq!(form.formid.as_deref(), Some("form-1"));
+        assert_eq!(form.extra["form_url"], "https://example.com/form");
     }
 
     #[test]

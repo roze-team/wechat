@@ -225,6 +225,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   unknown upstream fields across wrappers and nested records.
 - OA meeting-room and WeDrive responses now expose typed room, booking, space,
   file, and move-result DTOs.
+- OA meeting, meeting-room, and WeDoc response DTOs now preserve unknown
+  upstream fields across wrappers and nested room/booking records.
 - OA journal detail/stat and living info/watch-stat responses now expose typed
   journal, statistic, live-info, and watch-stat DTOs.
 
