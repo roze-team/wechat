@@ -8820,6 +8820,8 @@ pub struct WorkCheckinCorpOptionResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub group: Vec<WorkCheckinGroup>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8838,6 +8840,8 @@ pub struct WorkCheckinGroup {
     pub wifimac_infos: Vec<Value>,
     #[serde(default)]
     pub loc_infos: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8848,6 +8852,8 @@ pub struct WorkCheckinDateRule {
     pub checkintime: Vec<Value>,
     #[serde(default)]
     pub flex_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8858,6 +8864,8 @@ pub struct WorkCheckinOptionResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub info: Vec<WorkCheckinUserOption>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8872,6 +8880,8 @@ pub struct WorkCheckinUserOption {
     pub checkin_date: Option<i64>,
     #[serde(default)]
     pub day_type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8882,6 +8892,8 @@ pub struct WorkCheckinRecordResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub checkindata: Vec<WorkCheckinRecord>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8904,6 +8916,8 @@ pub struct WorkCheckinRecord {
     pub wifiname: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8914,6 +8928,8 @@ pub struct WorkCheckinDataResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub datas: Vec<WorkCheckinDataItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8932,6 +8948,8 @@ pub struct WorkCheckinDataItem {
     pub exception_infos: Vec<Value>,
     #[serde(default)]
     pub holiday_infos: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8942,6 +8960,8 @@ pub struct WorkCheckinScheduleListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub schedule_list: Vec<WorkCheckinSchedule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8956,6 +8976,8 @@ pub struct WorkCheckinSchedule {
     pub day: Option<i64>,
     #[serde(default)]
     pub schedule: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8968,6 +8990,8 @@ pub struct WorkApprovalTemplateDetailResponse {
     pub template_names: Vec<Value>,
     #[serde(default)]
     pub template_content: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8978,6 +9002,8 @@ pub struct WorkApprovalApplyEventResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub sp_no: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9018,6 +9044,8 @@ pub struct WorkApprovalInfoResponse {
     pub sp_no_list: Vec<String>,
     #[serde(default)]
     pub new_next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9028,6 +9056,8 @@ pub struct WorkApprovalDetailResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub info: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9051,6 +9081,8 @@ pub struct WorkApprovalDataResponse {
     pub next_spnum: Option<i64>,
     #[serde(default)]
     pub data: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9061,6 +9093,8 @@ pub struct WorkVacationConfigResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub lists: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 pub type WorkVacationQuotaResponse = WorkVacationConfigResponse;
@@ -9103,6 +9137,8 @@ pub struct WorkApprovalCreateTemplateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub template_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13531,93 +13567,125 @@ mod tests {
     #[test]
     fn deserializes_work_oa_checkin_approval_and_vacation_responses() {
         let corp_option: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
+            "trace_id": "checkin-corp",
             "group": [{
                 "groupid": 1,
                 "groupname": "Default",
-                "checkindate": [{ "workdays": [1, 2, 3], "flex_time": 30 }]
+                "checkindate": [{ "workdays": [1, 2, 3], "flex_time": 30, "rule_version": 2 }],
+                "group_owner": "admin"
             }]
         }))
         .unwrap();
+        assert_eq!(corp_option.extra["trace_id"], "checkin-corp");
         assert_eq!(corp_option.group[0].groupid, Some(1));
         assert_eq!(corp_option.group[0].groupname.as_deref(), Some("Default"));
         assert_eq!(corp_option.group[0].checkindate[0].flex_time, Some(30));
+        assert_eq!(corp_option.group[0].extra["group_owner"], "admin");
+        assert_eq!(corp_option.group[0].checkindate[0].extra["rule_version"], 2);
 
         let option: WorkCheckinOptionResponse = serde_json::from_value(json!({
-            "info": [{ "userid": "user", "groupid": 1, "groupname": "Default" }]
+            "trace_id": "checkin-option",
+            "info": [{ "userid": "user", "groupid": 1, "groupname": "Default", "option_source": "rule" }]
         }))
         .unwrap();
+        assert_eq!(option.extra["trace_id"], "checkin-option");
         assert_eq!(option.info[0].userid.as_deref(), Some("user"));
         assert_eq!(option.info[0].groupid, Some(1));
+        assert_eq!(option.info[0].extra["option_source"], "rule");
 
         let record: WorkCheckinRecordResponse = serde_json::from_value(json!({
+            "has_more": false,
             "checkindata": [{
                 "userid": "user",
                 "checkin_type": "上班打卡",
-                "checkin_time": 1_800_000_000
+                "checkin_time": 1_800_000_000,
+                "device_id": "device"
             }]
         }))
         .unwrap();
+        assert_eq!(record.extra["has_more"], false);
         assert_eq!(record.checkindata[0].userid.as_deref(), Some("user"));
         assert_eq!(
             record.checkindata[0].checkin_type.as_deref(),
             Some("上班打卡")
         );
         assert_eq!(record.checkindata[0].checkin_time, Some(1_800_000_000));
+        assert_eq!(record.checkindata[0].extra["device_id"], "device");
 
         let day: WorkCheckinDataResponse = serde_json::from_value(json!({
-            "datas": [{ "userid": "user", "groupid": 1, "base_info": {} }]
+            "trace_id": "checkin-data",
+            "datas": [{ "userid": "user", "groupid": 1, "base_info": {}, "summary_score": 100 }]
         }))
         .unwrap();
+        assert_eq!(day.extra["trace_id"], "checkin-data");
         assert_eq!(day.datas[0].userid.as_deref(), Some("user"));
         assert_eq!(day.datas[0].groupid, Some(1));
         assert!(day.datas[0].base_info.is_some());
+        assert_eq!(day.datas[0].extra["summary_score"], 100);
 
         let schedule: WorkCheckinScheduleListResponse = serde_json::from_value(json!({
-            "schedule_list": [{ "userid": "user", "schedule_id": 1, "groupid": 2 }]
+            "trace_id": "checkin-schedule",
+            "schedule_list": [{ "userid": "user", "schedule_id": 1, "groupid": 2, "shift_name": "morning" }]
         }))
         .unwrap();
+        assert_eq!(schedule.extra["trace_id"], "checkin-schedule");
         assert_eq!(schedule.schedule_list[0].userid.as_deref(), Some("user"));
         assert_eq!(schedule.schedule_list[0].schedule_id, Some(1));
         assert_eq!(schedule.schedule_list[0].groupid, Some(2));
+        assert_eq!(schedule.schedule_list[0].extra["shift_name"], "morning");
 
         let template: WorkApprovalTemplateDetailResponse = serde_json::from_value(json!({
             "template_names": [{ "text": "Leave", "lang": "zh_CN" }],
-            "template_content": { "controls": [] }
+            "template_content": { "controls": [] },
+            "template_version": 2
         }))
         .unwrap();
         assert_eq!(template.template_names[0]["text"], "Leave");
+        assert_eq!(template.extra["template_version"], 2);
 
-        let apply: WorkApprovalApplyEventResponse =
-            serde_json::from_value(json!({ "sp_no": "202607160001" })).unwrap();
+        let apply: WorkApprovalApplyEventResponse = serde_json::from_value(json!({
+            "sp_no": "202607160001",
+            "request_id": "approval-apply"
+        }))
+        .unwrap();
         assert_eq!(apply.sp_no.as_deref(), Some("202607160001"));
+        assert_eq!(apply.extra["request_id"], "approval-apply");
 
         let info: WorkApprovalInfoResponse = serde_json::from_value(json!({
             "sp_no_list": ["202607160001"],
-            "new_next_cursor": "cursor"
+            "new_next_cursor": "cursor",
+            "total": 1
         }))
         .unwrap();
         assert_eq!(info.sp_no_list[0], "202607160001");
+        assert_eq!(info.extra["total"], 1);
 
         let detail: WorkApprovalDetailResponse = serde_json::from_value(json!({
-            "info": { "sp_no": "202607160001" }
+            "info": { "sp_no": "202607160001" },
+            "trace_id": "approval-detail"
         }))
         .unwrap();
+        assert_eq!(detail.extra["trace_id"], "approval-detail");
         assert_eq!(detail.info.unwrap()["sp_no"], "202607160001");
 
         let data: WorkApprovalDataResponse = serde_json::from_value(json!({
             "count": 1,
             "total": 1,
             "next_spnum": 2,
-            "data": { "sp_no": "1" }
+            "data": { "sp_no": "1" },
+            "has_more": true
         }))
         .unwrap();
         assert_eq!(data.next_spnum, Some(2));
+        assert_eq!(data.extra["has_more"], true);
 
         let vacation: WorkVacationConfigResponse = serde_json::from_value(json!({
-            "lists": [{ "id": 1, "name": "Annual Leave" }]
+            "lists": [{ "id": 1, "name": "Annual Leave" }],
+            "config_version": 2
         }))
         .unwrap();
         assert_eq!(vacation.lists[0]["name"], "Annual Leave");
+        assert_eq!(vacation.extra["config_version"], 2);
     }
 
     #[test]
