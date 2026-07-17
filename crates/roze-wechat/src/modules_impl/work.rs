@@ -12163,8 +12163,26 @@ pub struct AppChatMessage {
     pub chatid: String,
     pub msgtype: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
-    #[serde(flatten, skip_serializing_if = "Value::is_null")]
+    pub text: Option<WorkTextMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video: Option<WorkVideoMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub textcard: Option<WorkTextCardMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub news: Option<WorkNewsMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mpnews: Option<WorkMpNewsMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<WorkMarkdownMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safe: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
@@ -12174,10 +12192,94 @@ impl AppChatMessage {
     }
 
     pub fn text(chat_id: impl Into<String>, content: impl Into<String>) -> Self {
+        let mut message = Self::empty(chat_id, WorkMessageTypeKind::Text);
+        message.text = Some(WorkTextMessage {
+            content: content.into(),
+        });
+        message
+    }
+
+    pub fn image(chat_id: impl Into<String>, media_id: impl Into<String>) -> Self {
+        Self::media(chat_id, WorkMessageTypeKind::Image, media_id)
+    }
+
+    pub fn voice(chat_id: impl Into<String>, media_id: impl Into<String>) -> Self {
+        Self::media(chat_id, WorkMessageTypeKind::Voice, media_id)
+    }
+
+    pub fn video(chat_id: impl Into<String>, video: WorkVideoMessage) -> Self {
+        let mut message = Self::empty(chat_id, WorkMessageTypeKind::Video);
+        message.video = Some(video);
+        message
+    }
+
+    pub fn file(chat_id: impl Into<String>, media_id: impl Into<String>) -> Self {
+        Self::media(chat_id, WorkMessageTypeKind::File, media_id)
+    }
+
+    pub fn text_card(chat_id: impl Into<String>, text_card: WorkTextCardMessage) -> Self {
+        let mut message = Self::empty(chat_id, WorkMessageTypeKind::TextCard);
+        message.textcard = Some(text_card);
+        message
+    }
+
+    pub fn news(chat_id: impl Into<String>, articles: Vec<WorkNewsArticle>) -> Self {
+        let mut message = Self::empty(chat_id, WorkMessageTypeKind::News);
+        message.news = Some(WorkNewsMessage { articles });
+        message
+    }
+
+    pub fn mpnews(chat_id: impl Into<String>, articles: Vec<WorkMpNewsArticle>) -> Self {
+        let mut message = Self::empty(chat_id, WorkMessageTypeKind::MpNews);
+        message.mpnews = Some(WorkMpNewsMessage { articles });
+        message
+    }
+
+    pub fn markdown(chat_id: impl Into<String>, content: impl Into<String>) -> Self {
+        let mut message = Self::empty(chat_id, WorkMessageTypeKind::Markdown);
+        message.markdown = Some(WorkMarkdownMessage {
+            content: content.into(),
+        });
+        message
+    }
+
+    pub fn with_safe(mut self, safe: bool) -> Self {
+        self.safe = Some(i64::from(safe));
+        self
+    }
+
+    fn media(
+        chat_id: impl Into<String>,
+        msg_type: WorkMessageTypeKind,
+        media_id: impl Into<String>,
+    ) -> Self {
+        let media = WorkMediaMessage {
+            media_id: media_id.into(),
+        };
+        let mut message = Self::empty(chat_id, msg_type);
+        match msg_type {
+            WorkMessageTypeKind::Image => message.image = Some(media),
+            WorkMessageTypeKind::Voice => message.voice = Some(media),
+            WorkMessageTypeKind::File => message.file = Some(media),
+            _ => unreachable!("AppChat media helper only accepts image, voice, or file"),
+        }
+        message
+    }
+
+    fn empty(chat_id: impl Into<String>, msg_type: WorkMessageTypeKind) -> Self {
         Self {
             chatid: chat_id.into(),
-            msgtype: WorkMessageTypeKind::Text.as_code().to_string(),
-            text: Some(json!({ "content": content.into() })),
+            msgtype: msg_type.as_code().to_string(),
+            text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            textcard: None,
+            news: None,
+            mpnews: None,
+            markdown: None,
+            safe: None,
             extra: Value::Null,
         }
     }
@@ -17830,6 +17932,87 @@ mod tests {
         assert_eq!(create["userlist"][0], "user");
         assert_eq!(message["chatid"], "chatid");
         assert_eq!(message["text"]["content"], "hello");
+        assert!(message.get("image").is_none());
+
+        let image =
+            serde_json::to_value(AppChatMessage::image("chatid", "image-media").with_safe(true))
+                .unwrap();
+        assert_eq!(image["msgtype"], "image");
+        assert_eq!(image["image"]["media_id"], "image-media");
+        assert_eq!(image["safe"], 1);
+
+        let voice = serde_json::to_value(AppChatMessage::voice("chatid", "voice-media")).unwrap();
+        assert_eq!(voice["msgtype"], "voice");
+        assert_eq!(voice["voice"]["media_id"], "voice-media");
+
+        let video = serde_json::to_value(AppChatMessage::video(
+            "chatid",
+            WorkVideoMessage {
+                media_id: "video-media".to_string(),
+                title: Some("title".to_string()),
+                description: Some("description".to_string()),
+            },
+        ))
+        .unwrap();
+        assert_eq!(video["msgtype"], "video");
+        assert_eq!(video["video"]["title"], "title");
+
+        let file = serde_json::to_value(AppChatMessage::file("chatid", "file-media")).unwrap();
+        assert_eq!(file["msgtype"], "file");
+        assert_eq!(file["file"]["media_id"], "file-media");
+
+        let text_card = serde_json::to_value(AppChatMessage::text_card(
+            "chatid",
+            WorkTextCardMessage {
+                title: "title".to_string(),
+                description: "description".to_string(),
+                url: "https://example.com/card".to_string(),
+                btntxt: Some("details".to_string()),
+            },
+        ))
+        .unwrap();
+        assert_eq!(text_card["msgtype"], "textcard");
+        assert_eq!(text_card["textcard"]["btntxt"], "details");
+
+        let news = serde_json::to_value(AppChatMessage::news(
+            "chatid",
+            vec![WorkNewsArticle {
+                title: "news".to_string(),
+                description: "description".to_string(),
+                url: "https://example.com/news".to_string(),
+                picurl: "https://example.com/news.png".to_string(),
+            }],
+        ))
+        .unwrap();
+        assert_eq!(news["msgtype"], "news");
+        assert_eq!(news["news"]["articles"][0]["title"], "news");
+
+        let mpnews = serde_json::to_value(AppChatMessage::mpnews(
+            "chatid",
+            vec![WorkMpNewsArticle {
+                title: "mpnews".to_string(),
+                thumb_media_id: "thumb-media".to_string(),
+                author: "author".to_string(),
+                content_source_url: "https://example.com/source".to_string(),
+                content: "content".to_string(),
+                digest: "digest".to_string(),
+            }],
+        ))
+        .unwrap();
+        assert_eq!(mpnews["msgtype"], "mpnews");
+        assert_eq!(
+            mpnews["mpnews"]["articles"][0]["thumb_media_id"],
+            "thumb-media"
+        );
+
+        let markdown =
+            serde_json::to_value(AppChatMessage::markdown("chatid", "**hello**")).unwrap();
+        assert_eq!(markdown["msgtype"], "markdown");
+        assert_eq!(markdown["markdown"]["content"], "**hello**");
+        assert_eq!(
+            AppChatMessage::markdown("chatid", "hello").msgtype_kind(),
+            WorkMessageTypeKind::Markdown
+        );
 
         let created: WorkAppChatCreateResponse = serde_json::from_value(
             json!({ "errcode": 0, "chatid": "chatid", "request_id": "appchat-create" }),

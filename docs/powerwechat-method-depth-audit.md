@@ -256,6 +256,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - Work app, linked-corp, school, appchat, and group-robot messages now expose
   semantic message-type helpers for text, media, rich, mini-program, and
   template-card dispatch while retaining upstream `msgtype` strings.
+- Work AppChat sends now expose typed text, image, voice, video, file,
+  text-card, news, mpnews, and markdown payloads plus explicit confidential
+  message selection instead of relying on flattened raw JSON.
 - Work template-card sends, update requests, and group-robot payloads now
   expose semantic card-type helpers for text notice, news notice, and button
   / vote / multiple interaction cards while retaining upstream `card_type`
