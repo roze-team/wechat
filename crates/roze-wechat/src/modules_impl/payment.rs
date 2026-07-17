@@ -3248,6 +3248,12 @@ impl PaymentBillSummary {
         self.values.get(index).map(String::as_str)
     }
 
+    pub fn require(&self, index: usize) -> Result<&str> {
+        self.get(index).ok_or_else(|| {
+            WechatError::Config(format!("payment bill summary field {index} is missing"))
+        })
+    }
+
     pub fn get_i64(&self, index: usize) -> Result<Option<i64>> {
         self.get(index)
             .map(|value| {
@@ -3258,6 +3264,14 @@ impl PaymentBillSummary {
                 })
             })
             .transpose()
+    }
+
+    pub fn require_i64(&self, index: usize) -> Result<i64> {
+        self.require(index)?.parse::<i64>().map_err(|err| {
+            WechatError::Config(format!(
+                "payment bill required summary field {index} is not a valid i64: {err}"
+            ))
+        })
     }
 }
 
@@ -3300,11 +3314,7 @@ impl PaymentBillStatement {
     pub fn assert_sum_matches_summary(&self, name: &str, summary_index: usize) -> Result<i64> {
         self.require_columns(&[name])?;
         let sum = self.sum_i64(name)?;
-        let expected = self.summary.get_i64(summary_index)?.ok_or_else(|| {
-            WechatError::Config(format!(
-                "payment bill summary field {summary_index} is missing"
-            ))
-        })?;
+        let expected = self.summary.require_i64(summary_index)?;
         if sum != expected {
             return Err(WechatError::Config(format!(
                 "payment bill column {name} sum {sum} does not match summary field {summary_index} value {expected}"
@@ -3312,6 +3322,18 @@ impl PaymentBillStatement {
         }
 
         Ok(sum)
+    }
+
+    pub fn assert_record_count_matches_summary(&self, summary_index: usize) -> Result<usize> {
+        let expected = self.summary.require_i64(summary_index)?;
+        let actual = self.records.len();
+        if actual as i64 != expected {
+            return Err(WechatError::Config(format!(
+                "payment bill record count {actual} does not match summary field {summary_index} value {expected}"
+            )));
+        }
+
+        Ok(actual)
     }
 }
 
@@ -5495,12 +5517,15 @@ mod tests {
         assert_eq!(statement.records, records);
         assert_eq!(statement.summary.raw, "sum,1,100");
         assert_eq!(statement.summary.get(0), Some("sum"));
+        assert_eq!(statement.summary.require(0).unwrap(), "sum");
         assert_eq!(statement.summary.get_i64(1).unwrap(), Some(1));
         assert_eq!(statement.summary.get_i64(2).unwrap(), Some(100));
+        assert_eq!(statement.summary.require_i64(1).unwrap(), 1);
         assert_eq!(statement.column_index("amount"), Some(2));
         statement
             .require_columns(&["transaction_id", "out_trade_no", "amount"])
             .unwrap();
+        assert_eq!(statement.assert_record_count_matches_summary(1).unwrap(), 1);
         assert_eq!(statement.sum_i64("amount").unwrap(), 100);
         assert_eq!(
             statement.assert_sum_matches_summary("amount", 2).unwrap(),
@@ -5583,6 +5608,11 @@ mod tests {
             .get_i64(1)
             .expect_err("invalid summary total should fail");
         assert!(summary_err.to_string().contains("not a valid i64"));
+        let required_summary_err = statement
+            .summary
+            .require_i64(1)
+            .expect_err("invalid required summary total should fail");
+        assert!(required_summary_err.to_string().contains("not a valid i64"));
     }
 
     #[test]
@@ -5605,6 +5635,7 @@ mod tests {
             statement.assert_sum_matches_summary("amount", 2).unwrap(),
             150
         );
+        assert_eq!(statement.assert_record_count_matches_summary(1).unwrap(), 2);
 
         let missing_column = statement
             .require_columns(&["transaction_id", "missing"])
@@ -5625,6 +5656,29 @@ mod tests {
             .assert_sum_matches_summary("amount", 2)
             .expect_err("summary mismatch should fail");
         assert!(mismatch_err.to_string().contains("does not match summary"));
+
+        let count_mismatch = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\nsum,2,100\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap()
+        .statement()
+        .unwrap();
+        let count_mismatch_err = count_mismatch
+            .assert_record_count_matches_summary(1)
+            .expect_err("record count mismatch should fail");
+        assert!(count_mismatch_err.to_string().contains("record count"));
+
+        let missing_summary = statement
+            .summary
+            .require(10)
+            .expect_err("missing summary field should fail");
+        assert!(missing_summary
+            .to_string()
+            .contains("summary field 10 is missing"));
 
         let missing_required = statement.records[0]
             .require("missing")
