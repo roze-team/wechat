@@ -1348,6 +1348,29 @@ pub struct OpenPlatformMiniProgramCategory {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenPlatformMiniProgramCategoryAuditState {
+    Auditing,
+    Rejected,
+    Approved,
+    Other,
+}
+
+impl OpenPlatformMiniProgramCategory {
+    pub fn audit_state(&self) -> Option<OpenPlatformMiniProgramCategoryAuditState> {
+        self.audit_status.map(|status| match status {
+            1 => OpenPlatformMiniProgramCategoryAuditState::Auditing,
+            2 => OpenPlatformMiniProgramCategoryAuditState::Rejected,
+            3 => OpenPlatformMiniProgramCategoryAuditState::Approved,
+            _ => OpenPlatformMiniProgramCategoryAuditState::Other,
+        })
+    }
+
+    pub fn is_audit_approved(&self) -> bool {
+        self.audit_state() == Some(OpenPlatformMiniProgramCategoryAuditState::Approved)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramCategoryResponse {
     #[serde(default)]
@@ -1404,6 +1427,29 @@ pub struct OpenPlatformMiniProgramAuditStatusResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenPlatformMiniProgramAuditState {
+    Approved,
+    Rejected,
+    Auditing,
+    Withdrawn,
+    Other,
+}
+
+impl OpenPlatformMiniProgramAuditStatusResponse {
+    pub fn audit_state(&self) -> Option<OpenPlatformMiniProgramAuditState> {
+        mini_program_audit_state(self.status)
+    }
+
+    pub fn is_audit_approved(&self) -> bool {
+        self.audit_state() == Some(OpenPlatformMiniProgramAuditState::Approved)
+    }
+
+    pub fn is_audit_rejected(&self) -> bool {
+        self.audit_state() == Some(OpenPlatformMiniProgramAuditState::Rejected)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramLatestAuditStatusResponse {
     #[serde(default)]
@@ -1426,6 +1472,30 @@ pub struct OpenPlatformMiniProgramLatestAuditStatusResponse {
     pub submit_audit_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformMiniProgramLatestAuditStatusResponse {
+    pub fn audit_state(&self) -> Option<OpenPlatformMiniProgramAuditState> {
+        mini_program_audit_state(self.status)
+    }
+
+    pub fn is_audit_approved(&self) -> bool {
+        self.audit_state() == Some(OpenPlatformMiniProgramAuditState::Approved)
+    }
+
+    pub fn is_audit_rejected(&self) -> bool {
+        self.audit_state() == Some(OpenPlatformMiniProgramAuditState::Rejected)
+    }
+}
+
+fn mini_program_audit_state(status: Option<i64>) -> Option<OpenPlatformMiniProgramAuditState> {
+    status.map(|status| match status {
+        0 => OpenPlatformMiniProgramAuditState::Approved,
+        1 => OpenPlatformMiniProgramAuditState::Rejected,
+        2 => OpenPlatformMiniProgramAuditState::Auditing,
+        3 => OpenPlatformMiniProgramAuditState::Withdrawn,
+        _ => OpenPlatformMiniProgramAuditState::Other,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1873,6 +1943,44 @@ pub struct OpenPlatformMiniProgramPrivacyInterface {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenPlatformMiniProgramPrivacyInterfaceState {
+    PendingApply,
+    NoPermission,
+    Applying,
+    Rejected,
+    Approved,
+    Other,
+}
+
+impl OpenPlatformMiniProgramPrivacyInterface {
+    pub fn interface_state(&self) -> Option<OpenPlatformMiniProgramPrivacyInterfaceState> {
+        self.status.map(|status| match status {
+            1 => OpenPlatformMiniProgramPrivacyInterfaceState::PendingApply,
+            2 => OpenPlatformMiniProgramPrivacyInterfaceState::NoPermission,
+            3 => OpenPlatformMiniProgramPrivacyInterfaceState::Applying,
+            4 => OpenPlatformMiniProgramPrivacyInterfaceState::Rejected,
+            5 => OpenPlatformMiniProgramPrivacyInterfaceState::Approved,
+            _ => OpenPlatformMiniProgramPrivacyInterfaceState::Other,
+        })
+    }
+
+    pub fn is_approved(&self) -> bool {
+        self.interface_state() == Some(OpenPlatformMiniProgramPrivacyInterfaceState::Approved)
+    }
+
+    pub fn needs_apply(&self) -> bool {
+        matches!(
+            self.interface_state(),
+            Some(
+                OpenPlatformMiniProgramPrivacyInterfaceState::PendingApply
+                    | OpenPlatformMiniProgramPrivacyInterfaceState::NoPermission
+                    | OpenPlatformMiniProgramPrivacyInterfaceState::Rejected
+            )
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
     pub api_name: String,
@@ -2009,7 +2117,8 @@ mod tests {
         OpenPlatformAuthorizerOptionResponse, OpenPlatformAuthorizersResponse,
         OpenPlatformComponentLoginPageUrlRequest, OpenPlatformHandleAuthorizeResponse,
         OpenPlatformMiniProgramAuditItem, OpenPlatformMiniProgramAuditPreviewInfo,
-        OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditStatusResponse,
+        OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditState,
+        OpenPlatformMiniProgramAuditStatusResponse, OpenPlatformMiniProgramCategoryAuditState,
         OpenPlatformMiniProgramCategoryResponse, OpenPlatformMiniProgramCommitRequest,
         OpenPlatformMiniProgramGrayReleasePlanResponse,
         OpenPlatformMiniProgramLatestAuditStatusResponse,
@@ -2018,8 +2127,8 @@ mod tests {
         OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
         OpenPlatformMiniProgramPrivacyInterfaceApplyResponse,
         OpenPlatformMiniProgramPrivacyInterfaceResponse,
-        OpenPlatformMiniProgramPrivacyOwnerSetting, OpenPlatformMiniProgramPrivacySettingItem,
-        OpenPlatformMiniProgramPrivacySettingRequest,
+        OpenPlatformMiniProgramPrivacyInterfaceState, OpenPlatformMiniProgramPrivacyOwnerSetting,
+        OpenPlatformMiniProgramPrivacySettingItem, OpenPlatformMiniProgramPrivacySettingRequest,
         OpenPlatformMiniProgramPrivacySettingResponse,
         OpenPlatformMiniProgramRollbackReleaseResponse, OpenPlatformMiniProgramSessionResponse,
         OpenPlatformMiniProgramSubmitAuditRequest, OpenPlatformMiniProgramSubmitAuditResponse,
@@ -2314,7 +2423,7 @@ mod tests {
     #[test]
     fn deserializes_authorizer_mini_program_code_responses() {
         let categories: OpenPlatformMiniProgramCategoryResponse = serde_json::from_value(json!({
-            "category_list": [{ "first_class": "tool", "first_id": 1, "extra_field": "kept" }],
+            "category_list": [{ "first_class": "tool", "first_id": 1, "audit_status": 3, "extra_field": "kept" }],
             "request_id": "category"
         }))
         .unwrap();
@@ -2323,6 +2432,11 @@ mod tests {
             categories.category_list[0].first_class.as_deref(),
             Some("tool")
         );
+        assert_eq!(
+            categories.category_list[0].audit_state(),
+            Some(OpenPlatformMiniProgramCategoryAuditState::Approved)
+        );
+        assert!(categories.category_list[0].is_audit_approved());
         assert_eq!(categories.category_list[0].extra["extra_field"], "kept");
         assert_eq!(categories.extra["request_id"], "category");
 
@@ -2353,6 +2467,12 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(status.status, Some(0));
+        assert_eq!(
+            status.audit_state(),
+            Some(OpenPlatformMiniProgramAuditState::Approved)
+        );
+        assert!(status.is_audit_approved());
+        assert!(!status.is_audit_rejected());
         assert_eq!(status.reason.as_deref(), Some("ok"));
         assert_eq!(status.extra["request_id"], "status");
 
@@ -2368,10 +2488,41 @@ mod tests {
             .unwrap();
         assert_eq!(latest.auditid, Some(124));
         assert_eq!(
+            latest.audit_state(),
+            Some(OpenPlatformMiniProgramAuditState::Approved)
+        );
+        assert!(latest.is_audit_approved());
+        assert!(!latest.is_audit_rejected());
+        assert_eq!(
             latest.screenshot.as_deref(),
             Some("https://example.com/latest.png")
         );
         assert_eq!(latest.extra["request_id"], "latest");
+        let rejected: OpenPlatformMiniProgramAuditStatusResponse =
+            serde_json::from_value(json!({ "status": 1, "reason": "bad content" })).unwrap();
+        assert_eq!(
+            rejected.audit_state(),
+            Some(OpenPlatformMiniProgramAuditState::Rejected)
+        );
+        assert!(rejected.is_audit_rejected());
+        let auditing: OpenPlatformMiniProgramAuditStatusResponse =
+            serde_json::from_value(json!({ "status": 2 })).unwrap();
+        assert_eq!(
+            auditing.audit_state(),
+            Some(OpenPlatformMiniProgramAuditState::Auditing)
+        );
+        let withdrawn: OpenPlatformMiniProgramLatestAuditStatusResponse =
+            serde_json::from_value(json!({ "status": 3 })).unwrap();
+        assert_eq!(
+            withdrawn.audit_state(),
+            Some(OpenPlatformMiniProgramAuditState::Withdrawn)
+        );
+        let unknown: OpenPlatformMiniProgramAuditStatusResponse =
+            serde_json::from_value(json!({ "status": 99 })).unwrap();
+        assert_eq!(
+            unknown.audit_state(),
+            Some(OpenPlatformMiniProgramAuditState::Other)
+        );
 
         let rollback: OpenPlatformMiniProgramRollbackReleaseResponse =
             serde_json::from_value(json!({
@@ -2539,7 +2690,14 @@ mod tests {
 
         let interfaces: OpenPlatformMiniProgramPrivacyInterfaceResponse =
             serde_json::from_value(json!({
-                "interface_list": [{ "api_name": "getUserInfo", "status": 2, "scope": "profile" }],
+                "interface_list": [
+                    { "api_name": "getUserInfo", "status": 2, "scope": "profile" },
+                    { "api_name": "chooseAddress", "status": 5 },
+                    { "api_name": "getPhoneNumber", "status": 1 },
+                    { "api_name": "openSetting", "status": 3 },
+                    { "api_name": "chooseInvoiceTitle", "status": 4 },
+                    { "api_name": "unknown", "status": 99 }
+                ],
                 "request_id": "privacy-interface"
             }))
             .unwrap();
@@ -2548,6 +2706,37 @@ mod tests {
             Some("getUserInfo")
         );
         assert_eq!(interfaces.interface_list[0].status, Some(2));
+        assert_eq!(
+            interfaces.interface_list[0].interface_state(),
+            Some(OpenPlatformMiniProgramPrivacyInterfaceState::NoPermission)
+        );
+        assert!(interfaces.interface_list[0].needs_apply());
+        assert!(!interfaces.interface_list[0].is_approved());
+        assert_eq!(
+            interfaces.interface_list[1].interface_state(),
+            Some(OpenPlatformMiniProgramPrivacyInterfaceState::Approved)
+        );
+        assert!(interfaces.interface_list[1].is_approved());
+        assert!(!interfaces.interface_list[1].needs_apply());
+        assert_eq!(
+            interfaces.interface_list[2].interface_state(),
+            Some(OpenPlatformMiniProgramPrivacyInterfaceState::PendingApply)
+        );
+        assert!(interfaces.interface_list[2].needs_apply());
+        assert_eq!(
+            interfaces.interface_list[3].interface_state(),
+            Some(OpenPlatformMiniProgramPrivacyInterfaceState::Applying)
+        );
+        assert!(!interfaces.interface_list[3].needs_apply());
+        assert_eq!(
+            interfaces.interface_list[4].interface_state(),
+            Some(OpenPlatformMiniProgramPrivacyInterfaceState::Rejected)
+        );
+        assert!(interfaces.interface_list[4].needs_apply());
+        assert_eq!(
+            interfaces.interface_list[5].interface_state(),
+            Some(OpenPlatformMiniProgramPrivacyInterfaceState::Other)
+        );
         assert_eq!(interfaces.interface_list[0].extra["scope"], "profile");
         assert_eq!(interfaces.extra["request_id"], "privacy-interface");
 

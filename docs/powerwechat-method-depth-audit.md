@@ -291,6 +291,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
   list and apply responses.
 - authorizer account basic-info responses now expose typed verification,
   signature, and head-image DTOs while preserving upstream extension fields.
+- authorizer mini-program category, code-audit, latest-audit, and privacy
+  interface DTOs now expose semantic status helper enums while retaining the
+  original upstream numeric status fields.
 
 Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 
