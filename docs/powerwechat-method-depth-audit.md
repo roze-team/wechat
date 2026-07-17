@@ -411,6 +411,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   preserve unknown upstream fields across success and error payloads.
 - merchant-service complaint image and merchant media upload responses now
   preserve unknown upstream fields alongside typed media ids.
+- merchant-service complaint media DTOs now expose typed media id and thumbnail
+  URL fields, negotiation image lists accept single-string or array shapes, and
+  notification query responses tolerate WeChat code/message error payloads.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 
