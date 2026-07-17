@@ -8613,6 +8613,45 @@ pub struct WorkUploadMediaResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMediaTypeKind {
+    Image,
+    Voice,
+    Video,
+    File,
+    Other,
+}
+
+impl WorkMediaTypeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("image") {
+            Self::Image
+        } else if value.eq_ignore_ascii_case("voice") {
+            Self::Voice
+        } else if value.eq_ignore_ascii_case("video") {
+            Self::Video
+        } else if value.eq_ignore_ascii_case("file") {
+            Self::File
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_binary_file(self) -> bool {
+        matches!(self, Self::Image | Self::Voice | Self::Video | Self::File)
+    }
+}
+
+impl WorkUploadMediaResponse {
+    pub fn media_type_kind(&self) -> Option<WorkMediaTypeKind> {
+        self.media_type.as_deref().map(WorkMediaTypeKind::from_code)
+    }
+
+    pub fn is_image(&self) -> bool {
+        self.media_type_kind() == Some(WorkMediaTypeKind::Image)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MsgAuditChatDataRequest {
     pub seq: i64,
@@ -14119,6 +14158,29 @@ mod tests {
 
         assert_eq!(response.media_id.as_deref(), Some("mid"));
         assert_eq!(response.media_type.as_deref(), Some("image"));
+        assert_eq!(response.media_type_kind(), Some(WorkMediaTypeKind::Image));
+        assert!(response.is_image());
+        assert!(response
+            .media_type_kind()
+            .expect("media type")
+            .is_binary_file());
+        assert_eq!(
+            WorkMediaTypeKind::from_code("VOICE"),
+            WorkMediaTypeKind::Voice
+        );
+        assert_eq!(
+            WorkMediaTypeKind::from_code("video"),
+            WorkMediaTypeKind::Video
+        );
+        assert_eq!(
+            WorkMediaTypeKind::from_code("file"),
+            WorkMediaTypeKind::File
+        );
+        assert_eq!(
+            WorkMediaTypeKind::from_code("link"),
+            WorkMediaTypeKind::Other
+        );
+        assert!(!WorkMediaTypeKind::Other.is_binary_file());
         assert_eq!(response.created_at.as_deref(), Some("1800000000"));
         assert_eq!(response.extra["file_size"], 1024);
     }

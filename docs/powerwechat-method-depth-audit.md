@@ -242,6 +242,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   instead of generic JSON values.
 - group robot image, news, and template-card message payloads now expose typed
   DTOs while preserving card extension fields.
+- Work upload-media responses now expose semantic media-type helpers for image,
+  voice, video, and file while retaining the original upstream `type` string.
 - Work remaining raw request payloads have been removed: moment-strategy
   create/edit, linked-corp and external-contact school message sends,
   template-card update, check-in option add/update, approval apply-event, and
