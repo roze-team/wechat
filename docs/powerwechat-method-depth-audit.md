@@ -206,6 +206,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   preserve upstream extension fields for forward-compatible enterprise data.
 - Work user ID conversion and active-stat response DTOs now preserve upstream
   extension fields across wrappers and per-item records.
+- Work user detail and linked-corp permission/user/department response DTOs now
+  preserve upstream extension fields across wrappers and nested records.
 - Work app message send payloads now expose typed text, markdown, and text-card
   message DTOs on the primary `WorkMessage` request instead of generic JSON.
 - Work app message media, video, news, mpnews, and mini-program notice payloads

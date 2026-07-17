@@ -5546,6 +5546,8 @@ pub struct WorkUserDetailResponse {
     pub errmsg: Option<String>,
     #[serde(flatten)]
     pub user: WorkUserDetail,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5887,6 +5889,8 @@ pub struct WorkLinkedCorpPermListResponse {
     pub department_ids: Vec<String>,
     #[serde(default)]
     pub userids: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5897,6 +5901,8 @@ pub struct WorkLinkedCorpUserResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub user_info: Option<WorkLinkedCorpUserInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5907,6 +5913,8 @@ pub struct WorkLinkedCorpUserListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userlist: Vec<WorkLinkedCorpUserInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5917,6 +5925,8 @@ pub struct WorkLinkedCorpDepartmentListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub department_list: Vec<WorkLinkedCorpDepartment>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5941,6 +5951,8 @@ pub struct WorkLinkedCorpUserInfo {
     pub corp_id: Option<String>,
     #[serde(default)]
     pub extattr: Option<WorkUserExtAttr>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5953,6 +5965,8 @@ pub struct WorkLinkedCorpDepartment {
     pub parentid: Option<String>,
     #[serde(default)]
     pub order: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13054,49 +13068,62 @@ mod tests {
     fn deserializes_work_linked_corp_user_responses() {
         let perm: WorkLinkedCorpPermListResponse = serde_json::from_value(json!({
             "department_ids": ["Corp/department"],
-            "userids": ["Corp/user"]
+            "userids": ["Corp/user"],
+            "trace_id": "linked-perm"
         }))
         .unwrap();
         assert_eq!(perm.department_ids[0], "Corp/department");
         assert_eq!(perm.userids[0], "Corp/user");
+        assert_eq!(perm.extra["trace_id"], "linked-perm");
 
         let user: WorkLinkedCorpUserResponse = serde_json::from_value(json!({
+            "trace_id": "linked-user",
             "user_info": {
                 "userid": "Corp/user",
                 "name": "User",
                 "mobile": "13800000000",
-                "department": ["Corp/department"]
+                "department": ["Corp/department"],
+                "member_source": "linked"
             }
         }))
         .unwrap();
+        assert_eq!(user.extra["trace_id"], "linked-user");
         let user_info = user.user_info.unwrap();
         assert_eq!(user_info.userid.as_deref(), Some("Corp/user"));
         assert_eq!(user_info.name.as_deref(), Some("User"));
         assert_eq!(user_info.mobile.as_deref(), Some("13800000000"));
         assert_eq!(user_info.department[0], "Corp/department");
+        assert_eq!(user_info.extra["member_source"], "linked");
 
         let simple: WorkLinkedCorpUserListResponse = serde_json::from_value(json!({
-            "userlist": [{ "userid": "Corp/user", "name": "User" }]
+            "next_cursor": "linked-next",
+            "userlist": [{ "userid": "Corp/user", "name": "User", "member_source": "linked" }]
         }))
         .unwrap();
         assert_eq!(simple.userlist[0].userid.as_deref(), Some("Corp/user"));
         assert_eq!(simple.userlist[0].name.as_deref(), Some("User"));
+        assert_eq!(simple.extra["next_cursor"], "linked-next");
+        assert_eq!(simple.userlist[0].extra["member_source"], "linked");
 
         let departments: WorkLinkedCorpDepartmentListResponse = serde_json::from_value(json!({
+            "trace_id": "linked-department",
             "department_list": [{
                 "department_id": "Corp/department",
                 "name": "Dept",
                 "parentid": "Corp/root",
-                "order": 1
+                "order": 1,
+                "department_level": 2
             }]
         }))
         .unwrap();
+        assert_eq!(departments.extra["trace_id"], "linked-department");
         assert_eq!(
             departments.department_list[0].department_id.as_deref(),
             Some("Corp/department")
         );
         assert_eq!(departments.department_list[0].name.as_deref(), Some("Dept"));
         assert_eq!(departments.department_list[0].order, Some(1));
+        assert_eq!(departments.department_list[0].extra["department_level"], 2);
     }
 
     #[test]
