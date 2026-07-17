@@ -343,6 +343,8 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
 - component quota clear wrapper;
 - typed component preauth, query-auth, authorizer info/list, and option
   responses.
+- component/base preauth, query-auth, authorizer info/list, option wrappers,
+  and authorizer-list summaries now preserve unknown upstream fields.
 - suite pre-auth, permanent-code, auth-info, and corp-token public wrappers now
   return typed Open Work DTOs instead of raw JSON values.
 - suite permanent-code/auth-info responses now expose typed auth-corp,

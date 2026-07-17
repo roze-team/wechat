@@ -737,6 +737,8 @@ pub struct OpenWorkComponentPreauthCodeResponse {
     pub pre_auth_code: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -747,6 +749,8 @@ pub struct OpenWorkComponentQueryAuthResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub authorization_info: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -759,6 +763,8 @@ pub struct OpenWorkComponentAuthorizerInfoResponse {
     pub authorizer_info: Option<Value>,
     #[serde(default)]
     pub authorization_info: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -769,6 +775,8 @@ pub struct OpenWorkComponentAuthorizationSummary {
     pub refresh_token: Option<String>,
     #[serde(default)]
     pub auth_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -781,6 +789,8 @@ pub struct OpenWorkComponentAuthorizersResponse {
     pub total_count: Option<i64>,
     #[serde(default)]
     pub list: Vec<OpenWorkComponentAuthorizationSummary>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -795,6 +805,8 @@ pub struct OpenWorkComponentAuthorizerOptionResponse {
     pub option_name: Option<String>,
     #[serde(default)]
     pub option_value: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone)]
@@ -1631,51 +1643,66 @@ mod tests {
     fn deserializes_open_work_component_base_responses() {
         let preauth: OpenWorkComponentPreauthCodeResponse = serde_json::from_value(json!({
             "pre_auth_code": "pre-auth",
-            "expires_in": 1200
+            "expires_in": 1200,
+            "request_id": "component-preauth"
         }))
         .unwrap();
         assert_eq!(preauth.pre_auth_code.as_deref(), Some("pre-auth"));
         assert_eq!(preauth.expires_in, Some(1200));
+        assert_eq!(preauth.extra["request_id"], "component-preauth");
 
         let query: OpenWorkComponentQueryAuthResponse = serde_json::from_value(json!({
             "authorization_info": {
                 "authorizer_appid": "wx-authorizer",
                 "authorizer_access_token": "token"
-            }
+            },
+            "request_id": "component-query"
         }))
         .unwrap();
         assert_eq!(
-            query.authorization_info.unwrap()["authorizer_appid"],
+            query.authorization_info.as_ref().unwrap()["authorizer_appid"],
             "wx-authorizer"
         );
+        assert_eq!(query.extra["request_id"], "component-query");
 
         let info: OpenWorkComponentAuthorizerInfoResponse = serde_json::from_value(json!({
             "authorizer_info": { "nick_name": "Corp App" },
-            "authorization_info": { "authorizer_appid": "wx-authorizer" }
+            "authorization_info": { "authorizer_appid": "wx-authorizer" },
+            "request_id": "component-info"
         }))
         .unwrap();
-        assert_eq!(info.authorizer_info.unwrap()["nick_name"], "Corp App");
+        assert_eq!(
+            info.authorizer_info.as_ref().unwrap()["nick_name"],
+            "Corp App"
+        );
+        assert_eq!(info.extra["request_id"], "component-info");
 
         let list: OpenWorkComponentAuthorizersResponse = serde_json::from_value(json!({
             "total_count": 1,
+            "request_id": "component-list",
             "list": [{
                 "authorizer_appid": "wx-authorizer",
                 "refresh_token": "refresh",
-                "auth_time": 1800000000
+                "auth_time": 1800000000,
+                "summary_extra": "retained"
             }]
         }))
         .unwrap();
         assert_eq!(list.total_count, Some(1));
+        assert_eq!(list.extra["request_id"], "component-list");
         assert_eq!(list.list[0].refresh_token.as_deref(), Some("refresh"));
+        assert_eq!(list.list[0].extra["summary_extra"], "retained");
 
         let option: OpenWorkComponentAuthorizerOptionResponse = serde_json::from_value(json!({
             "authorizer_appid": "wx-authorizer",
             "option_name": "voice_recognize",
-            "option_value": "1"
+            "option_value": "1",
+            "request_id": "component-option"
         }))
         .unwrap();
         assert_eq!(option.option_name.as_deref(), Some("voice_recognize"));
         assert_eq!(option.option_value.as_deref(), Some("1"));
+        assert_eq!(option.extra["request_id"], "component-option");
     }
 
     #[test]
