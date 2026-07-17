@@ -386,6 +386,9 @@ Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
   goods DTOs now preserve unknown upstream fields for forward compatibility.
 - refund detail responses now preserve unknown upstream fields across wrapper,
   amount, source-account, promotion, and goods DTO payloads.
+- order and partner-order responses now expose typed transaction fields,
+  amount, payer, scene, promotion, and goods DTOs while preserving unknown
+  upstream fields; prepay/H5/native response wrappers also retain extensions.
 - typed PayScore service-order response covering state, post-payment/discount,
   risk-fund, time-range, location, order id, and package fields.
 - PayScore service-order request/response location payloads now share a typed

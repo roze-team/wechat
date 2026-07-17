@@ -2116,6 +2116,8 @@ pub struct Payer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrepayResponse {
     pub prepay_id: String,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2147,17 +2149,57 @@ pub struct AppPayParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct H5PrepayResponse {
     pub h5_url: String,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativePrepayResponse {
     pub code_url: String,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentOrderResponse {
-    #[serde(flatten)]
-    pub value: Value,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub mchid: Option<String>,
+    #[serde(default)]
+    pub sp_appid: Option<String>,
+    #[serde(default)]
+    pub sp_mchid: Option<String>,
+    #[serde(default)]
+    pub sub_appid: Option<String>,
+    #[serde(default)]
+    pub sub_mchid: Option<String>,
+    #[serde(default)]
+    pub out_trade_no: Option<String>,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    #[serde(default)]
+    pub trade_type: Option<String>,
+    #[serde(default)]
+    pub trade_state: Option<String>,
+    #[serde(default)]
+    pub trade_state_desc: Option<String>,
+    #[serde(default)]
+    pub bank_type: Option<String>,
+    #[serde(default)]
+    pub attach: Option<String>,
+    #[serde(default)]
+    pub success_time: Option<String>,
+    #[serde(default)]
+    pub amount: Option<PaymentTransactionAmount>,
+    #[serde(default)]
+    pub payer: Option<PaymentTransactionPayer>,
+    #[serde(default)]
+    pub scene_info: Option<PaymentTransactionSceneInfo>,
+    #[serde(default)]
+    pub promotion_detail: Vec<PaymentPromotionDetail>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4256,18 +4298,19 @@ mod tests {
         ComplaintRefundProgressResponse, ComplaintReplyRequest, ComplaintReplyResponse,
         CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
         CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
-        FundAppTransferBillRequest, FundAppTransferBillResponse, JsapiPayParams,
+        FundAppTransferBillRequest, FundAppTransferBillResponse, H5PrepayResponse, JsapiPayParams,
         LegacyProfitSharingReturnRequest, LegacyProfitSharingReturnResponse,
         LegacyTransferInfoResponse, MerchantFundBalanceResponse, MerchantMediaUploadRequest,
         MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
-        NativePrepayRequest, PartnerCloseOrderRequest, PartnerH5PrepayRequest,
-        PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer, PartnerRefundQuery,
-        PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery,
-        PayScoreServiceOrderRequest, PayScoreServiceOrderResponse, PayScoreTimeRange,
-        PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill, PaymentNotification,
-        PaymentRefundNotification, PaymentResource, PaymentTransactionNotification,
-        PaymentTransferBillNotification, ProfitSharingBillRequest, ProfitSharingOrderRequest,
-        ProfitSharingReceiver, ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
+        NativePrepayRequest, NativePrepayResponse, PartnerCloseOrderRequest,
+        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
+        PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
+        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
+        PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill,
+        PaymentNotification, PaymentOrderResponse, PaymentRefundNotification, PaymentResource,
+        PaymentTransactionNotification, PaymentTransferBillNotification, PrepayResponse,
+        ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
         RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
@@ -4308,6 +4351,116 @@ mod tests {
             notification.resource.original_type.as_deref(),
             Some("transaction")
         );
+    }
+
+    #[test]
+    fn deserializes_payment_order_and_prepay_responses() {
+        let prepay: PrepayResponse = serde_json::from_value(json!({
+            "prepay_id": "prepay-id",
+            "request_id": "prepay-request"
+        }))
+        .unwrap();
+        assert_eq!(prepay.prepay_id, "prepay-id");
+        assert_eq!(prepay.extra["request_id"], "prepay-request");
+
+        let h5: H5PrepayResponse = serde_json::from_value(json!({
+            "h5_url": "https://pay.example.com/h5",
+            "request_id": "h5-request"
+        }))
+        .unwrap();
+        assert_eq!(h5.h5_url, "https://pay.example.com/h5");
+        assert_eq!(h5.extra["request_id"], "h5-request");
+
+        let native: NativePrepayResponse = serde_json::from_value(json!({
+            "code_url": "weixin://wxpay/bizpayurl?pr=abc",
+            "request_id": "native-request"
+        }))
+        .unwrap();
+        assert_eq!(native.code_url, "weixin://wxpay/bizpayurl?pr=abc");
+        assert_eq!(native.extra["request_id"], "native-request");
+
+        let order: PaymentOrderResponse = serde_json::from_value(json!({
+            "appid": "wx-app",
+            "mchid": "mchid",
+            "sp_appid": "sp-app",
+            "sp_mchid": "sp-mchid",
+            "sub_appid": "sub-app",
+            "sub_mchid": "sub-mchid",
+            "out_trade_no": "out-1",
+            "transaction_id": "tx-1",
+            "trade_type": "JSAPI",
+            "trade_state": "SUCCESS",
+            "trade_state_desc": "paid",
+            "bank_type": "OTHERS",
+            "attach": "attach",
+            "success_time": "2026-07-17T10:00:00+08:00",
+            "amount": {
+                "total": 100,
+                "payer_total": 100,
+                "currency": "CNY",
+                "settlement_rate": "1.0"
+            },
+            "payer": {
+                "openid": "openid",
+                "sub_openid": "sub-openid",
+                "payer_client_ip": "127.0.0.1"
+            },
+            "scene_info": {
+                "device_id": "device-1",
+                "store_id": "store-1"
+            },
+            "promotion_detail": [{
+                "coupon_id": "coupon-1",
+                "type": "CASH",
+                "amount": 10,
+                "promotion_extra": "retained",
+                "goods_detail": [{
+                    "goods_id": "sku-1",
+                    "quantity": 1,
+                    "unit_price": 100,
+                    "discount_amount": 10,
+                    "goods_extra": "retained"
+                }]
+            }],
+            "order_extra": "retained"
+        }))
+        .unwrap();
+
+        assert_eq!(order.trade_state.as_deref(), Some("SUCCESS"));
+        assert_eq!(order.sp_mchid.as_deref(), Some("sp-mchid"));
+        assert_eq!(order.sub_mchid.as_deref(), Some("sub-mchid"));
+        assert_eq!(
+            order.amount.as_ref().and_then(|amount| amount.total),
+            Some(100)
+        );
+        assert_eq!(
+            order.amount.as_ref().unwrap().extra["settlement_rate"],
+            "1.0"
+        );
+        assert_eq!(
+            order
+                .payer
+                .as_ref()
+                .and_then(|payer| payer.sub_openid.as_deref()),
+            Some("sub-openid")
+        );
+        assert_eq!(
+            order.payer.as_ref().unwrap().extra["payer_client_ip"],
+            "127.0.0.1"
+        );
+        assert_eq!(
+            order.scene_info.as_ref().unwrap().extra["store_id"],
+            "store-1"
+        );
+        assert_eq!(
+            order.promotion_detail[0].extra["promotion_extra"],
+            "retained"
+        );
+        assert_eq!(
+            order.promotion_detail[0].goods_detail[0].extra["goods_extra"],
+            "retained"
+        );
+        assert_eq!(order.extra["order_extra"], "retained");
     }
 
     #[test]
