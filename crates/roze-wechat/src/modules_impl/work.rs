@@ -6314,6 +6314,48 @@ pub struct ExternalContactInfo {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactKind {
+    WechatUser,
+    WorkUser,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkContactGender {
+    Unknown,
+    Male,
+    Female,
+    Other,
+}
+
+impl ExternalContactInfo {
+    pub fn contact_kind(&self) -> Option<ExternalContactKind> {
+        self.contact_type.map(|contact_type| match contact_type {
+            1 => ExternalContactKind::WechatUser,
+            2 => ExternalContactKind::WorkUser,
+            _ => ExternalContactKind::Other,
+        })
+    }
+
+    pub fn gender_kind(&self) -> Option<WorkContactGender> {
+        self.gender.map(|gender| match gender {
+            0 => WorkContactGender::Unknown,
+            1 => WorkContactGender::Male,
+            2 => WorkContactGender::Female,
+            _ => WorkContactGender::Other,
+        })
+    }
+
+    pub fn is_wechat_user(&self) -> bool {
+        self.contact_kind() == Some(ExternalContactKind::WechatUser)
+    }
+
+    pub fn is_work_user(&self) -> bool {
+        self.contact_kind() == Some(ExternalContactKind::WorkUser)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactProfile {
     #[serde(default)]
@@ -6338,6 +6380,37 @@ pub struct ExternalContactAttribute {
     pub miniprogram: Option<ExternalContactAttributeMiniProgram>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactAttributeKind {
+    Text,
+    Web,
+    MiniProgram,
+    Other,
+}
+
+impl ExternalContactAttribute {
+    pub fn attribute_kind(&self) -> Option<ExternalContactAttributeKind> {
+        self.attr_type.map(|attr_type| match attr_type {
+            0 => ExternalContactAttributeKind::Text,
+            1 => ExternalContactAttributeKind::Web,
+            2 => ExternalContactAttributeKind::MiniProgram,
+            _ => ExternalContactAttributeKind::Other,
+        })
+    }
+
+    pub fn is_text(&self) -> bool {
+        self.attribute_kind() == Some(ExternalContactAttributeKind::Text)
+    }
+
+    pub fn is_web(&self) -> bool {
+        self.attribute_kind() == Some(ExternalContactAttributeKind::Web)
+    }
+
+    pub fn is_mini_program(&self) -> bool {
+        self.attribute_kind() == Some(ExternalContactAttributeKind::MiniProgram)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6839,6 +6912,31 @@ pub struct ExternalGroupChatMember {
     pub unionid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalGroupChatMemberKind {
+    WorkUser,
+    ExternalContact,
+    Other,
+}
+
+impl ExternalGroupChatMember {
+    pub fn member_kind(&self) -> Option<ExternalGroupChatMemberKind> {
+        self.member_type.map(|member_type| match member_type {
+            1 => ExternalGroupChatMemberKind::WorkUser,
+            2 => ExternalGroupChatMemberKind::ExternalContact,
+            _ => ExternalGroupChatMemberKind::Other,
+        })
+    }
+
+    pub fn is_work_user(&self) -> bool {
+        self.member_kind() == Some(ExternalGroupChatMemberKind::WorkUser)
+    }
+
+    pub fn is_external_contact(&self) -> bool {
+        self.member_kind() == Some(ExternalGroupChatMemberKind::ExternalContact)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10974,7 +11072,7 @@ mod tests {
                     "external_corp_name": "Roze",
                     "external_extra_profile": "profile-extra",
                     "external_attr": [{
-                        "type": 0,
+                        "type": 1,
                         "name": "Website",
                         "attr_extra": "attr-extra",
                         "web": {
@@ -11010,6 +11108,10 @@ mod tests {
         let contact = detail.external_contact.expect("external_contact");
         assert_eq!(contact.external_userid.as_deref(), Some("wm-external"));
         assert_eq!(contact.contact_type, Some(2));
+        assert_eq!(contact.contact_kind(), Some(ExternalContactKind::WorkUser));
+        assert!(contact.is_work_user());
+        assert!(!contact.is_wechat_user());
+        assert_eq!(contact.gender_kind(), Some(WorkContactGender::Male));
         assert_eq!(contact.extra["wechat_channels"]["nickname"], "Roze Shop");
         assert_eq!(
             contact
@@ -11026,10 +11128,76 @@ mod tests {
             .external_attr[0];
         assert_eq!(attr.extra["attr_extra"], "attr-extra");
         assert_eq!(
+            attr.attribute_kind(),
+            Some(ExternalContactAttributeKind::Web)
+        );
+        assert!(!attr.is_text());
+        assert!(attr.is_web());
+        assert!(!attr.is_mini_program());
+        assert_eq!(
             attr.web.as_ref().expect("web").url.as_deref(),
             Some("https://example.com")
         );
         assert_eq!(attr.web.as_ref().unwrap().extra["source"], "official");
+        let text_attr = ExternalContactAttribute {
+            attr_type: Some(0),
+            name: None,
+            text: None,
+            web: None,
+            miniprogram: None,
+            extra: Value::Null,
+        };
+        assert_eq!(
+            text_attr.attribute_kind(),
+            Some(ExternalContactAttributeKind::Text)
+        );
+        assert!(text_attr.is_text());
+        let unknown_contact = ExternalContactInfo {
+            external_userid: None,
+            name: None,
+            position: None,
+            avatar: None,
+            contact_type: Some(99),
+            gender: Some(99),
+            unionid: None,
+            corp_name: None,
+            corp_full_name: None,
+            external_profile: None,
+            extra: Value::Null,
+        };
+        assert_eq!(
+            unknown_contact.contact_kind(),
+            Some(ExternalContactKind::Other)
+        );
+        assert_eq!(
+            unknown_contact.gender_kind(),
+            Some(WorkContactGender::Other)
+        );
+        let mini_program_attr = ExternalContactAttribute {
+            attr_type: Some(2),
+            name: None,
+            text: None,
+            web: None,
+            miniprogram: None,
+            extra: Value::Null,
+        };
+        assert_eq!(
+            mini_program_attr.attribute_kind(),
+            Some(ExternalContactAttributeKind::MiniProgram)
+        );
+        assert!(mini_program_attr.is_mini_program());
+        let unknown_attr = ExternalContactAttribute {
+            attr_type: Some(99),
+            name: None,
+            text: None,
+            web: None,
+            miniprogram: None,
+            extra: Value::Null,
+        };
+        assert_eq!(
+            unknown_attr.attribute_kind(),
+            Some(ExternalContactAttributeKind::Other)
+        );
         assert_eq!(
             detail.follow_user[0].tags[0].tag_name.as_deref(),
             Some("Gold")
@@ -11576,6 +11744,12 @@ mod tests {
         assert_eq!(group_chat.name.as_deref(), Some("group"));
         assert_eq!(group_chat.extra["customer_count"], 10);
         assert_eq!(group_chat.member_list[0].member_type, Some(1));
+        assert_eq!(
+            group_chat.member_list[0].member_kind(),
+            Some(ExternalGroupChatMemberKind::WorkUser)
+        );
+        assert!(group_chat.member_list[0].is_work_user());
+        assert!(!group_chat.member_list[0].is_external_contact());
         assert_eq!(group_chat.member_list[0].extra["member_role"], "customer");
         assert_eq!(
             group_chat.member_list[0]
@@ -11590,6 +11764,31 @@ mod tests {
         );
         assert_eq!(group_chat.admin_list[0].userid.as_deref(), Some("admin"));
         assert_eq!(group_chat.admin_list[0].extra["admin_type"], "primary");
+        let external_member = ExternalGroupChatMember {
+            userid: None,
+            member_type: Some(2),
+            join_time: None,
+            join_scene: None,
+            state: None,
+            invitor: None,
+            group_nickname: None,
+            name: None,
+            unionid: None,
+            extra: Value::Null,
+        };
+        assert_eq!(
+            external_member.member_kind(),
+            Some(ExternalGroupChatMemberKind::ExternalContact)
+        );
+        assert!(external_member.is_external_contact());
+        let unknown_member = ExternalGroupChatMember {
+            member_type: Some(99),
+            ..external_member
+        };
+        assert_eq!(
+            unknown_member.member_kind(),
+            Some(ExternalGroupChatMemberKind::Other)
+        );
 
         let transfer: ExternalGroupChatTransferResponse = serde_json::from_value(json!({
             "errcode": 0,

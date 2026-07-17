@@ -160,11 +160,17 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   typed instead of generic JSON values.
 - external-contact base/detail/batch DTOs now preserve unknown upstream fields
   across contact, profile, attribute, follow-info, tag, and list wrappers.
+- external-contact base/detail DTOs now expose semantic helper enums for
+  contact type, gender, and external-profile attribute type while retaining the
+  original upstream numeric fields.
 - external-contact group-chat list/get/transfer responses now expose typed
   chat summaries, chat details, members, admins, and failed-transfer records.
 - external-contact group-chat list/get/transfer/open-gid DTOs now preserve
   unknown upstream fields across wrappers, summaries, members, admins, and
   failed-transfer records.
+- external-contact group-chat member DTOs now expose semantic member-kind
+  helpers for enterprise members and external contacts while retaining the
+  original upstream numeric member type.
 - external-contact group-message template add/list/task/send-result responses
   now expose typed fail IDs, message text/attachments, tasks, and send results.
 - external-contact group-message template/list/task/send-result DTOs now
