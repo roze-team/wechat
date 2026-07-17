@@ -3977,6 +3977,41 @@ pub struct ComplaintDetailResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintStateKind {
+    Pending,
+    Processing,
+    Processed,
+    Other,
+}
+
+impl ComplaintStateKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("PENDING") {
+            Self::Pending
+        } else if value.eq_ignore_ascii_case("PROCESSING") {
+            Self::Processing
+        } else if value.eq_ignore_ascii_case("PROCESSED") || value.eq_ignore_ascii_case("COMPLETED")
+        {
+            Self::Processed
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Processed)
+    }
+}
+
+impl ComplaintDetailResponse {
+    pub fn complaint_state_kind(&self) -> Option<ComplaintStateKind> {
+        self.complaint_state
+            .as_deref()
+            .map(ComplaintStateKind::from_code)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintOrderInfo {
     #[serde(default)]
@@ -4042,6 +4077,43 @@ pub struct ComplaintServiceOrderInfo {
     pub state: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplaintServiceOrderStateKind {
+    Doing,
+    Revoked,
+    WaitPay,
+    Done,
+    Other,
+}
+
+impl ComplaintServiceOrderStateKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("DOING") {
+            Self::Doing
+        } else if value.eq_ignore_ascii_case("REVOKED") {
+            Self::Revoked
+        } else if value.eq_ignore_ascii_case("WAITPAY") {
+            Self::WaitPay
+        } else if value.eq_ignore_ascii_case("DONE") {
+            Self::Done
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Revoked | Self::Done)
+    }
+}
+
+impl ComplaintServiceOrderInfo {
+    pub fn state_kind(&self) -> Option<ComplaintServiceOrderStateKind> {
+        self.state
+            .as_deref()
+            .map(ComplaintServiceOrderStateKind::from_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4194,6 +4266,14 @@ pub struct ComplaintCompleteResponse {
     pub complaint_state: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintCompleteResponse {
+    pub fn complaint_state_kind(&self) -> Option<ComplaintStateKind> {
+        self.complaint_state
+            .as_deref()
+            .map(ComplaintStateKind::from_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4622,21 +4702,21 @@ mod tests {
         ComplaintNegotiationHistoryResponse, ComplaintNotificationDeleteResponse,
         ComplaintNotificationRequest, ComplaintNotificationResponse,
         ComplaintRefundProgressRequest, ComplaintRefundProgressResponse, ComplaintReplyRequest,
-        ComplaintReplyResponse, CouponStockCreateRequest, CouponStockListRequest,
-        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
-        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
-        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
-        MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
-        MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
-        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
-        PartnerOrderQuery, PartnerPayer, PartnerRefundQuery, PartnerTransactionQuery,
-        PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
-        PayScoreServiceOrderResponse, PayScoreTimeRange, PaymentBillDownloadRequest,
-        PaymentCredentials, PaymentDownloadedBill, PaymentNotification, PaymentOrderResponse,
-        PaymentRefundNotification, PaymentResource, PaymentStatusResponse,
-        PaymentTransactionNotification, PaymentTransferBillNotification, PrepayResponse,
-        ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ComplaintReplyResponse, ComplaintServiceOrderStateKind, ComplaintStateKind,
+        CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
+        CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
+        FundAppTransferBillRequest, FundAppTransferBillResponse, H5PrepayResponse, JsapiPayParams,
+        LegacyProfitSharingReturnRequest, LegacyProfitSharingReturnResponse,
+        LegacyTransferInfoResponse, MerchantFundBalanceResponse, MerchantMediaUploadRequest,
+        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
+        NativePrepayRequest, NativePrepayResponse, PartnerCloseOrderRequest,
+        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
+        PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
+        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
+        PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill,
+        PaymentNotification, PaymentOrderResponse, PaymentRefundNotification, PaymentResource,
+        PaymentStatusResponse, PaymentTransactionNotification, PaymentTransferBillNotification,
+        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
         ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
@@ -6680,6 +6760,10 @@ mod tests {
 
         assert_eq!(detail.complaint_id.as_deref(), Some("complaint-1"));
         assert_eq!(
+            detail.complaint_state_kind(),
+            Some(ComplaintStateKind::Pending)
+        );
+        assert_eq!(
             detail.complaint_order_info[0].transaction_id.as_deref(),
             Some("transaction-1")
         );
@@ -6709,6 +6793,10 @@ mod tests {
         assert_eq!(
             detail.service_order_info[0].extra["service_extra_state"],
             "WAITING"
+        );
+        assert_eq!(
+            detail.service_order_info[0].state_kind(),
+            Some(ComplaintServiceOrderStateKind::Doing)
         );
         assert_eq!(detail.extra["merchant_extra_detail"], "retained");
         let single_media_detail: ComplaintDetailResponse = serde_json::from_value(json!({
@@ -6775,7 +6863,33 @@ mod tests {
 
         assert_eq!(list.total_count, Some(1));
         assert_eq!(list.data[0].complaint_state.as_deref(), Some("PENDING"));
+        assert_eq!(
+            list.data[0].complaint_state_kind(),
+            Some(ComplaintStateKind::Pending)
+        );
         assert_eq!(list.extra["next_key"], "cursor-1");
+        assert_eq!(
+            ComplaintStateKind::from_code("processed"),
+            ComplaintStateKind::Processed
+        );
+        assert_eq!(
+            ComplaintStateKind::from_code("COMPLETED"),
+            ComplaintStateKind::Processed
+        );
+        assert!(ComplaintStateKind::Processed.is_terminal());
+        assert_eq!(
+            ComplaintStateKind::from_code("unknown"),
+            ComplaintStateKind::Other
+        );
+        assert_eq!(
+            ComplaintServiceOrderStateKind::from_code("waitpay"),
+            ComplaintServiceOrderStateKind::WaitPay
+        );
+        assert!(ComplaintServiceOrderStateKind::Done.is_terminal());
+        assert_eq!(
+            ComplaintServiceOrderStateKind::from_code("unknown"),
+            ComplaintServiceOrderStateKind::Other
+        );
     }
 
     #[test]
@@ -6840,6 +6954,10 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(completed.complaint_state.as_deref(), Some("COMPLETED"));
+        assert_eq!(
+            completed.complaint_state_kind(),
+            Some(ComplaintStateKind::Processed)
+        );
         assert_eq!(completed.extra["request_id"], "complete-1");
 
         let progress: ComplaintRefundProgressResponse = serde_json::from_value(json!({

@@ -474,6 +474,10 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 - merchant-service complaint media DTOs now expose semantic media-kind helpers
   for image/video/other classification while retaining the original upstream
   media type string.
+- merchant-service complaint detail/list/complete and related service-order
+  DTOs now expose semantic complaint/service-order state helpers while
+  retaining original upstream strings and tolerating legacy completed-state
+  spelling.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 
