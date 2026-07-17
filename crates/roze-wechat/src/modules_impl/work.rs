@@ -5582,6 +5582,51 @@ pub struct WorkTemplateCardUpdateRequest {
     pub extra: Value,
 }
 
+impl WorkTemplateCardUpdateRequest {
+    pub fn template_card_type_kind(&self) -> Option<WorkTemplateCardTypeKind> {
+        self.template_card
+            .as_ref()
+            .and_then(|card| card.get("card_type"))
+            .and_then(Value::as_str)
+            .map(WorkTemplateCardTypeKind::from_code)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkTemplateCardTypeKind {
+    TextNotice,
+    NewsNotice,
+    ButtonInteraction,
+    Other,
+}
+
+impl WorkTemplateCardTypeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("text_notice") {
+            Self::TextNotice
+        } else if value.eq_ignore_ascii_case("news_notice") {
+            Self::NewsNotice
+        } else if value.eq_ignore_ascii_case("button_interaction") {
+            Self::ButtonInteraction
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn as_code(self) -> &'static str {
+        match self {
+            Self::TextNotice => "text_notice",
+            Self::NewsNotice => "news_notice",
+            Self::ButtonInteraction => "button_interaction",
+            Self::Other => "unknown",
+        }
+    }
+
+    pub fn is_interactive(self) -> bool {
+        matches!(self, Self::ButtonInteraction)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLinkedCorpMessage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -8869,6 +8914,19 @@ pub struct GroupRobotTemplateCardMessage {
     pub extra: Value,
 }
 
+impl GroupRobotTemplateCardMessage {
+    pub fn new(card_type: WorkTemplateCardTypeKind, extra: Value) -> Self {
+        Self {
+            card_type: card_type.as_code().to_string(),
+            extra,
+        }
+    }
+
+    pub fn card_type_kind(&self) -> WorkTemplateCardTypeKind {
+        WorkTemplateCardTypeKind::from_code(&self.card_type)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotFileMessage {
     pub media_id: String,
@@ -11439,7 +11497,7 @@ mod tests {
         assert_eq!(notice["content_item"][0]["key"], "time");
         assert_eq!(notice["emphasis_first_item"], true);
 
-        let update = serde_json::to_value(WorkTemplateCardUpdateRequest {
+        let update_request = WorkTemplateCardUpdateRequest {
             userids: vec!["user".to_string()],
             partyids: Vec::new(),
             tagids: Vec::new(),
@@ -11449,8 +11507,22 @@ mod tests {
             button: Some(json!({ "replace_name": "done" })),
             template_card: Some(json!({ "card_type": "button_interaction" })),
             extra: serde_json::Value::Null,
-        })
-        .unwrap();
+        };
+        assert_eq!(
+            update_request.template_card_type_kind(),
+            Some(WorkTemplateCardTypeKind::ButtonInteraction)
+        );
+        assert!(WorkTemplateCardTypeKind::ButtonInteraction.is_interactive());
+        assert!(!WorkTemplateCardTypeKind::TextNotice.is_interactive());
+        assert_eq!(
+            WorkTemplateCardTypeKind::from_code("NEWS_NOTICE"),
+            WorkTemplateCardTypeKind::NewsNotice
+        );
+        assert_eq!(
+            WorkTemplateCardTypeKind::from_code("SOMETHING_NEW"),
+            WorkTemplateCardTypeKind::Other
+        );
+        let update = serde_json::to_value(update_request).unwrap();
         assert_eq!(update["userids"][0], "user");
         assert_eq!(update["response_code"], "response");
         assert_eq!(update["button"]["replace_name"], "done");
@@ -11924,6 +11996,17 @@ mod tests {
         .unwrap();
         assert_eq!(news["news"]["articles"][0]["title"], "title");
 
+        let template_card = GroupRobotTemplateCardMessage::new(
+            WorkTemplateCardTypeKind::TextNotice,
+            json!({
+                "source": { "desc": "Roze" },
+                "main_title": { "title": "hello" }
+            }),
+        );
+        assert_eq!(
+            template_card.card_type_kind(),
+            WorkTemplateCardTypeKind::TextNotice
+        );
         let card_message = GroupRobotMessage {
             msgtype: "template_card".to_string(),
             text: None,
@@ -11931,13 +12014,7 @@ mod tests {
             image: None,
             news: None,
             file: None,
-            template_card: Some(GroupRobotTemplateCardMessage {
-                card_type: "text_notice".to_string(),
-                extra: json!({
-                    "source": { "desc": "Roze" },
-                    "main_title": { "title": "hello" }
-                }),
-            }),
+            template_card: Some(template_card),
         };
         assert_eq!(
             card_message.msgtype_kind(),

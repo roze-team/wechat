@@ -245,6 +245,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - Work app, linked-corp, school, appchat, and group-robot messages now expose
   semantic message-type helpers for text, media, rich, mini-program, and
   template-card dispatch while retaining upstream `msgtype` strings.
+- Work template-card update requests and group-robot template-card payloads now
+  expose semantic card-type helpers for text notice, news notice, and button
+  interaction cards while retaining upstream `card_type` strings.
 - Work upload-media responses now expose semantic media-type helpers for image,
   voice, video, and file while retaining the original upstream `type` string.
 - Work invoice status requests and batch invoice responses now expose semantic
