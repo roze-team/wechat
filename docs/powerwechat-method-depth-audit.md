@@ -190,6 +190,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   message DTOs on the primary `WorkMessage` request instead of generic JSON.
 - Work app message media, video, news, mpnews, and mini-program notice payloads
   now expose typed DTOs on the primary `WorkMessage` request and helper paths.
+- Work app, linked-corp, and external-contact school message send responses now
+  preserve upstream extension fields alongside typed invalid-recipient fields.
 - linked-corp and external-contact school message payloads now reuse typed text,
   media, video, news, mpnews, and mini-program notice DTOs instead of raw JSON.
 - account-service send-message and send-on-event requests now reuse typed text,

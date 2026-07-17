@@ -6037,6 +6037,8 @@ pub struct MessageSendResponse {
     pub msgid: Option<String>,
     #[serde(default)]
     pub response_code: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6051,6 +6053,8 @@ pub struct WorkLinkedCorpMessageSendResponse {
     pub invalidparty: Vec<String>,
     #[serde(default)]
     pub invalidtag: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6067,6 +6071,8 @@ pub struct WorkExternalContactSchoolMessageSendResponse {
     pub invalid_student_userid: Vec<String>,
     #[serde(default)]
     pub invalid_party: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10409,6 +10415,19 @@ mod tests {
         assert_eq!(update["response_code"], "response");
         assert_eq!(update["button"]["replace_name"], "done");
         assert!(update.get("partyids").is_none());
+
+        let response: MessageSendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "invaliduser": "bad-user",
+            "msgid": "msg",
+            "response_code": "response",
+            "request_id": "req-1"
+        }))
+        .unwrap();
+        assert_eq!(response.invaliduser.as_deref(), Some("bad-user"));
+        assert_eq!(response.msgid.as_deref(), Some("msg"));
+        assert_eq!(response.response_code.as_deref(), Some("response"));
+        assert_eq!(response.extra["request_id"], "req-1");
     }
 
     #[test]
@@ -10491,12 +10510,14 @@ mod tests {
             "errcode": 0,
             "invaliduser": ["Corp/bad-user"],
             "invalidparty": ["Corp/bad-party"],
-            "invalidtag": ["Corp/bad-tag"]
+            "invalidtag": ["Corp/bad-tag"],
+            "msgid": "linked-msg"
         }))
         .unwrap();
         assert_eq!(linked_response.invaliduser[0], "Corp/bad-user");
         assert_eq!(linked_response.invalidparty[0], "Corp/bad-party");
         assert_eq!(linked_response.invalidtag[0], "Corp/bad-tag");
+        assert_eq!(linked_response.extra["msgid"], "linked-msg");
 
         let school_body = serde_json::to_value(WorkExternalContactSchoolMessage {
             recv_scope: Some(0),
@@ -10565,13 +10586,15 @@ mod tests {
                 "invalid_external_user": ["external"],
                 "invalid_parent_userid": ["parent"],
                 "invalid_student_userid": ["student"],
-                "invalid_party": ["party"]
+                "invalid_party": ["party"],
+                "send_id": "school-send"
             }))
             .unwrap();
         assert_eq!(school_response.invalid_external_user[0], "external");
         assert_eq!(school_response.invalid_parent_userid[0], "parent");
         assert_eq!(school_response.invalid_student_userid[0], "student");
         assert_eq!(school_response.invalid_party[0], "party");
+        assert_eq!(school_response.extra["send_id"], "school-send");
     }
 
     #[test]
