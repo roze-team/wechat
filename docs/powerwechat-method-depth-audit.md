@@ -325,6 +325,8 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
   auth-agent, auth-user, register-code, and dealer-corp DTOs.
 - license renew-order job invalid accounts, order list/detail, and trial-info
   responses now expose typed Open Work DTOs instead of generic JSON values.
+- license order/job/account/active/transfer/status response wrappers now
+  preserve unknown upstream fields alongside typed license DTOs.
 - server callback XML can now be parsed into typed Open Work suite-ticket,
   create/change/cancel-auth, and reset-permanent-code events with an unknown
   fallback for future WeCom event types.

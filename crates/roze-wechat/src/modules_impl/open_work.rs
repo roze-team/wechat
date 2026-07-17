@@ -1362,6 +1362,8 @@ pub struct OpenWorkLicenseOrderIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub order_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1374,6 +1376,8 @@ pub struct OpenWorkLicenseCreateRenewOrderJobResponse {
     pub jobid: Option<String>,
     #[serde(default)]
     pub invalid_account_list: Vec<OpenWorkLicenseInvalidAccount>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1388,6 +1392,8 @@ pub struct OpenWorkLicenseListOrderResponse {
     pub has_more: Option<i64>,
     #[serde(default)]
     pub order_list: Vec<OpenWorkLicenseOrder>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1398,6 +1404,8 @@ pub struct OpenWorkLicenseOrderResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub order: Option<OpenWorkLicenseOrder>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1412,6 +1420,8 @@ pub struct OpenWorkLicenseListAccountResponse {
     pub has_more: Option<i64>,
     #[serde(default)]
     pub account_list: Vec<OpenWorkLicenseActiveInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1422,6 +1432,8 @@ pub struct OpenWorkLicenseActiveInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub active_info: Option<OpenWorkLicenseActiveInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1432,6 +1444,8 @@ pub struct OpenWorkLicenseActiveInfoListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub active_info_list: Vec<OpenWorkLicenseActiveInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1444,6 +1458,8 @@ pub struct OpenWorkLicenseUserActiveInfoResponse {
     pub active_status: Option<i64>,
     #[serde(default)]
     pub active_info_list: Vec<OpenWorkLicenseActiveInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1454,6 +1470,8 @@ pub struct OpenWorkLicenseTransferResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub transfer_result: Vec<OpenWorkLicenseTransferInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1468,6 +1486,8 @@ pub struct OpenWorkLicenseInfoResponse {
     pub license_check_time: Option<i64>,
     #[serde(default)]
     pub trail_info: Option<OpenWorkLicenseTrialInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1478,6 +1498,8 @@ pub struct OpenWorkLicenseAutoActiveStatusResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub auto_active_status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[cfg(test)]
@@ -1923,21 +1945,29 @@ mod tests {
 
     #[test]
     fn deserializes_open_work_license_responses() {
-        let order_id: OpenWorkLicenseOrderIdResponse =
-            serde_json::from_value(json!({ "errcode": 0, "order_id": "order-id" })).unwrap();
+        let order_id: OpenWorkLicenseOrderIdResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "order_id": "order-id",
+            "request_id": "order-create"
+        }))
+        .unwrap();
         assert_eq!(order_id.order_id.as_deref(), Some("order-id"));
+        assert_eq!(order_id.extra["request_id"], "order-create");
 
         let job: OpenWorkLicenseCreateRenewOrderJobResponse = serde_json::from_value(json!({
             "jobid": "job-id",
+            "job_status": "pending",
             "invalid_account_list": [{
                 "active_code": "active-bad",
                 "userid": "bad-user",
                 "errcode": 40001,
-                "errmsg": "invalid"
+                "errmsg": "invalid",
+                "invalid_reason": "expired"
             }]
         }))
         .unwrap();
         assert_eq!(job.jobid.as_deref(), Some("job-id"));
+        assert_eq!(job.extra["job_status"], "pending");
         assert_eq!(
             job.invalid_account_list[0].active_code.as_deref(),
             Some("active-bad")
@@ -1947,10 +1977,15 @@ mod tests {
             Some("bad-user")
         );
         assert_eq!(job.invalid_account_list[0].errcode, Some(40001));
+        assert_eq!(
+            job.invalid_account_list[0].extra["invalid_reason"],
+            "expired"
+        );
 
         let orders: OpenWorkLicenseListOrderResponse = serde_json::from_value(json!({
             "next_cursor": "cursor",
             "has_more": 1,
+            "total": 1,
             "order_list": [{
                 "order_id": "order-id",
                 "order_type": 1,
@@ -1960,13 +1995,16 @@ mod tests {
                 "account_count": { "base_count": 10 },
                 "account_duration": { "month": 12 },
                 "price": 100,
-                "create_time": 1800000000
+                "create_time": 1800000000,
+                "invoice_status": 1
             }]
         }))
         .unwrap();
         assert_eq!(orders.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(orders.extra["total"], 1);
         assert_eq!(orders.order_list[0].order_id.as_deref(), Some("order-id"));
         assert_eq!(orders.order_list[0].order_status, Some(1));
+        assert_eq!(orders.order_list[0].extra["invoice_status"], 1);
         assert_eq!(
             orders.order_list[0]
                 .account_count
@@ -1976,13 +2014,16 @@ mod tests {
         );
 
         let order: OpenWorkLicenseOrderResponse = serde_json::from_value(json!({
+            "trace_id": "order-detail",
             "order": {
                 "order_id": "order-id",
                 "order_status": 2,
-                "pay_time": 1800000100
+                "pay_time": 1800000100,
+                "refund_status": 0
             }
         }))
         .unwrap();
+        assert_eq!(order.extra["trace_id"], "order-detail");
         assert_eq!(
             order
                 .order
@@ -1994,8 +2035,11 @@ mod tests {
             order.order.as_ref().and_then(|item| item.pay_time),
             Some(1_800_000_100)
         );
+        assert_eq!(order.order.as_ref().unwrap().extra["refund_status"], 0);
 
         let accounts: OpenWorkLicenseListAccountResponse = serde_json::from_value(json!({
+            "next_cursor": "account-cursor",
+            "account_total": 1,
             "account_list": [{
                 "active_code": "active-code",
                 "userid": "user",
@@ -2004,6 +2048,8 @@ mod tests {
             }]
         }))
         .unwrap();
+        assert_eq!(accounts.next_cursor.as_deref(), Some("account-cursor"));
+        assert_eq!(accounts.extra["account_total"], 1);
         assert_eq!(
             accounts.account_list[0].active_code.as_deref(),
             Some("active-code")
@@ -2011,15 +2057,18 @@ mod tests {
         assert_eq!(accounts.account_list[0].account_type, Some(1));
 
         let active: OpenWorkLicenseActiveInfoResponse = serde_json::from_value(json!({
-            "active_info": { "active_code": "active-code", "userid": "user" }
+            "active_info": { "active_code": "active-code", "userid": "user" },
+            "trace_id": "active-detail"
         }))
         .unwrap();
+        assert_eq!(active.extra["trace_id"], "active-detail");
         assert_eq!(
             active.active_info.expect("active_info").userid.as_deref(),
             Some("user")
         );
 
         let transfer: OpenWorkLicenseTransferResponse = serde_json::from_value(json!({
+            "trace_id": "transfer",
             "transfer_result": [{
                 "handover_userid": "old-user",
                 "takeover_userid": "new-user",
@@ -2027,6 +2076,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        assert_eq!(transfer.extra["trace_id"], "transfer");
         assert_eq!(
             transfer.transfer_result[0].takeover_userid.as_deref(),
             Some("new-user")
@@ -2035,20 +2085,28 @@ mod tests {
         let license: OpenWorkLicenseInfoResponse = serde_json::from_value(json!({
             "license_status": 1,
             "license_check_time": 1800000000,
+            "license_source": "suite",
             "trail_info": {
                 "start_time": 1800000000,
                 "end_time": 1807776000,
-                "trial_status": 1
+                "trial_status": 1,
+                "trial_plan": "standard"
             }
         }))
         .unwrap();
         assert_eq!(license.license_status, Some(1));
+        assert_eq!(license.extra["license_source"], "suite");
         let trial = license.trail_info.expect("trial info");
         assert_eq!(trial.end_time, Some(1_807_776_000));
         assert_eq!(trial.trial_status, Some(1));
+        assert_eq!(trial.extra["trial_plan"], "standard");
 
-        let auto_active: OpenWorkLicenseAutoActiveStatusResponse =
-            serde_json::from_value(json!({ "auto_active_status": 1 })).unwrap();
+        let auto_active: OpenWorkLicenseAutoActiveStatusResponse = serde_json::from_value(json!({
+            "auto_active_status": 1,
+            "effective_time": 1_800_000_000
+        }))
+        .unwrap();
         assert_eq!(auto_active.auto_active_status, Some(1));
+        assert_eq!(auto_active.extra["effective_time"], 1_800_000_000);
     }
 }
