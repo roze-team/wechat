@@ -207,6 +207,10 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - account-service responses now expose typed customer-service accounts,
   customers, synchronized messages, servicer operation results, and servicer
   list records.
+- account-service servicer add/delete requests now support both member and
+  department assignments; operation/list records expose department and stop
+  details, and servicer/event/message-failure/session-change codes provide
+  forward-compatible semantic helpers.
 - Work status/ticket, AI Bot long-connection, and account-service sync/send,
   servicer, state, and tag responses now preserve unknown upstream fields
   across wrappers and response-only nested records.

@@ -3892,11 +3892,23 @@ impl Work {
         open_kfid: impl Into<String>,
         userid_list: Vec<String>,
     ) -> Result<WorkAccountServiceServicerResultResponse> {
+        self.account_service_servicer_add_with_request(
+            access_token,
+            WorkAccountServiceServicerRequest::new(open_kfid, userid_list),
+        )
+        .await
+    }
+
+    pub async fn account_service_servicer_add_with_request(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceServicerRequest,
+    ) -> Result<WorkAccountServiceServicerResultResponse> {
         self.inner
             .post(
                 "cgi-bin/kf/servicer/add",
                 Some(access_token.into()),
-                json!({ "open_kfid": open_kfid.into(), "userid_list": userid_list }),
+                request,
             )
             .await
     }
@@ -3907,11 +3919,23 @@ impl Work {
         open_kfid: impl Into<String>,
         userid_list: Vec<String>,
     ) -> Result<WorkAccountServiceServicerResultResponse> {
+        self.account_service_servicer_delete_with_request(
+            access_token,
+            WorkAccountServiceServicerRequest::new(open_kfid, userid_list),
+        )
+        .await
+    }
+
+    pub async fn account_service_servicer_delete_with_request(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceServicerRequest,
+    ) -> Result<WorkAccountServiceServicerResultResponse> {
         self.inner
             .post(
                 "cgi-bin/kf/servicer/del",
                 Some(access_token.into()),
-                json!({ "open_kfid": open_kfid.into(), "userid_list": userid_list }),
+                request,
             )
             .await
     }
@@ -9595,8 +9619,144 @@ pub struct WorkAccountServiceEventMessage {
     pub menu_id: Option<String>,
     #[serde(default)]
     pub msgid: Option<String>,
+    #[serde(default)]
+    pub fail_msgid: Option<String>,
+    #[serde(default)]
+    pub fail_type: Option<i64>,
+    #[serde(default)]
+    pub servicer_userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub old_servicer_userid: Option<String>,
+    #[serde(default)]
+    pub new_servicer_userid: Option<String>,
+    #[serde(default)]
+    pub change_type: Option<i64>,
+    #[serde(default)]
+    pub msg_code: Option<String>,
+    #[serde(default)]
+    pub recall_msgid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceEventTypeKind {
+    EnterSession,
+    MessageSendFailed,
+    ServicerStatusChanged,
+    SessionStatusChanged,
+    UserRecalledMessage,
+    ServicerRecalledMessage,
+    Other,
+}
+
+impl WorkAccountServiceEventTypeKind {
+    pub fn from_code(code: &str) -> Self {
+        match code {
+            "enter_session" => Self::EnterSession,
+            "msg_send_fail" => Self::MessageSendFailed,
+            "servicer_status_change" => Self::ServicerStatusChanged,
+            "session_status_change" => Self::SessionStatusChanged,
+            "user_recall_msg" => Self::UserRecalledMessage,
+            "servicer_recall_msg" => Self::ServicerRecalledMessage,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceMessageFailKind {
+    Unknown,
+    AccountDeleted,
+    ApplicationClosed,
+    SessionExpired,
+    SessionClosed,
+    MessageLimitExceeded,
+    ChannelsNotBound,
+    SubjectNotVerified,
+    ChannelsNotBoundAndSubjectNotVerified,
+    UserRejected,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceMessageFailKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Unknown,
+            1 => Self::AccountDeleted,
+            2 => Self::ApplicationClosed,
+            4 => Self::SessionExpired,
+            5 => Self::SessionClosed,
+            6 => Self::MessageLimitExceeded,
+            7 => Self::ChannelsNotBound,
+            8 => Self::SubjectNotVerified,
+            9 => Self::ChannelsNotBoundAndSubjectNotVerified,
+            10 => Self::UserRejected,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceServicerEventStatusKind {
+    Receiving,
+    Stopped,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceServicerEventStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Receiving,
+            2 => Self::Stopped,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceSessionChangeKind {
+    AcceptedFromPool,
+    Transferred,
+    Ended,
+    Reaccepted,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceSessionChangeKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::AcceptedFromPool,
+            2 => Self::Transferred,
+            3 => Self::Ended,
+            4 => Self::Reaccepted,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkAccountServiceEventMessage {
+    pub fn event_type_kind(&self) -> Option<WorkAccountServiceEventTypeKind> {
+        self.event_type
+            .as_deref()
+            .map(WorkAccountServiceEventTypeKind::from_code)
+    }
+
+    pub fn fail_type_kind(&self) -> Option<WorkAccountServiceMessageFailKind> {
+        self.fail_type.map(WorkAccountServiceMessageFailKind::from)
+    }
+
+    pub fn servicer_status_kind(&self) -> Option<WorkAccountServiceServicerEventStatusKind> {
+        self.status
+            .map(WorkAccountServiceServicerEventStatusKind::from)
+    }
+
+    pub fn session_change_kind(&self) -> Option<WorkAccountServiceSessionChangeKind> {
+        self.change_type
+            .map(WorkAccountServiceSessionChangeKind::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9653,6 +9813,33 @@ pub struct WorkAccountServiceSendMsgResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceServicerRequest {
+    pub open_kfid: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userid_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub department_id_list: Vec<i64>,
+}
+
+impl WorkAccountServiceServicerRequest {
+    pub fn new(open_kfid: impl Into<String>, userid_list: Vec<String>) -> Self {
+        Self {
+            open_kfid: open_kfid.into(),
+            userid_list,
+            department_id_list: Vec::new(),
+        }
+    }
+
+    pub fn with_departments(open_kfid: impl Into<String>, department_id_list: Vec<i64>) -> Self {
+        Self {
+            open_kfid: open_kfid.into(),
+            userid_list: Vec::new(),
+            department_id_list,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceServicerResultResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -9668,6 +9855,8 @@ pub struct WorkAccountServiceServicerResultResponse {
 pub struct WorkAccountServiceServicerResult {
     #[serde(default)]
     pub userid: Option<String>,
+    #[serde(default)]
+    pub department_id: Option<i64>,
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
@@ -9693,9 +9882,61 @@ pub struct WorkAccountServiceServicer {
     #[serde(default)]
     pub userid: Option<String>,
     #[serde(default)]
+    pub department_id: Option<i64>,
+    #[serde(default)]
     pub status: Option<i64>,
+    #[serde(default)]
+    pub stop_type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceServicerStatusKind {
+    Receiving,
+    Stopped,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceServicerStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Receiving,
+            1 => Self::Stopped,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceServicerStopKind {
+    Stopped,
+    Suspended,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceServicerStopKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Stopped,
+            1 => Self::Suspended,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkAccountServiceServicer {
+    pub fn status_kind(&self) -> Option<WorkAccountServiceServicerStatusKind> {
+        self.status.map(WorkAccountServiceServicerStatusKind::from)
+    }
+
+    pub fn stop_kind(&self) -> Option<WorkAccountServiceServicerStopKind> {
+        self.stop_type.map(WorkAccountServiceServicerStopKind::from)
+    }
+
+    pub fn is_receiving(&self) -> bool {
+        self.status_kind() == Some(WorkAccountServiceServicerStatusKind::Receiving)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16017,6 +16258,22 @@ mod tests {
         assert_eq!(on_event["text"]["content"], "hello");
         assert_eq!(on_event["msgmenu"]["head_content"], "choose");
 
+        let servicers = serde_json::to_value(WorkAccountServiceServicerRequest::new(
+            "kf",
+            vec!["servicer".to_string()],
+        ))
+        .unwrap();
+        assert_eq!(servicers["open_kfid"], "kf");
+        assert_eq!(servicers["userid_list"][0], "servicer");
+        assert!(servicers.get("department_id_list").is_none());
+
+        let departments = serde_json::to_value(
+            WorkAccountServiceServicerRequest::with_departments("kf", vec![2, 4]),
+        )
+        .unwrap();
+        assert_eq!(departments["department_id_list"], json!([2, 4]));
+        assert!(departments.get("userid_list").is_none());
+
         let state = serde_json::to_value(WorkAccountServiceStateTransRequest {
             open_kfid: "kf".to_string(),
             external_userid: "external".to_string(),
@@ -16199,6 +16456,44 @@ mod tests {
                         "event_source": "qr"
                     },
                     "event_seq": 5
+                },
+                {
+                    "msgid": "failed-msg",
+                    "msgtype": "event",
+                    "event": {
+                        "event_type": "msg_send_fail",
+                        "fail_msgid": "outbound-msg",
+                        "fail_type": 10
+                    }
+                },
+                {
+                    "msgid": "servicer-event",
+                    "msgtype": "event",
+                    "event": {
+                        "event_type": "servicer_status_change",
+                        "servicer_userid": "servicer",
+                        "status": 1
+                    }
+                },
+                {
+                    "msgid": "session-event",
+                    "msgtype": "event",
+                    "event": {
+                        "event_type": "session_status_change",
+                        "old_servicer_userid": "old",
+                        "new_servicer_userid": "new",
+                        "change_type": 2,
+                        "msg_code": "event-code"
+                    }
+                },
+                {
+                    "msgid": "recall-event",
+                    "msgtype": "event",
+                    "event": {
+                        "event_type": "servicer_recall_msg",
+                        "recall_msgid": "recalled",
+                        "servicer_userid": "servicer"
+                    }
                 }
             ]
         }))
@@ -16251,6 +16546,52 @@ mod tests {
             sync.msg_list[4].event.as_ref().expect("event").extra["event_source"],
             "qr"
         );
+        let failed = sync.msg_list[5].event.as_ref().expect("failed event");
+        assert_eq!(
+            failed.event_type_kind(),
+            Some(WorkAccountServiceEventTypeKind::MessageSendFailed)
+        );
+        assert_eq!(failed.fail_msgid.as_deref(), Some("outbound-msg"));
+        assert_eq!(
+            failed.fail_type_kind(),
+            Some(WorkAccountServiceMessageFailKind::UserRejected)
+        );
+        let servicer = sync.msg_list[6].event.as_ref().expect("servicer event");
+        assert_eq!(
+            servicer.event_type_kind(),
+            Some(WorkAccountServiceEventTypeKind::ServicerStatusChanged)
+        );
+        assert_eq!(servicer.servicer_userid.as_deref(), Some("servicer"));
+        assert_eq!(
+            servicer.servicer_status_kind(),
+            Some(WorkAccountServiceServicerEventStatusKind::Receiving)
+        );
+        let session = sync.msg_list[7].event.as_ref().expect("session event");
+        assert_eq!(
+            session.event_type_kind(),
+            Some(WorkAccountServiceEventTypeKind::SessionStatusChanged)
+        );
+        assert_eq!(
+            session.session_change_kind(),
+            Some(WorkAccountServiceSessionChangeKind::Transferred)
+        );
+        assert_eq!(session.old_servicer_userid.as_deref(), Some("old"));
+        assert_eq!(session.new_servicer_userid.as_deref(), Some("new"));
+        assert_eq!(session.msg_code.as_deref(), Some("event-code"));
+        let recall = sync.msg_list[8].event.as_ref().expect("recall event");
+        assert_eq!(
+            recall.event_type_kind(),
+            Some(WorkAccountServiceEventTypeKind::ServicerRecalledMessage)
+        );
+        assert_eq!(recall.recall_msgid.as_deref(), Some("recalled"));
+        assert_eq!(
+            WorkAccountServiceMessageFailKind::from(99),
+            WorkAccountServiceMessageFailKind::Other(99)
+        );
+        assert_eq!(
+            WorkAccountServiceSessionChangeKind::from(99),
+            WorkAccountServiceSessionChangeKind::Other(99)
+        );
 
         let send: WorkAccountServiceSendMsgResponse =
             serde_json::from_value(json!({ "msgid": "msg", "request_id": "send-msg" })).unwrap();
@@ -16259,7 +16600,10 @@ mod tests {
 
         let servicer_result: WorkAccountServiceServicerResultResponse =
             serde_json::from_value(json!({
-                "result_list": [{ "userid": "servicer", "errcode": 0, "result_source": "bind" }],
+                "result_list": [
+                    { "userid": "servicer", "errcode": 0, "result_source": "bind" },
+                    { "department_id": 2, "errcode": 0 }
+                ],
                 "request_id": "servicer-result"
             }))
             .unwrap();
@@ -16273,9 +16617,19 @@ mod tests {
             servicer_result.result_list[0].extra["result_source"],
             "bind"
         );
+        assert_eq!(servicer_result.result_list[1].department_id, Some(2));
 
         let servicers: WorkAccountServiceServicerListResponse = serde_json::from_value(json!({
-            "servicer_list": [{ "userid": "servicer", "status": 1, "online_status": "ready" }],
+            "servicer_list": [
+                {
+                    "userid": "servicer",
+                    "status": 1,
+                    "stop_type": 1,
+                    "online_status": "ready"
+                },
+                { "userid": "receiving", "status": 0 },
+                { "department_id": 2 }
+            ],
             "request_id": "servicer-list"
         }))
         .unwrap();
@@ -16285,7 +16639,22 @@ mod tests {
             Some("servicer")
         );
         assert_eq!(servicers.servicer_list[0].status, Some(1));
+        assert_eq!(
+            servicers.servicer_list[0].status_kind(),
+            Some(WorkAccountServiceServicerStatusKind::Stopped)
+        );
+        assert_eq!(
+            servicers.servicer_list[0].stop_kind(),
+            Some(WorkAccountServiceServicerStopKind::Suspended)
+        );
+        assert!(!servicers.servicer_list[0].is_receiving());
         assert_eq!(servicers.servicer_list[0].extra["online_status"], "ready");
+        assert!(servicers.servicer_list[1].is_receiving());
+        assert_eq!(servicers.servicer_list[2].department_id, Some(2));
+        assert_eq!(
+            WorkAccountServiceServicerStatusKind::from(99),
+            WorkAccountServiceServicerStatusKind::Other(99)
+        );
 
         let state: WorkAccountServiceStateGetResponse = serde_json::from_value(json!({
             "service_state": 2,
