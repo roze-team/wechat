@@ -161,6 +161,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-contact moment list/task/customer/comment/task-result DTOs now
   preserve unknown upstream fields across response wrappers and per-record
   payloads.
+- external-contact user-behavior and group-chat statistics DTOs now preserve
+  unknown upstream fields across response wrappers, items, and data payloads.
 - external-customer transfer and unassigned-customer responses now expose typed
   customer transfer records and unassigned customer metadata.
 - external-customer transfer-result and unassigned-customer DTOs now preserve

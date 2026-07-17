@@ -7758,6 +7758,8 @@ pub struct ExternalContactUserBehaviorDataResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub behavior_data: Vec<ExternalContactUserBehaviorData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7780,6 +7782,8 @@ pub struct ExternalContactUserBehaviorData {
     pub new_apply_cnt: Option<i64>,
     #[serde(default)]
     pub new_contact_cnt: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7818,6 +7822,8 @@ pub struct ExternalGroupChatStatisticResponse {
     pub next_offset: Option<i64>,
     #[serde(default)]
     pub items: Vec<ExternalGroupChatStatisticItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7826,6 +7832,8 @@ pub struct ExternalGroupChatStatisticItem {
     pub owner: Option<String>,
     #[serde(default)]
     pub data: Option<ExternalGroupChatStatisticData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7844,6 +7852,8 @@ pub struct ExternalGroupChatStatisticData {
     pub member_has_msg: Option<i64>,
     #[serde(default)]
     pub msg_total: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11872,8 +11882,10 @@ mod tests {
                     "userid": "user",
                     "stat_time": 1,
                     "new_apply_cnt": 1,
-                    "reply_percentage": 99.5
-                }]
+                    "reply_percentage": 99.5,
+                    "avg_reply_percentage": 88.8
+                }],
+                "total": 1
             }))
             .unwrap();
         assert_eq!(
@@ -11885,6 +11897,11 @@ mod tests {
             behavior_response.behavior_data[0].reply_percentage,
             Some(99.5)
         );
+        assert_eq!(
+            behavior_response.behavior_data[0].extra["avg_reply_percentage"],
+            88.8
+        );
+        assert_eq!(behavior_response.extra["total"], 1);
 
         let statistic_response: ExternalGroupChatStatisticResponse =
             serde_json::from_value(json!({
@@ -11892,16 +11909,28 @@ mod tests {
                 "next_offset": 50,
                 "items": [{
                     "owner": "owner",
-                    "data": { "new_chat_cnt": 1, "msg_total": 2 }
-                }]
+                    "data": {
+                        "new_chat_cnt": 1,
+                        "msg_total": 2,
+                        "active_member_rate": 0.75
+                    },
+                    "owner_name": "Owner"
+                }],
+                "report_id": "report-1"
             }))
             .unwrap();
         assert_eq!(statistic_response.total, Some(1));
         assert_eq!(statistic_response.items[0].owner.as_deref(), Some("owner"));
+        assert_eq!(statistic_response.items[0].extra["owner_name"], "Owner");
         assert_eq!(
             statistic_response.items[0].data.as_ref().unwrap().msg_total,
             Some(2)
         );
+        assert_eq!(
+            statistic_response.items[0].data.as_ref().unwrap().extra["active_member_rate"],
+            0.75
+        );
+        assert_eq!(statistic_response.extra["report_id"], "report-1");
     }
 
     #[test]
