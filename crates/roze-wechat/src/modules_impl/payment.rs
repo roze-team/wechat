@@ -3632,6 +3632,8 @@ pub struct MerchantMediaUploadRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerchantMediaUploadResponse {
     pub media_id: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4751,10 +4753,14 @@ mod tests {
 
     #[test]
     fn deserializes_merchant_media_upload_response() {
-        let response: MerchantMediaUploadResponse =
-            serde_json::from_value(json!({ "media_id": "media-1" })).unwrap();
+        let response: MerchantMediaUploadResponse = serde_json::from_value(json!({
+            "media_id": "media-1",
+            "upload_scene": "merchant-service"
+        }))
+        .unwrap();
 
         assert_eq!(response.media_id, "media-1");
+        assert_eq!(response.extra["upload_scene"], "merchant-service");
     }
 
     #[test]

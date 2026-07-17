@@ -403,6 +403,8 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   the generic payment status response.
 - merchant-service complaint notification query and action response DTOs now
   preserve unknown upstream fields across success and error payloads.
+- merchant-service complaint image and merchant media upload responses now
+  preserve unknown upstream fields alongside typed media ids.
 
 Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
 
