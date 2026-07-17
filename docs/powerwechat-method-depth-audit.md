@@ -448,6 +448,8 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 - downloaded bill statements now provide multi-column filters, filtered amount
   sums, unique-column lookup, grouped record counts, and grouped non-empty
   counts for production reconciliation code.
+- downloaded bill statements now provide filtered grouped record counts and
+  filtered grouped integer sums for merchant/app/state scoped reconciliation.
 - generic payment status responses now preserve unknown upstream fields such
   as request ids across mutation endpoints.
 - shared signed bytes GET support in `PlatformClient`;

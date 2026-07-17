@@ -3421,6 +3421,36 @@ impl PaymentBillStatement {
         Ok(counts)
     }
 
+    pub fn group_count_where(
+        &self,
+        filter_name: &str,
+        filter_value: &str,
+        group_name: &str,
+    ) -> Result<BTreeMap<String, usize>> {
+        self.group_count_where_all(&[(filter_name, filter_value)], group_name)
+    }
+
+    pub fn group_count_where_all(
+        &self,
+        filters: &[(&str, &str)],
+        group_name: &str,
+    ) -> Result<BTreeMap<String, usize>> {
+        let mut columns = filters.iter().map(|(name, _)| *name).collect::<Vec<_>>();
+        columns.push(group_name);
+        self.require_columns(&columns)?;
+        let mut counts = BTreeMap::new();
+        for record in &self.records {
+            if filters
+                .iter()
+                .all(|(name, value)| record.get(name) == Some(*value))
+            {
+                let group = record.require(group_name)?.to_string();
+                *counts.entry(group).or_insert(0) += 1;
+            }
+        }
+        Ok(counts)
+    }
+
     pub fn group_non_empty_count(
         &self,
         group_name: &str,
@@ -3474,6 +3504,40 @@ impl PaymentBillStatement {
             let group = record.require(group_name)?.to_string();
             let amount = record.require_i64(amount_name)?;
             *sums.entry(group).or_insert(0) += amount;
+        }
+        Ok(sums)
+    }
+
+    pub fn group_sum_i64_where(
+        &self,
+        filter_name: &str,
+        filter_value: &str,
+        group_name: &str,
+        amount_name: &str,
+    ) -> Result<BTreeMap<String, i64>> {
+        self.group_sum_i64_where_all(&[(filter_name, filter_value)], group_name, amount_name)
+    }
+
+    pub fn group_sum_i64_where_all(
+        &self,
+        filters: &[(&str, &str)],
+        group_name: &str,
+        amount_name: &str,
+    ) -> Result<BTreeMap<String, i64>> {
+        let mut columns = filters.iter().map(|(name, _)| *name).collect::<Vec<_>>();
+        columns.push(group_name);
+        columns.push(amount_name);
+        self.require_columns(&columns)?;
+        let mut sums = BTreeMap::new();
+        for record in &self.records {
+            if filters
+                .iter()
+                .all(|(name, value)| record.get(name) == Some(*value))
+            {
+                let group = record.require(group_name)?.to_string();
+                let amount = record.require_i64(amount_name)?;
+                *sums.entry(group).or_insert(0) += amount;
+            }
         }
         Ok(sums)
     }
@@ -5888,7 +5952,7 @@ mod tests {
     fn validates_payment_bill_required_columns_and_summary_totals() {
         let bill = PaymentDownloadedBill::from_verified_bytes(
             bytes::Bytes::from_static(
-                b"transaction_id,out_trade_no,amount,trade_state\n4200001,order-1,100,SUCCESS\n4200002,order-2,50,REFUND\n4200003,,25,SUCCESS\nsum,3,175\n",
+                b"transaction_id,out_trade_no,amount,trade_state,mchid\n4200001,order-1,100,SUCCESS,1900000109\n4200002,order-2,50,REFUND,1900000109\n4200003,,25,SUCCESS,1900000110\nsum,3,175\n",
             ),
             None,
             None,
@@ -5898,7 +5962,13 @@ mod tests {
         let statement = bill.statement().unwrap();
         assert_eq!(statement.column_index("out_trade_no"), Some(1));
         statement
-            .require_columns(&["transaction_id", "out_trade_no", "amount", "trade_state"])
+            .require_columns(&[
+                "transaction_id",
+                "out_trade_no",
+                "amount",
+                "trade_state",
+                "mchid",
+            ])
             .unwrap();
         assert_eq!(
             statement.assert_sum_matches_summary("amount", 2).unwrap(),
@@ -5911,6 +5981,22 @@ mod tests {
         let grouped_counts = statement.group_count("trade_state").unwrap();
         assert_eq!(grouped_counts.get("SUCCESS"), Some(&2));
         assert_eq!(grouped_counts.get("REFUND"), Some(&1));
+        let grouped_success_counts = statement
+            .group_count_where("trade_state", "SUCCESS", "mchid")
+            .unwrap();
+        assert_eq!(grouped_success_counts.get("1900000109"), Some(&1));
+        assert_eq!(grouped_success_counts.get("1900000110"), Some(&1));
+        assert_eq!(
+            statement
+                .group_count_where("trade_state", "NOT_EXIST", "mchid")
+                .unwrap()
+                .len(),
+            0
+        );
+        let grouped_success_order_counts = statement
+            .group_count_where_all(&[("trade_state", "SUCCESS")], "out_trade_no")
+            .unwrap();
+        assert_eq!(grouped_success_order_counts.get(""), Some(&1));
         let grouped_non_empty = statement
             .group_non_empty_count("trade_state", "out_trade_no")
             .unwrap();
@@ -5969,6 +6055,19 @@ mod tests {
                 .unwrap(),
             25
         );
+        let grouped_success_sum = statement
+            .group_sum_i64_where("trade_state", "SUCCESS", "mchid", "amount")
+            .unwrap();
+        assert_eq!(grouped_success_sum.get("1900000109"), Some(&100));
+        assert_eq!(grouped_success_sum.get("1900000110"), Some(&25));
+        let grouped_success_empty_order_sum = statement
+            .group_sum_i64_where_all(
+                &[("trade_state", "SUCCESS"), ("out_trade_no", "")],
+                "mchid",
+                "amount",
+            )
+            .unwrap();
+        assert_eq!(grouped_success_empty_order_sum.get("1900000110"), Some(&25));
         assert_eq!(
             statement
                 .non_empty_count_where("trade_state", "SUCCESS", "out_trade_no")
