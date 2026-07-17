@@ -1766,11 +1766,53 @@ pub struct OpenPlatformAuthorizerAccountBasicInfoResponse {
     #[serde(default)]
     pub realname_status: Option<i64>,
     #[serde(default)]
-    pub wx_verify_info: Option<Value>,
+    pub wx_verify_info: Option<OpenPlatformAuthorizerWxVerifyInfo>,
     #[serde(default)]
-    pub signature_info: Option<Value>,
+    pub signature_info: Option<OpenPlatformAuthorizerSignatureInfo>,
     #[serde(default)]
-    pub head_image_info: Option<Value>,
+    pub head_image_info: Option<OpenPlatformAuthorizerHeadImageInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerWxVerifyInfo {
+    #[serde(default)]
+    pub qualification_verify: Option<bool>,
+    #[serde(default)]
+    pub naming_verify: Option<bool>,
+    #[serde(default)]
+    pub annual_review: Option<bool>,
+    #[serde(default)]
+    pub annual_review_begin_time: Option<i64>,
+    #[serde(default)]
+    pub annual_review_end_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerSignatureInfo {
+    #[serde(default)]
+    pub signature: Option<String>,
+    #[serde(default)]
+    pub modify_used_count: Option<i64>,
+    #[serde(default)]
+    pub modify_quota: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerHeadImageInfo {
+    #[serde(default)]
+    pub head_image_url: Option<String>,
+    #[serde(default)]
+    pub modify_used_count: Option<i64>,
+    #[serde(default)]
+    pub modify_quota: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2516,12 +2558,68 @@ mod tests {
             "appid": "wx-authorizer",
             "account_type": 1,
             "principal_name": "principal",
-            "signature_info": { "signature": "hello" },
-            "head_image_info": { "head_image_url": "https://example.com/head.png" }
+            "wx_verify_info": {
+                "qualification_verify": true,
+                "naming_verify": false,
+                "annual_review": true,
+                "annual_review_begin_time": 1800000000,
+                "annual_review_end_time": 1800100000,
+                "verify_extra": "retained"
+            },
+            "signature_info": {
+                "signature": "hello",
+                "modify_used_count": 1,
+                "modify_quota": 5,
+                "signature_extra": "retained"
+            },
+            "head_image_info": {
+                "head_image_url": "https://example.com/head.png",
+                "modify_used_count": 2,
+                "modify_quota": 5,
+                "image_extra": "retained"
+            },
+            "account_extra": "retained"
         }))
         .unwrap();
         assert_eq!(basic.appid.as_deref(), Some("wx-authorizer"));
-        assert_eq!(basic.signature_info.unwrap()["signature"], "hello");
+        assert_eq!(
+            basic
+                .wx_verify_info
+                .as_ref()
+                .and_then(|info| info.qualification_verify),
+            Some(true)
+        );
+        assert_eq!(
+            basic.wx_verify_info.as_ref().unwrap().extra["verify_extra"],
+            "retained"
+        );
+        assert_eq!(
+            basic
+                .signature_info
+                .as_ref()
+                .and_then(|info| info.signature.as_deref()),
+            Some("hello")
+        );
+        assert_eq!(
+            basic.signature_info.as_ref().unwrap().modify_used_count,
+            Some(1)
+        );
+        assert_eq!(
+            basic.signature_info.as_ref().unwrap().extra["signature_extra"],
+            "retained"
+        );
+        assert_eq!(
+            basic
+                .head_image_info
+                .as_ref()
+                .and_then(|info| info.head_image_url.as_deref()),
+            Some("https://example.com/head.png")
+        );
+        assert_eq!(
+            basic.head_image_info.as_ref().unwrap().extra["image_extra"],
+            "retained"
+        );
+        assert_eq!(basic.extra["account_extra"], "retained");
 
         let open: OpenPlatformOpenAccountResponse =
             serde_json::from_value(json!({ "open_appid": "open-appid" })).unwrap();

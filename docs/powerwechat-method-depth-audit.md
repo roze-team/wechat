@@ -253,6 +253,8 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 - authorizer mini-program privacy-interface responses now expose typed
   interface status/audit DTOs and preserve upstream extension fields across
   list and apply responses.
+- authorizer account basic-info responses now expose typed verification,
+  signature, and head-image DTOs while preserving upstream extension fields.
 
 Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 
