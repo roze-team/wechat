@@ -10318,6 +10318,8 @@ pub struct WorkOauthUserInfoResponse {
     pub openid: Option<String>,
     #[serde(default)]
     pub external_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10344,6 +10346,8 @@ pub struct WorkOauthUserDetailResponse {
     pub address: Option<String>,
     #[serde(default)]
     pub name: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[cfg(test)]
@@ -15042,13 +15046,15 @@ mod tests {
             "user_ticket": "ticket",
             "expires_in": 7200,
             "OpenId": "legacy-openid",
-            "external_userid": "external"
+            "external_userid": "external",
+            "identity_source": "oauth"
         }))
         .unwrap();
         assert_eq!(info.userid.as_deref(), Some("legacy-user"));
         assert_eq!(info.user_ticket.as_deref(), Some("ticket"));
         assert_eq!(info.openid.as_deref(), Some("legacy-openid"));
         assert_eq!(info.external_userid.as_deref(), Some("external"));
+        assert_eq!(info.extra["identity_source"], "oauth");
 
         let detail: WorkOauthUserDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -15060,11 +15066,13 @@ mod tests {
             "mobile": "13800000000",
             "email": "user@example.com",
             "biz_mail": "user@corp.example",
-            "address": "addr"
+            "address": "addr",
+            "department": [1, 2]
         }))
         .unwrap();
         assert_eq!(detail.userid.as_deref(), Some("user"));
         assert_eq!(detail.name.as_deref(), Some("User"));
         assert_eq!(detail.mobile.as_deref(), Some("13800000000"));
+        assert_eq!(detail.extra["department"][0], 1);
     }
 }

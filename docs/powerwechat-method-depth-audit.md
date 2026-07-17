@@ -138,6 +138,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   accept typed request DTOs instead of raw JSON request payloads.
 - Work appchat create/get and OAuth/Auth user info/detail responses now expose
   typed chat, user-ticket, identity, and profile DTOs.
+- Work OAuth/Auth user info/detail responses now preserve unknown upstream
+  identity and profile fields.
 - Work msg-audit permit-user, chat-data, room, agree-status, and robot-info
   responses now expose typed audit metadata DTOs.
 - Work msg-audit response wrappers and nested chat-data, room-member,
