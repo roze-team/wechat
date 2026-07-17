@@ -174,6 +174,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   media, video, link, mini-program, menu, location, and customer-acquisition link DTOs.
 - group robot text, markdown, and file message payloads now expose typed DTOs
   instead of generic JSON values.
+- group robot image, news, and template-card message payloads now expose typed
+  DTOs while preserving card extension fields.
 - Work remaining raw request payloads have been removed: moment-strategy
   create/edit, linked-corp and external-contact school message sends,
   template-card update, check-in option add/update, approval apply-event, and

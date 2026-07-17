@@ -7857,13 +7857,13 @@ pub struct GroupRobotMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<GroupRobotMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub image: Option<Value>,
+    pub image: Option<GroupRobotImageMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub news: Option<Value>,
+    pub news: Option<GroupRobotNewsMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file: Option<GroupRobotFileMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub template_card: Option<Value>,
+    pub template_card: Option<GroupRobotTemplateCardMessage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7878,6 +7878,34 @@ pub struct GroupRobotTextMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotMarkdownMessage {
     pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotImageMessage {
+    pub base64: String,
+    pub md5: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotNewsMessage {
+    pub articles: Vec<GroupRobotNewsArticle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotNewsArticle {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picurl: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupRobotTemplateCardMessage {
+    pub card_type: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10497,6 +10525,59 @@ mod tests {
         })
         .unwrap();
         assert_eq!(file["file"]["media_id"], "media");
+
+        let image = serde_json::to_value(GroupRobotMessage {
+            msgtype: "image".to_string(),
+            text: None,
+            markdown: None,
+            image: Some(GroupRobotImageMessage {
+                base64: "aW1hZ2U=".to_string(),
+                md5: "md5".to_string(),
+            }),
+            news: None,
+            file: None,
+            template_card: None,
+        })
+        .unwrap();
+        assert_eq!(image["image"]["base64"], "aW1hZ2U=");
+
+        let news = serde_json::to_value(GroupRobotMessage {
+            msgtype: "news".to_string(),
+            text: None,
+            markdown: None,
+            image: None,
+            news: Some(GroupRobotNewsMessage {
+                articles: vec![GroupRobotNewsArticle {
+                    title: "title".to_string(),
+                    description: Some("desc".to_string()),
+                    url: "https://example.com".to_string(),
+                    picurl: Some("https://example.com/a.png".to_string()),
+                }],
+            }),
+            file: None,
+            template_card: None,
+        })
+        .unwrap();
+        assert_eq!(news["news"]["articles"][0]["title"], "title");
+
+        let card = serde_json::to_value(GroupRobotMessage {
+            msgtype: "template_card".to_string(),
+            text: None,
+            markdown: None,
+            image: None,
+            news: None,
+            file: None,
+            template_card: Some(GroupRobotTemplateCardMessage {
+                card_type: "text_notice".to_string(),
+                extra: json!({
+                    "source": { "desc": "Roze" },
+                    "main_title": { "title": "hello" }
+                }),
+            }),
+        })
+        .unwrap();
+        assert_eq!(card["template_card"]["card_type"], "text_notice");
+        assert_eq!(card["template_card"]["main_title"]["title"], "hello");
     }
 
     #[test]
