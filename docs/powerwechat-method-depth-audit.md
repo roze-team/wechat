@@ -133,6 +133,15 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   `external_users` contract with typed viewer records and the integer `ending`
   pagination marker. Living IDs and viewing codes use their documented string
   wire types, and living-detail retrieval uses the documented GET query.
+- OA WeDrive space/file ACL requests and space-member responses now expose
+  typed member/department permission records. Space creation supports the
+  documented subtype, space details expose typed member, quit-user, and
+  security settings, and the current `new_space_info` endpoint is available.
+- OA WeDrive file list, rename, and move responses now use the upstream
+  `{ item: [...] }` wrapper and typed file size, timestamps, type, status,
+  creator/updater, digest, URL, and extension fields instead of fabricated
+  flat lists or success/failure move records. The current typed `file_info`
+  retrieval endpoint is also available.
 - OA meeting create/update requests and meeting detail responses now expose
   typed internal-member, external-user, and device attendee DTOs instead of
   generic maps.

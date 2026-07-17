@@ -3589,6 +3589,20 @@ impl Work {
             .await
     }
 
+    pub async fn wedrive_new_space_info(
+        &self,
+        access_token: impl Into<String>,
+        space_id: impl Into<String>,
+    ) -> Result<WorkWeDriveSpaceInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/new_space_info",
+                Some(access_token.into()),
+                json!({ "spaceid": space_id.into() }),
+            )
+            .await
+    }
+
     pub async fn wedrive_space_acl_add(
         &self,
         access_token: impl Into<String>,
@@ -3739,6 +3753,20 @@ impl Work {
                 "cgi-bin/wedrive/file_delete",
                 Some(access_token.into()),
                 request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_info(
+        &self,
+        access_token: impl Into<String>,
+        file_id: impl Into<String>,
+    ) -> Result<WorkWeDriveFileInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_info",
+                Some(access_token.into()),
+                json!({ "fileid": file_id.into() }),
             )
             .await
     }
@@ -13175,7 +13203,9 @@ pub struct WorkWeDriveSpaceCreateRequest {
     pub userid: String,
     pub space_name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_info: Vec<Value>,
+    pub auth_info: Vec<WorkWeDriveAuthInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_sub_type: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13196,7 +13226,7 @@ pub struct WorkWeDriveSpaceAclRequest {
     pub userid: String,
     pub spaceid: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_info: Vec<Value>,
+    pub auth_info: Vec<WorkWeDriveAuthInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13264,7 +13294,23 @@ pub struct WorkWeDriveFileAclRequest {
     pub userid: String,
     pub fileid: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_info: Vec<Value>,
+    pub auth_info: Vec<WorkWeDriveAuthInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveAuthInfo {
+    #[serde(rename = "type")]
+    pub member_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub departmentid: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub create_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13294,19 +13340,51 @@ pub struct WorkWeDriveSpaceInfo {
     #[serde(default)]
     pub space_name: Option<String>,
     #[serde(default)]
-    pub userid: Option<String>,
+    pub auth_list: Option<WorkWeDriveAuthList>,
     #[serde(default)]
-    pub quota: Option<i64>,
+    pub space_sub_type: Option<i64>,
     #[serde(default)]
-    pub used_size: Option<i64>,
+    pub secure_setting: Option<WorkWeDriveSpaceSecureSetting>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveAuthList {
     #[serde(default)]
-    pub auth_info: Vec<Value>,
+    pub auth_info: Vec<WorkWeDriveAuthInfo>,
     #[serde(default)]
-    pub add_member_only_admin: Option<bool>,
+    pub quit_userid: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveSpaceSecureSetting {
     #[serde(default)]
     pub enable_watermark: Option<bool>,
     #[serde(default)]
+    pub add_member_only_admin: Option<bool>,
+    #[serde(default)]
     pub enable_share_url: Option<bool>,
+    #[serde(default)]
+    pub share_url_no_approve: Option<bool>,
+    #[serde(default)]
+    pub share_url_no_approve_default_auth: Option<i64>,
+    #[serde(default)]
+    pub enable_share_external: Option<bool>,
+    #[serde(default)]
+    pub enable_share_external_admin: Option<bool>,
+    #[serde(default)]
+    pub enable_space_add_external_member: Option<bool>,
+    #[serde(default)]
+    pub enable_space_add_external_member_admin: Option<bool>,
+    #[serde(default)]
+    pub enable_confidential_mode: Option<bool>,
+    #[serde(default)]
+    pub default_file_scope: Option<i64>,
+    #[serde(default)]
+    pub create_file_only_admin: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13346,7 +13424,15 @@ pub struct WorkWeDriveFileListResponse {
     #[serde(default)]
     pub next_start: Option<i64>,
     #[serde(default)]
-    pub file_list: Vec<WorkWeDriveFileInfo>,
+    pub file_list: Option<WorkWeDriveFileList>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileList {
+    #[serde(default)]
+    pub item: Vec<WorkWeDriveFileInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13400,23 +13486,29 @@ pub struct WorkWeDriveFileInfo {
     #[serde(default)]
     pub file_name: Option<String>,
     #[serde(default)]
-    pub file_type: Option<String>,
+    pub file_type: Option<i64>,
     #[serde(default)]
-    pub file_size: Option<i64>,
+    pub file_status: Option<i64>,
+    #[serde(default)]
+    pub file_size: Option<u64>,
     #[serde(default)]
     pub spaceid: Option<String>,
     #[serde(default)]
     pub fatherid: Option<String>,
     #[serde(default)]
-    pub creator: Option<String>,
+    pub ctime: Option<u64>,
     #[serde(default)]
-    pub create_time: Option<i64>,
+    pub mtime: Option<u64>,
     #[serde(default)]
-    pub update_time: Option<i64>,
+    pub create_userid: Option<String>,
+    #[serde(default)]
+    pub update_userid: Option<String>,
+    #[serde(default)]
+    pub sha: Option<String>,
+    #[serde(default)]
+    pub md5: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
-    #[serde(default)]
-    pub auth_info: Vec<Value>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13434,23 +13526,13 @@ pub struct WorkWeDriveFileRenameResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkWeDriveFileMoveResult {
-    #[serde(default)]
-    pub success: Vec<String>,
-    #[serde(default)]
-    pub failed: Vec<WorkWeDriveFileMoveFailure>,
-    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
-    pub extra: Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkWeDriveFileMoveFailure {
-    #[serde(default)]
-    pub fileid: Option<String>,
+pub struct WorkWeDriveFileInfoResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default)]
+    pub file_info: Option<WorkWeDriveFileInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13462,7 +13544,7 @@ pub struct WorkWeDriveFileMoveResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub file_list: Option<WorkWeDriveFileMoveResult>,
+    pub file_list: Option<WorkWeDriveFileList>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -19175,11 +19257,33 @@ mod tests {
         let space = serde_json::to_value(WorkWeDriveSpaceCreateRequest {
             userid: "user".to_string(),
             space_name: "Team Space".to_string(),
-            auth_info: vec![json!({ "type": 1, "auth": 7 })],
+            auth_info: vec![
+                WorkWeDriveAuthInfo {
+                    member_type: 1,
+                    userid: Some("member".to_string()),
+                    departmentid: None,
+                    auth: Some(7),
+                    create_time: None,
+                    extra: Value::Null,
+                },
+                WorkWeDriveAuthInfo {
+                    member_type: 2,
+                    userid: None,
+                    departmentid: Some(10),
+                    auth: Some(1),
+                    create_time: None,
+                    extra: json!({ "source": "directory" }),
+                },
+            ],
+            space_sub_type: Some(0),
         })
         .unwrap();
         assert_eq!(space["space_name"], "Team Space");
         assert_eq!(space["auth_info"][0]["auth"], 7);
+        assert_eq!(space["auth_info"][0]["userid"], "member");
+        assert_eq!(space["auth_info"][1]["departmentid"], 10);
+        assert_eq!(space["auth_info"][1]["source"], "directory");
+        assert_eq!(space["space_sub_type"], 0);
 
         let rename = serde_json::to_value(WorkWeDriveSpaceRenameRequest {
             userid: "user".to_string(),
@@ -19199,10 +19303,18 @@ mod tests {
         let space_acl = serde_json::to_value(WorkWeDriveSpaceAclRequest {
             userid: "user".to_string(),
             spaceid: "space".to_string(),
-            auth_info: vec![json!({ "userid": "member", "auth": 1 })],
+            auth_info: vec![WorkWeDriveAuthInfo {
+                member_type: 1,
+                userid: Some("member".to_string()),
+                departmentid: None,
+                auth: None,
+                create_time: None,
+                extra: Value::Null,
+            }],
         })
         .unwrap();
         assert_eq!(space_acl["auth_info"][0]["userid"], "member");
+        assert!(space_acl["auth_info"][0].get("auth").is_none());
 
         let space_setting = serde_json::to_value(WorkWeDriveSpaceSettingRequest {
             userid: "user".to_string(),
@@ -19275,7 +19387,14 @@ mod tests {
         let file_acl = serde_json::to_value(WorkWeDriveFileAclRequest {
             userid: "user".to_string(),
             fileid: "file".to_string(),
-            auth_info: vec![json!({ "userid": "member", "auth": 1 })],
+            auth_info: vec![WorkWeDriveAuthInfo {
+                member_type: 1,
+                userid: Some("member".to_string()),
+                departmentid: None,
+                auth: Some(1),
+                create_time: None,
+                extra: Value::Null,
+            }],
         })
         .unwrap();
         assert_eq!(file_acl["auth_info"][0]["auth"], 1);
@@ -19417,9 +19536,37 @@ mod tests {
             "space_info": {
                 "spaceid": "space",
                 "space_name": "Team Space",
-                "userid": "user",
-                "quota": 1024,
-                "auth_info": [{ "type": 1, "auth": 7 }],
+                "auth_list": {
+                    "auth_info": [{
+                        "type": 1,
+                        "userid": "member",
+                        "auth": 7,
+                        "create_time": 1_800_000_000,
+                        "display_name": "Member"
+                    }, {
+                        "type": 2,
+                        "departmentid": 10,
+                        "auth": 1
+                    }],
+                    "quit_userid": ["former-member"],
+                    "auth_version": 2
+                },
+                "space_sub_type": 0,
+                "secure_setting": {
+                    "enable_watermark": true,
+                    "add_member_only_admin": true,
+                    "enable_share_url": false,
+                    "share_url_no_approve": false,
+                    "share_url_no_approve_default_auth": 2,
+                    "enable_share_external": false,
+                    "enable_share_external_admin": true,
+                    "enable_space_add_external_member": false,
+                    "enable_space_add_external_member_admin": true,
+                    "enable_confidential_mode": true,
+                    "default_file_scope": 2,
+                    "create_file_only_admin": false,
+                    "setting_version": 3
+                },
                 "owner_department": 1
             }
         }))
@@ -19427,7 +19574,16 @@ mod tests {
         assert_eq!(space_info.extra["trace_id"], "space-info");
         let space_info = space_info.space_info.unwrap();
         assert_eq!(space_info.space_name.as_deref(), Some("Team Space"));
-        assert_eq!(space_info.auth_info[0]["auth"], 7);
+        let auth_list = space_info.auth_list.as_ref().unwrap();
+        assert_eq!(auth_list.auth_info[0].userid.as_deref(), Some("member"));
+        assert_eq!(auth_list.auth_info[0].auth, Some(7));
+        assert_eq!(auth_list.auth_info[0].extra["display_name"], "Member");
+        assert_eq!(auth_list.quit_userid[0], "former-member");
+        assert_eq!(auth_list.extra["auth_version"], 2);
+        let secure = space_info.secure_setting.as_ref().unwrap();
+        assert_eq!(secure.enable_watermark, Some(true));
+        assert_eq!(secure.enable_confidential_mode, Some(true));
+        assert_eq!(secure.extra["setting_version"], 3);
         assert_eq!(space_info.extra["owner_department"], 1);
 
         let space_share: WorkWeDriveSpaceShareResponse = serde_json::from_value(json!({
@@ -19445,19 +19601,37 @@ mod tests {
             "has_more": true,
             "next_start": 100,
             "scan_id": "file-list",
-            "file_list": [{
-                "fileid": "file",
-                "file_name": "doc.txt",
-                "file_size": 10,
-                "sha256": "hash"
-            }]
+            "file_list": {
+                "item": [{
+                    "fileid": "file",
+                    "file_name": "doc.txt",
+                    "spaceid": "space",
+                    "fatherid": "root",
+                    "file_size": 10,
+                    "ctime": 1_800_000_000,
+                    "mtime": 1_800_000_100,
+                    "file_type": 2,
+                    "file_status": 1,
+                    "create_userid": "creator",
+                    "update_userid": "editor",
+                    "sha": "sha-hash",
+                    "md5": "md5-hash",
+                    "url": "https://example.com/file",
+                    "virus_scan_status": 0
+                }],
+                "list_version": 2
+            }
         }))
         .unwrap();
         assert_eq!(file_list.has_more, Some(true));
         assert_eq!(file_list.extra["scan_id"], "file-list");
-        assert_eq!(file_list.file_list[0].fileid.as_deref(), Some("file"));
-        assert_eq!(file_list.file_list[0].file_name.as_deref(), Some("doc.txt"));
-        assert_eq!(file_list.file_list[0].extra["sha256"], "hash");
+        let files = file_list.file_list.as_ref().unwrap();
+        assert_eq!(files.item[0].fileid.as_deref(), Some("file"));
+        assert_eq!(files.item[0].file_name.as_deref(), Some("doc.txt"));
+        assert_eq!(files.item[0].file_type, Some(2));
+        assert_eq!(files.item[0].sha.as_deref(), Some("sha-hash"));
+        assert_eq!(files.item[0].extra["virus_scan_status"], 0);
+        assert_eq!(files.extra["list_version"], 2);
 
         let upload: WorkWeDriveFileUploadResponse =
             serde_json::from_value(json!({ "fileid": "file", "upload_token": "token" })).unwrap();
@@ -19493,26 +19667,59 @@ mod tests {
         assert_eq!(rename_file.file_name.as_deref(), Some("new.txt"));
         assert_eq!(rename_file.extra["version"], 2);
 
+        let file_info: WorkWeDriveFileInfoResponse = serde_json::from_value(json!({
+            "request_id": "file-info",
+            "file_info": {
+                "fileid": "file",
+                "file_name": "doc.txt",
+                "spaceid": "space",
+                "fatherid": "root",
+                "file_size": 10,
+                "ctime": 1_800_000_000,
+                "mtime": 1_800_000_100,
+                "file_type": 2,
+                "file_status": 1,
+                "sha": "sha-hash",
+                "md5": "md5-hash",
+                "classification": "internal"
+            }
+        }))
+        .unwrap();
+        assert_eq!(file_info.extra["request_id"], "file-info");
+        let file_info = file_info.file_info.unwrap();
+        assert_eq!(file_info.file_size, Some(10));
+        assert_eq!(file_info.file_status, Some(1));
+        assert_eq!(file_info.extra["classification"], "internal");
+
         let moved: WorkWeDriveFileMoveResponse = serde_json::from_value(json!({
             "request_id": "move",
             "file_list": {
-                "success": ["file"],
-                "failed": [{
-                    "fileid": "bad",
-                    "errcode": 40001,
-                    "errmsg": "invalid",
-                    "retryable": false
+                "item": [{
+                    "fileid": "file",
+                    "file_name": "moved.txt",
+                    "spaceid": "space",
+                    "fatherid": "archive",
+                    "file_size": 10,
+                    "ctime": 1_800_000_000,
+                    "mtime": 1_800_000_200,
+                    "file_type": 2,
+                    "file_status": 1,
+                    "create_userid": "creator",
+                    "update_userid": "editor",
+                    "sha": "sha-hash",
+                    "md5": "md5-hash",
+                    "move_revision": 2
                 }],
-                "replace_count": 0
+                "replace_count": 1
             }
         }))
         .unwrap();
         assert_eq!(moved.extra["request_id"], "move");
         let moved = moved.file_list.unwrap();
-        assert_eq!(moved.success[0], "file");
-        assert_eq!(moved.failed[0].fileid.as_deref(), Some("bad"));
-        assert_eq!(moved.failed[0].extra["retryable"], false);
-        assert_eq!(moved.extra["replace_count"], 0);
+        assert_eq!(moved.item[0].fileid.as_deref(), Some("file"));
+        assert_eq!(moved.item[0].fatherid.as_deref(), Some("archive"));
+        assert_eq!(moved.item[0].extra["move_revision"], 2);
+        assert_eq!(moved.extra["replace_count"], 1);
 
         let share: WorkWeDriveFileShareResponse = serde_json::from_value(json!({
             "share_url": "https://example.com/share",
