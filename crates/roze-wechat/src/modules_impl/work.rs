@@ -7086,6 +7086,8 @@ pub struct CustomerAcquisitionLinkListResponse {
     pub link_id_list: Vec<String>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7094,6 +7096,8 @@ pub struct CustomerAcquisitionRange {
     pub user_list: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub department_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7101,6 +7105,8 @@ pub struct CustomerAcquisitionPriorityOption {
     pub priority_type: i64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority_userid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7130,6 +7136,8 @@ pub struct CustomerAcquisitionLinkCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub link: Option<CustomerAcquisitionLink>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7140,6 +7148,8 @@ pub struct CustomerAcquisitionLinkResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub link: Option<CustomerAcquisitionLink>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11541,11 +11551,13 @@ mod tests {
             range: CustomerAcquisitionRange {
                 user_list: vec!["user".to_string()],
                 department_list: Vec::new(),
+                extra: Value::Null,
             },
             skip_verify: true,
             priority_option: Some(CustomerAcquisitionPriorityOption {
                 priority_type: 1,
                 priority_userid_list: vec!["priority".to_string()],
+                extra: Value::Null,
             }),
         })
         .unwrap();
@@ -11564,6 +11576,7 @@ mod tests {
             range: CustomerAcquisitionRange {
                 user_list: Vec::new(),
                 department_list: vec!["2".to_string()],
+                extra: Value::Null,
             },
             skip_verify: false,
             priority_option: None,
@@ -11576,23 +11589,27 @@ mod tests {
         let links: CustomerAcquisitionLinkListResponse = serde_json::from_value(json!({
             "errcode": 0,
             "link_id_list": ["link"],
-            "next_cursor": "cursor"
+            "next_cursor": "cursor",
+            "link_total": 1
         }))
         .unwrap();
         assert_eq!(links.link_id_list[0], "link");
         assert_eq!(links.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(links.extra["link_total"], 1);
 
         let created: CustomerAcquisitionLinkCreateResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "request_id": "create-link",
             "link": {
                 "link_id": "link",
                 "link_name": "summer",
                 "url": "https://example.com",
                 "skip_verify": true,
-                "range": { "user_list": ["user"] },
+                "range": { "user_list": ["user"], "range_extra": "kept" },
                 "priority_option": {
                     "priority_type": 1,
-                    "priority_userid_list": ["priority"]
+                    "priority_userid_list": ["priority"],
+                    "priority_extra": "kept"
                 },
                 "create_time": 1_720_000_000,
                 "update_time": 1_720_000_001,
@@ -11600,6 +11617,7 @@ mod tests {
             }
         }))
         .unwrap();
+        assert_eq!(created.extra["request_id"], "create-link");
         let created = created.link.unwrap();
         assert_eq!(created.link_id.as_deref(), Some("link"));
         assert_eq!(created.link_name.as_deref(), Some("summer"));
@@ -11613,6 +11631,7 @@ mod tests {
                 .map(String::as_str),
             Some("user")
         );
+        assert_eq!(created.range.as_ref().unwrap().extra["range_extra"], "kept");
         assert_eq!(
             created
                 .priority_option
@@ -11621,14 +11640,20 @@ mod tests {
                 .map(String::as_str),
             Some("priority")
         );
+        assert_eq!(
+            created.priority_option.as_ref().unwrap().extra["priority_extra"],
+            "kept"
+        );
         assert_eq!(created.create_time, Some(1_720_000_000));
         assert_eq!(created.extra["future_field"], "kept");
 
         let got: CustomerAcquisitionLinkResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "request_id": "get-link",
             "link": { "link_id": "link", "url": "https://example.com" }
         }))
         .unwrap();
+        assert_eq!(got.extra["request_id"], "get-link");
         assert_eq!(
             got.link.and_then(|link| link.url).as_deref(),
             Some("https://example.com")
