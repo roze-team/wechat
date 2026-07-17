@@ -3164,6 +3164,12 @@ impl PaymentBillRecord {
             .find_map(|(key, value)| (key == name).then_some(value.as_str()))
     }
 
+    pub fn require(&self, name: &str) -> Result<&str> {
+        self.get(name).ok_or_else(|| {
+            WechatError::Config(format!("payment bill required field {name} is missing"))
+        })
+    }
+
     pub fn get_i64(&self, name: &str) -> Result<Option<i64>> {
         self.get(name)
             .map(|value| {
@@ -3174,6 +3180,14 @@ impl PaymentBillRecord {
                 })
             })
             .transpose()
+    }
+
+    pub fn require_i64(&self, name: &str) -> Result<i64> {
+        self.require(name)?.parse::<i64>().map_err(|err| {
+            WechatError::Config(format!(
+                "payment bill required field {name} is not a valid i64: {err}"
+            ))
+        })
     }
 }
 
@@ -3196,6 +3210,26 @@ impl PaymentBillSummary {
 }
 
 impl PaymentBillStatement {
+    pub fn column_index(&self, name: &str) -> Option<usize> {
+        self.headers.iter().position(|header| header == name)
+    }
+
+    pub fn require_columns(&self, names: &[&str]) -> Result<()> {
+        let missing = names
+            .iter()
+            .copied()
+            .filter(|name| self.column_index(name).is_none())
+            .collect::<Vec<_>>();
+        if missing.is_empty() {
+            return Ok(());
+        }
+
+        Err(WechatError::Config(format!(
+            "payment bill required columns are missing: {}",
+            missing.join(", ")
+        )))
+    }
+
     pub fn sum_i64(&self, name: &str) -> Result<i64> {
         self.records.iter().try_fold(0_i64, |sum, record| {
             record
@@ -3209,6 +3243,23 @@ impl PaymentBillStatement {
             .iter()
             .filter(|record| record.get(name).is_some_and(|value| !value.is_empty()))
             .count()
+    }
+
+    pub fn assert_sum_matches_summary(&self, name: &str, summary_index: usize) -> Result<i64> {
+        self.require_columns(&[name])?;
+        let sum = self.sum_i64(name)?;
+        let expected = self.summary.get_i64(summary_index)?.ok_or_else(|| {
+            WechatError::Config(format!(
+                "payment bill summary field {summary_index} is missing"
+            ))
+        })?;
+        if sum != expected {
+            return Err(WechatError::Config(format!(
+                "payment bill column {name} sum {sum} does not match summary field {summary_index} value {expected}"
+            )));
+        }
+
+        Ok(sum)
     }
 }
 
@@ -5221,7 +5272,9 @@ mod tests {
         assert_eq!(records[0].get("transaction_id"), Some("4200001"));
         assert_eq!(records[0].get("out_trade_no"), Some("order-1"));
         assert_eq!(records[0].get("amount"), Some("100"));
+        assert_eq!(records[0].require("out_trade_no").unwrap(), "order-1");
         assert_eq!(records[0].get_i64("amount").unwrap(), Some(100));
+        assert_eq!(records[0].require_i64("amount").unwrap(), 100);
         assert_eq!(records[0].raw, "4200001,order-1,100");
         let statement = bill.statement().unwrap();
         assert_eq!(
@@ -5237,7 +5290,15 @@ mod tests {
         assert_eq!(statement.summary.get(0), Some("sum"));
         assert_eq!(statement.summary.get_i64(1).unwrap(), Some(1));
         assert_eq!(statement.summary.get_i64(2).unwrap(), Some(100));
+        assert_eq!(statement.column_index("amount"), Some(2));
+        statement
+            .require_columns(&["transaction_id", "out_trade_no", "amount"])
+            .unwrap();
         assert_eq!(statement.sum_i64("amount").unwrap(), 100);
+        assert_eq!(
+            statement.assert_sum_matches_summary("amount", 2).unwrap(),
+            100
+        );
         assert_eq!(statement.sum_i64("missing").unwrap(), 0);
         assert_eq!(statement.non_empty_count("transaction_id"), 1);
         assert_eq!(statement.non_empty_count("missing"), 0);
@@ -5315,6 +5376,68 @@ mod tests {
             .get_i64(1)
             .expect_err("invalid summary total should fail");
         assert!(summary_err.to_string().contains("not a valid i64"));
+    }
+
+    #[test]
+    fn validates_payment_bill_required_columns_and_summary_totals() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\n4200002,order-2,50\nsum,2,150\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let statement = bill.statement().unwrap();
+        assert_eq!(statement.column_index("out_trade_no"), Some(1));
+        statement
+            .require_columns(&["transaction_id", "out_trade_no", "amount"])
+            .unwrap();
+        assert_eq!(
+            statement.assert_sum_matches_summary("amount", 2).unwrap(),
+            150
+        );
+
+        let missing_column = statement
+            .require_columns(&["transaction_id", "missing"])
+            .expect_err("missing required columns should fail");
+        assert!(missing_column.to_string().contains("missing"));
+
+        let mismatched = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\nsum,1,99\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap()
+        .statement()
+        .unwrap();
+        let mismatch_err = mismatched
+            .assert_sum_matches_summary("amount", 2)
+            .expect_err("summary mismatch should fail");
+        assert!(mismatch_err.to_string().contains("does not match summary"));
+
+        let missing_required = statement.records[0]
+            .require("missing")
+            .expect_err("missing required field should fail");
+        assert!(missing_required
+            .to_string()
+            .contains("required field missing"));
+
+        let invalid_required_i64 = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(b"amount\nnot-number\nsum,total\n"),
+            None,
+            None,
+        )
+        .unwrap()
+        .statement()
+        .unwrap();
+        let invalid_required_err = invalid_required_i64.records[0]
+            .require_i64("amount")
+            .expect_err("invalid required i64 should fail");
+        assert!(invalid_required_err.to_string().contains("not a valid i64"));
     }
 
     #[test]
