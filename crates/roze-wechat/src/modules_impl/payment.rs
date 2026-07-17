@@ -3195,6 +3195,23 @@ impl PaymentBillSummary {
     }
 }
 
+impl PaymentBillStatement {
+    pub fn sum_i64(&self, name: &str) -> Result<i64> {
+        self.records.iter().try_fold(0_i64, |sum, record| {
+            record
+                .get_i64(name)
+                .map(|value| sum + value.unwrap_or_default())
+        })
+    }
+
+    pub fn non_empty_count(&self, name: &str) -> usize {
+        self.records
+            .iter()
+            .filter(|record| record.get(name).is_some_and(|value| !value.is_empty()))
+            .count()
+    }
+}
+
 impl PaymentDownloadedBill {
     pub fn from_verified_bytes(
         bytes: Bytes,
@@ -5184,6 +5201,10 @@ mod tests {
         assert_eq!(statement.summary.get(0), Some("sum"));
         assert_eq!(statement.summary.get_i64(1).unwrap(), Some(1));
         assert_eq!(statement.summary.get_i64(2).unwrap(), Some(100));
+        assert_eq!(statement.sum_i64("amount").unwrap(), 100);
+        assert_eq!(statement.sum_i64("missing").unwrap(), 0);
+        assert_eq!(statement.non_empty_count("transaction_id"), 1);
+        assert_eq!(statement.non_empty_count("missing"), 0);
         assert_eq!(bill.hash_type.as_deref(), Some("SHA256"));
         assert_eq!(bill.bytes.len(), 65);
     }
@@ -5249,6 +5270,10 @@ mod tests {
             .get_i64("amount")
             .expect_err("invalid record amount should fail");
         assert!(field_err.to_string().contains("not a valid i64"));
+        let sum_err = statement
+            .sum_i64("amount")
+            .expect_err("invalid summed amount should fail");
+        assert!(sum_err.to_string().contains("not a valid i64"));
         let summary_err = statement
             .summary
             .get_i64(1)
