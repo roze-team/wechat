@@ -123,6 +123,14 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - OA meeting-room add/edit/list responses now expose typed latitude/longitude
   coordinates; location, equipment, booking filters, subject, attendees, and
   schedule-retention fields follow their optional wire semantics.
+- OA calendar add/update requests now expose typed organizers, colors,
+  descriptions, shares, and readonly settings; calendar details expose
+  administrators, public ranges, and corporate-calendar metadata.
+- OA schedule add/update/detail payloads now expose typed administrators,
+  attendees, response status, reminders, repeat/custom-repeat rules, timezones,
+  excluded occurrences, locations, calendar IDs, and sequence numbers.
+- OA schedule supports typed pagination through
+  `cgi-bin/oa/schedule/get_by_calendar`.
 - external-contact strategy-tag list/add/edit/delete wrappers, group welcome
   template add/edit/get/delete wrappers, group-chat join-way add/get/update/delete
   wrappers, and opengid-to-chatid wrapper.

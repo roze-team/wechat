@@ -2969,13 +2969,13 @@ impl Work {
     pub async fn update_calendar(
         &self,
         access_token: impl Into<String>,
-        calendar: Value,
+        request: WorkCalendarUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
                 "cgi-bin/oa/calendar/update",
                 Some(access_token.into()),
-                json!({ "calendar": calendar }),
+                request,
             )
             .await
     }
@@ -3163,13 +3163,13 @@ impl Work {
     pub async fn update_schedule(
         &self,
         access_token: impl Into<String>,
-        schedule: Value,
+        request: WorkScheduleUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         self.inner
             .post(
                 "cgi-bin/oa/schedule/update",
                 Some(access_token.into()),
-                json!({ "schedule": schedule }),
+                request,
             )
             .await
     }
@@ -3184,6 +3184,20 @@ impl Work {
                 "cgi-bin/oa/schedule/get",
                 Some(access_token.into()),
                 json!({ "schedule_id_list": schedule_id_list }),
+            )
+            .await
+    }
+
+    pub async fn get_schedules_by_calendar(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkScheduleByCalendarRequest,
+    ) -> Result<WorkScheduleGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/schedule/get_by_calendar",
+                Some(access_token.into()),
+                request,
             )
             .await
     }
@@ -11092,8 +11106,48 @@ pub struct WorkApprovalCreateTemplateResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarAddRequest {
-    pub calendar: Value,
+    pub calendar: WorkCalendarCreate,
     pub agentid: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarCreate {
+    pub organizer: String,
+    pub summary: String,
+    pub color: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shares: Vec<WorkCalendarShareRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarUpdateRequest {
+    pub calendar: WorkCalendarUpdate,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarUpdate {
+    pub cal_id: String,
+    pub summary: String,
+    pub color: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shares: Vec<WorkCalendarShareRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarShareRequest {
+    pub userid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11123,6 +11177,8 @@ pub struct WorkCalendarInfo {
     #[serde(default)]
     pub cal_id: Option<String>,
     #[serde(default)]
+    pub adminis: Vec<String>,
+    #[serde(default)]
     pub summary: Option<String>,
     #[serde(default)]
     pub color: Option<String>,
@@ -11136,6 +11192,22 @@ pub struct WorkCalendarInfo {
     pub readonly: Option<i64>,
     #[serde(default)]
     pub set_as_default: Option<i64>,
+    #[serde(default)]
+    pub is_public: Option<i64>,
+    #[serde(default)]
+    pub public_range: Option<WorkCalendarPublicRange>,
+    #[serde(default)]
+    pub is_corp_calendar: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCalendarPublicRange {
+    #[serde(default)]
+    pub userids: Vec<String>,
+    #[serde(default)]
+    pub partyids: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -12174,8 +12246,117 @@ pub struct WorkWeDriveFileShareResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleAddRequest {
-    pub schedule: Value,
+    pub schedule: WorkScheduleCreate,
     pub agentid: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleCreate {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admins: Vec<String>,
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attendees: Vec<WorkScheduleAttendee>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reminders: Option<WorkScheduleReminders>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cal_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organizer: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleUpdateRequest {
+    pub schedule: WorkScheduleUpdate,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleUpdate {
+    pub schedule_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admins: Vec<String>,
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attendees: Vec<WorkScheduleAttendee>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reminders: Option<WorkScheduleReminders>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cal_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organizer: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleAttendee {
+    pub userid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleReminders {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_remind: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remind_before_event_secs: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remind_time_diffs: Vec<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_repeat: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_until: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_custom_repeat: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_interval: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repeat_day_of_week: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repeat_day_of_month: Vec<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exclude_time_list: Vec<WorkScheduleExcludeTime>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleExcludeTime {
+    pub start_time: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkScheduleByCalendarRequest {
+    pub cal_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12197,6 +12378,8 @@ pub struct WorkScheduleInfo {
     #[serde(default)]
     pub organizer: Option<String>,
     #[serde(default)]
+    pub admins: Vec<String>,
+    #[serde(default)]
     pub summary: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
@@ -12205,11 +12388,17 @@ pub struct WorkScheduleInfo {
     #[serde(default)]
     pub end_time: Option<i64>,
     #[serde(default)]
-    pub attendees: Option<Value>,
+    pub attendees: Vec<WorkScheduleAttendee>,
+    #[serde(default)]
+    pub reminders: Option<WorkScheduleReminders>,
     #[serde(default)]
     pub location: Option<String>,
     #[serde(default)]
     pub status: Option<i64>,
+    #[serde(default)]
+    pub cal_id: Option<String>,
+    #[serde(default)]
+    pub sequence: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -16012,16 +16201,38 @@ mod tests {
     #[test]
     fn serializes_work_oa_calendar_and_dial_requests() {
         let calendar = serde_json::to_value(WorkCalendarAddRequest {
-            calendar: json!({
-                "organizer": "user",
-                "readonly": 0,
-                "summary": "Team"
-            }),
+            calendar: WorkCalendarCreate {
+                organizer: "user".to_string(),
+                summary: "Team".to_string(),
+                color: "#FF3030".to_string(),
+                description: Some("Team calendar".to_string()),
+                shares: vec![WorkCalendarShareRequest {
+                    userid: "member".to_string(),
+                }],
+                readonly: Some(0),
+                extra: Value::Null,
+            },
             agentid: 100001,
         })
         .unwrap();
         assert_eq!(calendar["agentid"], 100001);
         assert_eq!(calendar["calendar"]["summary"], "Team");
+        assert_eq!(calendar["calendar"]["shares"][0]["userid"], "member");
+
+        let calendar_update = serde_json::to_value(WorkCalendarUpdateRequest {
+            calendar: WorkCalendarUpdate {
+                cal_id: "wc100".to_string(),
+                summary: "Team updated".to_string(),
+                color: "#00FF00".to_string(),
+                description: None,
+                shares: Vec::new(),
+                readonly: None,
+                extra: Value::Null,
+            },
+        })
+        .unwrap();
+        assert_eq!(calendar_update["calendar"]["cal_id"], "wc100");
+        assert!(calendar_update["calendar"].get("description").is_none());
 
         let dial = serde_json::to_value(WorkDialRecordRequest {
             start_time: 1_800_000_000,
@@ -16049,8 +16260,16 @@ mod tests {
             "next_cursor": "calendar-cursor",
             "calendar_list": [{
                 "cal_id": "wc100",
+                "adminis": ["admin"],
                 "summary": "Team",
                 "shares": [{ "userid": "user", "readonly": 1, "share_type": "member" }],
+                "is_public": 1,
+                "public_range": {
+                    "userids": ["user"],
+                    "partyids": [2],
+                    "range_version": 1
+                },
+                "is_corp_calendar": 1,
                 "timezone": "Asia/Shanghai"
             }]
         }))
@@ -16063,6 +16282,16 @@ mod tests {
             calendar_get.calendar_list[0].shares[0].userid.as_deref(),
             Some("user")
         );
+        assert_eq!(calendar_get.calendar_list[0].adminis[0], "admin");
+        assert_eq!(calendar_get.calendar_list[0].is_public, Some(1));
+        let public_range = calendar_get.calendar_list[0]
+            .public_range
+            .as_ref()
+            .expect("calendar public range");
+        assert_eq!(public_range.userids[0], "user");
+        assert_eq!(public_range.partyids[0], 2);
+        assert_eq!(public_range.extra["range_version"], 1);
+        assert_eq!(calendar_get.calendar_list[0].is_corp_calendar, Some(1));
         assert_eq!(calendar_get.extra["next_cursor"], "calendar-cursor");
         assert_eq!(
             calendar_get.calendar_list[0].extra["timezone"],
@@ -16159,16 +16388,82 @@ mod tests {
         assert_eq!(stat["template_id"], "template-1");
 
         let schedule = serde_json::to_value(WorkScheduleAddRequest {
-            schedule: json!({
-                "organizer": "user",
-                "start_time": 1_800_000_000,
-                "end_time": 1_800_003_600
-            }),
+            schedule: WorkScheduleCreate {
+                admins: vec!["admin".to_string()],
+                start_time: 1_800_000_000,
+                end_time: 1_800_003_600,
+                attendees: vec![WorkScheduleAttendee {
+                    userid: "attendee".to_string(),
+                    response_status: None,
+                    extra: Value::Null,
+                }],
+                summary: Some("Daily".to_string()),
+                description: Some("Daily sync".to_string()),
+                reminders: Some(WorkScheduleReminders {
+                    is_remind: Some(1),
+                    remind_before_event_secs: Some(3600),
+                    remind_time_diffs: vec![-3600, -900],
+                    is_repeat: Some(1),
+                    repeat_type: Some(7),
+                    repeat_until: Some(1_900_000_000),
+                    is_custom_repeat: Some(1),
+                    repeat_interval: Some(1),
+                    repeat_day_of_week: vec![3, 7],
+                    repeat_day_of_month: vec![10, 21],
+                    timezone: Some(8),
+                    exclude_time_list: vec![WorkScheduleExcludeTime {
+                        start_time: 1_800_086_400,
+                        extra: Value::Null,
+                    }],
+                    extra: Value::Null,
+                }),
+                location: Some("Room A".to_string()),
+                cal_id: Some("wc100".to_string()),
+                organizer: Some("user".to_string()),
+                extra: Value::Null,
+            },
             agentid: 100001,
         })
         .unwrap();
         assert_eq!(schedule["agentid"], 100001);
         assert_eq!(schedule["schedule"]["organizer"], "user");
+        assert_eq!(
+            schedule["schedule"]["reminders"]["repeat_day_of_week"][1],
+            7
+        );
+        assert_eq!(
+            schedule["schedule"]["reminders"]["exclude_time_list"][0]["start_time"],
+            1_800_086_400
+        );
+
+        let schedule_update = serde_json::to_value(WorkScheduleUpdateRequest {
+            schedule: WorkScheduleUpdate {
+                schedule_id: "schedule-1".to_string(),
+                admins: Vec::new(),
+                start_time: 1_800_000_100,
+                end_time: 1_800_003_700,
+                attendees: Vec::new(),
+                summary: Some("Daily updated".to_string()),
+                description: None,
+                reminders: None,
+                location: None,
+                cal_id: Some("wc100".to_string()),
+                organizer: None,
+                extra: Value::Null,
+            },
+        })
+        .unwrap();
+        assert_eq!(schedule_update["schedule"]["schedule_id"], "schedule-1");
+        assert!(schedule_update["schedule"].get("attendees").is_none());
+
+        let by_calendar = serde_json::to_value(WorkScheduleByCalendarRequest {
+            cal_id: "wc100".to_string(),
+            offset: Some(100),
+            limit: Some(1000),
+        })
+        .unwrap();
+        assert_eq!(by_calendar["cal_id"], "wc100");
+        assert_eq!(by_calendar["limit"], 1000);
     }
 
     #[test]
@@ -16331,11 +16626,36 @@ mod tests {
             "next_cursor": "schedule-cursor",
             "schedule_list": [{
                 "schedule_id": "schedule-1",
+                "sequence": 100,
+                "admins": ["admin"],
                 "summary": "Daily",
                 "organizer": "user",
                 "start_time": 1_800_000_000,
                 "end_time": 1_800_003_600,
-                "attendees": [{ "userid": "user" }],
+                "attendees": [{
+                    "userid": "user",
+                    "response_status": 1,
+                    "attendee_role": "required"
+                }],
+                "reminders": {
+                    "is_remind": 1,
+                    "remind_before_event_secs": 3600,
+                    "remind_time_diffs": [-3600],
+                    "is_repeat": 1,
+                    "repeat_type": 7,
+                    "repeat_until": 1_900_000_000,
+                    "is_custom_repeat": 1,
+                    "repeat_interval": 1,
+                    "repeat_day_of_week": [3, 7],
+                    "repeat_day_of_month": [10, 21],
+                    "timezone": 8,
+                    "exclude_time_list": [{
+                        "start_time": 1_800_086_400,
+                        "exclude_reason": "holiday"
+                    }],
+                    "reminder_version": 2
+                },
+                "cal_id": "wc100",
                 "status": 1,
                 "timezone": "Asia/Shanghai"
             }]
@@ -16349,6 +16669,31 @@ mod tests {
             schedule_get.schedule_list[0].summary.as_deref(),
             Some("Daily")
         );
+        assert_eq!(schedule_get.schedule_list[0].admins[0], "admin");
+        assert_eq!(schedule_get.schedule_list[0].attendees[0].userid, "user");
+        assert_eq!(
+            schedule_get.schedule_list[0].attendees[0].response_status,
+            Some(1)
+        );
+        assert_eq!(
+            schedule_get.schedule_list[0].attendees[0].extra["attendee_role"],
+            "required"
+        );
+        let reminders = schedule_get.schedule_list[0]
+            .reminders
+            .as_ref()
+            .expect("schedule reminders");
+        assert_eq!(reminders.repeat_day_of_week, vec![3, 7]);
+        assert_eq!(
+            reminders.exclude_time_list[0].extra["exclude_reason"],
+            "holiday"
+        );
+        assert_eq!(reminders.extra["reminder_version"], 2);
+        assert_eq!(
+            schedule_get.schedule_list[0].cal_id.as_deref(),
+            Some("wc100")
+        );
+        assert_eq!(schedule_get.schedule_list[0].sequence, Some(100));
         assert_eq!(schedule_get.schedule_list[0].status, Some(1));
         assert_eq!(schedule_get.extra["next_cursor"], "schedule-cursor");
         assert_eq!(
