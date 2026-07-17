@@ -3783,6 +3783,45 @@ pub struct MassStatusResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MassStatusKind {
+    Sending,
+    Success,
+    Failed,
+    Deleted,
+    Other,
+}
+
+impl MassStatusKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("SENDING") {
+            Self::Sending
+        } else if value.eq_ignore_ascii_case("SEND_SUCCESS") {
+            Self::Success
+        } else if value.eq_ignore_ascii_case("SEND_FAIL") {
+            Self::Failed
+        } else if value.eq_ignore_ascii_case("DELETE") {
+            Self::Deleted
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Success | Self::Failed | Self::Deleted)
+    }
+}
+
+impl MassStatusResponse {
+    pub fn status_kind(&self) -> Option<MassStatusKind> {
+        self.msg_status.as_deref().map(MassStatusKind::from_code)
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.status_kind() == Some(MassStatusKind::Success)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfficialAutoReplyInfoResponse {
     #[serde(default)]
@@ -6035,6 +6074,20 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(status.msg_status.as_deref(), Some("SEND_SUCCESS"));
+        assert_eq!(status.status_kind(), Some(MassStatusKind::Success));
+        assert!(status.is_success());
+        assert!(status.status_kind().expect("status").is_terminal());
+        assert_eq!(
+            MassStatusKind::from_code("sending"),
+            MassStatusKind::Sending
+        );
+        assert!(!MassStatusKind::Sending.is_terminal());
+        assert_eq!(
+            MassStatusKind::from_code("SEND_FAIL"),
+            MassStatusKind::Failed
+        );
+        assert_eq!(MassStatusKind::from_code("DELETE"), MassStatusKind::Deleted);
+        assert_eq!(MassStatusKind::from_code("UNKNOWN"), MassStatusKind::Other);
     }
 
     #[test]

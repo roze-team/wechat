@@ -353,6 +353,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   match-rule metadata.
 - Official Account mass-preview now accepts a typed request DTO with explicit
   preview recipient and message type fields.
+- Official Account mass-send status responses now expose semantic status
+  helpers for sending/success/failure/deleted states while retaining the
+  original upstream `msg_status` string.
 - Official Account publish draft/list/status/article response DTOs now preserve
   unknown upstream fields across wrappers, content blocks, article details, and
   news items.
