@@ -8311,25 +8311,25 @@ pub struct WorkAccountServiceSendMsgRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msgtype: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<WorkAccountServiceTextMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub image: Option<Value>,
+    pub image: Option<WorkAccountServiceMediaMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub voice: Option<Value>,
+    pub voice: Option<WorkAccountServiceMediaMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub video: Option<Value>,
+    pub video: Option<WorkAccountServiceVideoMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub file: Option<Value>,
+    pub file: Option<WorkAccountServiceMediaMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub link: Option<Value>,
+    pub link: Option<WorkAccountServiceLinkMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub miniprogram: Option<Value>,
+    pub miniprogram: Option<WorkAccountServiceMiniProgramMessage>,
     #[serde(default, rename = "msgmenu", skip_serializing_if = "Option::is_none")]
-    pub menu: Option<Value>,
+    pub menu: Option<WorkAccountServiceMenuMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub location: Option<Value>,
+    pub location: Option<WorkAccountServiceLocationMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ca_link: Option<Value>,
+    pub ca_link: Option<WorkAccountServiceLinkMessage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8338,9 +8338,9 @@ pub struct WorkAccountServiceSendMsgOnEventRequest {
     pub msgid: String,
     pub msgtype: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<WorkAccountServiceTextMessage>,
     #[serde(default, rename = "msgmenu", skip_serializing_if = "Option::is_none")]
-    pub menu: Option<Value>,
+    pub menu: Option<WorkAccountServiceMenuMessage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13347,30 +13347,79 @@ mod tests {
             open_kfid: "kf".to_string(),
             msgid: Some("msg".to_string()),
             msgtype: Some("text".to_string()),
-            text: Some(json!({ "content": "hello" })),
-            image: None,
+            text: Some(WorkAccountServiceTextMessage {
+                content: Some("hello".to_string()),
+            }),
+            image: Some(WorkAccountServiceMediaMessage {
+                media_id: Some("image-media".to_string()),
+            }),
             voice: None,
-            video: None,
+            video: Some(WorkAccountServiceVideoMessage {
+                media_id: Some("video-media".to_string()),
+                thumb_media_id: Some("thumb-media".to_string()),
+            }),
             file: None,
-            link: None,
-            miniprogram: None,
-            menu: Some(json!({ "head_content": "choose", "list": [] })),
-            location: None,
-            ca_link: None,
+            link: Some(WorkAccountServiceLinkMessage {
+                title: Some("docs".to_string()),
+                desc: Some("desc".to_string()),
+                url: Some("https://example.com".to_string()),
+                thumb_media_id: Some("thumb".to_string()),
+            }),
+            miniprogram: Some(WorkAccountServiceMiniProgramMessage {
+                title: Some("mini".to_string()),
+                appid: Some("wx-app".to_string()),
+                pagepath: Some("pages/index".to_string()),
+                thumb_media_id: Some("thumb".to_string()),
+            }),
+            menu: Some(WorkAccountServiceMenuMessage {
+                head_content: Some("choose".to_string()),
+                list: vec![WorkAccountServiceMenuItem {
+                    id: Some("id-1".to_string()),
+                    content: Some("open".to_string()),
+                }],
+                tail_content: Some("tail".to_string()),
+            }),
+            location: Some(WorkAccountServiceLocationMessage {
+                latitude: Some(31.2),
+                longitude: Some(121.5),
+                name: Some("office".to_string()),
+                address: Some("Shanghai".to_string()),
+            }),
+            ca_link: Some(WorkAccountServiceLinkMessage {
+                title: Some("customer".to_string()),
+                desc: None,
+                url: Some("https://example.com/customer".to_string()),
+                thumb_media_id: None,
+            }),
         })
         .unwrap();
+        assert_eq!(send["text"]["content"], "hello");
+        assert_eq!(send["image"]["media_id"], "image-media");
+        assert_eq!(send["video"]["thumb_media_id"], "thumb-media");
+        assert_eq!(send["link"]["title"], "docs");
+        assert_eq!(send["miniprogram"]["appid"], "wx-app");
         assert_eq!(send["msgmenu"]["head_content"], "choose");
-        assert!(send.get("image").is_none());
+        assert_eq!(send["msgmenu"]["list"][0]["id"], "id-1");
+        assert_eq!(send["location"]["name"], "office");
+        assert_eq!(send["ca_link"]["title"], "customer");
 
         let on_event = serde_json::to_value(WorkAccountServiceSendMsgOnEventRequest {
             code: "code".to_string(),
             msgid: "msg".to_string(),
             msgtype: "text".to_string(),
-            text: Some(json!({ "content": "hello" })),
-            menu: None,
+            text: Some(WorkAccountServiceTextMessage {
+                content: Some("hello".to_string()),
+            }),
+            menu: Some(WorkAccountServiceMenuMessage {
+                head_content: Some("choose".to_string()),
+                list: Vec::new(),
+                tail_content: None,
+            }),
         })
         .unwrap();
         assert_eq!(on_event["code"], "code");
+        assert_eq!(on_event["text"]["content"], "hello");
+        assert_eq!(on_event["msgmenu"]["head_content"], "choose");
 
         let state = serde_json::to_value(WorkAccountServiceStateTransRequest {
             open_kfid: "kf".to_string(),
