@@ -950,6 +950,8 @@ pub struct OpenWorkPreAuthCodeResponse {
     pub pre_auth_code: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1084,6 +1086,8 @@ pub struct OpenWorkPermanentCodeResponse {
     pub state: Option<String>,
     #[serde(default)]
     pub dealer_corp_info: Option<OpenWorkAuthCorpInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1096,6 +1100,8 @@ pub struct OpenWorkCorpTokenResponse {
     pub access_token: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1728,35 +1734,44 @@ mod tests {
             "access_token": "corp-token",
             "expires_in": 7200,
             "permanent_code": "permanent",
-            "auth_corp_info": { "corpid": "corp", "corp_name": "Corp" },
-            "auth_info": { "agent": [{ "agentid": 100001, "name": "App" }] },
-            "auth_user_info": { "userid": "admin", "name": "Admin" },
+            "auth_corp_info": { "corpid": "corp", "corp_name": "Corp", "corp_region": "CN" },
+            "auth_info": { "agent": [{ "agentid": 100001, "name": "App", "edition": "pro" }], "auth_scope": "all" },
+            "auth_user_info": { "userid": "admin", "name": "Admin", "role": "owner" },
             "register_code_info": {
                 "register_code": "register",
                 "template_id": "tpl",
-                "state": "state"
+                "state": "state",
+                "register_source": "suite"
             },
             "state": "state",
-            "dealer_corp_info": { "corpid": "dealer", "corp_name": "Dealer" }
+            "dealer_corp_info": { "corpid": "dealer", "corp_name": "Dealer", "dealer_type": "direct" },
+            "request_id": "permanent"
         }))
         .unwrap();
         assert_eq!(permanent.access_token.as_deref(), Some("corp-token"));
+        assert_eq!(permanent.extra["request_id"], "permanent");
         let auth_corp = permanent.auth_corp_info.expect("auth corp");
         assert_eq!(auth_corp.corpid.as_deref(), Some("corp"));
         assert_eq!(auth_corp.corp_name.as_deref(), Some("Corp"));
+        assert_eq!(auth_corp.extra["corp_region"], "CN");
         let auth_info = permanent.auth_info.expect("auth info");
+        assert_eq!(auth_info.extra["auth_scope"], "all");
         assert_eq!(auth_info.agent[0].agentid, Some(100001));
         assert_eq!(auth_info.agent[0].name.as_deref(), Some("App"));
+        assert_eq!(auth_info.agent[0].extra["edition"], "pro");
         let auth_user = permanent.auth_user_info.expect("auth user");
         assert_eq!(auth_user.userid.as_deref(), Some("admin"));
         assert_eq!(auth_user.name.as_deref(), Some("Admin"));
+        assert_eq!(auth_user.extra["role"], "owner");
         let register = permanent.register_code_info.expect("register code");
         assert_eq!(register.register_code.as_deref(), Some("register"));
         assert_eq!(register.template_id.as_deref(), Some("tpl"));
         assert_eq!(register.state.as_deref(), Some("state"));
+        assert_eq!(register.extra["register_source"], "suite");
         let dealer = permanent.dealer_corp_info.expect("dealer corp");
         assert_eq!(dealer.corpid.as_deref(), Some("dealer"));
         assert_eq!(dealer.corp_name.as_deref(), Some("Dealer"));
+        assert_eq!(dealer.extra["dealer_type"], "direct");
 
         let convert: OpenWorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
             "open_userid_list": [{
@@ -1776,23 +1791,27 @@ mod tests {
         let pre_auth: OpenWorkPreAuthCodeResponse = serde_json::from_value(json!({
             "errcode": 0,
             "pre_auth_code": "pre-auth",
-            "expires_in": 1200
+            "expires_in": 1200,
+            "request_id": "pre-auth"
         }))
         .unwrap();
         assert_eq!(pre_auth.pre_auth_code.as_deref(), Some("pre-auth"));
         assert_eq!(pre_auth.expires_in, Some(1200));
+        assert_eq!(pre_auth.extra["request_id"], "pre-auth");
 
         let permanent: OpenWorkPermanentCodeResponse = serde_json::from_value(json!({
             "errcode": 0,
             "access_token": "access-token",
             "expires_in": 7200,
             "permanent_code": "permanent",
-            "auth_corp_info": { "corpid": "corp" },
-            "auth_info": { "agent": [] },
-            "auth_user_info": { "userid": "admin" }
+            "auth_corp_info": { "corpid": "corp", "corp_alias": "alias" },
+            "auth_info": { "agent": [{ "agentid": 100001, "suite_flag": true }], "auth_version": 1 },
+            "auth_user_info": { "userid": "admin", "user_source": "suite" },
+            "request_id": "permanent-auth"
         }))
         .unwrap();
         assert_eq!(permanent.permanent_code.as_deref(), Some("permanent"));
+        assert_eq!(permanent.extra["request_id"], "permanent-auth");
         assert_eq!(
             permanent
                 .auth_corp_info
@@ -1801,23 +1820,41 @@ mod tests {
             Some("corp")
         );
         assert_eq!(
+            permanent.auth_corp_info.as_ref().unwrap().extra["corp_alias"],
+            "alias"
+        );
+        assert_eq!(
+            permanent.auth_info.as_ref().unwrap().extra["auth_version"],
+            1
+        );
+        assert_eq!(
+            permanent.auth_info.as_ref().unwrap().agent[0].extra["suite_flag"],
+            true
+        );
+        assert_eq!(
             permanent
                 .auth_user_info
                 .as_ref()
                 .and_then(|user| user.userid.as_deref()),
             Some("admin")
         );
+        assert_eq!(
+            permanent.auth_user_info.as_ref().unwrap().extra["user_source"],
+            "suite"
+        );
 
         let corp_token: OpenWorkCorpTokenResponse = serde_json::from_value(json!({
             "errcode": 0,
             "access_token": "corp-access-token",
-            "expires_in": 7200
+            "expires_in": 7200,
+            "request_id": "corp-token"
         }))
         .unwrap();
         assert_eq!(
             corp_token.access_token.as_deref(),
             Some("corp-access-token")
         );
+        assert_eq!(corp_token.extra["request_id"], "corp-token");
 
         let status: OpenWorkStatusResponse = serde_json::from_value(json!({
             "errcode": 0,
