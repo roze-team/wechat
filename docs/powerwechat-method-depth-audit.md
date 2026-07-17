@@ -148,6 +148,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   failed-transfer records.
 - external-contact group-message template add/list/task/send-result responses
   now expose typed fail IDs, message text/attachments, tasks, and send results.
+- external-contact group-message template/list/task/send-result DTOs now
+  preserve unknown upstream fields across wrappers, message payloads,
+  attachments, tasks, and send-result records.
 - external-contact customer-strategy list/get/range/create responses now expose
   typed strategy IDs, strategy metadata, privileges, and ranges.
 - external-contact corp-tag, strategy-tag, and moment-strategy responses now

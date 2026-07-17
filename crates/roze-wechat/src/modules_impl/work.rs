@@ -7134,6 +7134,8 @@ pub struct ExternalContactMessageTemplateResponse {
     pub msgid: Option<String>,
     #[serde(default)]
     pub fail_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7160,6 +7162,8 @@ pub struct ExternalContactGroupMessageListResponse {
     pub group_msg_list: Vec<ExternalContactGroupMessage>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7176,18 +7180,23 @@ pub struct ExternalContactGroupMessage {
     pub text: Option<ExternalContactMessageText>,
     #[serde(default)]
     pub attachments: Vec<ExternalContactMessageAttachment>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageText {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 impl ExternalContactMessageText {
     pub fn new(content: impl Into<String>) -> Self {
         Self {
             content: Some(content.into()),
+            extra: Value::Null,
         }
     }
 }
@@ -7206,6 +7215,8 @@ pub struct ExternalContactMessageAttachment {
     pub video: Option<ExternalContactMessageVideo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<ExternalContactMessageFile>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 impl ExternalContactMessageAttachment {
@@ -7215,11 +7226,13 @@ impl ExternalContactMessageAttachment {
             image: Some(ExternalContactMessageImage {
                 media_id: Some(media_id.into()),
                 pic_url: None,
+                extra: Value::Null,
             }),
             link: None,
             miniprogram: None,
             video: None,
             file: None,
+            extra: Value::Null,
         }
     }
 
@@ -7231,6 +7244,7 @@ impl ExternalContactMessageAttachment {
             miniprogram: None,
             video: None,
             file: None,
+            extra: Value::Null,
         }
     }
 
@@ -7242,6 +7256,7 @@ impl ExternalContactMessageAttachment {
             miniprogram: Some(miniprogram),
             video: None,
             file: None,
+            extra: Value::Null,
         }
     }
 
@@ -7253,8 +7268,10 @@ impl ExternalContactMessageAttachment {
             miniprogram: None,
             video: Some(ExternalContactMessageVideo {
                 media_id: Some(media_id.into()),
+                extra: Value::Null,
             }),
             file: None,
+            extra: Value::Null,
         }
     }
 
@@ -7267,7 +7284,9 @@ impl ExternalContactMessageAttachment {
             video: None,
             file: Some(ExternalContactMessageFile {
                 media_id: Some(media_id.into()),
+                extra: Value::Null,
             }),
+            extra: Value::Null,
         }
     }
 }
@@ -7278,6 +7297,8 @@ pub struct ExternalContactMessageImage {
     pub media_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pic_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7290,6 +7311,8 @@ pub struct ExternalContactMessageLink {
     pub desc: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7302,18 +7325,24 @@ pub struct ExternalContactMessageMiniProgram {
     pub appid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageVideo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMessageFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7326,6 +7355,8 @@ pub struct ExternalContactGroupMessageTaskResponse {
     pub task_list: Vec<ExternalContactGroupMessageTask>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7336,6 +7367,8 @@ pub struct ExternalContactGroupMessageTask {
     pub status: Option<i64>,
     #[serde(default)]
     pub send_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7348,6 +7381,8 @@ pub struct ExternalContactGroupMessageSendResultResponse {
     pub send_list: Vec<ExternalContactGroupMessageSendResult>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7362,6 +7397,8 @@ pub struct ExternalContactGroupMessageSendResult {
     pub status: Option<i64>,
     #[serde(default)]
     pub send_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11136,24 +11173,29 @@ mod tests {
             image: Some(ExternalContactMessageImage {
                 media_id: Some("image-media".to_string()),
                 pic_url: None,
+                extra: Value::Null,
             }),
             link: Some(ExternalContactMessageLink {
                 title: Some("docs".to_string()),
                 picurl: Some("https://example.com/a.png".to_string()),
                 desc: Some("desc".to_string()),
                 url: Some("https://example.com".to_string()),
+                extra: Value::Null,
             }),
             miniprogram: Some(ExternalContactMessageMiniProgram {
                 title: Some("mini".to_string()),
                 pic_media_id: Some("pic-media".to_string()),
                 appid: Some("wx-app".to_string()),
                 page: Some("pages/index".to_string()),
+                extra: Value::Null,
             }),
             file: Some(ExternalContactMessageFile {
                 media_id: Some("file-media".to_string()),
+                extra: Value::Null,
             }),
             video: Some(ExternalContactMessageVideo {
                 media_id: Some("video-media".to_string()),
+                extra: Value::Null,
             }),
             agentid: 100001,
             notify: 1,
@@ -11323,6 +11365,7 @@ mod tests {
                     picurl: None,
                     desc: None,
                     url: Some("https://example.com".to_string()),
+                    extra: Value::Null,
                 },
             )],
         })
@@ -11379,11 +11422,13 @@ mod tests {
         let added: ExternalContactMessageTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
             "msgid": "msg",
-            "fail_list": ["bad"]
+            "fail_list": ["bad"],
+            "request_id": "req-template"
         }))
         .unwrap();
         assert_eq!(added.msgid.as_deref(), Some("msg"));
         assert_eq!(added.fail_list[0], "bad");
+        assert_eq!(added.extra["request_id"], "req-template");
 
         let messages: ExternalContactGroupMessageListResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -11392,18 +11437,22 @@ mod tests {
                 "creator": "creator",
                 "create_time": 1_720_000_000,
                 "create_type": 1,
-                "text": { "content": "hello" },
+                "text": { "content": "hello", "locale": "zh_CN" },
                 "attachments": [{
                     "msgtype": "link",
+                    "attachment_id": "attachment-1",
                     "link": {
                         "title": "title",
                         "picurl": "https://example.com/pic.png",
                         "desc": "desc",
-                        "url": "https://example.com"
+                        "url": "https://example.com",
+                        "source": "crm"
                     }
-                }]
+                }],
+                "visible_range": "all"
             }],
-            "next_cursor": "cursor"
+            "next_cursor": "cursor",
+            "total": 1
         }))
         .unwrap();
         assert_eq!(messages.group_msg_list[0].msgid.as_deref(), Some("msg"));
@@ -11415,22 +11464,48 @@ mod tests {
             Some("hello")
         );
         assert_eq!(
+            messages.group_msg_list[0].text.as_ref().unwrap().extra["locale"],
+            "zh_CN"
+        );
+        assert_eq!(messages.group_msg_list[0].extra["visible_range"], "all");
+        assert_eq!(
+            messages.group_msg_list[0].attachments[0].extra["attachment_id"],
+            "attachment-1"
+        );
+        assert_eq!(
             messages.group_msg_list[0].attachments[0]
                 .link
                 .as_ref()
                 .and_then(|link| link.url.as_deref()),
             Some("https://example.com")
         );
+        assert_eq!(
+            messages.group_msg_list[0].attachments[0]
+                .link
+                .as_ref()
+                .unwrap()
+                .extra["source"],
+            "crm"
+        );
         assert_eq!(messages.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(messages.extra["total"], 1);
 
         let tasks: ExternalContactGroupMessageTaskResponse = serde_json::from_value(json!({
-            "task_list": [{ "userid": "user", "status": 1, "send_time": 1_720_000_001 }],
-            "next_cursor": "task-cursor"
+            "task_list": [{
+                "userid": "user",
+                "status": 1,
+                "send_time": 1_720_000_001,
+                "task_remark": "manual"
+            }],
+            "next_cursor": "task-cursor",
+            "task_total": 1
         }))
         .unwrap();
         assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
         assert_eq!(tasks.task_list[0].send_time, Some(1_720_000_001));
+        assert_eq!(tasks.task_list[0].extra["task_remark"], "manual");
         assert_eq!(tasks.next_cursor.as_deref(), Some("task-cursor"));
+        assert_eq!(tasks.extra["task_total"], 1);
 
         let send_result: ExternalContactGroupMessageSendResultResponse =
             serde_json::from_value(json!({
@@ -11439,9 +11514,11 @@ mod tests {
                     "chat_id": "chat",
                     "userid": "user",
                     "status": 1,
-                    "send_time": 1_720_000_002
+                    "send_time": 1_720_000_002,
+                    "fail_reason": "none"
                 }],
-                "next_cursor": "send-cursor"
+                "next_cursor": "send-cursor",
+                "send_total": 1
             }))
             .unwrap();
         assert_eq!(
@@ -11449,6 +11526,8 @@ mod tests {
             Some("external")
         );
         assert_eq!(send_result.send_list[0].chat_id.as_deref(), Some("chat"));
+        assert_eq!(send_result.send_list[0].extra["fail_reason"], "none");
+        assert_eq!(send_result.extra["send_total"], 1);
     }
 
     #[test]
