@@ -9663,6 +9663,8 @@ pub struct WorkLivingCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub livingid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9673,6 +9675,8 @@ pub struct WorkLivingCodeResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub living_code: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9685,6 +9689,8 @@ pub struct WorkLivingGetUserAllLivingIdResponse {
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub livingid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9707,6 +9713,8 @@ pub struct WorkLivingInfo {
     pub viewer_count: Option<i64>,
     #[serde(default)]
     pub comment_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9717,6 +9725,8 @@ pub struct WorkLivingInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub living_info: Option<WorkLivingInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9735,6 +9745,8 @@ pub struct WorkLivingWatchStat {
     pub invite_userid: Option<String>,
     #[serde(default)]
     pub invite_external_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9747,6 +9759,8 @@ pub struct WorkLivingWatchStatInfo {
     pub mic_count: Option<i64>,
     #[serde(default)]
     pub watch_stat: Vec<WorkLivingWatchStat>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9759,6 +9773,8 @@ pub struct WorkLivingWatchStatResponse {
     pub next_key: Option<String>,
     #[serde(default)]
     pub stat_info: Option<WorkLivingWatchStatInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9777,6 +9793,8 @@ pub struct WorkLivingShareInfoResponse {
     pub invitor_userid: Option<String>,
     #[serde(default)]
     pub invitor_external_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9892,6 +9910,8 @@ pub struct WorkWeDriveSpaceCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub spaceid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9914,6 +9934,8 @@ pub struct WorkWeDriveSpaceInfo {
     pub enable_watermark: Option<bool>,
     #[serde(default)]
     pub enable_share_url: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9924,6 +9946,8 @@ pub struct WorkWeDriveSpaceInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub space_info: Option<WorkWeDriveSpaceInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9934,6 +9958,8 @@ pub struct WorkWeDriveSpaceShareResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub space_share_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9948,6 +9974,8 @@ pub struct WorkWeDriveFileListResponse {
     pub next_start: Option<i64>,
     #[serde(default)]
     pub file_list: Vec<WorkWeDriveFileInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9958,6 +9986,8 @@ pub struct WorkWeDriveFileUploadResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub fileid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9972,6 +10002,8 @@ pub struct WorkWeDriveFileDownloadResponse {
     pub cookie_name: Option<String>,
     #[serde(default)]
     pub cookie_value: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9984,6 +10016,8 @@ pub struct WorkWeDriveFileCreateResponse {
     pub fileid: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10010,6 +10044,8 @@ pub struct WorkWeDriveFileInfo {
     pub url: Option<String>,
     #[serde(default)]
     pub auth_info: Vec<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10020,6 +10056,8 @@ pub struct WorkWeDriveFileRenameResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub file: Option<WorkWeDriveFileInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10028,6 +10066,8 @@ pub struct WorkWeDriveFileMoveResult {
     pub success: Vec<String>,
     #[serde(default)]
     pub failed: Vec<WorkWeDriveFileMoveFailure>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10038,6 +10078,8 @@ pub struct WorkWeDriveFileMoveFailure {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10048,6 +10090,8 @@ pub struct WorkWeDriveFileMoveResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub file_list: Option<WorkWeDriveFileMoveResult>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10058,6 +10102,8 @@ pub struct WorkWeDriveFileShareResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub share_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13972,22 +14018,29 @@ mod tests {
     #[test]
     fn deserializes_work_oa_living_and_wedrive_responses() {
         let living: WorkLivingCreateResponse =
-            serde_json::from_value(json!({ "livingid": 100 })).unwrap();
+            serde_json::from_value(json!({ "livingid": 100, "request_id": "living-create" }))
+                .unwrap();
         assert_eq!(living.livingid, Some(100));
+        assert_eq!(living.extra["request_id"], "living-create");
 
         let code: WorkLivingCodeResponse =
-            serde_json::from_value(json!({ "living_code": 200 })).unwrap();
+            serde_json::from_value(json!({ "living_code": 200, "expire_time": 1_800_003_600 }))
+                .unwrap();
         assert_eq!(code.living_code, Some(200));
+        assert_eq!(code.extra["expire_time"], 1_800_003_600);
 
         let ids: WorkLivingGetUserAllLivingIdResponse = serde_json::from_value(json!({
             "next_cursor": "next",
-            "livingid_list": ["living-1"]
+            "livingid_list": ["living-1"],
+            "total": 1
         }))
         .unwrap();
         assert_eq!(ids.next_cursor.as_deref(), Some("next"));
         assert_eq!(ids.livingid_list[0], "living-1");
+        assert_eq!(ids.extra["total"], 1);
 
         let info: WorkLivingInfoResponse = serde_json::from_value(json!({
+            "trace_id": "living-info",
             "living_info": {
                 "anchor_userid": "anchor",
                 "theme": "Launch",
@@ -13995,126 +14048,174 @@ mod tests {
                 "living_duration": 3600,
                 "type": 1,
                 "status": 2,
-                "viewer_count": 3
+                "viewer_count": 3,
+                "replay_status": 1
             }
         }))
         .unwrap();
+        assert_eq!(info.extra["trace_id"], "living-info");
         let info = info.living_info.unwrap();
         assert_eq!(info.theme.as_deref(), Some("Launch"));
         assert_eq!(info.living_type, Some(1));
         assert_eq!(info.viewer_count, Some(3));
+        assert_eq!(info.extra["replay_status"], 1);
 
         let stat: WorkLivingWatchStatResponse = serde_json::from_value(json!({
             "next_key": "next",
+            "has_more": true,
             "stat_info": {
                 "viewer_count": 3,
                 "comment_count": 1,
+                "share_count": 2,
                 "watch_stat": [{
                     "viewer_userid": "viewer",
                     "watch_time": 120,
-                    "is_comment": 1
+                    "is_comment": 1,
+                    "watch_percent": 80
                 }]
             }
         }))
         .unwrap();
+        assert_eq!(stat.extra["has_more"], true);
         let stat_info = stat.stat_info.unwrap();
         assert_eq!(stat_info.viewer_count, Some(3));
+        assert_eq!(stat_info.extra["share_count"], 2);
         assert_eq!(
             stat_info.watch_stat[0].viewer_userid.as_deref(),
             Some("viewer")
         );
+        assert_eq!(stat_info.watch_stat[0].extra["watch_percent"], 80);
 
         let share_info: WorkLivingShareInfoResponse = serde_json::from_value(json!({
             "livingid": "living-1",
             "viewer_userid": "viewer",
             "viewer_external_userid": "external-viewer",
             "invitor_userid": "invitor",
-            "invitor_external_userid": "external-invitor"
+            "invitor_external_userid": "external-invitor",
+            "share_channel": "timeline"
         }))
         .unwrap();
         assert_eq!(share_info.viewer_userid.as_deref(), Some("viewer"));
+        assert_eq!(share_info.extra["share_channel"], "timeline");
 
         let space_create: WorkWeDriveSpaceCreateResponse =
-            serde_json::from_value(json!({ "spaceid": "space" })).unwrap();
+            serde_json::from_value(json!({ "spaceid": "space", "request_id": "space-create" }))
+                .unwrap();
         assert_eq!(space_create.spaceid.as_deref(), Some("space"));
+        assert_eq!(space_create.extra["request_id"], "space-create");
 
         let space_info: WorkWeDriveSpaceInfoResponse = serde_json::from_value(json!({
+            "trace_id": "space-info",
             "space_info": {
                 "spaceid": "space",
                 "space_name": "Team Space",
                 "userid": "user",
                 "quota": 1024,
-                "auth_info": [{ "type": 1, "auth": 7 }]
+                "auth_info": [{ "type": 1, "auth": 7 }],
+                "owner_department": 1
             }
         }))
         .unwrap();
+        assert_eq!(space_info.extra["trace_id"], "space-info");
         let space_info = space_info.space_info.unwrap();
         assert_eq!(space_info.space_name.as_deref(), Some("Team Space"));
         assert_eq!(space_info.auth_info[0]["auth"], 7);
+        assert_eq!(space_info.extra["owner_department"], 1);
 
         let space_share: WorkWeDriveSpaceShareResponse = serde_json::from_value(json!({
-            "space_share_url": "https://example.com/space"
+            "space_share_url": "https://example.com/space",
+            "expire_time": 1_800_003_600
         }))
         .unwrap();
         assert_eq!(
             space_share.space_share_url.as_deref(),
             Some("https://example.com/space")
         );
+        assert_eq!(space_share.extra["expire_time"], 1_800_003_600);
 
         let file_list: WorkWeDriveFileListResponse = serde_json::from_value(json!({
             "has_more": true,
             "next_start": 100,
-            "file_list": [{ "fileid": "file", "file_name": "doc.txt", "file_size": 10 }]
+            "scan_id": "file-list",
+            "file_list": [{
+                "fileid": "file",
+                "file_name": "doc.txt",
+                "file_size": 10,
+                "sha256": "hash"
+            }]
         }))
         .unwrap();
         assert_eq!(file_list.has_more, Some(true));
+        assert_eq!(file_list.extra["scan_id"], "file-list");
         assert_eq!(file_list.file_list[0].fileid.as_deref(), Some("file"));
         assert_eq!(file_list.file_list[0].file_name.as_deref(), Some("doc.txt"));
+        assert_eq!(file_list.file_list[0].extra["sha256"], "hash");
 
         let upload: WorkWeDriveFileUploadResponse =
-            serde_json::from_value(json!({ "fileid": "file" })).unwrap();
+            serde_json::from_value(json!({ "fileid": "file", "upload_token": "token" })).unwrap();
         assert_eq!(upload.fileid.as_deref(), Some("file"));
+        assert_eq!(upload.extra["upload_token"], "token");
 
         let download: WorkWeDriveFileDownloadResponse = serde_json::from_value(json!({
             "download_url": "https://example.com/file",
             "cookie_name": "SESSION",
-            "cookie_value": "value"
+            "cookie_value": "value",
+            "expire_time": 1_800_003_600
         }))
         .unwrap();
         assert_eq!(download.cookie_name.as_deref(), Some("SESSION"));
+        assert_eq!(download.extra["expire_time"], 1_800_003_600);
 
         let create: WorkWeDriveFileCreateResponse = serde_json::from_value(json!({
             "fileid": "file",
-            "url": "https://example.com/doc"
+            "url": "https://example.com/doc",
+            "template_id": "template"
         }))
         .unwrap();
         assert_eq!(create.url.as_deref(), Some("https://example.com/doc"));
+        assert_eq!(create.extra["template_id"], "template");
 
         let rename: WorkWeDriveFileRenameResponse = serde_json::from_value(json!({
-            "file": { "fileid": "file", "file_name": "new.txt" }
+            "request_id": "rename",
+            "file": { "fileid": "file", "file_name": "new.txt", "version": 2 }
         }))
         .unwrap();
-        assert_eq!(rename.file.unwrap().file_name.as_deref(), Some("new.txt"));
+        assert_eq!(rename.extra["request_id"], "rename");
+        let rename_file = rename.file.unwrap();
+        assert_eq!(rename_file.file_name.as_deref(), Some("new.txt"));
+        assert_eq!(rename_file.extra["version"], 2);
 
         let moved: WorkWeDriveFileMoveResponse = serde_json::from_value(json!({
+            "request_id": "move",
             "file_list": {
                 "success": ["file"],
-                "failed": [{ "fileid": "bad", "errcode": 40001, "errmsg": "invalid" }]
+                "failed": [{
+                    "fileid": "bad",
+                    "errcode": 40001,
+                    "errmsg": "invalid",
+                    "retryable": false
+                }],
+                "replace_count": 0
             }
         }))
         .unwrap();
+        assert_eq!(moved.extra["request_id"], "move");
         let moved = moved.file_list.unwrap();
         assert_eq!(moved.success[0], "file");
         assert_eq!(moved.failed[0].fileid.as_deref(), Some("bad"));
+        assert_eq!(moved.failed[0].extra["retryable"], false);
+        assert_eq!(moved.extra["replace_count"], 0);
 
         let share: WorkWeDriveFileShareResponse = serde_json::from_value(json!({
-            "share_url": "https://example.com/share"
+            "share_url": "https://example.com/share",
+            "expire_time": 1_800_003_600
         }))
         .unwrap();
         assert_eq!(
             share.share_url.as_deref(),
             Some("https://example.com/share")
         );
+        assert_eq!(share.extra["expire_time"], 1_800_003_600);
     }
 
     #[test]

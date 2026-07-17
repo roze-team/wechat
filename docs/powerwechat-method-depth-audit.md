@@ -229,6 +229,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   upstream fields across wrappers and nested room/booking records.
 - OA journal detail/stat and living info/watch-stat responses now expose typed
   journal, statistic, live-info, and watch-stat DTOs.
+- OA living and WeDrive response DTOs now preserve unknown upstream fields
+  across wrappers, info payloads, file records, and move failures.
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 
