@@ -5148,6 +5148,15 @@ pub struct WorkExternalPaySetMerchantUseScopeRequest {
     pub allow_use_scope: String,
 }
 
+impl WorkExternalPaySetMerchantUseScopeRequest {
+    pub fn new(mch_id: impl Into<String>, allow_use_scope: WorkExternalPayUseScopeKind) -> Self {
+        Self {
+            mch_id: mch_id.into(),
+            allow_use_scope: allow_use_scope.as_code().to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalPayBillListRequest {
     pub begin_time: i64,
@@ -5188,6 +5197,57 @@ pub struct WorkExternalPayUseScope {
     pub tagid: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalPayUseScope {
+    pub fn scope_kind(&self) -> Option<WorkExternalPayUseScopeKind> {
+        self.scope_type
+            .as_deref()
+            .map(WorkExternalPayUseScopeKind::from_code)
+    }
+
+    pub fn applies_to_all(&self) -> bool {
+        self.scope_kind()
+            .is_some_and(|kind| matches!(kind, WorkExternalPayUseScopeKind::All))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkExternalPayUseScopeKind {
+    All,
+    User,
+    Party,
+    Tag,
+    Other,
+}
+
+impl WorkExternalPayUseScopeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("all") {
+            Self::All
+        } else if value.eq_ignore_ascii_case("userid") || value.eq_ignore_ascii_case("user") {
+            Self::User
+        } else if value.eq_ignore_ascii_case("partyid")
+            || value.eq_ignore_ascii_case("party")
+            || value.eq_ignore_ascii_case("department")
+        {
+            Self::Party
+        } else if value.eq_ignore_ascii_case("tagid") || value.eq_ignore_ascii_case("tag") {
+            Self::Tag
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn as_code(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::User => "userid",
+            Self::Party => "partyid",
+            Self::Tag => "tagid",
+            Self::Other => "unknown",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5232,6 +5292,69 @@ pub struct WorkExternalPayBill {
     pub create_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalPayBill {
+    pub fn status_kind(&self) -> Option<WorkExternalPayBillStatusKind> {
+        self.status
+            .as_deref()
+            .or(self.trade_state.as_deref())
+            .map(WorkExternalPayBillStatusKind::from_code)
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.status_kind()
+            .is_some_and(|kind| matches!(kind, WorkExternalPayBillStatusKind::Success))
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkExternalPayBillStatusKind::is_terminal)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkExternalPayBillStatusKind {
+    Success,
+    Refund,
+    NotPay,
+    Closed,
+    Revoked,
+    UserPaying,
+    PayError,
+    Other,
+}
+
+impl WorkExternalPayBillStatusKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("success") {
+            Self::Success
+        } else if value.eq_ignore_ascii_case("refund") {
+            Self::Refund
+        } else if value.eq_ignore_ascii_case("notpay") || value.eq_ignore_ascii_case("not_pay") {
+            Self::NotPay
+        } else if value.eq_ignore_ascii_case("closed") {
+            Self::Closed
+        } else if value.eq_ignore_ascii_case("revoked") {
+            Self::Revoked
+        } else if value.eq_ignore_ascii_case("userpaying")
+            || value.eq_ignore_ascii_case("user_paying")
+        {
+            Self::UserPaying
+        } else if value.eq_ignore_ascii_case("payerror") || value.eq_ignore_ascii_case("pay_error")
+        {
+            Self::PayError
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Success | Self::Refund | Self::Closed | Self::Revoked | Self::PayError
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14197,6 +14320,12 @@ mod tests {
         .unwrap();
         assert_eq!(scope["mch_id"], "1900000109");
         assert_eq!(scope["allow_use_scope"], "all");
+        let typed_scope = serde_json::to_value(WorkExternalPaySetMerchantUseScopeRequest::new(
+            "1900000109",
+            WorkExternalPayUseScopeKind::Party,
+        ))
+        .unwrap();
+        assert_eq!(typed_scope["allow_use_scope"], "partyid");
 
         let bill = serde_json::to_value(WorkExternalPayBillListRequest {
             begin_time: 1_800_000_000,
@@ -14226,6 +14355,19 @@ mod tests {
             merchant.allow_use_scope[0].scope_type.as_deref(),
             Some("all")
         );
+        assert_eq!(
+            merchant.allow_use_scope[0].scope_kind(),
+            Some(WorkExternalPayUseScopeKind::All)
+        );
+        assert!(merchant.allow_use_scope[0].applies_to_all());
+        assert_eq!(
+            WorkExternalPayUseScopeKind::from_code("department"),
+            WorkExternalPayUseScopeKind::Party
+        );
+        assert_eq!(
+            WorkExternalPayUseScopeKind::from_code("unknown"),
+            WorkExternalPayUseScopeKind::Other
+        );
         assert_eq!(merchant.extra["merchant_status"], "active");
         assert_eq!(merchant.allow_use_scope[0].extra["scope_name"], "all staff");
 
@@ -14249,6 +14391,21 @@ mod tests {
         assert_eq!(bills.bill_list[0].out_trade_no.as_deref(), Some("trade-no"));
         assert_eq!(bills.bill_list[0].amount, Some(100));
         assert_eq!(bills.bill_list[0].payee_userid.as_deref(), Some("payee"));
+        assert_eq!(
+            bills.bill_list[0].status_kind(),
+            Some(WorkExternalPayBillStatusKind::Success)
+        );
+        assert!(bills.bill_list[0].is_success());
+        assert!(bills.bill_list[0].is_terminal());
+        assert_eq!(
+            WorkExternalPayBillStatusKind::from_code("USER_PAYING"),
+            WorkExternalPayBillStatusKind::UserPaying
+        );
+        assert!(!WorkExternalPayBillStatusKind::UserPaying.is_terminal());
+        assert_eq!(
+            WorkExternalPayBillStatusKind::from_code("SOMETHING_NEW"),
+            WorkExternalPayBillStatusKind::Other
+        );
         assert_eq!(bills.bill_list[0].extra["trade_type"], "JSAPI");
     }
 
