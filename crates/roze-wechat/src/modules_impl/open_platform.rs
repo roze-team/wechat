@@ -1790,7 +1790,27 @@ pub struct OpenPlatformMiniProgramPrivacyInterfaceResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub interface_list: Vec<Value>,
+    pub interface_list: Vec<OpenPlatformMiniProgramPrivacyInterface>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyInterface {
+    #[serde(default)]
+    pub api_name: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub fail_reason: Option<String>,
+    #[serde(default)]
+    pub audit_id: Option<i64>,
+    #[serde(default)]
+    pub apply_time: Option<i64>,
+    #[serde(default)]
+    pub audit_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1811,6 +1831,8 @@ pub struct OpenPlatformMiniProgramPrivacyInterfaceApplyResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub audit_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2432,14 +2454,22 @@ mod tests {
 
         let interfaces: OpenPlatformMiniProgramPrivacyInterfaceResponse =
             serde_json::from_value(json!({
-                "interface_list": [{ "api_name": "getUserInfo", "status": 2 }]
+                "interface_list": [{ "api_name": "getUserInfo", "status": 2, "scope": "profile" }],
+                "request_id": "privacy-interface"
             }))
             .unwrap();
-        assert_eq!(interfaces.interface_list[0]["api_name"], "getUserInfo");
+        assert_eq!(
+            interfaces.interface_list[0].api_name.as_deref(),
+            Some("getUserInfo")
+        );
+        assert_eq!(interfaces.interface_list[0].status, Some(2));
+        assert_eq!(interfaces.interface_list[0].extra["scope"], "profile");
+        assert_eq!(interfaces.extra["request_id"], "privacy-interface");
 
         let apply_response: OpenPlatformMiniProgramPrivacyInterfaceApplyResponse =
-            serde_json::from_value(json!({ "audit_id": 10 })).unwrap();
+            serde_json::from_value(json!({ "audit_id": 10, "request_id": "apply-10" })).unwrap();
         assert_eq!(apply_response.audit_id, Some(10));
+        assert_eq!(apply_response.extra["request_id"], "apply-10");
     }
 
     #[test]
@@ -2511,10 +2541,33 @@ mod tests {
 
         let interfaces: OpenPlatformMiniProgramPrivacyInterfaceResponse =
             serde_json::from_value(json!({
-                "interface_list": [{ "api_name": "wx.getUserProfile", "status": 2 }]
+                "interface_list": [{
+                    "api_name": "wx.getUserProfile",
+                    "status": 2,
+                    "fail_reason": "needs description",
+                    "audit_id": 100,
+                    "apply_time": 1800000000,
+                    "audit_time": 1800000100,
+                    "interface_extra": "retained"
+                }],
+                "request_id": "privacy-interfaces"
             }))
             .unwrap();
-        assert_eq!(interfaces.interface_list[0]["status"], 2);
+        assert_eq!(
+            interfaces.interface_list[0].api_name.as_deref(),
+            Some("wx.getUserProfile")
+        );
+        assert_eq!(interfaces.interface_list[0].status, Some(2));
+        assert_eq!(
+            interfaces.interface_list[0].fail_reason.as_deref(),
+            Some("needs description")
+        );
+        assert_eq!(interfaces.interface_list[0].audit_id, Some(100));
+        assert_eq!(
+            interfaces.interface_list[0].extra["interface_extra"],
+            "retained"
+        );
+        assert_eq!(interfaces.extra["request_id"], "privacy-interfaces");
 
         let apply = serde_json::to_value(OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
             api_name: "wx.getUserProfile".to_string(),
@@ -2527,8 +2580,13 @@ mod tests {
         assert_eq!(apply["scene"], 1);
 
         let applied: OpenPlatformMiniProgramPrivacyInterfaceApplyResponse =
-            serde_json::from_value(json!({ "audit_id": 100 })).unwrap();
+            serde_json::from_value(json!({
+                "audit_id": 100,
+                "request_id": "privacy-apply"
+            }))
+            .unwrap();
         assert_eq!(applied.audit_id, Some(100));
+        assert_eq!(applied.extra["request_id"], "privacy-apply");
     }
 
     #[test]
