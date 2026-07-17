@@ -3457,6 +3457,100 @@ impl Work {
             .await
     }
 
+    pub async fn get_wedoc_document_auth(
+        &self,
+        access_token: impl Into<String>,
+        docid: impl Into<String>,
+    ) -> Result<WorkWeDocDocumentAuthResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/doc_get_auth",
+                Some(access_token.into()),
+                json!({ "docid": docid.into() }),
+            )
+            .await
+    }
+
+    pub async fn modify_wedoc_document_join_rule(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocModifyJoinRuleRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/mod_doc_join_rule",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_wedoc_document_members(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocModifyMembersRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/mod_doc_member",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_wedoc_document_safety_setting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocModifySafetySettingRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/mod_doc_safty_setting",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn batch_add_wedoc_vip_accounts(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocVipBatchRequest,
+    ) -> Result<WorkWeDocVipBatchResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/vip/batch_add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn batch_delete_wedoc_vip_accounts(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocVipBatchRequest,
+    ) -> Result<WorkWeDocVipBatchResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/vip/batch_del",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_wedoc_vip_accounts(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocVipListRequest,
+    ) -> Result<WorkWeDocVipListResponse> {
+        self.inner
+            .post("cgi-bin/wedoc/vip/list", Some(access_token.into()), request)
+            .await
+    }
+
     pub async fn create_wedoc_form(
         &self,
         access_token: impl Into<String>,
@@ -13168,6 +13262,180 @@ pub struct WorkWeDocShareDocumentResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentAuthResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub access_rule: Option<WorkWeDocAccessRule>,
+    #[serde(default)]
+    pub secure_setting: Option<WorkWeDocSecureSetting>,
+    #[serde(default)]
+    pub doc_member_list: Vec<WorkWeDocDocumentMember>,
+    #[serde(default)]
+    pub co_auth_list: Vec<WorkWeDocDepartmentAuth>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocAccessRule {
+    #[serde(default)]
+    pub enable_corp_internal: Option<bool>,
+    #[serde(default)]
+    pub corp_internal_auth: Option<i64>,
+    #[serde(default)]
+    pub enable_corp_external: Option<bool>,
+    #[serde(default)]
+    pub corp_external_auth: Option<i64>,
+    #[serde(default)]
+    pub corp_internal_approve_only_by_admin: Option<bool>,
+    #[serde(default)]
+    pub corp_external_approve_only_by_admin: Option<bool>,
+    #[serde(default)]
+    pub ban_share_external: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSecureSetting {
+    #[serde(default)]
+    pub enable_readonly_copy: Option<bool>,
+    #[serde(default)]
+    pub enable_readonly_comment: Option<bool>,
+    #[serde(default)]
+    pub watermark: Option<WorkWeDocWatermark>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocWatermark {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_visitor_name: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_text: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentMember {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub member_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tmp_external_userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDepartmentAuth {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub member_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub departmentid: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocModifyJoinRuleRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_corp_internal: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corp_internal_auth: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_corp_external: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corp_external_auth: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corp_internal_approve_only_by_admin: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corp_external_approve_only_by_admin: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ban_share_external: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_co_auth_list: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub co_auth_list: Vec<WorkWeDocDepartmentAuth>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocModifyMembersRequest {
+    pub docid: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub update_file_member_list: Vec<WorkWeDocDocumentMember>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub del_file_member_list: Vec<WorkWeDocDocumentMember>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocModifySafetySettingRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_readonly_copy: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub watermark: Option<WorkWeDocWatermark>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocVipBatchRequest {
+    pub userid_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocVipBatchResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub succ_userid_list: Vec<String>,
+    #[serde(default)]
+    pub fail_userid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocVipListRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocVipListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub userid_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocCreateFormRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spaceid: Option<String>,
@@ -19865,6 +20133,174 @@ mod tests {
         })
         .unwrap();
         assert_eq!(answers["answer_ids"][1], 2);
+    }
+
+    #[test]
+    fn serializes_work_wedoc_permission_and_vip_requests() {
+        let join_rule = serde_json::to_value(WorkWeDocModifyJoinRuleRequest {
+            docid: "doc-1".to_string(),
+            enable_corp_internal: Some(true),
+            corp_internal_auth: Some(1),
+            enable_corp_external: Some(false),
+            corp_external_auth: None,
+            corp_internal_approve_only_by_admin: Some(true),
+            corp_external_approve_only_by_admin: None,
+            ban_share_external: Some(true),
+            update_co_auth_list: Some(true),
+            co_auth_list: vec![WorkWeDocDepartmentAuth {
+                member_type: Some(2),
+                departmentid: Some(10),
+                auth: Some(1),
+                extra: json!({ "scope_source": "directory" }),
+            }],
+        })
+        .unwrap();
+        assert_eq!(join_rule["docid"], "doc-1");
+        assert_eq!(join_rule["co_auth_list"][0]["type"], 2);
+        assert_eq!(join_rule["co_auth_list"][0]["departmentid"], 10);
+        assert_eq!(join_rule["co_auth_list"][0]["scope_source"], "directory");
+        assert!(join_rule.get("corp_external_auth").is_none());
+
+        let members = serde_json::to_value(WorkWeDocModifyMembersRequest {
+            docid: "doc-1".to_string(),
+            update_file_member_list: vec![WorkWeDocDocumentMember {
+                member_type: Some(1),
+                userid: Some("user-1".to_string()),
+                tmp_external_userid: None,
+                auth: Some(7),
+                extra: Value::Null,
+            }],
+            del_file_member_list: vec![WorkWeDocDocumentMember {
+                member_type: Some(2),
+                userid: None,
+                tmp_external_userid: Some("external-1".to_string()),
+                auth: None,
+                extra: Value::Null,
+            }],
+        })
+        .unwrap();
+        assert_eq!(members["update_file_member_list"][0]["userid"], "user-1");
+        assert_eq!(members["update_file_member_list"][0]["auth"], 7);
+        assert_eq!(
+            members["del_file_member_list"][0]["tmp_external_userid"],
+            "external-1"
+        );
+        assert!(members["del_file_member_list"][0].get("auth").is_none());
+
+        let safety = serde_json::to_value(WorkWeDocModifySafetySettingRequest {
+            docid: "doc-1".to_string(),
+            enable_readonly_copy: Some(false),
+            watermark: Some(WorkWeDocWatermark {
+                margin_type: Some(2),
+                show_visitor_name: Some(true),
+                show_text: Some(true),
+                text: Some("Confidential".to_string()),
+                extra: json!({ "color": "gray" }),
+            }),
+        })
+        .unwrap();
+        assert_eq!(safety["enable_readonly_copy"], false);
+        assert_eq!(safety["watermark"]["margin_type"], 2);
+        assert_eq!(safety["watermark"]["color"], "gray");
+
+        let batch = serde_json::to_value(WorkWeDocVipBatchRequest {
+            userid_list: vec!["user-1".to_string(), "user-2".to_string()],
+        })
+        .unwrap();
+        assert_eq!(batch["userid_list"][1], "user-2");
+
+        let list = serde_json::to_value(WorkWeDocVipListRequest {
+            cursor: None,
+            limit: Some(100),
+        })
+        .unwrap();
+        assert_eq!(list["limit"], 100);
+        assert!(list.get("cursor").is_none());
+    }
+
+    #[test]
+    fn deserializes_work_wedoc_permission_and_vip_responses() {
+        let auth: WorkWeDocDocumentAuthResponse = serde_json::from_value(json!({
+            "access_rule": {
+                "enable_corp_internal": true,
+                "corp_internal_auth": 1,
+                "enable_corp_external": false,
+                "corp_internal_approve_only_by_admin": true,
+                "corp_external_approve_only_by_admin": false,
+                "ban_share_external": true,
+                "rule_version": 2
+            },
+            "secure_setting": {
+                "enable_readonly_copy": false,
+                "enable_readonly_comment": true,
+                "watermark": {
+                    "margin_type": 2,
+                    "show_visitor_name": true,
+                    "show_text": true,
+                    "text": "Confidential",
+                    "watermark_version": 3
+                },
+                "security_level": "strict"
+            },
+            "doc_member_list": [{
+                "type": 1,
+                "userid": "user-1",
+                "auth": 7,
+                "member_source": "admin"
+            }, {
+                "type": 2,
+                "tmp_external_userid": "external-1",
+                "auth": 1
+            }],
+            "co_auth_list": [{
+                "type": 2,
+                "departmentid": 10,
+                "auth": 1,
+                "department_name": "Engineering"
+            }],
+            "trace_id": "auth"
+        }))
+        .unwrap();
+        let access_rule = auth.access_rule.expect("access rule");
+        assert_eq!(access_rule.corp_internal_auth, Some(1));
+        assert_eq!(access_rule.extra["rule_version"], 2);
+        let secure_setting = auth.secure_setting.expect("secure setting");
+        assert_eq!(secure_setting.enable_readonly_comment, Some(true));
+        assert_eq!(secure_setting.extra["security_level"], "strict");
+        let watermark = secure_setting.watermark.expect("watermark");
+        assert_eq!(watermark.text.as_deref(), Some("Confidential"));
+        assert_eq!(watermark.extra["watermark_version"], 3);
+        assert_eq!(auth.doc_member_list[0].member_type, Some(1));
+        assert_eq!(auth.doc_member_list[0].extra["member_source"], "admin");
+        assert_eq!(
+            auth.doc_member_list[1].tmp_external_userid.as_deref(),
+            Some("external-1")
+        );
+        assert_eq!(auth.co_auth_list[0].departmentid, Some(10));
+        assert_eq!(auth.co_auth_list[0].extra["department_name"], "Engineering");
+        assert_eq!(auth.extra["trace_id"], "auth");
+
+        let batch: WorkWeDocVipBatchResponse = serde_json::from_value(json!({
+            "succ_userid_list": ["user-1"],
+            "fail_userid_list": ["user-2"],
+            "request_id": "batch"
+        }))
+        .unwrap();
+        assert_eq!(batch.succ_userid_list[0], "user-1");
+        assert_eq!(batch.fail_userid_list[0], "user-2");
+        assert_eq!(batch.extra["request_id"], "batch");
+
+        let list: WorkWeDocVipListResponse = serde_json::from_value(json!({
+            "has_more": true,
+            "next_cursor": "next",
+            "userid_list": ["user-1", "user-2"],
+            "total": 2
+        }))
+        .unwrap();
+        assert_eq!(list.has_more, Some(true));
+        assert_eq!(list.next_cursor.as_deref(), Some("next"));
+        assert_eq!(list.userid_list[1], "user-2");
+        assert_eq!(list.extra["total"], 2);
     }
 
     #[test]

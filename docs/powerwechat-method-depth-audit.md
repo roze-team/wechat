@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 292 | high |
+| Work | 363 | 299 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -90,6 +90,14 @@ Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
   answers, option/file/department/member/duration replies, and pagination
   metadata. Polymorphic question extension settings remain structured JSON,
   while response wrappers and nested records preserve unknown upstream fields.
+- OA WeDoc permission management now covers typed access rules, internal and
+  external defaults, administrator-only approvals, external-sharing controls,
+  member and department permissions, readonly behavior, and watermark
+  settings.
+- OA WeDoc advanced-feature account management uses the current
+  `wedoc/vip/batch_add`, `wedoc/vip/batch_del`, and `wedoc/vip/list` contracts,
+  including typed success/failure lists and cursor pagination, instead of the
+  older per-document administrator endpoints.
 
 Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 
