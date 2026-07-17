@@ -7766,6 +7766,39 @@ pub struct ExternalContactGroupMessageTask {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactGroupMessageTaskStatusKind {
+    Unsent,
+    Sent,
+    Other,
+}
+
+impl ExternalContactGroupMessageTaskStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Unsent,
+            2 => Self::Sent,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_sent(self) -> bool {
+        matches!(self, Self::Sent)
+    }
+}
+
+impl ExternalContactGroupMessageTask {
+    pub fn status_kind(&self) -> Option<ExternalContactGroupMessageTaskStatusKind> {
+        self.status
+            .map(ExternalContactGroupMessageTaskStatusKind::from_code)
+    }
+
+    pub fn is_sent(&self) -> bool {
+        self.status_kind()
+            .is_some_and(ExternalContactGroupMessageTaskStatusKind::is_sent)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactGroupMessageSendResultResponse {
     #[serde(default)]
@@ -7794,6 +7827,60 @@ pub struct ExternalContactGroupMessageSendResult {
     pub send_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactGroupMessageSendStatusKind {
+    Unsent,
+    Sent,
+    CustomerNotFriend,
+    DuplicateDelivery,
+    ReceiveLimitExceeded,
+    Other,
+}
+
+impl ExternalContactGroupMessageSendStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Unsent,
+            1 => Self::Sent,
+            2 => Self::CustomerNotFriend,
+            3 => Self::DuplicateDelivery,
+            4 => Self::ReceiveLimitExceeded,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_sent(self) -> bool {
+        matches!(self, Self::Sent)
+    }
+
+    pub fn is_failure(self) -> bool {
+        matches!(
+            self,
+            Self::CustomerNotFriend
+                | Self::DuplicateDelivery
+                | Self::ReceiveLimitExceeded
+                | Self::Other
+        )
+    }
+}
+
+impl ExternalContactGroupMessageSendResult {
+    pub fn status_kind(&self) -> Option<ExternalContactGroupMessageSendStatusKind> {
+        self.status
+            .map(ExternalContactGroupMessageSendStatusKind::from_code)
+    }
+
+    pub fn is_sent(&self) -> bool {
+        self.status_kind()
+            .is_some_and(ExternalContactGroupMessageSendStatusKind::is_sent)
+    }
+
+    pub fn is_failed(&self) -> bool {
+        self.status_kind()
+            .is_some_and(ExternalContactGroupMessageSendStatusKind::is_failure)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12405,7 +12492,7 @@ mod tests {
         let tasks: ExternalContactGroupMessageTaskResponse = serde_json::from_value(json!({
             "task_list": [{
                 "userid": "user",
-                "status": 1,
+                "status": 2,
                 "send_time": 1_720_000_001,
                 "task_remark": "manual"
             }],
@@ -12414,10 +12501,23 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            tasks.task_list[0].status_kind(),
+            Some(ExternalContactGroupMessageTaskStatusKind::Sent)
+        );
+        assert!(tasks.task_list[0].is_sent());
         assert_eq!(tasks.task_list[0].send_time, Some(1_720_000_001));
         assert_eq!(tasks.task_list[0].extra["task_remark"], "manual");
         assert_eq!(tasks.next_cursor.as_deref(), Some("task-cursor"));
         assert_eq!(tasks.extra["task_total"], 1);
+        assert_eq!(
+            ExternalContactGroupMessageTaskStatusKind::from_code(0),
+            ExternalContactGroupMessageTaskStatusKind::Unsent
+        );
+        assert_eq!(
+            ExternalContactGroupMessageTaskStatusKind::from_code(1),
+            ExternalContactGroupMessageTaskStatusKind::Other
+        );
 
         let send_result: ExternalContactGroupMessageSendResultResponse =
             serde_json::from_value(json!({
@@ -12438,8 +12538,34 @@ mod tests {
             Some("external")
         );
         assert_eq!(send_result.send_list[0].chat_id.as_deref(), Some("chat"));
+        assert_eq!(
+            send_result.send_list[0].status_kind(),
+            Some(ExternalContactGroupMessageSendStatusKind::Sent)
+        );
+        assert!(send_result.send_list[0].is_sent());
+        assert!(!send_result.send_list[0].is_failed());
         assert_eq!(send_result.send_list[0].extra["fail_reason"], "none");
         assert_eq!(send_result.extra["send_total"], 1);
+        assert_eq!(
+            ExternalContactGroupMessageSendStatusKind::from_code(0),
+            ExternalContactGroupMessageSendStatusKind::Unsent
+        );
+        assert_eq!(
+            ExternalContactGroupMessageSendStatusKind::from_code(2),
+            ExternalContactGroupMessageSendStatusKind::CustomerNotFriend
+        );
+        assert_eq!(
+            ExternalContactGroupMessageSendStatusKind::from_code(3),
+            ExternalContactGroupMessageSendStatusKind::DuplicateDelivery
+        );
+        assert_eq!(
+            ExternalContactGroupMessageSendStatusKind::from_code(4),
+            ExternalContactGroupMessageSendStatusKind::ReceiveLimitExceeded
+        );
+        assert!(ExternalContactGroupMessageSendStatusKind::CustomerNotFriend.is_failure());
+        assert!(ExternalContactGroupMessageSendStatusKind::DuplicateDelivery.is_failure());
+        assert!(ExternalContactGroupMessageSendStatusKind::ReceiveLimitExceeded.is_failure());
+        assert!(ExternalContactGroupMessageSendStatusKind::Other.is_failure());
     }
 
     #[test]

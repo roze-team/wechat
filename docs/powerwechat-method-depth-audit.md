@@ -176,6 +176,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   while retaining original upstream numeric fields and `Other(i64)` fallbacks.
 - external-contact group-message template add/list/task/send-result responses
   now expose typed fail IDs, message text/attachments, tasks, and send results.
+- external-contact group-message task/send-result records now expose semantic
+  status helpers for unsent, sent, customer-not-friend, duplicate-delivery, and
+  receive-limit outcomes while retaining the original numeric `status` code.
 - external-contact group-message template/list/task/send-result DTOs now
   preserve unknown upstream fields across wrappers, message payloads,
   attachments, tasks, and send-result records.
