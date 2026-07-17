@@ -980,6 +980,38 @@ pub struct OpenWorkSessionInfo {
     pub auth_type: Option<i64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkSessionAuthTypeKind {
+    Official,
+    Test,
+    Other,
+}
+
+impl OpenWorkSessionAuthTypeKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Official,
+            1 => Self::Test,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_test(self) -> bool {
+        matches!(self, Self::Test)
+    }
+}
+
+impl OpenWorkSessionInfo {
+    pub fn auth_type_kind(&self) -> Option<OpenWorkSessionAuthTypeKind> {
+        self.auth_type.map(OpenWorkSessionAuthTypeKind::from_code)
+    }
+
+    pub fn is_test_auth(&self) -> bool {
+        self.auth_type_kind()
+            .is_some_and(OpenWorkSessionAuthTypeKind::is_test)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkAuthCorpInfo {
     #[serde(default)]
@@ -1040,6 +1072,38 @@ pub struct OpenWorkAuthAgent {
     pub shared_from: Option<Value>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkAuthModeKind {
+    Admin,
+    Member,
+    Other,
+}
+
+impl OpenWorkAuthModeKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Admin,
+            1 => Self::Member,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_member_auth(self) -> bool {
+        matches!(self, Self::Member)
+    }
+}
+
+impl OpenWorkAuthAgent {
+    pub fn auth_mode_kind(&self) -> Option<OpenWorkAuthModeKind> {
+        self.auth_mode.map(OpenWorkAuthModeKind::from_code)
+    }
+
+    pub fn is_member_auth(&self) -> bool {
+        self.auth_mode_kind()
+            .is_some_and(OpenWorkAuthModeKind::is_member_auth)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1884,6 +1948,23 @@ mod tests {
         assert_eq!(session["pre_auth_code"], "pre-auth");
         assert_eq!(session["session_info"]["appid"][0], 1);
         assert_eq!(session["session_info"]["auth_type"], 1);
+        assert_eq!(
+            OpenWorkSessionInfo {
+                appid: vec![1, 2],
+                auth_type: Some(1),
+            }
+            .auth_type_kind(),
+            Some(OpenWorkSessionAuthTypeKind::Test)
+        );
+        assert!(OpenWorkSessionInfo {
+            appid: vec![1, 2],
+            auth_type: Some(1),
+        }
+        .is_test_auth());
+        assert_eq!(
+            OpenWorkSessionAuthTypeKind::from_code(0),
+            OpenWorkSessionAuthTypeKind::Official
+        );
 
         let no_appid = serde_json::to_value(OpenWorkSetSessionInfoRequest {
             pre_auth_code: "pre-auth".to_string(),
@@ -1920,7 +2001,7 @@ mod tests {
             "expires_in": 7200,
             "permanent_code": "permanent",
             "auth_corp_info": { "corpid": "corp", "corp_name": "Corp", "corp_region": "CN" },
-            "auth_info": { "agent": [{ "agentid": 100001, "name": "App", "edition": "pro" }], "auth_scope": "all" },
+            "auth_info": { "agent": [{ "agentid": 100001, "name": "App", "auth_mode": 1, "edition": "pro" }], "auth_scope": "all" },
             "auth_user_info": { "userid": "admin", "name": "Admin", "role": "owner" },
             "register_code_info": {
                 "register_code": "register",
@@ -1943,6 +2024,15 @@ mod tests {
         assert_eq!(auth_info.extra["auth_scope"], "all");
         assert_eq!(auth_info.agent[0].agentid, Some(100001));
         assert_eq!(auth_info.agent[0].name.as_deref(), Some("App"));
+        assert_eq!(
+            auth_info.agent[0].auth_mode_kind(),
+            Some(OpenWorkAuthModeKind::Member)
+        );
+        assert!(auth_info.agent[0].is_member_auth());
+        assert_eq!(
+            OpenWorkAuthModeKind::from_code(0),
+            OpenWorkAuthModeKind::Admin
+        );
         assert_eq!(auth_info.agent[0].extra["edition"], "pro");
         let auth_user = permanent.auth_user_info.expect("auth user");
         assert_eq!(auth_user.userid.as_deref(), Some("admin"));

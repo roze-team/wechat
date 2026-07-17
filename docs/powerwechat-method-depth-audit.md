@@ -412,6 +412,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
   return typed Open Work DTOs instead of raw JSON values.
 - suite permanent-code/auth-info responses now expose typed auth-corp,
   auth-agent, auth-user, register-code, and dealer-corp DTOs.
+- suite session/auth-agent DTOs now expose semantic helpers for official/test
+  authorization type and admin/member authorization mode while retaining the
+  original upstream numeric fields.
 - suite pre-auth, permanent-code, and corp-token response wrappers now preserve
   unknown upstream fields across wrapper and nested authorization DTO payloads.
 - license renew-order job invalid accounts, order list/detail, and trial-info
