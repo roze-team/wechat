@@ -6349,6 +6349,8 @@ pub struct ContactWayAddResponse {
     pub config_id: Option<String>,
     #[serde(default)]
     pub qr_code: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6359,12 +6361,16 @@ pub struct ContactWayGetResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub contact_way: Option<ContactWayDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactWayId {
     #[serde(default)]
     pub config_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6399,6 +6405,8 @@ pub struct ContactWayDetail {
     pub unionid: Option<String>,
     #[serde(default)]
     pub conclusions: Option<ContactWayConclusions>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6460,6 +6468,8 @@ pub struct ContactWayListResponse {
     pub contact_way: Vec<ContactWayId>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11116,19 +11126,24 @@ mod tests {
 
         let response: ContactWayListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "contact_way": [{ "config_id": "config" }],
-            "next_cursor": "cursor"
+            "contact_way": [{ "config_id": "config", "owner_userid": "owner" }],
+            "next_cursor": "cursor",
+            "total": 1
         }))
         .unwrap();
         assert_eq!(response.contact_way[0].config_id.as_deref(), Some("config"));
+        assert_eq!(response.contact_way[0].extra["owner_userid"], "owner");
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(response.extra["total"], 1);
 
         let added: ContactWayAddResponse = serde_json::from_value(json!({
             "config_id": "config",
-            "qr_code": "https://example.com/qr"
+            "qr_code": "https://example.com/qr",
+            "request_id": "contact-way-add"
         }))
         .unwrap();
         assert_eq!(added.config_id.as_deref(), Some("config"));
+        assert_eq!(added.extra["request_id"], "contact-way-add");
 
         let detail: ContactWayGetResponse = serde_json::from_value(json!({
             "contact_way": {
@@ -11142,6 +11157,7 @@ mod tests {
                 "user": ["user"],
                 "party": [1],
                 "is_temp": false,
+                "channel": "qrcode",
                 "conclusions": {
                     "link": {
                         "title": "title",
@@ -11150,12 +11166,15 @@ mod tests {
                         "url": "https://example.com"
                     }
                 }
-            }
+            },
+            "request_id": "contact-way-get"
         }))
         .unwrap();
+        assert_eq!(detail.extra["request_id"], "contact-way-get");
         let contact_way = detail.contact_way.unwrap();
         assert_eq!(contact_way.kind, Some(1));
         assert_eq!(contact_way.user[0], "user");
+        assert_eq!(contact_way.extra["channel"], "qrcode");
         assert_eq!(
             contact_way.conclusions.unwrap().link.unwrap().url,
             "https://example.com"

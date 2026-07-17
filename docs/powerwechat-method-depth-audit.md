@@ -84,6 +84,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external contact remark wrapper;
 - corp-tag list/add/edit/delete and customer tag-mark wrappers;
 - external group-chat list/get/transfer wrappers.
+- contact-way add/get/list responses now preserve unknown upstream fields
+  across wrappers, list items, and detail payloads.
 - customer-acquisition link list/get/create/update/delete wrappers;
 - customer-acquisition link create/get responses now expose typed link DTOs
   with range, priority, timestamp, URL, and extension-field preservation.
