@@ -7527,6 +7527,8 @@ pub struct ExternalContactMomentListResponse {
     pub moment_list: Vec<ExternalContactMomentSummary>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7545,6 +7547,8 @@ pub struct ExternalContactMomentSummary {
     pub text: Option<ExternalContactMessageText>,
     #[serde(default)]
     pub attachments: Vec<ExternalContactMessageAttachment>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7557,6 +7561,8 @@ pub struct ExternalContactMomentTaskResponse {
     pub task_list: Vec<ExternalContactMomentTask>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7567,6 +7573,8 @@ pub struct ExternalContactMomentTask {
     pub publish_status: Option<i64>,
     #[serde(default)]
     pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7579,6 +7587,8 @@ pub struct ExternalContactMomentCustomerListResponse {
     pub customer_list: Vec<ExternalContactMomentCustomer>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7589,6 +7599,8 @@ pub struct ExternalContactMomentCustomer {
     pub publish_status: Option<i64>,
     #[serde(default)]
     pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7603,6 +7615,8 @@ pub struct ExternalContactMomentCommentResponse {
     pub like_list: Vec<ExternalContactMomentLike>,
     #[serde(default)]
     pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7617,6 +7631,8 @@ pub struct ExternalContactMomentComment {
     pub create_time: Option<i64>,
     #[serde(default)]
     pub content: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7627,6 +7643,8 @@ pub struct ExternalContactMomentLike {
     pub userid: Option<String>,
     #[serde(default)]
     pub create_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7688,6 +7706,8 @@ pub struct ExternalContactMomentTaskCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub jobid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7702,6 +7722,8 @@ pub struct ExternalContactMomentTaskResultResponse {
     pub result_type: Option<String>,
     #[serde(default)]
     pub result: Option<ExternalContactMomentTaskResult>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7714,6 +7736,8 @@ pub struct ExternalContactMomentTaskResult {
     pub invalid_external_contact_list: Vec<String>,
     #[serde(default)]
     pub invalid_chat_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11654,9 +11678,11 @@ mod tests {
                 "creator": "creator",
                 "create_time": 100,
                 "text": { "content": "hello" },
-                "attachments": [{ "msgtype": "image", "image": { "media_id": "media" } }]
+                "attachments": [{ "msgtype": "image", "image": { "media_id": "media" } }],
+                "publish_scope": "customer"
             }],
-            "next_cursor": "cursor"
+            "next_cursor": "cursor",
+            "total": 1
         }))
         .unwrap();
         assert_eq!(moments.moment_list[0].moment_id.as_deref(), Some("moment"));
@@ -11670,18 +11696,28 @@ mod tests {
                 .as_deref(),
             Some("hello")
         );
+        assert_eq!(moments.moment_list[0].extra["publish_scope"], "customer");
         assert_eq!(moments.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(moments.extra["total"], 1);
 
         let tasks: ExternalContactMomentTaskResponse = serde_json::from_value(json!({
-            "task_list": [{ "userid": "user", "publish_status": 2 }],
-            "next_cursor": "next"
+            "task_list": [{ "userid": "user", "publish_status": 2, "fail_reason": "none" }],
+            "next_cursor": "next",
+            "task_total": 1
         }))
         .unwrap();
         assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
         assert_eq!(tasks.task_list[0].publish_status, Some(2));
+        assert_eq!(tasks.task_list[0].extra["fail_reason"], "none");
+        assert_eq!(tasks.extra["task_total"], 1);
 
         let customers: ExternalContactMomentCustomerListResponse = serde_json::from_value(json!({
-            "customer_list": [{ "external_userid": "external", "publish_status": 1 }]
+            "customer_list": [{
+                "external_userid": "external",
+                "publish_status": 1,
+                "view_time": 101
+            }],
+            "customer_total": 1
         }))
         .unwrap();
         assert_eq!(
@@ -11689,10 +11725,22 @@ mod tests {
             Some("external")
         );
         assert_eq!(customers.customer_list[0].publish_status, Some(1));
+        assert_eq!(customers.customer_list[0].extra["view_time"], 101);
+        assert_eq!(customers.extra["customer_total"], 1);
 
         let comments: ExternalContactMomentCommentResponse = serde_json::from_value(json!({
-            "comment_list": [{ "userid": "user", "comment_id": "comment", "content": "nice" }],
-            "like_list": [{ "external_userid": "external", "create_time": 100 }]
+            "comment_list": [{
+                "userid": "user",
+                "comment_id": "comment",
+                "content": "nice",
+                "source": "mobile"
+            }],
+            "like_list": [{
+                "external_userid": "external",
+                "create_time": 100,
+                "reaction": "like"
+            }],
+            "interaction_total": 2
         }))
         .unwrap();
         assert_eq!(comments.comment_list[0].userid.as_deref(), Some("user"));
@@ -11704,20 +11752,28 @@ mod tests {
             comments.like_list[0].external_userid.as_deref(),
             Some("external")
         );
+        assert_eq!(comments.comment_list[0].extra["source"], "mobile");
+        assert_eq!(comments.like_list[0].extra["reaction"], "like");
+        assert_eq!(comments.extra["interaction_total"], 2);
 
         let created: ExternalContactMomentTaskCreateResponse =
-            serde_json::from_value(json!({ "jobid": "job" })).unwrap();
+            serde_json::from_value(json!({ "jobid": "job", "trace_id": "trace" })).unwrap();
         assert_eq!(created.jobid.as_deref(), Some("job"));
+        assert_eq!(created.extra["trace_id"], "trace");
 
         let result: ExternalContactMomentTaskResultResponse = serde_json::from_value(json!({
             "status": 2,
             "type": "add_moment_task",
-            "result": { "moment_id": "moment" }
+            "result": { "moment_id": "moment", "invalid_reason": "none" },
+            "result_source": "async"
         }))
         .unwrap();
         assert_eq!(result.status, Some(2));
         assert_eq!(result.result_type.as_deref(), Some("add_moment_task"));
-        assert_eq!(result.result.unwrap().moment_id.as_deref(), Some("moment"));
+        let result_payload = result.result.as_ref().unwrap();
+        assert_eq!(result_payload.moment_id.as_deref(), Some("moment"));
+        assert_eq!(result_payload.extra["invalid_reason"], "none");
+        assert_eq!(result.extra["result_source"], "async");
 
         let strategy_range = serde_json::to_value(ExternalContactMomentStrategyRangeRequest {
             strategy_id: 100,
