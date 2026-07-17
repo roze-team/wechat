@@ -427,6 +427,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
 - server callback XML can now be parsed into typed Open Work suite-ticket,
   create/change/cancel-auth, and reset-permanent-code events with an unknown
   fallback for future WeCom event types.
+- server callback events now expose semantic event-kind helpers for auth
+  lifecycle and ticket/permanent-code refresh handling while preserving the
+  original `InfoType` string.
 
 Payment uses dedicated v3/v2 request helpers in PowerWeChat, so it needs a
 separate path scan rather than the generic `HttpPostJson` endpoint extractor.

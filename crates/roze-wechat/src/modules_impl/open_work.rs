@@ -842,6 +842,37 @@ pub enum OpenWorkServerEvent {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkServerEventKind {
+    SuiteTicket,
+    CreateAuth,
+    ChangeAuth,
+    CancelAuth,
+    ResetPermanentCode,
+    Unknown,
+}
+
+impl OpenWorkServerEventKind {
+    pub fn info_type(self) -> Option<&'static str> {
+        match self {
+            Self::SuiteTicket => Some("suite_ticket"),
+            Self::CreateAuth => Some("create_auth"),
+            Self::ChangeAuth => Some("change_auth"),
+            Self::CancelAuth => Some("cancel_auth"),
+            Self::ResetPermanentCode => Some("reset_permanent_code"),
+            Self::Unknown => None,
+        }
+    }
+
+    pub fn is_auth_lifecycle(self) -> bool {
+        matches!(self, Self::CreateAuth | Self::ChangeAuth | Self::CancelAuth)
+    }
+
+    pub fn is_ticket_refresh(self) -> bool {
+        matches!(self, Self::SuiteTicket | Self::ResetPermanentCode)
+    }
+}
+
 impl OpenWorkServerEvent {
     pub fn from_callback_message(message: CallbackMessage) -> Self {
         match message.info_type.as_deref() {
@@ -877,6 +908,17 @@ impl OpenWorkServerEvent {
         }
     }
 
+    pub fn kind(&self) -> OpenWorkServerEventKind {
+        match self {
+            Self::SuiteTicket { .. } => OpenWorkServerEventKind::SuiteTicket,
+            Self::CreateAuth { .. } => OpenWorkServerEventKind::CreateAuth,
+            Self::ChangeAuth { .. } => OpenWorkServerEventKind::ChangeAuth,
+            Self::CancelAuth { .. } => OpenWorkServerEventKind::CancelAuth,
+            Self::ResetPermanentCode { .. } => OpenWorkServerEventKind::ResetPermanentCode,
+            Self::Unknown { .. } => OpenWorkServerEventKind::Unknown,
+        }
+    }
+
     pub fn info_type(&self) -> Option<&str> {
         match self {
             Self::SuiteTicket { .. } => Some("suite_ticket"),
@@ -886,6 +928,14 @@ impl OpenWorkServerEvent {
             Self::ResetPermanentCode { .. } => Some("reset_permanent_code"),
             Self::Unknown { info_type, .. } => info_type.as_deref(),
         }
+    }
+
+    pub fn is_auth_lifecycle(&self) -> bool {
+        self.kind().is_auth_lifecycle()
+    }
+
+    pub fn is_ticket_refresh(&self) -> bool {
+        self.kind().is_ticket_refresh()
     }
 }
 
@@ -1759,6 +1809,10 @@ mod tests {
             </xml>"#,
         )
         .unwrap();
+        assert_eq!(suite_ticket.kind(), OpenWorkServerEventKind::SuiteTicket);
+        assert_eq!(suite_ticket.kind().info_type(), Some("suite_ticket"));
+        assert!(suite_ticket.is_ticket_refresh());
+        assert!(!suite_ticket.is_auth_lifecycle());
         match suite_ticket {
             OpenWorkServerEvent::SuiteTicket {
                 suite_id,
@@ -1782,6 +1836,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(create_auth.info_type(), Some("create_auth"));
+        assert_eq!(create_auth.kind(), OpenWorkServerEventKind::CreateAuth);
+        assert!(create_auth.is_auth_lifecycle());
+        assert!(!create_auth.is_ticket_refresh());
+        assert!(OpenWorkServerEventKind::ChangeAuth.is_auth_lifecycle());
+        assert!(OpenWorkServerEventKind::CancelAuth.is_auth_lifecycle());
+        assert!(OpenWorkServerEventKind::ResetPermanentCode.is_ticket_refresh());
         match create_auth {
             OpenWorkServerEvent::CreateAuth {
                 suite_id,
@@ -1802,6 +1862,10 @@ mod tests {
             </xml>"#,
         )
         .unwrap();
+        assert_eq!(unknown.kind(), OpenWorkServerEventKind::Unknown);
+        assert_eq!(unknown.kind().info_type(), None);
+        assert!(!unknown.is_auth_lifecycle());
+        assert!(!unknown.is_ticket_refresh());
         match unknown {
             OpenWorkServerEvent::Unknown { info_type, message } => {
                 assert_eq!(info_type.as_deref(), Some("new_event"));
