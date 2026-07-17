@@ -143,6 +143,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   across contact, profile, attribute, follow-info, tag, and list wrappers.
 - external-contact group-chat list/get/transfer responses now expose typed
   chat summaries, chat details, members, admins, and failed-transfer records.
+- external-contact group-chat list/get/transfer/open-gid DTOs now preserve
+  unknown upstream fields across wrappers, summaries, members, admins, and
+  failed-transfer records.
 - external-contact group-message template add/list/task/send-result responses
   now expose typed fail IDs, message text/attachments, tasks, and send results.
 - external-contact customer-strategy list/get/range/create responses now expose
