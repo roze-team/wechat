@@ -350,6 +350,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 - Official Account publish draft/list/status/article response DTOs now preserve
   unknown upstream fields across wrappers, content blocks, article details, and
   news items.
+- Official Account card base-info and free-publish status DTOs now expose
+  semantic status helper enums while retaining the original upstream status
+  fields.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and

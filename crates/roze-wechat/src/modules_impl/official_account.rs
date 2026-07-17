@@ -5204,6 +5204,39 @@ pub struct CardBaseInfo {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardStatusKind {
+    PendingReview,
+    ReviewFailed,
+    Approved,
+    MerchantDeleted,
+    Dispatched,
+    UserDispatched,
+    Other,
+}
+
+impl CardBaseInfo {
+    pub fn status_kind(&self) -> Option<CardStatusKind> {
+        self.status.as_deref().map(|status| match status {
+            "CARD_STATUS_NOT_VERIFY" => CardStatusKind::PendingReview,
+            "CARD_STATUS_VERIFY_FAIL" | "CARD_STATUS_VERIFY_FALL" => CardStatusKind::ReviewFailed,
+            "CARD_STATUS_VERIFY_OK" => CardStatusKind::Approved,
+            "CARD_STATUS_DELETE" | "CARD_STATUS_USER_DELETE" => CardStatusKind::MerchantDeleted,
+            "CARD_STATUS_DISPATCH" => CardStatusKind::Dispatched,
+            "CARD_STATUS_USER_DISPATCH" => CardStatusKind::UserDispatched,
+            _ => CardStatusKind::Other,
+        })
+    }
+
+    pub fn is_approved(&self) -> bool {
+        self.status_kind() == Some(CardStatusKind::Approved)
+    }
+
+    pub fn needs_review(&self) -> bool {
+        self.status_kind() == Some(CardStatusKind::PendingReview)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardTypeDetail {
     #[serde(default)]
@@ -5628,6 +5661,52 @@ pub struct PublishStatusResponse {
     pub fail_idx: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PublishStatusKind {
+    Success,
+    Publishing,
+    OriginalFailed,
+    Failed,
+    AuditRefused,
+    UserDeleted,
+    SystemBanned,
+    Other,
+}
+
+impl PublishStatusResponse {
+    pub fn status_kind(&self) -> Option<PublishStatusKind> {
+        self.publish_status.map(|status| match status {
+            0 => PublishStatusKind::Success,
+            1 => PublishStatusKind::Publishing,
+            2 => PublishStatusKind::OriginalFailed,
+            3 => PublishStatusKind::Failed,
+            4 => PublishStatusKind::AuditRefused,
+            5 => PublishStatusKind::UserDeleted,
+            6 => PublishStatusKind::SystemBanned,
+            _ => PublishStatusKind::Other,
+        })
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.status_kind() == Some(PublishStatusKind::Success)
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.status_kind() == Some(PublishStatusKind::Publishing)
+    }
+
+    pub fn is_failed(&self) -> bool {
+        matches!(
+            self.status_kind(),
+            Some(
+                PublishStatusKind::OriginalFailed
+                    | PublishStatusKind::Failed
+                    | PublishStatusKind::AuditRefused
+            )
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6213,6 +6292,7 @@ mod tests {
                         "id": "card",
                         "brand_name": "brand",
                         "title": "title",
+                        "status": "CARD_STATUS_VERIFY_OK",
                         "date_info": {
                             "date_type": "DATE_TYPE_FIX_TIME_RANGE",
                             "begin_timestamp": 1800000000,
@@ -6235,6 +6315,9 @@ mod tests {
         let base = groupon.base_info.expect("base_info");
         assert_eq!(base.id.as_deref(), Some("card"));
         assert_eq!(base.brand_name.as_deref(), Some("brand"));
+        assert_eq!(base.status_kind(), Some(CardStatusKind::Approved));
+        assert!(base.is_approved());
+        assert!(!base.needs_review());
         assert_eq!(
             base.date_info
                 .as_ref()
@@ -6242,6 +6325,41 @@ mod tests {
             Some(1800000000)
         );
         assert_eq!(base.sku.as_ref().and_then(|sku| sku.quantity), Some(100));
+        let pending_base = CardBaseInfo {
+            id: None,
+            logo_url: None,
+            code_type: None,
+            brand_name: None,
+            title: None,
+            sub_title: None,
+            color: None,
+            notice: None,
+            description: None,
+            date_info: None,
+            sku: None,
+            get_limit: None,
+            use_limit: None,
+            status: Some("CARD_STATUS_NOT_VERIFY".to_string()),
+            extra: Value::Null,
+        };
+        assert_eq!(
+            pending_base.status_kind(),
+            Some(CardStatusKind::PendingReview)
+        );
+        assert!(pending_base.needs_review());
+        let failed_base = CardBaseInfo {
+            status: Some("CARD_STATUS_VERIFY_FALL".to_string()),
+            ..pending_base
+        };
+        assert_eq!(
+            failed_base.status_kind(),
+            Some(CardStatusKind::ReviewFailed)
+        );
+        let unknown_base = CardBaseInfo {
+            status: Some("CARD_STATUS_UNKNOWN".to_string()),
+            ..failed_base
+        };
+        assert_eq!(unknown_base.status_kind(), Some(CardStatusKind::Other));
     }
 
     #[test]
@@ -6956,6 +7074,10 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(status.publish_status, Some(0));
+        assert_eq!(status.status_kind(), Some(PublishStatusKind::Success));
+        assert!(status.is_success());
+        assert!(!status.is_pending());
+        assert!(!status.is_failed());
         assert_eq!(status.extra["request_id"], "status");
         assert_eq!(
             status
@@ -6975,6 +7097,47 @@ mod tests {
             status.article_detail.expect("article_detail").item[0].extra["article_item_extra"],
             "kept"
         );
+        let publishing: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 1 })).unwrap();
+        assert_eq!(
+            publishing.status_kind(),
+            Some(PublishStatusKind::Publishing)
+        );
+        assert!(publishing.is_pending());
+        let original_failed: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 2, "fail_idx": [1] })).unwrap();
+        assert_eq!(
+            original_failed.status_kind(),
+            Some(PublishStatusKind::OriginalFailed)
+        );
+        assert!(original_failed.is_failed());
+        let failed: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 3 })).unwrap();
+        assert_eq!(failed.status_kind(), Some(PublishStatusKind::Failed));
+        assert!(failed.is_failed());
+        let audit_refused: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 4 })).unwrap();
+        assert_eq!(
+            audit_refused.status_kind(),
+            Some(PublishStatusKind::AuditRefused)
+        );
+        assert!(audit_refused.is_failed());
+        let user_deleted: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 5 })).unwrap();
+        assert_eq!(
+            user_deleted.status_kind(),
+            Some(PublishStatusKind::UserDeleted)
+        );
+        assert!(!user_deleted.is_failed());
+        let system_banned: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 6 })).unwrap();
+        assert_eq!(
+            system_banned.status_kind(),
+            Some(PublishStatusKind::SystemBanned)
+        );
+        let unknown_status: PublishStatusResponse =
+            serde_json::from_value(json!({ "publish_status": 99 })).unwrap();
+        assert_eq!(unknown_status.status_kind(), Some(PublishStatusKind::Other));
 
         let article: PublishArticleResponse = serde_json::from_value(json!({
             "news_item": [{
