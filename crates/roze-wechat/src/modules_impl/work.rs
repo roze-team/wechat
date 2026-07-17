@@ -5164,6 +5164,8 @@ pub struct WorkStatusResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5176,6 +5178,8 @@ pub struct WorkTicketResponse {
     pub ticket: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8422,6 +8426,8 @@ pub struct WorkAiBotLongConnectionResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 impl WorkAiBotLongConnectionResponse {
@@ -8589,6 +8595,8 @@ pub struct WorkAccountServiceSyncMsgResponse {
     pub has_more: Option<i64>,
     #[serde(default)]
     pub msg_list: Vec<WorkAccountServiceMessage>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8627,6 +8635,8 @@ pub struct WorkAccountServiceMessage {
     pub msgmenu: Option<WorkAccountServiceMenuMessage>,
     #[serde(default)]
     pub event: Option<WorkAccountServiceEventMessage>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8727,6 +8737,8 @@ pub struct WorkAccountServiceEventMessage {
     pub menu_id: Option<String>,
     #[serde(default)]
     pub msgid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8778,6 +8790,8 @@ pub struct WorkAccountServiceSendMsgResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub msgid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8788,6 +8802,8 @@ pub struct WorkAccountServiceServicerResultResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub result_list: Vec<WorkAccountServiceServicerResult>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8798,6 +8814,8 @@ pub struct WorkAccountServiceServicerResult {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8808,6 +8826,8 @@ pub struct WorkAccountServiceServicerListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub servicer_list: Vec<WorkAccountServiceServicer>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8816,6 +8836,8 @@ pub struct WorkAccountServiceServicer {
     pub userid: Option<String>,
     #[serde(default)]
     pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8828,6 +8850,8 @@ pub struct WorkAccountServiceStateGetResponse {
     pub service_state: Option<i64>,
     #[serde(default)]
     pub servicer_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8846,6 +8870,8 @@ pub struct WorkAccountServiceTagCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub tagid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8860,6 +8886,8 @@ pub struct WorkAccountServiceTagDetailResponse {
     pub userlist: Vec<WorkAccountServiceTagUser>,
     #[serde(default)]
     pub partylist: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8868,6 +8896,8 @@ pub struct WorkAccountServiceTagUser {
     pub userid: Option<String>,
     #[serde(default)]
     pub name: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8880,6 +8910,8 @@ pub struct WorkAccountServiceTagUserResultResponse {
     pub invalidlist: Option<String>,
     #[serde(default)]
     pub invalidparty: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8890,6 +8922,8 @@ pub struct WorkAccountServiceTagListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub taglist: Vec<WorkAccountServiceTag>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8898,6 +8932,8 @@ pub struct WorkAccountServiceTag {
     pub tagid: Option<i64>,
     #[serde(default)]
     pub tagname: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12741,6 +12777,20 @@ mod tests {
         assert_eq!(token.access_token.as_deref(), Some("token"));
         assert_eq!(token.expires_in, Some(7200));
         assert_eq!(token.extra["issued_at"], 1_800_000_000);
+
+        let status: WorkStatusResponse =
+            serde_json::from_value(json!({ "errcode": 0, "request_id": "status-ok" })).unwrap();
+        assert_eq!(status.errcode, Some(0));
+        assert_eq!(status.extra["request_id"], "status-ok");
+
+        let ticket: WorkTicketResponse = serde_json::from_value(json!({
+            "ticket": "ticket",
+            "expires_in": 7200,
+            "issued_at": 1_800_000_000
+        }))
+        .unwrap();
+        assert_eq!(ticket.ticket.as_deref(), Some("ticket"));
+        assert_eq!(ticket.extra["issued_at"], 1_800_000_000);
     }
 
     #[test]
@@ -14844,6 +14894,7 @@ mod tests {
         let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
             "next_cursor": "next",
             "has_more": 1,
+            "sync_id": "sync-msg",
             "msg_list": [
                 {
                     "msgid": "msg",
@@ -14852,7 +14903,8 @@ mod tests {
                     "send_time": 100,
                     "origin": 3,
                     "msgtype": "text",
-                    "text": { "content": "hello" }
+                    "text": { "content": "hello" },
+                    "msg_source": "customer"
                 },
                 {
                     "msgid": "image-msg",
@@ -14887,16 +14939,20 @@ mod tests {
                         "external_userid": "external",
                         "scene": "scene",
                         "scene_param": "param",
-                        "welcome_code": "welcome"
-                    }
+                        "welcome_code": "welcome",
+                        "event_source": "qr"
+                    },
+                    "event_seq": 5
                 }
             ]
         }))
         .unwrap();
         assert_eq!(sync.next_cursor.as_deref(), Some("next"));
+        assert_eq!(sync.extra["sync_id"], "sync-msg");
         assert_eq!(sync.msg_list[0].msgid.as_deref(), Some("msg"));
         assert_eq!(sync.msg_list[0].open_kfid.as_deref(), Some("kf"));
         assert_eq!(sync.msg_list[0].msgtype.as_deref(), Some("text"));
+        assert_eq!(sync.msg_list[0].extra["msg_source"], "customer");
         assert_eq!(
             sync.msg_list[0]
                 .text
@@ -14934,76 +14990,104 @@ mod tests {
                 .as_deref(),
             Some("welcome")
         );
+        assert_eq!(sync.msg_list[4].extra["event_seq"], 5);
+        assert_eq!(
+            sync.msg_list[4].event.as_ref().expect("event").extra["event_source"],
+            "qr"
+        );
 
         let send: WorkAccountServiceSendMsgResponse =
-            serde_json::from_value(json!({ "msgid": "msg" })).unwrap();
+            serde_json::from_value(json!({ "msgid": "msg", "request_id": "send-msg" })).unwrap();
         assert_eq!(send.msgid.as_deref(), Some("msg"));
+        assert_eq!(send.extra["request_id"], "send-msg");
 
         let servicer_result: WorkAccountServiceServicerResultResponse =
             serde_json::from_value(json!({
-                "result_list": [{ "userid": "servicer", "errcode": 0 }]
+                "result_list": [{ "userid": "servicer", "errcode": 0, "result_source": "bind" }],
+                "request_id": "servicer-result"
             }))
             .unwrap();
+        assert_eq!(servicer_result.extra["request_id"], "servicer-result");
         assert_eq!(
             servicer_result.result_list[0].userid.as_deref(),
             Some("servicer")
         );
         assert_eq!(servicer_result.result_list[0].errcode, Some(0));
+        assert_eq!(
+            servicer_result.result_list[0].extra["result_source"],
+            "bind"
+        );
 
         let servicers: WorkAccountServiceServicerListResponse = serde_json::from_value(json!({
-            "servicer_list": [{ "userid": "servicer", "status": 1 }]
+            "servicer_list": [{ "userid": "servicer", "status": 1, "online_status": "ready" }],
+            "request_id": "servicer-list"
         }))
         .unwrap();
+        assert_eq!(servicers.extra["request_id"], "servicer-list");
         assert_eq!(
             servicers.servicer_list[0].userid.as_deref(),
             Some("servicer")
         );
         assert_eq!(servicers.servicer_list[0].status, Some(1));
+        assert_eq!(servicers.servicer_list[0].extra["online_status"], "ready");
 
         let state: WorkAccountServiceStateGetResponse = serde_json::from_value(json!({
             "service_state": 2,
-            "servicer_userid": "servicer"
+            "servicer_userid": "servicer",
+            "state_source": "api"
         }))
         .unwrap();
         assert_eq!(state.service_state, Some(2));
+        assert_eq!(state.extra["state_source"], "api");
 
         let tag_create: WorkAccountServiceTagCreateResponse =
-            serde_json::from_value(json!({ "tagid": 1 })).unwrap();
+            serde_json::from_value(json!({ "tagid": 1, "request_id": "tag-create" })).unwrap();
         assert_eq!(tag_create.tagid, Some(1));
+        assert_eq!(tag_create.extra["request_id"], "tag-create");
 
         let tag_detail: WorkAccountServiceTagDetailResponse = serde_json::from_value(json!({
             "tagname": "tag",
-            "userlist": [{ "userid": "user", "name": "User" }],
-            "partylist": [1]
+            "userlist": [{ "userid": "user", "name": "User", "member_role": "owner" }],
+            "partylist": [1],
+            "tag_source": "kf"
         }))
         .unwrap();
         assert_eq!(tag_detail.tagname.as_deref(), Some("tag"));
+        assert_eq!(tag_detail.extra["tag_source"], "kf");
         assert_eq!(tag_detail.userlist[0].userid.as_deref(), Some("user"));
         assert_eq!(tag_detail.userlist[0].name.as_deref(), Some("User"));
+        assert_eq!(tag_detail.userlist[0].extra["member_role"], "owner");
         assert_eq!(tag_detail.partylist[0], 1);
 
         let tag_user: WorkAccountServiceTagUserResultResponse = serde_json::from_value(json!({
             "invalidlist": "bad",
-            "invalidparty": [2]
+            "invalidparty": [2],
+            "request_id": "tag-user"
         }))
         .unwrap();
         assert_eq!(tag_user.invalidparty[0], 2);
+        assert_eq!(tag_user.extra["request_id"], "tag-user");
 
         let tags: WorkAccountServiceTagListResponse = serde_json::from_value(json!({
-            "taglist": [{ "tagid": 1, "tagname": "tag" }]
+            "taglist": [{ "tagid": 1, "tagname": "tag", "member_count": 2 }],
+            "request_id": "tag-list"
         }))
         .unwrap();
+        assert_eq!(tags.extra["request_id"], "tag-list");
         assert_eq!(tags.taglist[0].tagid, Some(1));
         assert_eq!(tags.taglist[0].tagname.as_deref(), Some("tag"));
+        assert_eq!(tags.taglist[0].extra["member_count"], 2);
 
         let ok: WorkAiBotLongConnectionResponse = serde_json::from_value(json!({
             "cmd": "pong",
             "headers": { "req_id": "req-1" },
-            "body": { "ok": true }
+            "body": { "ok": true },
+            "trace_id": "aibot-ok"
         }))
         .unwrap();
         assert!(!ok.is_error());
         assert_eq!(ok.headers.unwrap().req_id.as_deref(), Some("req-1"));
+        assert_eq!(ok.extra["trace_id"], "aibot-ok");
 
         let err: WorkAiBotLongConnectionResponse =
             serde_json::from_value(json!({ "errcode": 40001, "errmsg": "invalid" })).unwrap();

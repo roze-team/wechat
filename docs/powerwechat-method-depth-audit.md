@@ -192,6 +192,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - account-service responses now expose typed customer-service accounts,
   customers, synchronized messages, servicer operation results, and servicer
   list records.
+- Work status/ticket, AI Bot long-connection, and account-service sync/send,
+  servicer, state, and tag responses now preserve unknown upstream fields
+  across wrappers and response-only nested records.
 - account-service account, contact-way, customer batch, customer profile,
   enter-session context, and upgrade-config responses now preserve unknown
   upstream fields.
