@@ -1542,6 +1542,46 @@ pub struct OpenPlatformMiniProgramGrayReleasePlan {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenPlatformMiniProgramGrayReleaseState {
+    Initial,
+    Running,
+    Paused,
+    Finished,
+    Deleted,
+    Other,
+}
+
+impl From<i64> for OpenPlatformMiniProgramGrayReleaseState {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Initial,
+            1 => Self::Running,
+            2 => Self::Paused,
+            3 => Self::Finished,
+            4 => Self::Deleted,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl OpenPlatformMiniProgramGrayReleaseState {
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Running)
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Finished | Self::Deleted)
+    }
+}
+
+impl OpenPlatformMiniProgramGrayReleasePlan {
+    pub fn release_state(&self) -> Option<OpenPlatformMiniProgramGrayReleaseState> {
+        self.status
+            .map(OpenPlatformMiniProgramGrayReleaseState::from)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramGrayReleasePlanResponse {
     #[serde(default)]
@@ -2120,7 +2160,7 @@ mod tests {
         OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditState,
         OpenPlatformMiniProgramAuditStatusResponse, OpenPlatformMiniProgramCategoryAuditState,
         OpenPlatformMiniProgramCategoryResponse, OpenPlatformMiniProgramCommitRequest,
-        OpenPlatformMiniProgramGrayReleasePlanResponse,
+        OpenPlatformMiniProgramGrayReleasePlanResponse, OpenPlatformMiniProgramGrayReleaseState,
         OpenPlatformMiniProgramLatestAuditStatusResponse,
         OpenPlatformMiniProgramModifyDomainRequest, OpenPlatformMiniProgramModifyDomainResponse,
         OpenPlatformMiniProgramPageResponse, OpenPlatformMiniProgramPrivacyExtFileResponse,
@@ -2545,7 +2585,18 @@ mod tests {
         assert_eq!(gray.extra["request_id"], "gray");
         let gray_plan = gray.gray_release_plan.unwrap();
         assert_eq!(gray_plan.gray_percentage, Some(10));
+        assert_eq!(
+            gray_plan.release_state(),
+            Some(OpenPlatformMiniProgramGrayReleaseState::Running)
+        );
+        assert!(gray_plan.release_state().expect("state").is_active());
         assert_eq!(gray_plan.extra["plan_extra"], "kept");
+        assert!(OpenPlatformMiniProgramGrayReleaseState::Finished.is_terminal());
+        assert!(OpenPlatformMiniProgramGrayReleaseState::Deleted.is_terminal());
+        assert_eq!(
+            OpenPlatformMiniProgramGrayReleaseState::from(99),
+            OpenPlatformMiniProgramGrayReleaseState::Other
+        );
 
         let support: OpenPlatformMiniProgramSupportVersionResponse =
             serde_json::from_value(json!({

@@ -297,6 +297,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 - authorizer mini-program category, code-audit, latest-audit, and privacy
   interface DTOs now expose semantic status helper enums while retaining the
   original upstream numeric status fields.
+- authorizer mini-program gray-release plans now expose semantic release-state
+  helpers for initial/running/paused/finished/deleted states while retaining
+  the original upstream numeric status field.
 
 Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
 
