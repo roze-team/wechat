@@ -244,6 +244,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   DTOs while preserving card extension fields.
 - Work upload-media responses now expose semantic media-type helpers for image,
   voice, video, and file while retaining the original upstream `type` string.
+- Work invoice status requests and batch invoice responses now expose semantic
+  reimbursement-status helpers for init, locked, and closure states while
+  retaining the original upstream string values.
 - Work remaining raw request payloads have been removed: moment-strategy
   create/edit, linked-corp and external-contact school message sends,
   template-card update, check-in option add/update, approval apply-event, and

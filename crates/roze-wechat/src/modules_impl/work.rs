@@ -4951,11 +4951,74 @@ pub struct WorkInvoiceStatusRequest {
     pub reimburse_status: String,
 }
 
+impl WorkInvoiceStatusRequest {
+    pub fn new(
+        card_id: impl Into<String>,
+        encrypt_code: impl Into<String>,
+        reimburse_status: WorkInvoiceReimburseStatusKind,
+    ) -> Self {
+        Self {
+            card_id: card_id.into(),
+            encrypt_code: encrypt_code.into(),
+            reimburse_status: reimburse_status.as_code().to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkInvoiceStatusBatchRequest {
     pub openid: String,
     pub reimburse_status: String,
     pub invoice_list: Vec<WorkInvoiceCardRequest>,
+}
+
+impl WorkInvoiceStatusBatchRequest {
+    pub fn new(
+        openid: impl Into<String>,
+        reimburse_status: WorkInvoiceReimburseStatusKind,
+        invoice_list: Vec<WorkInvoiceCardRequest>,
+    ) -> Self {
+        Self {
+            openid: openid.into(),
+            reimburse_status: reimburse_status.as_code().to_string(),
+            invoice_list,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkInvoiceReimburseStatusKind {
+    Init,
+    Locked,
+    Closure,
+    Other,
+}
+
+impl WorkInvoiceReimburseStatusKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("INVOICE_REIMBURSE_INIT") {
+            Self::Init
+        } else if value.eq_ignore_ascii_case("INVOICE_REIMBURSE_LOCK") {
+            Self::Locked
+        } else if value.eq_ignore_ascii_case("INVOICE_REIMBURSE_CLOSURE") {
+            Self::Closure
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn as_code(self) -> &'static str {
+        match self {
+            Self::Init => "INVOICE_REIMBURSE_INIT",
+            Self::Locked => "INVOICE_REIMBURSE_LOCK",
+            Self::Closure => "INVOICE_REIMBURSE_CLOSURE",
+            Self::Other => "UNKNOWN",
+        }
+    }
+
+    pub fn is_final(self) -> bool {
+        matches!(self, Self::Closure)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5064,6 +5127,19 @@ pub struct WorkInvoiceInfoBatchItem {
     pub user_info: Option<WorkInvoiceUserInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkInvoiceInfoBatchItem {
+    pub fn reimburse_status_kind(&self) -> Option<WorkInvoiceReimburseStatusKind> {
+        self.reimburse_status
+            .as_deref()
+            .map(WorkInvoiceReimburseStatusKind::from_code)
+    }
+
+    pub fn is_reimbursed(&self) -> bool {
+        self.reimburse_status_kind()
+            .is_some_and(WorkInvoiceReimburseStatusKind::is_final)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13983,6 +14059,16 @@ mod tests {
         })
         .unwrap();
         assert_eq!(status["reimburse_status"], "INVOICE_REIMBURSE_INIT");
+        let typed_status = serde_json::to_value(WorkInvoiceStatusRequest::new(
+            "card",
+            "encrypted",
+            WorkInvoiceReimburseStatusKind::Locked,
+        ))
+        .unwrap();
+        assert_eq!(
+            typed_status["reimburse_status"],
+            WorkInvoiceReimburseStatusKind::Locked.as_code()
+        );
 
         let batch = serde_json::to_value(WorkInvoiceStatusBatchRequest {
             openid: "openid".to_string(),
@@ -13992,6 +14078,16 @@ mod tests {
         .unwrap();
         assert_eq!(batch["openid"], "openid");
         assert_eq!(batch["invoice_list"][0]["card_id"], "card");
+        let typed_batch = serde_json::to_value(WorkInvoiceStatusBatchRequest::new(
+            "openid",
+            WorkInvoiceReimburseStatusKind::Closure,
+            vec![WorkInvoiceCardRequest {
+                card_id: "card".to_string(),
+                encrypt_code: "encrypted".to_string(),
+            }],
+        ))
+        .unwrap();
+        assert_eq!(typed_batch["reimburse_status"], "INVOICE_REIMBURSE_CLOSURE");
     }
 
     #[test]
@@ -14055,6 +14151,24 @@ mod tests {
         assert_eq!(
             batch.item_list[0].reimburse_status.as_deref(),
             Some("INVOICE_REIMBURSE_INIT")
+        );
+        assert_eq!(
+            batch.item_list[0].reimburse_status_kind(),
+            Some(WorkInvoiceReimburseStatusKind::Init)
+        );
+        assert!(!batch.item_list[0].is_reimbursed());
+        assert_eq!(
+            WorkInvoiceReimburseStatusKind::from_code("invoice_reimburse_lock"),
+            WorkInvoiceReimburseStatusKind::Locked
+        );
+        assert_eq!(
+            WorkInvoiceReimburseStatusKind::from_code("INVOICE_REIMBURSE_CLOSURE"),
+            WorkInvoiceReimburseStatusKind::Closure
+        );
+        assert!(WorkInvoiceReimburseStatusKind::Closure.is_final());
+        assert_eq!(
+            WorkInvoiceReimburseStatusKind::from_code("SOMETHING_NEW"),
+            WorkInvoiceReimburseStatusKind::Other
         );
         assert_eq!(batch.item_list[0].extra["item_source"], "batch");
         assert_eq!(
