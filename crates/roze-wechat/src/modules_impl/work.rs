@@ -3492,10 +3492,10 @@ impl Work {
         living_id: impl Into<String>,
     ) -> Result<WorkLivingInfoResponse> {
         self.inner
-            .post(
+            .get_with_query(
                 "cgi-bin/living/get_living_info",
                 Some(access_token.into()),
-                json!({ "livingid": living_id.into() }),
+                vec![("livingid".to_string(), living_id.into())],
             )
             .await
     }
@@ -12959,26 +12959,47 @@ pub struct WorkLivingCreateRequest {
     pub theme: String,
     pub living_start: i64,
     pub living_duration: i64,
-    pub description: String,
-    #[serde(rename = "type")]
-    pub living_type: i64,
-    pub agentid: i64,
-    pub remind_time: i64,
-    pub activity_cover_mediaid: String,
-    pub activity_share_mediaid: String,
-    pub activity_detail: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub living_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agentid: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remind_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub activity_cover_mediaid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub activity_share_mediaid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub activity_detail: Option<WorkLivingActivityDetail>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingActivityDetail {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub image_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLivingModifyRequest {
     pub livingid: String,
-    pub theme: String,
-    pub living_start: i64,
-    pub living_duration: i64,
-    pub description: String,
-    #[serde(rename = "type")]
-    pub living_type: i64,
-    pub remind_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub living_start: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub living_duration: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub living_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remind_time: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12995,7 +13016,7 @@ pub struct WorkLivingCreateResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub livingid: Option<i64>,
+    pub livingid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13007,7 +13028,7 @@ pub struct WorkLivingCodeResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub living_code: Option<i64>,
+    pub living_code: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13043,9 +13064,27 @@ pub struct WorkLivingInfo {
     #[serde(default)]
     pub status: Option<i64>,
     #[serde(default)]
-    pub viewer_count: Option<i64>,
+    pub main_department: Option<i64>,
     #[serde(default)]
-    pub comment_count: Option<i64>,
+    pub viewer_num: Option<i64>,
+    #[serde(default)]
+    pub online_count: Option<i64>,
+    #[serde(default)]
+    pub open_replay: Option<i64>,
+    #[serde(default)]
+    pub reserve_living_duration: Option<i64>,
+    #[serde(default)]
+    pub reserve_start: Option<i64>,
+    #[serde(default)]
+    pub replay_status: Option<i64>,
+    #[serde(default)]
+    pub mic_num: Option<i64>,
+    #[serde(default)]
+    pub push_stream_url: Option<String>,
+    #[serde(default)]
+    pub subscribe_count: Option<i64>,
+    #[serde(default)]
+    pub comment_num: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13063,21 +13102,24 @@ pub struct WorkLivingInfoResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkLivingWatchStat {
-    #[serde(default)]
-    pub viewer_userid: Option<String>,
-    #[serde(default)]
-    pub viewer_external_userid: Option<String>,
-    #[serde(default)]
-    pub watch_time: Option<i64>,
-    #[serde(default)]
-    pub is_comment: Option<i64>,
-    #[serde(default)]
-    pub is_mic: Option<i64>,
-    #[serde(default)]
-    pub invite_userid: Option<String>,
-    #[serde(default)]
-    pub invite_external_userid: Option<String>,
+pub struct WorkLivingInternalViewer {
+    pub userid: String,
+    pub watch_time: i64,
+    pub is_comment: i64,
+    pub is_mic: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLivingExternalViewer {
+    pub external_userid: String,
+    #[serde(rename = "type")]
+    pub viewer_type: i64,
+    pub name: String,
+    pub watch_time: i64,
+    pub is_comment: i64,
+    pub is_mic: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13085,13 +13127,9 @@ pub struct WorkLivingWatchStat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLivingWatchStatInfo {
     #[serde(default)]
-    pub viewer_count: Option<i64>,
+    pub users: Vec<WorkLivingInternalViewer>,
     #[serde(default)]
-    pub comment_count: Option<i64>,
-    #[serde(default)]
-    pub mic_count: Option<i64>,
-    #[serde(default)]
-    pub watch_stat: Vec<WorkLivingWatchStat>,
+    pub external_users: Vec<WorkLivingExternalViewer>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13102,6 +13140,8 @@ pub struct WorkLivingWatchStatResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ending: Option<i64>,
     #[serde(default)]
     pub next_key: Option<String>,
     #[serde(default)]
@@ -19071,31 +19111,57 @@ mod tests {
             theme: "Launch".to_string(),
             living_start: 1_800_000_000,
             living_duration: 3600,
-            description: "product update".to_string(),
-            living_type: 1,
-            agentid: 100001,
-            remind_time: 15,
-            activity_cover_mediaid: "cover".to_string(),
-            activity_share_mediaid: "share".to_string(),
-            activity_detail: json!({ "description": "detail" }),
+            description: Some("product update".to_string()),
+            living_type: Some(4),
+            agentid: Some(100001),
+            remind_time: Some(15),
+            activity_cover_mediaid: Some("cover".to_string()),
+            activity_share_mediaid: Some("share".to_string()),
+            activity_detail: Some(WorkLivingActivityDetail {
+                description: Some("detail".to_string()),
+                image_list: vec!["detail-image".to_string()],
+                extra: json!({ "layout": "gallery" }),
+            }),
         })
         .unwrap();
         assert_eq!(living["anchor_userid"], "anchor");
-        assert_eq!(living["type"], 1);
+        assert_eq!(living["type"], 4);
         assert_eq!(living["activity_detail"]["description"], "detail");
+        assert_eq!(living["activity_detail"]["image_list"][0], "detail-image");
+        assert_eq!(living["activity_detail"]["layout"], "gallery");
+
+        let minimal_living = serde_json::to_value(WorkLivingCreateRequest {
+            anchor_userid: "anchor".to_string(),
+            theme: "Minimal".to_string(),
+            living_start: 1_800_000_000,
+            living_duration: 1800,
+            description: None,
+            living_type: None,
+            agentid: None,
+            remind_time: None,
+            activity_cover_mediaid: None,
+            activity_share_mediaid: None,
+            activity_detail: None,
+        })
+        .unwrap();
+        assert!(minimal_living.get("description").is_none());
+        assert!(minimal_living.get("type").is_none());
+        assert!(minimal_living.get("activity_detail").is_none());
 
         let modify = serde_json::to_value(WorkLivingModifyRequest {
             livingid: "living-1".to_string(),
-            theme: "Launch updated".to_string(),
-            living_start: 1_800_000_300,
-            living_duration: 1800,
-            description: "update".to_string(),
-            living_type: 1,
-            remind_time: 10,
+            theme: Some("Launch updated".to_string()),
+            living_start: None,
+            living_duration: Some(1800),
+            description: None,
+            living_type: None,
+            remind_time: Some(10),
         })
         .unwrap();
         assert_eq!(modify["livingid"], "living-1");
         assert_eq!(modify["living_duration"], 1800);
+        assert!(modify.get("description").is_none());
+        assert!(modify.get("type").is_none());
 
         let living_ids = serde_json::to_value(WorkLivingGetUserAllLivingIdRequest {
             userid: "user".to_string(),
@@ -19226,16 +19292,20 @@ mod tests {
 
     #[test]
     fn deserializes_work_oa_living_and_wedrive_responses() {
-        let living: WorkLivingCreateResponse =
-            serde_json::from_value(json!({ "livingid": 100, "request_id": "living-create" }))
-                .unwrap();
-        assert_eq!(living.livingid, Some(100));
+        let living: WorkLivingCreateResponse = serde_json::from_value(json!({
+            "livingid": "living-100",
+            "request_id": "living-create"
+        }))
+        .unwrap();
+        assert_eq!(living.livingid.as_deref(), Some("living-100"));
         assert_eq!(living.extra["request_id"], "living-create");
 
-        let code: WorkLivingCodeResponse =
-            serde_json::from_value(json!({ "living_code": 200, "expire_time": 1_800_003_600 }))
-                .unwrap();
-        assert_eq!(code.living_code, Some(200));
+        let code: WorkLivingCodeResponse = serde_json::from_value(json!({
+            "living_code": "living-code-200",
+            "expire_time": 1_800_003_600
+        }))
+        .unwrap();
+        assert_eq!(code.living_code.as_deref(), Some("living-code-200"));
         assert_eq!(code.extra["expire_time"], 1_800_003_600);
 
         let ids: WorkLivingGetUserAllLivingIdResponse = serde_json::from_value(json!({
@@ -19255,10 +19325,21 @@ mod tests {
                 "theme": "Launch",
                 "living_start": 1_800_000_000,
                 "living_duration": 3600,
+                "description": "Product update",
                 "type": 1,
                 "status": 2,
-                "viewer_count": 3,
-                "replay_status": 1
+                "main_department": 10,
+                "viewer_num": 3,
+                "online_count": 1,
+                "open_replay": 1,
+                "reserve_living_duration": 7200,
+                "reserve_start": 1_799_999_000,
+                "replay_status": 1,
+                "mic_num": 2,
+                "push_stream_url": "https://example.com/push",
+                "subscribe_count": 8,
+                "comment_num": 4,
+                "info_version": 2
             }
         }))
         .unwrap();
@@ -19266,34 +19347,52 @@ mod tests {
         let info = info.living_info.unwrap();
         assert_eq!(info.theme.as_deref(), Some("Launch"));
         assert_eq!(info.living_type, Some(1));
-        assert_eq!(info.viewer_count, Some(3));
-        assert_eq!(info.extra["replay_status"], 1);
+        assert_eq!(info.viewer_num, Some(3));
+        assert_eq!(info.online_count, Some(1));
+        assert_eq!(info.replay_status, Some(1));
+        assert_eq!(
+            info.push_stream_url.as_deref(),
+            Some("https://example.com/push")
+        );
+        assert_eq!(info.extra["info_version"], 2);
 
         let stat: WorkLivingWatchStatResponse = serde_json::from_value(json!({
+            "ending": 0,
             "next_key": "next",
-            "has_more": true,
+            "request_id": "watch-stat",
             "stat_info": {
-                "viewer_count": 3,
-                "comment_count": 1,
-                "share_count": 2,
-                "watch_stat": [{
-                    "viewer_userid": "viewer",
+                "users": [{
+                    "userid": "viewer",
                     "watch_time": 120,
                     "is_comment": 1,
-                    "watch_percent": 80
-                }]
+                    "is_mic": 0,
+                    "terminal": "desktop"
+                }],
+                "external_users": [{
+                    "external_userid": "external-viewer",
+                    "type": 2,
+                    "name": "External Viewer",
+                    "watch_time": 60,
+                    "is_comment": 0,
+                    "is_mic": 1,
+                    "unionid": "union-1"
+                }],
+                "stat_version": 2
             }
         }))
         .unwrap();
-        assert_eq!(stat.extra["has_more"], true);
+        assert_eq!(stat.ending, Some(0));
+        assert_eq!(stat.extra["request_id"], "watch-stat");
         let stat_info = stat.stat_info.unwrap();
-        assert_eq!(stat_info.viewer_count, Some(3));
-        assert_eq!(stat_info.extra["share_count"], 2);
+        assert_eq!(stat_info.users[0].userid, "viewer");
+        assert_eq!(stat_info.users[0].extra["terminal"], "desktop");
         assert_eq!(
-            stat_info.watch_stat[0].viewer_userid.as_deref(),
-            Some("viewer")
+            stat_info.external_users[0].external_userid,
+            "external-viewer"
         );
-        assert_eq!(stat_info.watch_stat[0].extra["watch_percent"], 80);
+        assert_eq!(stat_info.external_users[0].viewer_type, 2);
+        assert_eq!(stat_info.external_users[0].extra["unionid"], "union-1");
+        assert_eq!(stat_info.extra["stat_version"], 2);
 
         let share_info: WorkLivingShareInfoResponse = serde_json::from_value(json!({
             "livingid": "living-1",

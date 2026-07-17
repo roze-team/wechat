@@ -126,6 +126,13 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   contents, and comments now use typed DTOs; journal statistics now follow the
   upstream `stat_list` array contract with typed report/white ranges, fixed
   receivers, leaders, reported users, unreported users, and report items.
+- OA living create/modify requests now model optional wire fields and typed
+  activity details; living information exposes the documented viewer, online,
+  replay, reservation, microphone, stream, subscription, and comment fields.
+  Watch statistics now follow the upstream internal `users` and
+  `external_users` contract with typed viewer records and the integer `ending`
+  pagination marker. Living IDs and viewing codes use their documented string
+  wire types, and living-detail retrieval uses the documented GET query.
 - OA meeting create/update requests and meeting detail responses now expose
   typed internal-member, external-user, and device attendee DTOs instead of
   generic maps.
