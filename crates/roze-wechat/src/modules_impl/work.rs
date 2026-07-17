@@ -4321,6 +4321,8 @@ pub struct WorkAgentListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub agentlist: Vec<WorkAgentSummary>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4333,6 +4335,8 @@ pub struct WorkAgentSummary {
     pub square_logo_url: Option<String>,
     #[serde(default)]
     pub round_logo_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4369,6 +4373,8 @@ pub struct WorkAgentDetailResponse {
     pub home_url: Option<String>,
     #[serde(default)]
     pub customized_publish_status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4411,6 +4417,8 @@ pub struct WorkAgentWorkbenchTemplateResponse {
     pub list: Option<WorkAgentWorkbenchListTemplate>,
     #[serde(default)]
     pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4593,6 +4601,8 @@ pub struct WorkDepartmentListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub department: Vec<WorkDepartment>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4603,6 +4613,8 @@ pub struct WorkDepartmentSimpleListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub department_id: Vec<WorkDepartmentSimple>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4613,6 +4625,8 @@ pub struct WorkDepartmentDetailResponse {
     pub errmsg: Option<String>,
     #[serde(flatten)]
     pub department: WorkDepartment,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -4629,6 +4643,8 @@ pub struct WorkDepartment {
     pub order: Option<i64>,
     #[serde(default)]
     pub department_leader: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4641,6 +4657,8 @@ pub struct WorkDepartmentSimple {
     pub parentid: Option<i64>,
     #[serde(default)]
     pub order: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4651,6 +4669,8 @@ pub struct WorkIpListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub ip_list: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4663,6 +4683,8 @@ pub struct WorkAccessTokenResponse {
     pub access_token: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4673,6 +4695,8 @@ pub struct WorkCorpGroupAppShareInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub corp_list: Vec<WorkCorpGroupAppShareCorp>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4681,6 +4705,8 @@ pub struct WorkCorpGroupAppShareCorp {
     pub corpid: Option<String>,
     #[serde(default)]
     pub agentid: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4693,6 +4719,8 @@ pub struct WorkCorpGroupTokenResponse {
     pub access_token: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4705,6 +4733,8 @@ pub struct WorkCorpGroupTransferSessionResponse {
     pub userid: Option<String>,
     #[serde(default)]
     pub session_key: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4721,6 +4751,8 @@ pub struct WorkMiniProgramSessionResponse {
     pub deviceid: Option<String>,
     #[serde(default)]
     pub session_key: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12487,62 +12519,76 @@ mod tests {
 
         let departments: WorkDepartmentListResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "trace_id": "department-list",
             "department": [{
                 "id": 1,
                 "name": "Engineering",
                 "name_en": "Engineering",
                 "parentid": 0,
                 "order": 10,
-                "department_leader": ["leader"]
+                "department_leader": ["leader"],
+                "department_type": "core"
             }]
         }))
         .unwrap();
+        assert_eq!(departments.extra["trace_id"], "department-list");
         assert_eq!(departments.department[0].id, Some(1));
         assert_eq!(
             departments.department[0].name.as_deref(),
             Some("Engineering")
         );
         assert_eq!(departments.department[0].department_leader[0], "leader");
+        assert_eq!(departments.department[0].extra["department_type"], "core");
 
         let simple: WorkDepartmentSimpleListResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "trace_id": "department-simple",
             "department_id": [{
                 "id": 1,
                 "name": "Engineering",
                 "parentid": 0,
-                "order": 10
+                "order": 10,
+                "member_count": 12
             }]
         }))
         .unwrap();
+        assert_eq!(simple.extra["trace_id"], "department-simple");
         assert_eq!(simple.department_id[0].id, Some(1));
         assert_eq!(simple.department_id[0].parentid, Some(0));
+        assert_eq!(simple.department_id[0].extra["member_count"], 12);
 
         let detail: WorkDepartmentDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
             "id": 1,
             "name": "Engineering",
             "parentid": 0,
-            "department_leader": ["leader"]
+            "department_leader": ["leader"],
+            "department_type": "core"
         }))
         .unwrap();
         assert_eq!(detail.department.id, Some(1));
         assert_eq!(detail.department.department_leader[0], "leader");
+        assert_eq!(detail.department.extra["department_type"], "core");
     }
 
     #[test]
     fn deserializes_work_agent_responses() {
         let list: WorkAgentListResponse = serde_json::from_value(json!({
             "errcode": 0,
+            "trace_id": "agent-list",
             "agentlist": [{
                 "agentid": 100001,
                 "name": "App",
                 "square_logo_url": "https://example.com/logo.png",
-                "round_logo_url": "https://example.com/round.png"
+                "round_logo_url": "https://example.com/round.png",
+                "visible_scope": "all"
             }]
         }))
         .unwrap();
+        assert_eq!(list.extra["trace_id"], "agent-list");
         assert_eq!(list.agentlist[0].agentid, Some(100001));
         assert_eq!(list.agentlist[0].name.as_deref(), Some("App"));
+        assert_eq!(list.agentlist[0].extra["visible_scope"], "all");
 
         let detail: WorkAgentDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -12557,7 +12603,8 @@ mod tests {
             "report_location_flag": 1,
             "isreportenter": 0,
             "home_url": "https://example.com/home",
-            "customized_publish_status": 1
+            "customized_publish_status": 1,
+            "beta_feature_flag": true
         }))
         .unwrap();
         assert_eq!(detail.agentid, Some(100001));
@@ -12569,6 +12616,7 @@ mod tests {
         );
         assert_eq!(detail.allow_partys.as_ref().unwrap().partyid[0], 1);
         assert_eq!(detail.allow_tags.as_ref().unwrap().tagid[0], 2);
+        assert_eq!(detail.extra["beta_feature_flag"], true);
 
         let template: WorkAgentWorkbenchTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -12594,7 +12642,8 @@ mod tests {
             },
             "webview": {
                 "url": "https://example.com/workbench"
-            }
+            },
+            "template_version": 2
         }))
         .unwrap();
         assert_eq!(template.template_type.as_deref(), Some("keydata"));
@@ -12614,52 +12663,64 @@ mod tests {
             template.webview.as_ref().unwrap().url.as_deref(),
             Some("https://example.com/workbench")
         );
+        assert_eq!(template.extra["template_version"], 2);
     }
 
     #[test]
     fn deserializes_work_base_responses() {
         let callback: WorkIpListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "ip_list": ["1.1.1.1", "2.2.2.2"]
+            "ip_list": ["1.1.1.1", "2.2.2.2"],
+            "trace_id": "ip-list"
         }))
         .unwrap();
 
         assert_eq!(callback.ip_list[0], "1.1.1.1");
         assert_eq!(callback.ip_list.len(), 2);
+        assert_eq!(callback.extra["trace_id"], "ip-list");
 
         let token: WorkAccessTokenResponse = serde_json::from_value(json!({
             "access_token": "token",
-            "expires_in": 7200
+            "expires_in": 7200,
+            "issued_at": 1_800_000_000
         }))
         .unwrap();
         assert_eq!(token.access_token.as_deref(), Some("token"));
         assert_eq!(token.expires_in, Some(7200));
+        assert_eq!(token.extra["issued_at"], 1_800_000_000);
     }
 
     #[test]
     fn deserializes_work_corpgroup_responses() {
         let share: WorkCorpGroupAppShareInfoResponse = serde_json::from_value(json!({
-            "corp_list": [{ "corpid": "corp", "agentid": 100001 }]
+            "trace_id": "corp-share",
+            "corp_list": [{ "corpid": "corp", "agentid": 100001, "corp_name": "Corp" }]
         }))
         .unwrap();
+        assert_eq!(share.extra["trace_id"], "corp-share");
         assert_eq!(share.corp_list[0].corpid.as_deref(), Some("corp"));
         assert_eq!(share.corp_list[0].agentid, Some(100001));
+        assert_eq!(share.corp_list[0].extra["corp_name"], "Corp");
 
         let token: WorkCorpGroupTokenResponse = serde_json::from_value(json!({
             "access_token": "token",
-            "expires_in": 7200
+            "expires_in": 7200,
+            "issued_at": 1_800_000_000
         }))
         .unwrap();
         assert_eq!(token.access_token.as_deref(), Some("token"));
         assert_eq!(token.expires_in, Some(7200));
+        assert_eq!(token.extra["issued_at"], 1_800_000_000);
 
         let session: WorkCorpGroupTransferSessionResponse = serde_json::from_value(json!({
             "userid": "user",
-            "session_key": "session"
+            "session_key": "session",
+            "session_expire": 300
         }))
         .unwrap();
         assert_eq!(session.userid.as_deref(), Some("user"));
         assert_eq!(session.session_key.as_deref(), Some("session"));
+        assert_eq!(session.extra["session_expire"], 300);
     }
 
     #[test]
@@ -12668,7 +12729,8 @@ mod tests {
             "corpid": "corp",
             "userid": "user",
             "deviceid": "device",
-            "session_key": "session"
+            "session_key": "session",
+            "open_data_scope": "full"
         }))
         .unwrap();
 
@@ -12676,6 +12738,7 @@ mod tests {
         assert_eq!(session.userid.as_deref(), Some("user"));
         assert_eq!(session.deviceid.as_deref(), Some("device"));
         assert_eq!(session.session_key.as_deref(), Some("session"));
+        assert_eq!(session.extra["open_data_scope"], "full");
     }
 
     #[test]

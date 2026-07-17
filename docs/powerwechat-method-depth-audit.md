@@ -134,6 +134,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   responses now preserve upstream extension fields while keeping typed media ids.
 - Work agent list/detail and department list/simple-list/detail responses now
   expose typed agent, allow-scope, department, and department-leader DTOs.
+- Work agent, department, base IP/token, corpgroup, and mini-program session
+  response wrappers now preserve unknown upstream fields across wrappers and
+  response-only nested records.
 - Work agent scope, workbench-template, and workbench-data mutation paths now
   accept typed request DTOs instead of raw JSON request payloads.
 - Work appchat create/get and OAuth/Auth user info/detail responses now expose
