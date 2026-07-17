@@ -2257,6 +2257,8 @@ pub struct RefundDetailResponse {
     pub amount: RefundDetailAmount,
     #[serde(default)]
     pub promotion_detail: Vec<RefundPromotionDetail>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2277,12 +2279,16 @@ pub struct RefundDetailAmount {
     pub settlement_total: Option<i64>,
     #[serde(default)]
     pub discount_refund: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundAmountFrom {
     pub account: String,
     pub amount: i64,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2295,6 +2301,8 @@ pub struct RefundPromotionDetail {
     pub refund_amount: i64,
     #[serde(default)]
     pub goods_detail: Vec<RefundGoodsDetail>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2307,6 +2315,8 @@ pub struct RefundGoodsDetail {
     pub unit_price: i64,
     pub refund_amount: i64,
     pub refund_quantity: i64,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4094,6 +4104,8 @@ pub struct PaymentTransactionAmount {
     pub payer_total: Option<i64>,
     #[serde(default)]
     pub total: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4104,12 +4116,16 @@ pub struct PaymentTransactionPayer {
     pub sub_openid: Option<String>,
     #[serde(default)]
     pub sp_openid: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentTransactionSceneInfo {
     #[serde(default)]
     pub device_id: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4136,6 +4152,8 @@ pub struct PaymentPromotionDetail {
     pub currency: Option<String>,
     #[serde(default)]
     pub goods_detail: Vec<PaymentPromotionGoodsDetail>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4150,6 +4168,8 @@ pub struct PaymentPromotionGoodsDetail {
     pub discount_amount: Option<i64>,
     #[serde(default)]
     pub goods_remark: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4190,6 +4210,8 @@ pub struct PaymentRefundNotificationAmount {
     pub payer_total: Option<i64>,
     #[serde(default)]
     pub payer_refund: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4300,31 +4322,56 @@ mod tests {
             "amount": {
                 "total": 100,
                 "payer_total": 100,
-                "currency": "CNY"
+                "currency": "CNY",
+                "settlement_rate": "1.0"
             },
             "payer": {
-                "openid": "openid"
+                "openid": "openid",
+                "payer_client_ip": "127.0.0.1"
+            },
+            "scene_info": {
+                "device_id": "device-1",
+                "store_id": "store-1"
             },
             "promotion_detail": [{
                 "coupon_id": "coupon-1",
                 "type": "CASH",
                 "amount": 10,
+                "promotion_extra": "retained",
                 "goods_detail": [{
                     "goods_id": "sku-1",
                     "quantity": 1,
                     "unit_price": 100,
-                    "discount_amount": 10
+                    "discount_amount": 10,
+                    "goods_extra": "retained"
                 }]
-            }]
+            }],
+            "transaction_extra": "retained"
         }))
         .unwrap();
         assert_eq!(transaction.trade_state.as_deref(), Some("SUCCESS"));
-        assert_eq!(transaction.amount.unwrap().total, Some(100));
-        assert_eq!(transaction.payer.unwrap().openid.as_deref(), Some("openid"));
+        let amount = transaction.amount.as_ref().expect("amount");
+        assert_eq!(amount.total, Some(100));
+        assert_eq!(amount.extra["settlement_rate"], "1.0");
+        let payer = transaction.payer.as_ref().expect("payer");
+        assert_eq!(payer.openid.as_deref(), Some("openid"));
+        assert_eq!(payer.extra["payer_client_ip"], "127.0.0.1");
+        let scene_info = transaction.scene_info.as_ref().expect("scene info");
+        assert_eq!(scene_info.device_id.as_deref(), Some("device-1"));
+        assert_eq!(scene_info.extra["store_id"], "store-1");
         assert_eq!(
             transaction.promotion_detail[0].promotion_type.as_deref(),
             Some("CASH")
         );
+        assert_eq!(
+            transaction.promotion_detail[0].extra["promotion_extra"],
+            "retained"
+        );
+        assert_eq!(
+            transaction.promotion_detail[0].goods_detail[0].extra["goods_extra"],
+            "retained"
+        );
+        assert_eq!(transaction.extra["transaction_extra"], "retained");
 
         let refund: PaymentRefundNotification = serde_json::from_value(json!({
             "mchid": "mchid",
@@ -4339,12 +4386,17 @@ mod tests {
                 "total": 100,
                 "refund": 100,
                 "payer_total": 100,
-                "payer_refund": 100
-            }
+                "payer_refund": 100,
+                "settlement_refund": 100
+            },
+            "refund_extra": "retained"
         }))
         .unwrap();
         assert_eq!(refund.refund_status.as_deref(), Some("SUCCESS"));
-        assert_eq!(refund.amount.unwrap().payer_refund, Some(100));
+        let refund_amount = refund.amount.as_ref().expect("refund amount");
+        assert_eq!(refund_amount.payer_refund, Some(100));
+        assert_eq!(refund_amount.extra["settlement_refund"], 100);
+        assert_eq!(refund.extra["refund_extra"], "retained");
 
         let transfer: PaymentTransferBillNotification = serde_json::from_value(json!({
             "out_bill_no": "bill-1",
@@ -5495,12 +5547,13 @@ mod tests {
                 "refund": 50,
                 "total": 100,
                 "currency": "CNY",
-                "from": [{ "account": "AVAILABLE", "amount": 50 }],
+                "from": [{ "account": "AVAILABLE", "amount": 50, "account_extra": "retained" }],
                 "payer_total": 100,
                 "payer_refund": 50,
                 "settlement_refund": 50,
                 "settlement_total": 100,
-                "discount_refund": 0
+                "discount_refund": 0,
+                "amount_extra": "retained"
             },
             "promotion_detail": [{
                 "promotion_id": "promo-1",
@@ -5508,28 +5561,42 @@ mod tests {
                 "type": "COUPON",
                 "amount": 10,
                 "refund_amount": 5,
+                "promotion_extra": "retained",
                 "goods_detail": [{
                     "merchant_goods_id": "sku-1",
                     "wechatpay_goods_id": "wx-sku-1",
                     "goods_name": "product",
                     "unit_price": 100,
                     "refund_amount": 5,
-                    "refund_quantity": 1
+                    "refund_quantity": 1,
+                    "goods_extra": "retained"
                 }]
-            }]
+            }],
+            "refund_extra": "retained"
         }))
         .unwrap();
 
         assert_eq!(response.refund_id, "refund-id");
         assert_eq!(response.amount.from[0].account, "AVAILABLE");
+        assert_eq!(response.amount.from[0].extra["account_extra"], "retained");
         assert_eq!(response.amount.payer_refund, Some(50));
+        assert_eq!(response.amount.extra["amount_extra"], "retained");
         assert_eq!(response.promotion_detail[0].kind, "COUPON");
+        assert_eq!(
+            response.promotion_detail[0].extra["promotion_extra"],
+            "retained"
+        );
         assert_eq!(
             response.promotion_detail[0].goods_detail[0]
                 .wechatpay_goods_id
                 .as_deref(),
             Some("wx-sku-1")
         );
+        assert_eq!(
+            response.promotion_detail[0].goods_detail[0].extra["goods_extra"],
+            "retained"
+        );
+        assert_eq!(response.extra["refund_extra"], "retained");
     }
 
     #[test]

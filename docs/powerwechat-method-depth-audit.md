@@ -382,6 +382,10 @@ Implemented on 2026-07-16 in Roze WeChat payment notify and PayScore DTO depth:
   notifications;
 - typed transaction-success, refund, and merchant-transfer bill notification
   payload DTOs for production webhook handlers;
+- transaction/refund notification nested amount, payer, scene, promotion, and
+  goods DTOs now preserve unknown upstream fields for forward compatibility.
+- refund detail responses now preserve unknown upstream fields across wrapper,
+  amount, source-account, promotion, and goods DTO payloads.
 - typed PayScore service-order response covering state, post-payment/discount,
   risk-fund, time-range, location, order id, and package fields.
 - PayScore service-order request/response location payloads now share a typed
