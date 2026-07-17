@@ -8108,6 +8108,8 @@ pub struct WorkUploadImageResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8124,6 +8126,8 @@ pub struct WorkUploadMediaResponse {
     pub created_at: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13029,11 +13033,26 @@ mod tests {
 
     #[test]
     fn deserializes_upload_media_response_type_field() {
-        let response: WorkUploadMediaResponse =
-            serde_json::from_value(json!({ "media_id": "mid", "type": "image" })).unwrap();
+        let image: WorkUploadImageResponse = serde_json::from_value(json!({
+            "url": "https://example.com/image.png",
+            "cdn_file_id": "cdn-image"
+        }))
+        .unwrap();
+        assert_eq!(image.url.as_deref(), Some("https://example.com/image.png"));
+        assert_eq!(image.extra["cdn_file_id"], "cdn-image");
+
+        let response: WorkUploadMediaResponse = serde_json::from_value(json!({
+            "media_id": "mid",
+            "type": "image",
+            "created_at": "1800000000",
+            "file_size": 1024
+        }))
+        .unwrap();
 
         assert_eq!(response.media_id.as_deref(), Some("mid"));
         assert_eq!(response.media_type.as_deref(), Some("image"));
+        assert_eq!(response.created_at.as_deref(), Some("1800000000"));
+        assert_eq!(response.extra["file_size"], 1024);
     }
 
     #[test]

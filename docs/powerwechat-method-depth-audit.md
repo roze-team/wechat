@@ -122,6 +122,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   template-card update wrapper, msg-audit agree/robot-info wrappers, tag user
   removal wrapper, group robot send/upload wrappers, and Work access-token
   wrapper.
+- Work media upload-image, temp-media, attachment, and group-robot upload
+  responses now preserve upstream extension fields while keeping typed media ids.
 - Work agent list/detail and department list/simple-list/detail responses now
   expose typed agent, allow-scope, department, and department-leader DTOs.
 - Work agent scope, workbench-template, and workbench-data mutation paths now
