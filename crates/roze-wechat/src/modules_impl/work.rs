@@ -11350,7 +11350,7 @@ pub struct WorkMeetingCreateRequest {
     pub meeting_type: i64,
     pub remind_time: i64,
     pub agentid: i64,
-    pub attendees: Value,
+    pub attendees: WorkMeetingAttendeesRequest,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11363,7 +11363,15 @@ pub struct WorkMeetingUpdateRequest {
     #[serde(rename = "type")]
     pub meeting_type: i64,
     pub remind_time: i64,
-    pub attendees: Value,
+    pub attendees: WorkMeetingAttendeesRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingAttendeesRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub userids: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11430,7 +11438,49 @@ pub struct WorkMeetingGetInfoResponse {
     #[serde(default)]
     pub remind_time: Option<i64>,
     #[serde(default)]
-    pub attendees: Option<Value>,
+    pub attendees: Option<WorkMeetingAttendees>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingAttendees {
+    #[serde(default)]
+    pub member: Vec<WorkMeetingMemberAttendee>,
+    #[serde(default)]
+    pub external_user: Vec<WorkMeetingExternalAttendee>,
+    #[serde(default)]
+    pub device: Vec<WorkMeetingDeviceAttendee>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingMemberAttendee {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingExternalAttendee {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingDeviceAttendee {
+    #[serde(default)]
+    pub device_sn: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -11439,11 +11489,16 @@ pub struct WorkMeetingGetInfoResponse {
 pub struct WorkMeetingRoomAddRequest {
     pub name: String,
     pub capacity: i64,
-    pub city: String,
-    pub building: String,
-    pub floor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub building: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub floor: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub equipment: Vec<i64>,
-    pub coordinate: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coordinate: Option<WorkMeetingRoomCoordinate>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11451,45 +11506,71 @@ pub struct WorkMeetingRoomEditRequest {
     pub meetingroom_id: i64,
     pub name: String,
     pub capacity: i64,
-    pub city: String,
-    pub building: String,
-    pub floor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub building: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub floor: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub equipment: Vec<i64>,
-    pub coordinate: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coordinate: Option<WorkMeetingRoomCoordinate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomCoordinate {
+    pub latitude: String,
+    pub longitude: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomListRequest {
-    pub city: String,
-    pub building: String,
-    pub floor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub building: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub floor: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub equipment: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomGetBookingInfoRequest {
-    pub meetingroom_id: i64,
-    pub start_time: i64,
-    pub end_time: i64,
-    pub city: String,
-    pub building: String,
-    pub floor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meetingroom_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub building: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub floor: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomBookRequest {
     pub meetingroom_id: i64,
-    pub subject: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
     pub start_time: i64,
     pub end_time: i64,
     pub booker: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attendees: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomCancelBookRequest {
     pub meeting_id: String,
-    pub keep_schedule: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keep_schedule: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11521,7 +11602,7 @@ pub struct WorkMeetingRoomInfo {
     #[serde(default)]
     pub equipment: Vec<i64>,
     #[serde(default)]
-    pub coordinate: Option<Value>,
+    pub coordinate: Option<WorkMeetingRoomCoordinate>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -16411,7 +16492,10 @@ mod tests {
             meeting_type: 1,
             remind_time: 15,
             agentid: 100001,
-            attendees: json!({ "userids": ["user"] }),
+            attendees: WorkMeetingAttendeesRequest {
+                userids: vec!["user".to_string()],
+                extra: Value::Null,
+            },
         })
         .unwrap();
         assert_eq!(meeting["creator_userid"], "creator");
@@ -16426,7 +16510,10 @@ mod tests {
             description: "sync".to_string(),
             meeting_type: 1,
             remind_time: 10,
-            attendees: json!({ "userids": ["user"] }),
+            attendees: WorkMeetingAttendeesRequest {
+                userids: vec!["user".to_string()],
+                extra: Value::Null,
+            },
         })
         .unwrap();
         assert_eq!(update["meetingid"], "123");
@@ -16446,11 +16533,15 @@ mod tests {
         let room = serde_json::to_value(WorkMeetingRoomAddRequest {
             name: "Room A".to_string(),
             capacity: 8,
-            city: "Shanghai".to_string(),
-            building: "HQ".to_string(),
-            floor: "3".to_string(),
+            city: Some("Shanghai".to_string()),
+            building: Some("HQ".to_string()),
+            floor: Some("3".to_string()),
             equipment: vec![1, 2],
-            coordinate: json!({ "longitude": "121.5", "latitude": "31.2" }),
+            coordinate: Some(WorkMeetingRoomCoordinate {
+                longitude: "121.5".to_string(),
+                latitude: "31.2".to_string(),
+                extra: Value::Null,
+            }),
         })
         .unwrap();
         assert_eq!(room["name"], "Room A");
@@ -16460,39 +16551,44 @@ mod tests {
             meetingroom_id: 7,
             name: "Room B".to_string(),
             capacity: 10,
-            city: "Shanghai".to_string(),
-            building: "HQ".to_string(),
-            floor: "4".to_string(),
+            city: Some("Shanghai".to_string()),
+            building: Some("HQ".to_string()),
+            floor: Some("4".to_string()),
             equipment: vec![1],
-            coordinate: json!({ "longitude": "121.5" }),
+            coordinate: Some(WorkMeetingRoomCoordinate {
+                longitude: "121.5".to_string(),
+                latitude: "31.2".to_string(),
+                extra: Value::Null,
+            }),
         })
         .unwrap();
         assert_eq!(room_edit["meetingroom_id"], 7);
         assert_eq!(room_edit["capacity"], 10);
 
         let room_list = serde_json::to_value(WorkMeetingRoomListRequest {
-            city: "Shanghai".to_string(),
-            building: "HQ".to_string(),
-            floor: "3".to_string(),
+            city: Some("Shanghai".to_string()),
+            building: Some("HQ".to_string()),
+            floor: Some("3".to_string()),
             equipment: vec![1],
         })
         .unwrap();
         assert_eq!(room_list["equipment"][0], 1);
 
         let booking_info = serde_json::to_value(WorkMeetingRoomGetBookingInfoRequest {
-            meetingroom_id: 7,
-            start_time: 1_800_000_000,
-            end_time: 1_800_003_600,
-            city: "Shanghai".to_string(),
-            building: "HQ".to_string(),
-            floor: "3".to_string(),
+            meetingroom_id: Some(7),
+            start_time: Some(1_800_000_000),
+            end_time: Some(1_800_003_600),
+            city: None,
+            building: None,
+            floor: None,
         })
         .unwrap();
         assert_eq!(booking_info["meetingroom_id"], 7);
+        assert!(booking_info.get("city").is_none());
 
         let book = serde_json::to_value(WorkMeetingRoomBookRequest {
             meetingroom_id: 7,
-            subject: "Weekly".to_string(),
+            subject: Some("Weekly".to_string()),
             start_time: 1_800_000_000,
             end_time: 1_800_003_600,
             booker: "user".to_string(),
@@ -16504,7 +16600,7 @@ mod tests {
 
         let cancel = serde_json::to_value(WorkMeetingRoomCancelBookRequest {
             meeting_id: "meeting-1".to_string(),
-            keep_schedule: 1,
+            keep_schedule: Some(1),
         })
         .unwrap();
         assert_eq!(cancel["meeting_id"], "meeting-1");
@@ -16554,13 +16650,37 @@ mod tests {
             "type": 1,
             "status": 2,
             "remind_time": 15,
-            "attendees": { "userids": ["user"] },
+            "attendees": {
+                "member": [{
+                    "userid": "user",
+                    "status": 1,
+                    "join_count": 2
+                }],
+                "external_user": [{
+                    "external_userid": "external-user",
+                    "status": 2
+                }],
+                "device": [{
+                    "device_sn": "device-1",
+                    "status": 1
+                }],
+                "attendee_count": 3
+            },
             "meeting_code": "8888"
         }))
         .unwrap();
         assert_eq!(meeting_info.creator_userid.as_deref(), Some("creator"));
         assert_eq!(meeting_info.meeting_type, Some(1));
-        assert_eq!(meeting_info.attendees.unwrap()["userids"][0], "user");
+        let attendees = meeting_info.attendees.expect("meeting attendees");
+        assert_eq!(attendees.member[0].userid.as_deref(), Some("user"));
+        assert_eq!(attendees.member[0].status, Some(1));
+        assert_eq!(attendees.member[0].extra["join_count"], 2);
+        assert_eq!(
+            attendees.external_user[0].external_userid.as_deref(),
+            Some("external-user")
+        );
+        assert_eq!(attendees.device[0].device_sn.as_deref(), Some("device-1"));
+        assert_eq!(attendees.extra["attendee_count"], 3);
         assert_eq!(meeting_info.extra["meeting_code"], "8888");
 
         let room_add: WorkMeetingRoomAddResponse = serde_json::from_value(json!({
@@ -16578,6 +16698,11 @@ mod tests {
                 "name": "Room A",
                 "capacity": 12,
                 "equipment": [1, 2],
+                "coordinate": {
+                    "latitude": "31.2",
+                    "longitude": "121.5",
+                    "coordinate_system": "gcj02"
+                },
                 "room_status": "available"
             }]
         }))
@@ -16587,6 +16712,13 @@ mod tests {
             Some("Room A")
         );
         assert_eq!(room_list.meetingroom_list[0].capacity, Some(12));
+        let coordinate = room_list.meetingroom_list[0]
+            .coordinate
+            .as_ref()
+            .expect("meeting room coordinate");
+        assert_eq!(coordinate.latitude, "31.2");
+        assert_eq!(coordinate.longitude, "121.5");
+        assert_eq!(coordinate.extra["coordinate_system"], "gcj02");
         assert_eq!(room_list.extra["total"], 1);
         assert_eq!(
             room_list.meetingroom_list[0].extra["room_status"],

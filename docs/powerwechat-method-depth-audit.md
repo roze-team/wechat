@@ -117,6 +117,12 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   face, option add/update/delete wrappers;
 - OA approval template/detail/list/data/apply wrappers and vacation
   config/quota/update wrappers.
+- OA meeting create/update requests and meeting detail responses now expose
+  typed internal-member, external-user, and device attendee DTOs instead of
+  generic maps.
+- OA meeting-room add/edit/list responses now expose typed latitude/longitude
+  coordinates; location, equipment, booking filters, subject, attendees, and
+  schedule-retention fields follow their optional wire semantics.
 - external-contact strategy-tag list/add/edit/delete wrappers, group welcome
   template add/edit/get/delete wrappers, group-chat join-way add/get/update/delete
   wrappers, and opengid-to-chatid wrapper.
