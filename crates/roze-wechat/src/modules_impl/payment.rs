@@ -2,6 +2,7 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_value, Value};
 use sha1::Digest as _;
+use std::collections::BTreeMap;
 
 use crate::{
     config::Platform,
@@ -3311,6 +3312,43 @@ impl PaymentBillStatement {
             .count()
     }
 
+    pub fn index_by_unique_column(
+        &self,
+        name: &str,
+    ) -> Result<BTreeMap<String, &PaymentBillRecord>> {
+        self.require_columns(&[name])?;
+        let mut records = BTreeMap::new();
+        for record in &self.records {
+            let key = record.require(name)?;
+            if key.is_empty() {
+                return Err(WechatError::Config(format!(
+                    "payment bill unique column {name} contains an empty value"
+                )));
+            }
+            if records.insert(key.to_string(), record).is_some() {
+                return Err(WechatError::Config(format!(
+                    "payment bill unique column {name} contains duplicate value {key}"
+                )));
+            }
+        }
+        Ok(records)
+    }
+
+    pub fn group_sum_i64(
+        &self,
+        group_name: &str,
+        amount_name: &str,
+    ) -> Result<BTreeMap<String, i64>> {
+        self.require_columns(&[group_name, amount_name])?;
+        let mut sums = BTreeMap::new();
+        for record in &self.records {
+            let group = record.require(group_name)?.to_string();
+            let amount = record.require_i64(amount_name)?;
+            *sums.entry(group).or_insert(0) += amount;
+        }
+        Ok(sums)
+    }
+
     pub fn assert_sum_matches_summary(&self, name: &str, summary_index: usize) -> Result<i64> {
         self.require_columns(&[name])?;
         let sum = self.sum_i64(name)?;
@@ -3322,6 +3360,23 @@ impl PaymentBillStatement {
         }
 
         Ok(sum)
+    }
+
+    pub fn assert_non_empty_count_matches_summary(
+        &self,
+        name: &str,
+        summary_index: usize,
+    ) -> Result<usize> {
+        self.require_columns(&[name])?;
+        let expected = self.summary.require_i64(summary_index)?;
+        let actual = self.non_empty_count(name);
+        if actual as i64 != expected {
+            return Err(WechatError::Config(format!(
+                "payment bill column {name} non-empty count {actual} does not match summary field {summary_index} value {expected}"
+            )));
+        }
+
+        Ok(actual)
     }
 
     pub fn assert_record_count_matches_summary(&self, summary_index: usize) -> Result<usize> {
@@ -5537,8 +5592,23 @@ mod tests {
             statement.assert_sum_matches_summary("amount", 2).unwrap(),
             100
         );
+        let by_order = statement.index_by_unique_column("out_trade_no").unwrap();
+        assert_eq!(
+            by_order
+                .get("order-1")
+                .and_then(|record| record.get("transaction_id")),
+            Some("4200001")
+        );
+        let grouped = statement.group_sum_i64("out_trade_no", "amount").unwrap();
+        assert_eq!(grouped.get("order-1"), Some(&100));
         assert_eq!(statement.sum_i64("missing").unwrap(), 0);
         assert_eq!(statement.non_empty_count("transaction_id"), 1);
+        assert_eq!(
+            statement
+                .assert_non_empty_count_matches_summary("transaction_id", 1)
+                .unwrap(),
+            1
+        );
         assert_eq!(statement.non_empty_count("missing"), 0);
         assert_eq!(bill.hash_type.as_deref(), Some("SHA256"));
         assert_eq!(bill.bytes.len(), 65);
@@ -5641,6 +5711,22 @@ mod tests {
             statement.assert_sum_matches_summary("amount", 2).unwrap(),
             150
         );
+        let grouped = statement.group_sum_i64("out_trade_no", "amount").unwrap();
+        assert_eq!(grouped.get("order-1"), Some(&100));
+        assert_eq!(grouped.get("order-2"), Some(&50));
+        assert_eq!(
+            statement
+                .index_by_unique_column("transaction_id")
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            statement
+                .assert_non_empty_count_matches_summary("transaction_id", 1)
+                .unwrap(),
+            2
+        );
         assert_eq!(statement.assert_record_count_matches_summary(1).unwrap(), 2);
 
         let missing_column = statement
@@ -5677,6 +5763,51 @@ mod tests {
             .assert_record_count_matches_summary(1)
             .expect_err("record count mismatch should fail");
         assert!(count_mismatch_err.to_string().contains("record count"));
+
+        let non_empty_count_mismatch = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\n,order-2,50\nsum,2,150\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap()
+        .statement()
+        .unwrap();
+        let non_empty_count_err = non_empty_count_mismatch
+            .assert_non_empty_count_matches_summary("transaction_id", 1)
+            .expect_err("non-empty count mismatch should fail");
+        assert!(non_empty_count_err.to_string().contains("non-empty count"));
+
+        let duplicate_key = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\n4200001,order-2,50\nsum,2,150\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap()
+        .statement()
+        .unwrap();
+        let duplicate_err = duplicate_key
+            .index_by_unique_column("transaction_id")
+            .expect_err("duplicate unique key should fail");
+        assert!(duplicate_err.to_string().contains("duplicate value"));
+
+        let empty_key = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"transaction_id,out_trade_no,amount\n,order-1,100\nsum,1,100\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap()
+        .statement()
+        .unwrap();
+        let empty_key_err = empty_key
+            .index_by_unique_column("transaction_id")
+            .expect_err("empty unique key should fail");
+        assert!(empty_key_err.to_string().contains("empty value"));
 
         let missing_summary = statement
             .summary

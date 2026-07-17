@@ -392,6 +392,9 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
   checks;
 - downloaded bill statements now provide required summary-field helpers and
   data-row-count-vs-summary validation for production reconciliation checks;
+- downloaded bill statements now provide unique-column indexing, grouped
+  integer sums, and non-empty-column-count-vs-summary validation helpers for
+  production reconciliation checks;
 - shared signed bytes GET support in `PlatformClient`;
 - structured merchant-service complaint list/detail/negotiation DTOs covering
   order info, media lists, service-order info, user tags, refund amount, and
