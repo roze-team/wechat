@@ -3364,6 +3364,24 @@ where
         .map_err(serde::de::Error::custom)
 }
 
+fn deserialize_complaint_media_urls<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    if value.is_null() {
+        return Ok(Vec::new());
+    }
+    if value.is_array() {
+        return serde_json::from_value(value).map_err(serde::de::Error::custom);
+    }
+    serde_json::from_value(value)
+        .map(|url| vec![url])
+        .map_err(serde::de::Error::custom)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FundAppTransferBillRequest {
     pub appid: String,
@@ -3526,6 +3544,8 @@ pub struct ComplaintListResponse {
     pub offset: Option<i64>,
     #[serde(default)]
     pub total_count: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3562,6 +3582,8 @@ pub struct ComplaintDetailResponse {
     pub service_order_info: Vec<ComplaintServiceOrderInfo>,
     #[serde(default)]
     pub additional_info: Option<ComplaintAdditionalInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3572,14 +3594,18 @@ pub struct ComplaintOrderInfo {
     pub out_trade_no: Option<String>,
     #[serde(default)]
     pub amount: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintMedia {
     #[serde(default)]
     pub media_type: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_complaint_media_urls")]
     pub media_url: Vec<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3590,6 +3616,8 @@ pub struct ComplaintServiceOrderInfo {
     pub out_order_no: Option<String>,
     #[serde(default)]
     pub state: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3608,6 +3636,8 @@ pub struct ComplaintSharePowerInfo {
     pub return_time: Option<String>,
     #[serde(default)]
     pub return_address_info: Option<ComplaintReturnAddressInfo>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3618,6 +3648,8 @@ pub struct ComplaintReturnAddressInfo {
     pub longitude: Option<String>,
     #[serde(default)]
     pub latitude: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3645,6 +3677,8 @@ pub struct ComplaintNegotiationHistoryResponse {
     pub offset: Option<i64>,
     #[serde(default)]
     pub total_count: Option<i64>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3663,6 +3697,8 @@ pub struct ComplaintNegotiationHistoryRecord {
     pub image_list: Vec<String>,
     #[serde(default, deserialize_with = "deserialize_complaint_media_list")]
     pub complaint_media_list: Vec<ComplaintMedia>,
+    #[serde(default, flatten)]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5663,14 +5699,16 @@ mod tests {
             "complaint_order_info": [{
                 "transaction_id": "transaction-1",
                 "out_trade_no": "order-1",
-                "amount": 100
+                "amount": 100,
+                "merchant_extra_order_id": "extra-order-1"
             }],
             "complaint_full_refunded": false,
             "incoming_user_response": true,
             "user_complaint_times": 2,
             "complaint_media_list": [{
                 "media_type": "IMAGE",
-                "media_url": ["https://example.com/image.jpg"]
+                "media_url": ["https://example.com/image.jpg"],
+                "thumbnail_url": "https://example.com/thumb.jpg"
             }],
             "problem_description": "shipping issue",
             "problem_type": "SERVICE",
@@ -5679,19 +5717,23 @@ mod tests {
             "service_order_info": [{
                 "order_id": "service-order-1",
                 "out_order_no": "out-service-1",
-                "state": "DOING"
+                "state": "DOING",
+                "service_extra_state": "WAITING"
             }],
             "additional_info": {
                 "type": "SHARE_POWER_BANK",
                 "share_power_info": {
                     "return_time": "2026-07-16T11:00:00+08:00",
+                    "return_status": "RETURNED",
                     "return_address_info": {
                         "return_address": "Shanghai",
                         "longitude": "121.47",
-                        "latitude": "31.23"
+                        "latitude": "31.23",
+                        "poi_id": "poi-1"
                     }
                 }
-            }
+            },
+            "merchant_extra_detail": "retained"
         }))
         .unwrap();
 
@@ -5704,10 +5746,23 @@ mod tests {
             detail.complaint_media_list[0].media_url[0],
             "https://example.com/image.jpg"
         );
+        assert_eq!(
+            detail.complaint_order_info[0].extra["merchant_extra_order_id"],
+            "extra-order-1"
+        );
+        assert_eq!(
+            detail.complaint_media_list[0].extra["thumbnail_url"],
+            "https://example.com/thumb.jpg"
+        );
+        assert_eq!(
+            detail.service_order_info[0].extra["service_extra_state"],
+            "WAITING"
+        );
+        assert_eq!(detail.extra["merchant_extra_detail"], "retained");
         let single_media_detail: ComplaintDetailResponse = serde_json::from_value(json!({
             "complaint_media_list": {
                 "media_type": "VIDEO",
-                "media_url": ["https://example.com/video.mp4"]
+                "media_url": "https://example.com/video.mp4"
             }
         }))
         .unwrap();
@@ -5726,17 +5781,36 @@ mod tests {
                 .and_then(|info| info.return_address.as_deref()),
             Some("Shanghai")
         );
+        assert_eq!(
+            detail
+                .additional_info
+                .as_ref()
+                .and_then(|info| info.share_power_info.as_ref())
+                .map(|info| &info.extra["return_status"]),
+            Some(&json!("RETURNED"))
+        );
+        assert_eq!(
+            detail
+                .additional_info
+                .as_ref()
+                .and_then(|info| info.share_power_info.as_ref())
+                .and_then(|info| info.return_address_info.as_ref())
+                .map(|info| &info.extra["poi_id"]),
+            Some(&json!("poi-1"))
+        );
 
         let list: ComplaintListResponse = serde_json::from_value(json!({
             "total_count": 1,
             "limit": 10,
             "offset": 0,
-            "data": [detail]
+            "data": [detail],
+            "next_key": "cursor-1"
         }))
         .unwrap();
 
         assert_eq!(list.total_count, Some(1));
         assert_eq!(list.data[0].complaint_state.as_deref(), Some("PENDING"));
+        assert_eq!(list.extra["next_key"], "cursor-1");
     }
 
     #[test]
@@ -5846,11 +5920,14 @@ mod tests {
                 "log_id": "log-1",
                 "operator": "MERCHANT",
                 "operate_type": "RESPONSE",
+                "merchant_history_state": "OPEN",
                 "complaint_media_list": [{
                     "media_type": "IMAGE",
-                    "media_url": ["https://example.com/history.jpg"]
+                    "media_url": "https://example.com/history.jpg",
+                    "media_id": "media-1"
                 }]
-            }]
+            }],
+            "next_key": "history-cursor-1"
         }))
         .unwrap();
 
@@ -5866,6 +5943,12 @@ mod tests {
         assert_eq!(
             response.data[0].complaint_media_list[0].media_url[0],
             "https://example.com/history.jpg"
+        );
+        assert_eq!(response.extra["next_key"], "history-cursor-1");
+        assert_eq!(response.data[0].extra["merchant_history_state"], "OPEN");
+        assert_eq!(
+            response.data[0].complaint_media_list[0].extra["media_id"],
+            "media-1"
         );
     }
 
