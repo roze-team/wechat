@@ -40,6 +40,26 @@ pub struct HttpBytesResponse {
     pub body: Bytes,
 }
 
+#[derive(Debug)]
+pub struct HttpStreamResponse {
+    pub status: u16,
+    pub headers: Vec<(String, String)>,
+    response: reqwest::Response,
+}
+
+impl HttpStreamResponse {
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
+    }
+
+    pub async fn next_chunk(&mut self) -> Result<Option<Bytes>> {
+        Ok(self.response.chunk().await?)
+    }
+}
+
 impl HttpBytesResponse {
     pub fn header(&self, name: &str) -> Option<&str> {
         self.headers
@@ -222,6 +242,56 @@ impl Client {
             status,
             headers,
             body,
+        })
+    }
+
+    pub async fn execute_stream_response(
+        &self,
+        endpoint: Endpoint,
+        query: Vec<(String, String)>,
+        body: Option<Value>,
+    ) -> Result<HttpStreamResponse> {
+        let mut url = Url::parse(&self.config.base_url)
+            .map_err(|err| WechatError::Config(format!("invalid base_url: {err}")))?;
+        url.set_path(endpoint.path.trim_start_matches('/'));
+
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (key, value) in query {
+                pairs.append_pair(&key, &value);
+            }
+            if let Some(token) = endpoint.access_token {
+                pairs.append_pair("access_token", &token);
+            }
+        }
+
+        let mut builder = self.http.request(endpoint.method, url);
+        for (key, value) in endpoint.headers {
+            builder = builder.header(key, value);
+        }
+        if let Some(body) = body {
+            builder = builder
+                .header("content-type", "application/json")
+                .body(body.to_string());
+        }
+
+        let response = builder.send().await?.error_for_status()?;
+        let status = response.status().as_u16();
+        let headers = response
+            .headers()
+            .iter()
+            .filter_map(|(name, value)| {
+                value
+                    .to_str()
+                    .ok()
+                    .map(|value| (name.as_str().to_string(), value.to_string()))
+            })
+            .collect();
+
+        Ok(HttpStreamResponse {
+            status,
+            headers,
+            response,
         })
     }
 
@@ -475,7 +545,56 @@ impl Endpoint {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
+
     use super::*;
+
+    #[tokio::test]
+    async fn streams_http_response_body_and_metadata() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 256];
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let read = socket.read(&mut buffer).unwrap();
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..read]);
+            }
+            socket
+                .write_all(
+                    b"HTTP/1.1 206 Partial Content\r\nContent-Length: 10\r\nContent-Range: bytes 0-9/10\r\nConnection: close\r\n\r\n01234",
+                )
+                .unwrap();
+            socket.write_all(b"56789").unwrap();
+        });
+        let client = Client::new(WechatConfig {
+            base_url: format!("http://{address}"),
+            ..WechatConfig::default()
+        })
+        .unwrap();
+
+        let mut response = client
+            .execute_stream_response(Endpoint::get("/bill"), Vec::new(), None)
+            .await
+            .unwrap();
+        assert_eq!(response.status, 206);
+        assert_eq!(response.header("content-range"), Some("bytes 0-9/10"));
+
+        let mut body = Vec::new();
+        while let Some(chunk) = response.next_chunk().await.unwrap() {
+            body.extend_from_slice(&chunk);
+        }
+        assert_eq!(body, b"0123456789");
+        server.join().unwrap();
+    }
 
     #[test]
     fn detects_api_errors_in_binary_responses() {

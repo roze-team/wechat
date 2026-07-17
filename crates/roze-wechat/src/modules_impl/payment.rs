@@ -2,7 +2,11 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_value, Value};
 use sha1::Digest as _;
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
+use tokio::io::AsyncWriteExt;
 
 use crate::{
     config::Platform,
@@ -1348,6 +1352,92 @@ impl Payment {
         PaymentDownloadedBill::from_verified_bytes(bytes, hash_type, hash_value)
     }
 
+    pub async fn download_bill_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let expected_hash = request
+            .hash_value
+            .as_deref()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "payment bill file download requires a non-empty expected hash".to_string(),
+                )
+            })?;
+        let mut hasher = PaymentDownloadHasher::new(request.hash_type.as_deref())?;
+        let destination = destination.as_ref().to_path_buf();
+        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+        let file_name = destination
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| {
+                WechatError::Config("payment bill destination must name a file".to_string())
+            })?;
+        if tokio::fs::try_exists(&destination).await? {
+            return Err(WechatError::Config(format!(
+                "payment bill destination already exists: {}",
+                destination.display()
+            )));
+        }
+
+        let temporary = parent.join(format!(".{file_name}.{}.part", uuid::Uuid::now_v7()));
+        let mut cleanup = TemporaryFileGuard::new(temporary.clone());
+        let mut file = tokio::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temporary)
+            .await?;
+
+        let (path, query) = split_payment_download_url(&request.download_url)?;
+        let path_query = path_with_query(&path, &query);
+        let headers = vec![(
+            "authorization".to_string(),
+            credentials.authorization("GET", &path_query, "")?,
+        )];
+        let mut response = self.inner.get_stream_response(path, query, headers).await?;
+        let mut bytes_written = 0_u64;
+        while let Some(chunk) = response.next_chunk().await? {
+            file.write_all(&chunk).await?;
+            hasher.update(&chunk);
+            bytes_written = bytes_written
+                .checked_add(chunk.len() as u64)
+                .ok_or_else(|| WechatError::Config("payment bill is too large".to_string()))?;
+        }
+        file.flush().await?;
+        file.sync_all().await?;
+        drop(file);
+
+        let hash_type = hasher.hash_type().to_string();
+        let actual_hash = hasher.finalize();
+        if !actual_hash.eq_ignore_ascii_case(expected_hash) {
+            return Err(WechatError::Crypto(
+                "payment download hash mismatch".to_string(),
+            ));
+        }
+
+        tokio::fs::hard_link(&temporary, &destination)
+            .await
+            .map_err(|err| {
+                WechatError::Config(format!(
+                    "cannot commit payment bill to {}: {err}",
+                    destination.display()
+                ))
+            })?;
+        if tokio::fs::remove_file(&temporary).await.is_ok() {
+            cleanup.disarm();
+        }
+
+        Ok(PaymentDownloadedBillFile {
+            path: destination,
+            bytes_written,
+            hash_type,
+            hash_value: actual_hash,
+        })
+    }
+
     pub async fn download_trade_bill_bytes(
         &self,
         credentials: &PaymentCredentials,
@@ -1382,6 +1472,25 @@ impl Payment {
         .await
     }
 
+    pub async fn download_trade_bill_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill_to_file(
+            credentials,
+            PaymentBillDownloadRequest {
+                download_url: bill.download_url,
+                hash_type: bill.hash_type,
+                hash_value: bill.hash_value,
+            },
+            destination,
+        )
+        .await
+    }
+
     pub async fn download_fund_flow_bill_bytes(
         &self,
         credentials: &PaymentCredentials,
@@ -1412,6 +1521,25 @@ impl Payment {
                 hash_type: bill.hash_type,
                 hash_value: bill.hash_value,
             },
+        )
+        .await
+    }
+
+    pub async fn download_fund_flow_bill_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill_to_file(
+            credentials,
+            PaymentBillDownloadRequest {
+                download_url: bill.download_url,
+                hash_type: bill.hash_type,
+                hash_value: bill.hash_value,
+            },
+            destination,
         )
         .await
     }
@@ -1604,6 +1732,67 @@ fn verify_payment_download_hash(
         ));
     }
     Ok(())
+}
+
+enum PaymentDownloadHasher {
+    Sha1(sha1::Sha1),
+    Sha256(sha2::Sha256),
+}
+
+impl PaymentDownloadHasher {
+    fn new(hash_type: Option<&str>) -> Result<Self> {
+        match hash_type.unwrap_or("SHA1").to_ascii_uppercase().as_str() {
+            "SHA1" | "SHA-1" => Ok(Self::Sha1(sha1::Sha1::new())),
+            "SHA256" | "SHA-256" => Ok(Self::Sha256(sha2::Sha256::new())),
+            other => Err(WechatError::Crypto(format!(
+                "unsupported payment download hash type: {other}"
+            ))),
+        }
+    }
+
+    fn hash_type(&self) -> &'static str {
+        match self {
+            Self::Sha1(_) => "SHA1",
+            Self::Sha256(_) => "SHA256",
+        }
+    }
+
+    fn update(&mut self, bytes: &[u8]) {
+        match self {
+            Self::Sha1(hasher) => hasher.update(bytes),
+            Self::Sha256(hasher) => hasher.update(bytes),
+        }
+    }
+
+    fn finalize(self) -> String {
+        match self {
+            Self::Sha1(hasher) => hex::encode(hasher.finalize()),
+            Self::Sha256(hasher) => hex::encode(hasher.finalize()),
+        }
+    }
+}
+
+struct TemporaryFileGuard {
+    path: PathBuf,
+    armed: bool,
+}
+
+impl TemporaryFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path, armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for TemporaryFileGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
 }
 
 fn build_sandbox_sign_key_xml(
@@ -3306,6 +3495,14 @@ pub struct PaymentDownloadedBill {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PaymentDownloadedBillFile {
+    pub path: PathBuf,
+    pub bytes_written: u64,
+    pub hash_type: String,
+    pub hash_value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaymentBillRecord {
     pub raw: String,
     pub fields: Vec<(String, String)>,
@@ -4851,18 +5048,18 @@ mod tests {
         PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
         PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
         PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
-        PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill,
-        PaymentNotification, PaymentOrderResponse, PaymentRefundNotification,
-        PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse, PaymentTradeStateKind,
-        PaymentTransactionNotification, PaymentTransferBillNotification, PrepayResponse,
-        ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadHasher,
+        PaymentDownloadedBill, PaymentNotification, PaymentOrderResponse,
+        PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse,
+        PaymentTradeStateKind, PaymentTransactionNotification, PaymentTransferBillNotification,
+        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
         ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
         RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
         SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TransferBatchQuery,
-        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard,
+        TransferBatchQuery, TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
         TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
         TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
         UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
@@ -6041,6 +6238,36 @@ mod tests {
         let sha1 = hex::encode(sha1_hasher.finalize());
         verify_payment_download_hash(b"bill-bytes", Some("SHA1"), Some(&sha1)).unwrap();
         assert!(verify_payment_download_hash(b"bill-bytes", Some("SHA256"), Some("bad")).is_err());
+    }
+
+    #[test]
+    fn hashes_payment_download_chunks_incrementally() {
+        let mut sha1 = PaymentDownloadHasher::new(Some("SHA1")).unwrap();
+        sha1.update(b"bill-");
+        sha1.update(b"bytes");
+        let mut expected_sha1 = sha1::Sha1::new();
+        expected_sha1.update(b"bill-bytes");
+        assert_eq!(sha1.finalize(), hex::encode(expected_sha1.finalize()));
+
+        let mut sha256 = PaymentDownloadHasher::new(Some("SHA-256")).unwrap();
+        sha256.update(b"bill-");
+        sha256.update(b"bytes");
+        assert_eq!(sha256.finalize(), crypto::sha256_hex(b"bill-bytes"));
+        assert!(PaymentDownloadHasher::new(Some("MD5")).is_err());
+    }
+
+    #[test]
+    fn removes_abandoned_payment_download_temporary_file() {
+        let path =
+            std::env::temp_dir().join(format!("roze-wechat-payment-{}.part", uuid::Uuid::now_v7()));
+        std::fs::write(&path, b"partial bill").unwrap();
+
+        {
+            let _guard = TemporaryFileGuard::new(path.clone());
+            assert!(path.exists());
+        }
+
+        assert!(!path.exists());
     }
 
     #[test]

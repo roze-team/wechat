@@ -474,6 +474,10 @@ Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 
 - signed WeChat Pay v3 bill download bytes helper with absolute/relative
   download URL parsing;
+- streaming trade and fund-flow bill downloads now write to a unique sibling
+  temporary file, calculate SHA-1/SHA-256 incrementally, require a matching
+  expected digest, and publish with an atomic no-clobber hard link only after
+  the file is flushed and synchronized;
 - trade-bill and fund-flow-bill download convenience wrappers;
 - optional SHA-1/SHA-256 download hash verification for returned bill bytes;
 - structured downloaded-bill wrapper exposing verified bytes, UTF-8 text,
