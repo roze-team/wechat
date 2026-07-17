@@ -5458,6 +5458,8 @@ pub struct PublishDraftAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5486,6 +5488,8 @@ pub struct PublishNewsItem {
     pub url: Option<String>,
     #[serde(default)]
     pub is_deleted: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5500,6 +5504,8 @@ pub struct PublishDraftGetResponse {
     pub create_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5510,6 +5516,8 @@ pub struct PublishDraftCountResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub total_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5520,6 +5528,8 @@ pub struct PublishContent {
     pub create_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5532,6 +5542,8 @@ pub struct PublishBatchItem {
     pub content: Option<PublishContent>,
     #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5546,6 +5558,8 @@ pub struct PublishBatchGetResponse {
     pub item_count: Option<i64>,
     #[serde(default)]
     pub item: Vec<PublishBatchItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5560,6 +5574,8 @@ pub struct PublishDraftSwitchStatusResponse {
     pub item_count: Option<i64>,
     #[serde(default)]
     pub is_open: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5570,6 +5586,8 @@ pub struct PublishSubmitResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub publish_id: Option<u64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5578,6 +5596,8 @@ pub struct PublishArticleItem {
     pub idx: Option<i64>,
     #[serde(default)]
     pub article_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5586,6 +5606,8 @@ pub struct PublishArticleDetail {
     pub count: Option<i64>,
     #[serde(default)]
     pub item: Vec<PublishArticleItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5604,6 +5626,8 @@ pub struct PublishStatusResponse {
     pub article_detail: Option<PublishArticleDetail>,
     #[serde(default)]
     pub fail_idx: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5614,6 +5638,8 @@ pub struct PublishArticleResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub news_item: Vec<PublishNewsItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6832,9 +6858,14 @@ mod tests {
 
     #[test]
     fn deserializes_publish_responses() {
-        let add: PublishDraftAddResponse =
-            serde_json::from_value(json!({ "errcode": 0, "media_id": "media" })).unwrap();
+        let add: PublishDraftAddResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "media_id": "media",
+            "request_id": "draft-add"
+        }))
+        .unwrap();
         assert_eq!(add.media_id.as_deref(), Some("media"));
+        assert_eq!(add.extra["request_id"], "draft-add");
 
         let draft: PublishDraftGetResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -6842,45 +6873,70 @@ mod tests {
                 "title": "Title",
                 "author": "Roze",
                 "thumb_media_id": "thumb",
-                "url": "https://example.com/article"
+                "url": "https://example.com/article",
+                "article_extra": "kept"
             }],
             "create_time": 1,
-            "update_time": 2
+            "update_time": 2,
+            "request_id": "draft-get"
         }))
         .unwrap();
         assert_eq!(draft.news_item[0].title.as_deref(), Some("Title"));
         assert_eq!(draft.update_time, Some(2));
+        assert_eq!(draft.extra["request_id"], "draft-get");
+        assert_eq!(draft.news_item[0].extra["article_extra"], "kept");
 
         let list: PublishBatchGetResponse = serde_json::from_value(json!({
             "total_count": 1,
             "item_count": 1,
+            "request_id": "batch-get",
             "item": [{
                 "media_id": "media",
                 "article_id": "article",
-                "content": { "news_item": [{ "title": "Title" }] },
-                "update_time": 2
+                "content": {
+                    "news_item": [{ "title": "Title", "article_extra": "kept" }],
+                    "content_extra": "kept"
+                },
+                "update_time": 2,
+                "item_extra": "kept"
             }]
         }))
         .unwrap();
+        assert_eq!(list.extra["request_id"], "batch-get");
         assert_eq!(list.item[0].article_id.as_deref(), Some("article"));
+        assert_eq!(list.item[0].extra["item_extra"], "kept");
+        assert_eq!(
+            list.item[0].content.as_ref().expect("content").extra["content_extra"],
+            "kept"
+        );
         assert_eq!(
             list.item[0].content.as_ref().expect("content").news_item[0]
                 .title
                 .as_deref(),
             Some("Title")
         );
+        assert_eq!(
+            list.item[0].content.as_ref().expect("content").news_item[0].extra["article_extra"],
+            "kept"
+        );
 
         let switch_status: PublishDraftSwitchStatusResponse = serde_json::from_value(json!({
             "is_open": 1,
             "total_count": 3,
-            "item_count": 2
+            "item_count": 2,
+            "request_id": "switch"
         }))
         .unwrap();
         assert_eq!(switch_status.is_open, Some(1));
+        assert_eq!(switch_status.extra["request_id"], "switch");
 
-        let submit: PublishSubmitResponse =
-            serde_json::from_value(json!({ "publish_id": 10001 })).unwrap();
+        let submit: PublishSubmitResponse = serde_json::from_value(json!({
+            "publish_id": 10001,
+            "request_id": "submit"
+        }))
+        .unwrap();
         assert_eq!(submit.publish_id, Some(10001));
+        assert_eq!(submit.extra["request_id"], "submit");
 
         let status: PublishStatusResponse = serde_json::from_value(json!({
             "publish_id": 10001,
@@ -6888,24 +6944,50 @@ mod tests {
             "article_id": "article",
             "article_detail": {
                 "count": 1,
-                "item": [{ "idx": 1, "article_url": "https://example.com/article" }]
+                "item": [{
+                    "idx": 1,
+                    "article_url": "https://example.com/article",
+                    "article_item_extra": "kept"
+                }],
+                "detail_extra": "kept"
             },
-            "fail_idx": []
+            "fail_idx": [],
+            "request_id": "status"
         }))
         .unwrap();
         assert_eq!(status.publish_status, Some(0));
+        assert_eq!(status.extra["request_id"], "status");
         assert_eq!(
-            status.article_detail.expect("article_detail").item[0]
+            status
+                .article_detail
+                .as_ref()
+                .expect("article_detail")
+                .extra["detail_extra"],
+            "kept"
+        );
+        assert_eq!(
+            status.article_detail.as_ref().expect("article_detail").item[0]
                 .article_url
                 .as_deref(),
             Some("https://example.com/article")
         );
+        assert_eq!(
+            status.article_detail.expect("article_detail").item[0].extra["article_item_extra"],
+            "kept"
+        );
 
         let article: PublishArticleResponse = serde_json::from_value(json!({
-            "news_item": [{ "title": "Published", "url": "https://example.com/published" }]
+            "news_item": [{
+                "title": "Published",
+                "url": "https://example.com/published",
+                "article_extra": "kept"
+            }],
+            "request_id": "article"
         }))
         .unwrap();
         assert_eq!(article.news_item[0].title.as_deref(), Some("Published"));
+        assert_eq!(article.news_item[0].extra["article_extra"], "kept");
+        assert_eq!(article.extra["request_id"], "article");
     }
 
     #[test]

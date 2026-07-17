@@ -307,6 +307,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   match-rule metadata.
 - Official Account mass-preview now accepts a typed request DTO with explicit
   preview recipient and message type fields.
+- Official Account publish draft/list/status/article response DTOs now preserve
+  unknown upstream fields across wrappers, content blocks, article details, and
+  news items.
 
 The raw Mini Program endpoint scanner still reports 23 entries, but they are
 documentation or path-template noise such as `*.html`, `express/response`, and
