@@ -3551,6 +3551,76 @@ impl Work {
             .await
     }
 
+    pub async fn get_wedoc_document_data(
+        &self,
+        access_token: impl Into<String>,
+        docid: impl Into<String>,
+    ) -> Result<WorkWeDocDocumentDataResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/document/get",
+                Some(access_token.into()),
+                json!({ "docid": docid.into() }),
+            )
+            .await
+    }
+
+    pub async fn batch_update_wedoc_document(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocDocumentBatchUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/document/batch_update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_spreadsheet_properties(
+        &self,
+        access_token: impl Into<String>,
+        docid: impl Into<String>,
+    ) -> Result<WorkWeDocSpreadsheetPropertiesResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/spreadsheet/get_sheet_properties",
+                Some(access_token.into()),
+                json!({ "docid": docid.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_spreadsheet_range_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSpreadsheetRangeRequest,
+    ) -> Result<WorkWeDocSpreadsheetRangeResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/spreadsheet/get_sheet_range_data",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn batch_update_wedoc_spreadsheet(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSpreadsheetBatchUpdateRequest,
+    ) -> Result<WorkWeDocSpreadsheetBatchUpdateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/spreadsheet/batch_update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn create_wedoc_form(
         &self,
         access_token: impl Into<String>,
@@ -13436,6 +13506,284 @@ pub struct WorkWeDocVipListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub version: Option<i64>,
+    #[serde(default)]
+    pub document: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentBatchUpdateRequest {
+    pub docid: String,
+    pub version: i64,
+    pub requests: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetPropertiesResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub properties: Vec<WorkWeDocSpreadsheetProperties>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetProperties {
+    #[serde(default)]
+    pub sheet_id: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub row_count: Option<i64>,
+    #[serde(default)]
+    pub column_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetRangeRequest {
+    pub docid: String,
+    pub sheet_id: String,
+    pub range: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetRangeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<WorkWeDocSpreadsheetRangeData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetRangeData {
+    #[serde(default)]
+    pub result: Option<WorkWeDocSpreadsheetGridData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetGridData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_row: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_column: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rows: Vec<WorkWeDocSpreadsheetRow>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetRow {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub values: Vec<WorkWeDocSpreadsheetCell>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetCell {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cell_value: Option<WorkWeDocSpreadsheetCellValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cell_format: Option<WorkWeDocSpreadsheetCellFormat>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetCellValue {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<WorkWeDocSpreadsheetLink>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetLink {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetCellFormat {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_format: Option<WorkWeDocSpreadsheetTextFormat>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetTextFormat {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub italic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strikethrough: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underline: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<WorkWeDocSpreadsheetColor>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetColor {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub red: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub green: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blue: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetBatchUpdateRequest {
+    pub docid: String,
+    pub requests: Vec<WorkWeDocSpreadsheetUpdateRequest>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetUpdateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub add_sheet_request: Option<WorkWeDocSpreadsheetAddSheetRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_sheet_request: Option<WorkWeDocSpreadsheetDeleteSheetRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_range_request: Option<WorkWeDocSpreadsheetUpdateRangeRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_dimension_request: Option<WorkWeDocSpreadsheetDeleteDimensionRequest>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetAddSheetRequest {
+    pub title: String,
+    pub row_count: i64,
+    pub column_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetDeleteSheetRequest {
+    pub sheet_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetUpdateRangeRequest {
+    pub sheet_id: String,
+    pub grid_data: WorkWeDocSpreadsheetGridData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetDeleteDimensionRequest {
+    pub sheet_id: String,
+    pub dimension: String,
+    pub start_index: i64,
+    pub end_index: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetBatchUpdateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub data: Option<WorkWeDocSpreadsheetBatchUpdateData>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetBatchUpdateData {
+    #[serde(default)]
+    pub responses: Vec<WorkWeDocSpreadsheetUpdateResponse>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetUpdateResponse {
+    #[serde(default)]
+    pub add_sheet_response: Option<WorkWeDocSpreadsheetAddSheetResponse>,
+    #[serde(default)]
+    pub delete_sheet_response: Option<WorkWeDocSpreadsheetDeleteSheetResponse>,
+    #[serde(default)]
+    pub update_range_response: Option<WorkWeDocSpreadsheetUpdateRangeResponse>,
+    #[serde(default)]
+    pub delete_dimension_response: Option<WorkWeDocSpreadsheetDeleteDimensionResponse>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetAddSheetResponse {
+    #[serde(default)]
+    pub properties: Option<WorkWeDocSpreadsheetProperties>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetDeleteSheetResponse {
+    #[serde(default)]
+    pub sheet_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetUpdateRangeResponse {
+    #[serde(default)]
+    pub updated_cells: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSpreadsheetDeleteDimensionResponse {
+    #[serde(default)]
+    pub deleted: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocCreateFormRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spaceid: Option<String>,
@@ -20301,6 +20649,320 @@ mod tests {
         assert_eq!(list.next_cursor.as_deref(), Some("next"));
         assert_eq!(list.userid_list[1], "user-2");
         assert_eq!(list.extra["total"], 2);
+    }
+
+    #[test]
+    fn serializes_work_wedoc_document_and_spreadsheet_content_requests() {
+        let document = serde_json::to_value(WorkWeDocDocumentBatchUpdateRequest {
+            docid: "doc-1".to_string(),
+            version: 8,
+            requests: vec![
+                json!({
+                    "insert_text_request": {
+                        "location": { "index": 1 },
+                        "text": "Weekly report"
+                    }
+                }),
+                json!({
+                    "delete_content_request": {
+                        "range": { "start_index": 10, "end_index": 20 }
+                    }
+                }),
+            ],
+        })
+        .unwrap();
+        assert_eq!(document["version"], 8);
+        assert_eq!(
+            document["requests"][0]["insert_text_request"]["text"],
+            "Weekly report"
+        );
+
+        let range = serde_json::to_value(WorkWeDocSpreadsheetRangeRequest {
+            docid: "sheet-doc".to_string(),
+            sheet_id: "sheet-1".to_string(),
+            range: "A1:B2".to_string(),
+        })
+        .unwrap();
+        assert_eq!(range["sheet_id"], "sheet-1");
+        assert_eq!(range["range"], "A1:B2");
+
+        let batch: WorkWeDocSpreadsheetBatchUpdateRequest = serde_json::from_value(json!({
+            "docid": "sheet-doc",
+            "requests": [{
+                "add_sheet_request": {
+                    "title": "Summary",
+                    "row_count": 100,
+                    "column_count": 20
+                }
+            }, {
+                "update_range_request": {
+                    "sheet_id": "sheet-1",
+                    "grid_data": {
+                        "start_row": 0,
+                        "start_column": 0,
+                        "rows": [{
+                            "values": [{
+                                "cell_value": {
+                                    "text": "Revenue"
+                                },
+                                "cell_format": {
+                                    "text_format": {
+                                        "font": "Arial",
+                                        "font_size": 12,
+                                        "bold": true,
+                                        "italic": false,
+                                        "strikethrough": false,
+                                        "underline": true,
+                                        "color": {
+                                            "red": 10,
+                                            "green": 20,
+                                            "blue": 30,
+                                            "alpha": 255
+                                        }
+                                    }
+                                }
+                            }, {
+                                "cell_value": {
+                                    "link": {
+                                        "url": "https://example.com",
+                                        "text": "Details"
+                                    }
+                                }
+                            }]
+                        }]
+                    }
+                }
+            }, {
+                "delete_dimension_request": {
+                    "sheet_id": "sheet-1",
+                    "dimension": "ROW",
+                    "start_index": 10,
+                    "end_index": 20
+                }
+            }, {
+                "delete_sheet_request": {
+                    "sheet_id": "sheet-old"
+                }
+            }]
+        }))
+        .unwrap();
+        let batch = serde_json::to_value(batch).unwrap();
+        assert_eq!(
+            batch["requests"][0]["add_sheet_request"]["title"],
+            "Summary"
+        );
+        assert_eq!(
+            batch["requests"][1]["update_range_request"]["grid_data"]["rows"][0]["values"][0]
+                ["cell_format"]["text_format"]["color"]["alpha"],
+            255
+        );
+        assert_eq!(
+            batch["requests"][1]["update_range_request"]["grid_data"]["rows"][0]["values"][1]
+                ["cell_value"]["link"]["url"],
+            "https://example.com"
+        );
+        assert_eq!(
+            batch["requests"][2]["delete_dimension_request"]["dimension"],
+            "ROW"
+        );
+        assert_eq!(
+            batch["requests"][3]["delete_sheet_request"]["sheet_id"],
+            "sheet-old"
+        );
+    }
+
+    #[test]
+    fn deserializes_work_wedoc_document_and_spreadsheet_content_responses() {
+        let document: WorkWeDocDocumentDataResponse = serde_json::from_value(json!({
+            "version": 8,
+            "document": {
+                "document_id": "doc-1",
+                "body": {
+                    "blocks": [{
+                        "type": "paragraph",
+                        "text": "Weekly report"
+                    }]
+                }
+            },
+            "request_id": "document"
+        }))
+        .unwrap();
+        assert_eq!(document.version, Some(8));
+        assert_eq!(
+            document.document.as_ref().expect("document")["document_id"],
+            "doc-1"
+        );
+        assert_eq!(document.extra["request_id"], "document");
+
+        let properties: WorkWeDocSpreadsheetPropertiesResponse = serde_json::from_value(json!({
+            "properties": [{
+                "sheet_id": "sheet-1",
+                "title": "Summary",
+                "row_count": 100,
+                "column_count": 20,
+                "frozen_row_count": 1
+            }],
+            "trace_id": "properties"
+        }))
+        .unwrap();
+        assert_eq!(
+            properties.properties[0].sheet_id.as_deref(),
+            Some("sheet-1")
+        );
+        assert_eq!(properties.properties[0].row_count, Some(100));
+        assert_eq!(properties.properties[0].extra["frozen_row_count"], 1);
+        assert_eq!(properties.extra["trace_id"], "properties");
+
+        let range: WorkWeDocSpreadsheetRangeResponse = serde_json::from_value(json!({
+            "data": {
+                "result": {
+                    "start_row": 0,
+                    "start_column": 0,
+                    "rows": [{
+                        "values": [{
+                            "cell_value": {
+                                "text": "Revenue",
+                                "value_type": "text"
+                            },
+                            "cell_format": {
+                                "text_format": {
+                                    "font": "Arial",
+                                    "font_size": 12,
+                                    "bold": true,
+                                    "italic": false,
+                                    "strikethrough": false,
+                                    "underline": true,
+                                    "color": {
+                                        "red": 10,
+                                        "green": 20,
+                                        "blue": 30,
+                                        "alpha": 255,
+                                        "theme": "custom"
+                                    },
+                                    "format_version": 2
+                                },
+                                "horizontal_alignment": "CENTER"
+                            },
+                            "cell_note": "header"
+                        }]
+                    }],
+                    "range_version": 3
+                },
+                "data_source": "live"
+            },
+            "trace_id": "range"
+        }))
+        .unwrap();
+        let data = range.data.as_ref().expect("range data");
+        let grid = data.result.as_ref().expect("grid data");
+        let cell = &grid.rows[0].values[0];
+        assert_eq!(
+            cell.cell_value
+                .as_ref()
+                .expect("cell value")
+                .text
+                .as_deref(),
+            Some("Revenue")
+        );
+        assert_eq!(
+            cell.cell_value.as_ref().expect("cell value").extra["value_type"],
+            "text"
+        );
+        let format = cell.cell_format.as_ref().expect("cell format");
+        let text_format = format.text_format.as_ref().expect("text format");
+        assert_eq!(text_format.bold, Some(true));
+        assert_eq!(
+            text_format.color.as_ref().expect("color").extra["theme"],
+            "custom"
+        );
+        assert_eq!(text_format.extra["format_version"], 2);
+        assert_eq!(format.extra["horizontal_alignment"], "CENTER");
+        assert_eq!(cell.extra["cell_note"], "header");
+        assert_eq!(grid.extra["range_version"], 3);
+        assert_eq!(data.extra["data_source"], "live");
+        assert_eq!(range.extra["trace_id"], "range");
+
+        let update: WorkWeDocSpreadsheetBatchUpdateResponse = serde_json::from_value(json!({
+            "data": {
+                "responses": [{
+                    "add_sheet_response": {
+                        "properties": {
+                            "sheet_id": "sheet-new",
+                            "title": "Summary",
+                            "row_count": 100,
+                            "column_count": 20,
+                            "tab_color": "blue"
+                        },
+                        "operation_id": "add"
+                    }
+                }, {
+                    "update_range_response": {
+                        "updated_cells": 4,
+                        "updated_rows": 2
+                    }
+                }, {
+                    "delete_dimension_response": {
+                        "deleted": 10,
+                        "dimension": "ROW"
+                    }
+                }, {
+                    "delete_sheet_response": {
+                        "sheet_id": "sheet-old",
+                        "recycle_bin": true
+                    }
+                }],
+                "batch_version": 9
+            },
+            "request_id": "batch-update"
+        }))
+        .unwrap();
+        let data = update.data.as_ref().expect("batch data");
+        let add = data.responses[0]
+            .add_sheet_response
+            .as_ref()
+            .expect("add sheet response");
+        assert_eq!(
+            add.properties
+                .as_ref()
+                .expect("created sheet properties")
+                .sheet_id
+                .as_deref(),
+            Some("sheet-new")
+        );
+        assert_eq!(
+            add.properties
+                .as_ref()
+                .expect("created sheet properties")
+                .extra["tab_color"],
+            "blue"
+        );
+        assert_eq!(add.extra["operation_id"], "add");
+        assert_eq!(
+            data.responses[1]
+                .update_range_response
+                .as_ref()
+                .expect("update range response")
+                .extra["updated_rows"],
+            2
+        );
+        assert_eq!(
+            data.responses[2]
+                .delete_dimension_response
+                .as_ref()
+                .expect("delete dimension response")
+                .deleted,
+            Some(10)
+        );
+        assert_eq!(
+            data.responses[3]
+                .delete_sheet_response
+                .as_ref()
+                .expect("delete sheet response")
+                .extra["recycle_bin"],
+            true
+        );
+        assert_eq!(data.extra["batch_version"], 9);
+        assert_eq!(update.extra["request_id"], "batch-update");
     }
 
     #[test]

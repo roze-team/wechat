@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 299 | high |
+| Work | 363 | 304 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -98,6 +98,15 @@ Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
   `wedoc/vip/batch_add`, `wedoc/vip/batch_del`, and `wedoc/vip/list` contracts,
   including typed success/failure lists and cursor pagination, instead of the
   older per-document administrator endpoints.
+- OA WeDoc document content supports versioned reads and batch updates through
+  the current `wedoc/document/get` and `wedoc/document/batch_update`
+  endpoints. Polymorphic document blocks and update operations remain
+  structured JSON while their versioned envelopes are typed.
+- OA WeDoc spreadsheet support now covers worksheet properties, A1 range
+  reads, and ordered batch updates for adding/deleting sheets, updating cell
+  ranges, and deleting row/column dimensions. Range and batch responses follow
+  the upstream `data.result` and `data.responses` wrappers with typed cells,
+  links, text formats, colors, operation results, and extension fields.
 
 Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 
