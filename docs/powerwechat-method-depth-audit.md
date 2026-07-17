@@ -122,6 +122,10 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   aggregate fields, approval records, comments, process nodes, and legacy
   approval records now use typed DTOs instead of generic JSON values while
   preserving upstream extension fields.
+- OA journal record filters, submitters, receivers, read receipts, form
+  contents, and comments now use typed DTOs; journal statistics now follow the
+  upstream `stat_list` array contract with typed report/white ranges, fixed
+  receivers, leaders, reported users, unreported users, and report items.
 - OA meeting create/update requests and meeting detail responses now expose
   typed internal-member, external-user, and device attendee DTOs instead of
   generic maps.

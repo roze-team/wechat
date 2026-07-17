@@ -12369,7 +12369,13 @@ pub struct WorkJournalRecordListRequest {
     pub cursor: String,
     pub limit: i64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub filters: Vec<Value>,
+    pub filters: Vec<WorkJournalFilter>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalFilter {
+    pub key: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12383,27 +12389,47 @@ pub struct WorkJournalRecordListResponse {
     #[serde(default)]
     pub next_cursor: Option<i64>,
     #[serde(default)]
-    pub endflag: Option<bool>,
+    pub endflag: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalRecordInfo {
+    #[serde(default, alias = "journaluuid")]
+    pub journal_uuid: Option<String>,
     #[serde(default)]
-    pub journaluuid: Option<String>,
+    pub template_name: Option<String>,
     #[serde(default)]
-    pub template_id: Option<String>,
+    pub report_time: Option<i64>,
     #[serde(default)]
-    pub creator: Option<String>,
+    pub submitter: Option<WorkJournalUser>,
     #[serde(default)]
-    pub apply_time: Option<i64>,
+    pub receivers: Vec<WorkJournalUser>,
     #[serde(default)]
-    pub state: Option<i64>,
+    pub readed_receivers: Vec<WorkJournalUser>,
     #[serde(default)]
-    pub apply_data: Option<Value>,
+    pub apply_data: Option<WorkApprovalApplyData>,
     #[serde(default)]
-    pub comments: Vec<Value>,
+    pub comments: Vec<WorkJournalComment>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalUser {
+    pub userid: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalComment {
+    pub commentid: i64,
+    pub tocommentid: i64,
+    pub comment_userinfo: WorkJournalUser,
+    pub content: String,
+    pub comment_time: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -12428,23 +12454,94 @@ pub struct WorkJournalStatListRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkJournalStatSummary {
-    #[serde(default)]
-    pub userid: Option<String>,
-    #[serde(default)]
-    pub count: Option<i64>,
+pub struct WorkJournalParty {
+    pub open_partyid: String,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkJournalStatList {
+pub struct WorkJournalTag {
+    pub open_tagid: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalLeader {
+    pub level: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalRange {
     #[serde(default)]
-    pub summary: Vec<WorkJournalStatSummary>,
+    pub user_list: Vec<WorkJournalUser>,
     #[serde(default)]
-    pub total: Option<i64>,
+    pub party_list: Vec<WorkJournalParty>,
     #[serde(default)]
-    pub details: Vec<Value>,
+    pub tag_list: Vec<WorkJournalTag>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalReceivers {
+    #[serde(default)]
+    pub user_list: Vec<WorkJournalUser>,
+    #[serde(default)]
+    pub tag_list: Vec<WorkJournalTag>,
+    #[serde(default)]
+    pub leader_list: Vec<WorkJournalLeader>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalReportItem {
+    pub journaluuid: String,
+    pub reporttime: i64,
+    pub flag: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalReport {
+    pub user: WorkJournalUser,
+    #[serde(default)]
+    pub itemlist: Vec<WorkJournalReportItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalStat {
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub template_name: Option<String>,
+    #[serde(default)]
+    pub report_range: Option<WorkJournalRange>,
+    #[serde(default)]
+    pub white_range: Option<WorkJournalRange>,
+    #[serde(default)]
+    pub receivers: Option<WorkJournalReceivers>,
+    #[serde(default)]
+    pub cycle_begin_time: Option<i64>,
+    #[serde(default)]
+    pub cycle_end_time: Option<i64>,
+    #[serde(default)]
+    pub stat_begin_time: Option<i64>,
+    #[serde(default)]
+    pub stat_end_time: Option<i64>,
+    #[serde(default)]
+    pub report_list: Vec<WorkJournalReport>,
+    #[serde(default)]
+    pub unreport_list: Vec<WorkJournalReport>,
+    #[serde(default)]
+    pub report_type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -12456,7 +12553,7 @@ pub struct WorkJournalStatListResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub stat_list: Option<WorkJournalStatList>,
+    pub stat_list: Vec<WorkJournalStat>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -17489,7 +17586,10 @@ mod tests {
             endtime: "1800086400".to_string(),
             cursor: "0".to_string(),
             limit: 100,
-            filters: vec![json!({ "key": "template_id", "value": "template-1" })],
+            filters: vec![WorkJournalFilter {
+                key: "template_id".to_string(),
+                value: "template-1".to_string(),
+            }],
         })
         .unwrap();
         assert_eq!(journal["starttime"], "1800000000");
@@ -17768,52 +17868,137 @@ mod tests {
         let records: WorkJournalRecordListResponse = serde_json::from_value(json!({
             "journaluuid_list": ["journal-1"],
             "next_cursor": 10,
-            "endflag": false,
+            "endflag": 0,
             "trace_id": "journal-list"
         }))
         .unwrap();
         assert_eq!(records.journaluuid_list[0], "journal-1");
         assert_eq!(records.next_cursor, Some(10));
+        assert_eq!(records.endflag, Some(0));
         assert_eq!(records.extra["trace_id"], "journal-list");
 
         let detail: WorkJournalRecordDetailResponse = serde_json::from_value(json!({
             "trace_id": "journal-detail",
             "info": {
-                "journaluuid": "journal-1",
-                "template_id": "template-1",
-                "creator": "user",
-                "apply_time": 1_800_000_000,
-                "state": 1,
-                "apply_data": { "contents": [] },
-                "comments": [{ "comment_userid": "manager" }],
+                "journal_uuid": "journal-1",
+                "template_name": "Daily",
+                "report_time": 1_800_000_000,
+                "submitter": {
+                    "userid": "user",
+                    "display_name": "Reporter"
+                },
+                "receivers": [{ "userid": "manager" }],
+                "readed_receivers": [{ "userid": "manager" }],
+                "apply_data": {
+                    "contents": [{
+                        "control": "Text",
+                        "id": "Text-1",
+                        "title": [{ "text": "Work", "lang": "en" }],
+                        "value": {
+                            "text": "Completed",
+                            "control_version": 2
+                        }
+                    }],
+                    "form_revision": 3
+                },
+                "comments": [{
+                    "commentid": 100,
+                    "tocommentid": 0,
+                    "comment_userinfo": {
+                        "userid": "manager",
+                        "department_name": "Management"
+                    },
+                    "content": "Good",
+                    "comment_time": 1_800_000_100,
+                    "comment_source": "mobile"
+                }],
                 "form_version": 2
             }
         }))
         .unwrap();
         assert_eq!(detail.extra["trace_id"], "journal-detail");
         let detail = detail.info.unwrap();
-        assert_eq!(detail.journaluuid.as_deref(), Some("journal-1"));
-        assert_eq!(detail.creator.as_deref(), Some("user"));
-        assert_eq!(detail.comments[0]["comment_userid"], "manager");
+        assert_eq!(detail.journal_uuid.as_deref(), Some("journal-1"));
+        assert_eq!(
+            detail.submitter.as_ref().map(|user| user.userid.as_str()),
+            Some("user")
+        );
+        assert_eq!(
+            detail
+                .apply_data
+                .as_ref()
+                .and_then(|data| data.contents[0].value.text.as_deref()),
+            Some("Completed")
+        );
+        assert_eq!(
+            detail.apply_data.as_ref().unwrap().contents[0].value.extra["control_version"],
+            2
+        );
+        assert_eq!(detail.comments[0].comment_userinfo.userid, "manager");
+        assert_eq!(detail.comments[0].content, "Good");
+        assert_eq!(detail.comments[0].extra["comment_source"], "mobile");
         assert_eq!(detail.extra["form_version"], 2);
 
         let stats: WorkJournalStatListResponse = serde_json::from_value(json!({
             "trace_id": "journal-stat",
-            "stat_list": {
-                "summary": [{ "userid": "user", "count": 3, "rank": 1 }],
-                "total": 3,
-                "details": [{ "journaluuid": "journal-1" }],
-                "department_id": 1
-            }
+            "stat_list": [{
+                "template_id": "template-1",
+                "template_name": "Daily",
+                "report_range": {
+                    "user_list": [{ "userid": "user-1", "name": "Reporter" }],
+                    "party_list": [{ "open_partyid": "party-1" }],
+                    "tag_list": [{ "open_tagid": "tag-1" }],
+                    "range_version": 2
+                },
+                "white_range": {
+                    "user_list": [],
+                    "party_list": [],
+                    "tag_list": []
+                },
+                "receivers": {
+                    "user_list": [{ "userid": "manager" }],
+                    "tag_list": [],
+                    "leader_list": [{ "level": 1, "scope": "direct" }]
+                },
+                "cycle_begin_time": 1_800_000_000,
+                "cycle_end_time": 1_800_086_400,
+                "stat_begin_time": 1_800_000_000,
+                "stat_end_time": 1_800_086_000,
+                "report_list": [{
+                    "user": { "userid": "user-1" },
+                    "itemlist": [{
+                        "journaluuid": "journal-1",
+                        "reporttime": 1_800_010_000,
+                        "flag": 0,
+                        "source": "app"
+                    }]
+                }],
+                "unreport_list": [{
+                    "user": { "userid": "user-2" },
+                    "itemlist": [{
+                        "journaluuid": "",
+                        "reporttime": 1_800_000_000,
+                        "flag": 0
+                    }]
+                }],
+                "report_type": 2,
+                "stat_version": 3
+            }]
         }))
         .unwrap();
         assert_eq!(stats.extra["trace_id"], "journal-stat");
-        let stats = stats.stat_list.unwrap();
-        assert_eq!(stats.summary[0].userid.as_deref(), Some("user"));
-        assert_eq!(stats.summary[0].count, Some(3));
-        assert_eq!(stats.summary[0].extra["rank"], 1);
-        assert_eq!(stats.total, Some(3));
-        assert_eq!(stats.extra["department_id"], 1);
+        let stats = &stats.stat_list[0];
+        assert_eq!(stats.template_name.as_deref(), Some("Daily"));
+        assert_eq!(
+            stats.report_range.as_ref().unwrap().user_list[0].userid,
+            "user-1"
+        );
+        assert_eq!(stats.receivers.as_ref().unwrap().leader_list[0].level, 1);
+        assert_eq!(stats.report_list[0].itemlist[0].journaluuid, "journal-1");
+        assert_eq!(stats.report_list[0].itemlist[0].extra["source"], "app");
+        assert_eq!(stats.unreport_list[0].user.userid, "user-2");
+        assert_eq!(stats.report_type, Some(2));
+        assert_eq!(stats.extra["stat_version"], 3);
 
         let schedule_add: WorkScheduleAddResponse = serde_json::from_value(json!({
             "schedule_id": "schedule-1",
