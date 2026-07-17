@@ -416,6 +416,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Work exact endpoint depth:
   unknown upstream fields across wrapper and nested authorization DTO payloads.
 - license renew-order job invalid accounts, order list/detail, and trial-info
   responses now expose typed Open Work DTOs instead of generic JSON values.
+- license order/account/user-active/auto-active DTOs now expose semantic helper
+  enums for order type, order status, account type, user activation, and
+  automatic activation while retaining original upstream numeric fields.
 - license order/job/account/active/transfer/status response wrappers now
   preserve unknown upstream fields alongside typed license DTOs.
 - server callback XML can now be parsed into typed Open Work suite-ticket,

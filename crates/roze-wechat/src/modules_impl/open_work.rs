@@ -1310,6 +1310,34 @@ pub struct OpenWorkLicenseActiveInfo {
     pub share_info: Option<Value>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseAccountTypeKind {
+    Basic,
+    ExternalContact,
+    Other,
+}
+
+impl OpenWorkLicenseAccountTypeKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::Basic,
+            2 => Self::ExternalContact,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn includes_customer_contact(self) -> bool {
+        matches!(self, Self::ExternalContact)
+    }
+}
+
+impl OpenWorkLicenseActiveInfo {
+    pub fn account_type_kind(&self) -> Option<OpenWorkLicenseAccountTypeKind> {
+        self.account_type
+            .map(OpenWorkLicenseAccountTypeKind::from_code)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseTransferInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1358,6 +1386,70 @@ pub struct OpenWorkLicenseOrder {
     pub pay_time: Option<i64>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseOrderTypeKind {
+    NewAccount,
+    RenewAccount,
+    Other,
+}
+
+impl OpenWorkLicenseOrderTypeKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::NewAccount,
+            2 => Self::RenewAccount,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseOrderStatusKind {
+    PendingPayment,
+    Paid,
+    Canceled,
+    Expired,
+    Refunded,
+    Other,
+}
+
+impl OpenWorkLicenseOrderStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::PendingPayment,
+            1 => Self::Paid,
+            2 => Self::Canceled,
+            3 => Self::Expired,
+            4 => Self::Refunded,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        !matches!(self, Self::PendingPayment)
+    }
+
+    pub fn is_success(self) -> bool {
+        matches!(self, Self::Paid)
+    }
+}
+
+impl OpenWorkLicenseOrder {
+    pub fn order_type_kind(&self) -> Option<OpenWorkLicenseOrderTypeKind> {
+        self.order_type.map(OpenWorkLicenseOrderTypeKind::from_code)
+    }
+
+    pub fn order_status_kind(&self) -> Option<OpenWorkLicenseOrderStatusKind> {
+        self.order_status
+            .map(OpenWorkLicenseOrderStatusKind::from_code)
+    }
+
+    pub fn is_paid(&self) -> bool {
+        self.order_status_kind()
+            .is_some_and(OpenWorkLicenseOrderStatusKind::is_success)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1480,6 +1572,39 @@ pub struct OpenWorkLicenseUserActiveInfoResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseUserActiveStatusKind {
+    Inactive,
+    Active,
+    Other,
+}
+
+impl OpenWorkLicenseUserActiveStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Inactive,
+            1 => Self::Active,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Active)
+    }
+}
+
+impl OpenWorkLicenseUserActiveInfoResponse {
+    pub fn active_status_kind(&self) -> Option<OpenWorkLicenseUserActiveStatusKind> {
+        self.active_status
+            .map(OpenWorkLicenseUserActiveStatusKind::from_code)
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.active_status_kind()
+            .is_some_and(OpenWorkLicenseUserActiveStatusKind::is_active)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseTransferResponse {
     #[serde(default)]
@@ -1518,6 +1643,39 @@ pub struct OpenWorkLicenseAutoActiveStatusResponse {
     pub auto_active_status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseAutoActiveStatusKind {
+    Disabled,
+    Enabled,
+    Other,
+}
+
+impl OpenWorkLicenseAutoActiveStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Disabled,
+            1 => Self::Enabled,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+}
+
+impl OpenWorkLicenseAutoActiveStatusResponse {
+    pub fn auto_active_status_kind(&self) -> Option<OpenWorkLicenseAutoActiveStatusKind> {
+        self.auto_active_status
+            .map(OpenWorkLicenseAutoActiveStatusKind::from_code)
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.auto_active_status_kind()
+            .is_some_and(OpenWorkLicenseAutoActiveStatusKind::is_enabled)
+    }
 }
 
 #[cfg(test)]
@@ -2068,6 +2226,40 @@ mod tests {
         assert_eq!(orders.extra["total"], 1);
         assert_eq!(orders.order_list[0].order_id.as_deref(), Some("order-id"));
         assert_eq!(orders.order_list[0].order_status, Some(1));
+        assert_eq!(
+            orders.order_list[0].order_type_kind(),
+            Some(OpenWorkLicenseOrderTypeKind::NewAccount)
+        );
+        assert_eq!(
+            orders.order_list[0].order_status_kind(),
+            Some(OpenWorkLicenseOrderStatusKind::Paid)
+        );
+        assert!(orders.order_list[0].is_paid());
+        assert!(orders.order_list[0]
+            .order_status_kind()
+            .expect("order status")
+            .is_terminal());
+        assert_eq!(
+            OpenWorkLicenseOrderTypeKind::from_code(2),
+            OpenWorkLicenseOrderTypeKind::RenewAccount
+        );
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(0),
+            OpenWorkLicenseOrderStatusKind::PendingPayment
+        );
+        assert!(!OpenWorkLicenseOrderStatusKind::PendingPayment.is_terminal());
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(2),
+            OpenWorkLicenseOrderStatusKind::Canceled
+        );
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(3),
+            OpenWorkLicenseOrderStatusKind::Expired
+        );
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(4),
+            OpenWorkLicenseOrderStatusKind::Refunded
+        );
         assert_eq!(orders.order_list[0].extra["invoice_status"], 1);
         assert_eq!(
             orders.order_list[0]
@@ -2119,6 +2311,19 @@ mod tests {
             Some("active-code")
         );
         assert_eq!(accounts.account_list[0].account_type, Some(1));
+        assert_eq!(
+            accounts.account_list[0].account_type_kind(),
+            Some(OpenWorkLicenseAccountTypeKind::Basic)
+        );
+        assert!(!accounts.account_list[0]
+            .account_type_kind()
+            .expect("account type")
+            .includes_customer_contact());
+        assert_eq!(
+            OpenWorkLicenseAccountTypeKind::from_code(2),
+            OpenWorkLicenseAccountTypeKind::ExternalContact
+        );
+        assert!(OpenWorkLicenseAccountTypeKind::ExternalContact.includes_customer_contact());
 
         let active: OpenWorkLicenseActiveInfoResponse = serde_json::from_value(json!({
             "active_info": { "active_code": "active-code", "userid": "user" },
@@ -2146,6 +2351,29 @@ mod tests {
             Some("new-user")
         );
 
+        let user_active: OpenWorkLicenseUserActiveInfoResponse = serde_json::from_value(json!({
+            "active_status": 1,
+            "active_info_list": [{
+                "active_code": "active-code",
+                "userid": "user",
+                "type": 2
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            user_active.active_status_kind(),
+            Some(OpenWorkLicenseUserActiveStatusKind::Active)
+        );
+        assert!(user_active.is_active());
+        assert_eq!(
+            user_active.active_info_list[0].account_type_kind(),
+            Some(OpenWorkLicenseAccountTypeKind::ExternalContact)
+        );
+        assert_eq!(
+            OpenWorkLicenseUserActiveStatusKind::from_code(0),
+            OpenWorkLicenseUserActiveStatusKind::Inactive
+        );
+
         let license: OpenWorkLicenseInfoResponse = serde_json::from_value(json!({
             "license_status": 1,
             "license_check_time": 1800000000,
@@ -2171,6 +2399,15 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(auto_active.auto_active_status, Some(1));
+        assert_eq!(
+            auto_active.auto_active_status_kind(),
+            Some(OpenWorkLicenseAutoActiveStatusKind::Enabled)
+        );
+        assert!(auto_active.is_enabled());
+        assert_eq!(
+            OpenWorkLicenseAutoActiveStatusKind::from_code(0),
+            OpenWorkLicenseAutoActiveStatusKind::Disabled
+        );
         assert_eq!(auto_active.extra["effective_time"], 1_800_000_000);
     }
 }
