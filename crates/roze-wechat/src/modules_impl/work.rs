@@ -6830,6 +6830,8 @@ pub struct ExternalGroupChatJoinWayAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub config_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6840,6 +6842,8 @@ pub struct ExternalGroupChatJoinWayResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub join_way: Option<ExternalGroupChatJoinWay>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11465,9 +11469,13 @@ mod tests {
         assert_eq!(join_update["config_id"], "config");
         assert!(join_update.get("chat_id_list").is_none());
 
-        let join_add: ExternalGroupChatJoinWayAddResponse =
-            serde_json::from_value(json!({ "config_id": "config" })).unwrap();
+        let join_add: ExternalGroupChatJoinWayAddResponse = serde_json::from_value(json!({
+            "config_id": "config",
+            "request_id": "join-way-add"
+        }))
+        .unwrap();
         assert_eq!(join_add.config_id.as_deref(), Some("config"));
+        assert_eq!(join_add.extra["request_id"], "join-way-add");
 
         let join_detail: ExternalGroupChatJoinWayResponse = serde_json::from_value(json!({
             "join_way": {
@@ -11481,9 +11489,11 @@ mod tests {
                 "chat_id_list": ["chat"],
                 "state": "state",
                 "future_field": "kept"
-            }
+            },
+            "request_id": "join-way-get"
         }))
         .unwrap();
+        assert_eq!(join_detail.extra["request_id"], "join-way-get");
         let join_way = join_detail.join_way.unwrap();
         assert_eq!(join_way.config_id.as_deref(), Some("config"));
         assert_eq!(join_way.qr_code.as_deref(), Some("https://example.com/qr"));
