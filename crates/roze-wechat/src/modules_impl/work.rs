@@ -3989,6 +3989,20 @@ impl Work {
             .await
     }
 
+    pub async fn account_service_state_trans_with_response(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkAccountServiceStateTransRequest,
+    ) -> Result<WorkAccountServiceStateTransResponse> {
+        self.inner
+            .post(
+                "cgi-bin/kf/service_state/trans",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub fn account_service_tag(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.accountService.tag")
     }
@@ -9494,6 +9508,8 @@ pub struct WorkAccountServiceMessage {
     #[serde(default)]
     pub origin: Option<i64>,
     #[serde(default)]
+    pub servicer_userid: Option<String>,
+    #[serde(default)]
     pub msgtype: Option<String>,
     #[serde(default)]
     pub text: Option<WorkAccountServiceTextMessage>,
@@ -9516,15 +9532,112 @@ pub struct WorkAccountServiceMessage {
     #[serde(default)]
     pub msgmenu: Option<WorkAccountServiceMenuMessage>,
     #[serde(default)]
+    pub channels_shop_product: Option<WorkAccountServiceChannelsShopProductMessage>,
+    #[serde(default)]
+    pub channels_shop_order: Option<WorkAccountServiceChannelsShopOrderMessage>,
+    #[serde(default)]
     pub event: Option<WorkAccountServiceEventMessage>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceMessageOriginKind {
+    Customer,
+    System,
+    Servicer,
+    IntelligentAssistant,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceMessageOriginKind {
+    fn from(value: i64) -> Self {
+        match value {
+            3 => Self::Customer,
+            4 => Self::System,
+            5 => Self::Servicer,
+            6 => Self::IntelligentAssistant,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceMessageTypeKind {
+    Text,
+    Image,
+    Voice,
+    Video,
+    File,
+    Location,
+    Link,
+    BusinessCard,
+    MiniProgram,
+    Menu,
+    ChannelsShopProduct,
+    ChannelsShopOrder,
+    Event,
+    Other,
+}
+
+impl WorkAccountServiceMessageTypeKind {
+    pub fn from_code(code: &str) -> Self {
+        match code {
+            "text" => Self::Text,
+            "image" => Self::Image,
+            "voice" => Self::Voice,
+            "video" => Self::Video,
+            "file" => Self::File,
+            "location" => Self::Location,
+            "link" => Self::Link,
+            "business_card" => Self::BusinessCard,
+            "miniprogram" => Self::MiniProgram,
+            "msgmenu" => Self::Menu,
+            "channels_shop_product" => Self::ChannelsShopProduct,
+            "channels_shop_order" => Self::ChannelsShopOrder,
+            "event" => Self::Event,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn as_code(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Image => "image",
+            Self::Voice => "voice",
+            Self::Video => "video",
+            Self::File => "file",
+            Self::Location => "location",
+            Self::Link => "link",
+            Self::BusinessCard => "business_card",
+            Self::MiniProgram => "miniprogram",
+            Self::Menu => "msgmenu",
+            Self::ChannelsShopProduct => "channels_shop_product",
+            Self::ChannelsShopOrder => "channels_shop_order",
+            Self::Event => "event",
+            Self::Other => "unknown",
+        }
+    }
+}
+
+impl WorkAccountServiceMessage {
+    pub fn origin_kind(&self) -> Option<WorkAccountServiceMessageOriginKind> {
+        self.origin.map(WorkAccountServiceMessageOriginKind::from)
+    }
+
+    pub fn msgtype_kind(&self) -> Option<WorkAccountServiceMessageTypeKind> {
+        self.msgtype
+            .as_deref()
+            .map(WorkAccountServiceMessageTypeKind::from_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceTextMessage {
     #[serde(default)]
     pub content: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub menu_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9563,6 +9676,8 @@ pub struct WorkAccountServiceLinkMessage {
     pub url: Option<String>,
     #[serde(default)]
     pub thumb_media_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pic_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9581,6 +9696,42 @@ pub struct WorkAccountServiceMiniProgramMessage {
     pub pagepath: Option<String>,
     #[serde(default)]
     pub thumb_media_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceChannelsShopProductMessage {
+    #[serde(default)]
+    pub product_id: Option<String>,
+    #[serde(default)]
+    pub head_img: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub sales_price: Option<String>,
+    #[serde(default)]
+    pub shop_nickname: Option<String>,
+    #[serde(default)]
+    pub shop_head_img: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceChannelsShopOrderMessage {
+    #[serde(default)]
+    pub order_id: Option<String>,
+    #[serde(default)]
+    pub product_titles: Option<String>,
+    #[serde(default)]
+    pub price_wording: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub image_url: Option<String>,
+    #[serde(default)]
+    pub shop_nickname: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9953,12 +10104,102 @@ pub struct WorkAccountServiceStateGetResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceStateKind {
+    Unhandled,
+    IntelligentAssistant,
+    WaitingPool,
+    HumanServicer,
+    Ended,
+    Other(i64),
+}
+
+impl WorkAccountServiceStateKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Unhandled,
+            1 => Self::IntelligentAssistant,
+            2 => Self::WaitingPool,
+            3 => Self::HumanServicer,
+            4 => Self::Ended,
+            other => Self::Other(other),
+        }
+    }
+
+    pub fn as_code(self) -> i64 {
+        match self {
+            Self::Unhandled => 0,
+            Self::IntelligentAssistant => 1,
+            Self::WaitingPool => 2,
+            Self::HumanServicer => 3,
+            Self::Ended => 4,
+            Self::Other(code) => code,
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Ended)
+    }
+}
+
+impl WorkAccountServiceStateGetResponse {
+    pub fn service_state_kind(&self) -> Option<WorkAccountServiceStateKind> {
+        self.service_state
+            .map(WorkAccountServiceStateKind::from_code)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceStateTransRequest {
     pub open_kfid: String,
     pub external_userid: String,
     pub service_state: i64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub servicer_userid: String,
+}
+
+impl WorkAccountServiceStateTransRequest {
+    pub fn new(
+        open_kfid: impl Into<String>,
+        external_userid: impl Into<String>,
+        service_state: WorkAccountServiceStateKind,
+    ) -> Self {
+        Self {
+            open_kfid: open_kfid.into(),
+            external_userid: external_userid.into(),
+            service_state: service_state.as_code(),
+            servicer_userid: String::new(),
+        }
+    }
+
+    pub fn with_servicer(
+        open_kfid: impl Into<String>,
+        external_userid: impl Into<String>,
+        servicer_userid: impl Into<String>,
+    ) -> Self {
+        Self {
+            open_kfid: open_kfid.into(),
+            external_userid: external_userid.into(),
+            service_state: WorkAccountServiceStateKind::HumanServicer.as_code(),
+            servicer_userid: servicer_userid.into(),
+        }
+    }
+
+    pub fn service_state_kind(&self) -> WorkAccountServiceStateKind {
+        WorkAccountServiceStateKind::from_code(self.service_state)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceStateTransResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub msg_code: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16186,6 +16427,7 @@ mod tests {
             msgtype: Some("text".to_string()),
             text: Some(WorkAccountServiceTextMessage {
                 content: Some("hello".to_string()),
+                menu_id: None,
             }),
             image: Some(WorkAccountServiceMediaMessage {
                 media_id: Some("image-media".to_string()),
@@ -16201,6 +16443,7 @@ mod tests {
                 desc: Some("desc".to_string()),
                 url: Some("https://example.com".to_string()),
                 thumb_media_id: Some("thumb".to_string()),
+                pic_url: None,
             }),
             miniprogram: Some(WorkAccountServiceMiniProgramMessage {
                 title: Some("mini".to_string()),
@@ -16227,6 +16470,7 @@ mod tests {
                 desc: None,
                 url: Some("https://example.com/customer".to_string()),
                 thumb_media_id: None,
+                pic_url: None,
             }),
         })
         .unwrap();
@@ -16246,6 +16490,7 @@ mod tests {
             msgtype: "text".to_string(),
             text: Some(WorkAccountServiceTextMessage {
                 content: Some("hello".to_string()),
+                menu_id: None,
             }),
             menu: Some(WorkAccountServiceMenuMessage {
                 head_content: Some("choose".to_string()),
@@ -16282,6 +16527,29 @@ mod tests {
         })
         .unwrap();
         assert_eq!(state["service_state"], 2);
+
+        let waiting = WorkAccountServiceStateTransRequest::new(
+            "kf",
+            "external",
+            WorkAccountServiceStateKind::WaitingPool,
+        );
+        assert_eq!(
+            waiting.service_state_kind(),
+            WorkAccountServiceStateKind::WaitingPool
+        );
+        let waiting = serde_json::to_value(waiting).unwrap();
+        assert_eq!(waiting["service_state"], 2);
+        assert!(waiting.get("servicer_userid").is_none());
+
+        let assigned =
+            WorkAccountServiceStateTransRequest::with_servicer("kf", "external", "servicer");
+        assert_eq!(
+            assigned.service_state_kind(),
+            WorkAccountServiceStateKind::HumanServicer
+        );
+        let assigned = serde_json::to_value(assigned).unwrap();
+        assert_eq!(assigned["service_state"], 3);
+        assert_eq!(assigned["servicer_userid"], "servicer");
 
         let subscribe =
             serde_json::to_value(Work::aibot_subscribe_request("bot", "secret", "req-1")).unwrap();
@@ -16416,11 +16684,13 @@ mod tests {
                     "send_time": 100,
                     "origin": 3,
                     "msgtype": "text",
-                    "text": { "content": "hello" },
+                    "text": { "content": "hello", "menu_id": "clicked-menu" },
                     "msg_source": "customer"
                 },
                 {
                     "msgid": "image-msg",
+                    "origin": 5,
+                    "servicer_userid": "servicer",
                     "msgtype": "image",
                     "image": { "media_id": "image-media" }
                 },
@@ -16431,7 +16701,8 @@ mod tests {
                         "title": "Docs",
                         "desc": "Read",
                         "url": "https://example.com",
-                        "thumb_media_id": "thumb"
+                        "thumb_media_id": "thumb",
+                        "pic_url": "https://example.com/thumb.png"
                     }
                 },
                 {
@@ -16494,6 +16765,34 @@ mod tests {
                         "recall_msgid": "recalled",
                         "servicer_userid": "servicer"
                     }
+                },
+                {
+                    "msgid": "product-msg",
+                    "origin": 6,
+                    "msgtype": "channels_shop_product",
+                    "channels_shop_product": {
+                        "product_id": "product",
+                        "head_img": "https://example.com/product.png",
+                        "title": "Product",
+                        "sales_price": "100",
+                        "shop_nickname": "Shop",
+                        "shop_head_img": "https://example.com/shop.png",
+                        "currency": "CNY"
+                    }
+                },
+                {
+                    "msgid": "order-msg",
+                    "origin": 4,
+                    "msgtype": "channels_shop_order",
+                    "channels_shop_order": {
+                        "order_id": "order",
+                        "product_titles": "Product",
+                        "price_wording": "¥1.00",
+                        "state": "paid",
+                        "image_url": "https://example.com/order.png",
+                        "shop_nickname": "Shop",
+                        "order_version": 2
+                    }
                 }
             ]
         }))
@@ -16503,6 +16802,14 @@ mod tests {
         assert_eq!(sync.msg_list[0].msgid.as_deref(), Some("msg"));
         assert_eq!(sync.msg_list[0].open_kfid.as_deref(), Some("kf"));
         assert_eq!(sync.msg_list[0].msgtype.as_deref(), Some("text"));
+        assert_eq!(
+            sync.msg_list[0].msgtype_kind(),
+            Some(WorkAccountServiceMessageTypeKind::Text)
+        );
+        assert_eq!(
+            sync.msg_list[0].origin_kind(),
+            Some(WorkAccountServiceMessageOriginKind::Customer)
+        );
         assert_eq!(sync.msg_list[0].extra["msg_source"], "customer");
         assert_eq!(
             sync.msg_list[0]
@@ -16514,6 +16821,15 @@ mod tests {
             Some("hello")
         );
         assert_eq!(
+            sync.msg_list[0]
+                .text
+                .as_ref()
+                .expect("text")
+                .menu_id
+                .as_deref(),
+            Some("clicked-menu")
+        );
+        assert_eq!(
             sync.msg_list[1]
                 .image
                 .as_ref()
@@ -16523,8 +16839,25 @@ mod tests {
             Some("image-media")
         );
         assert_eq!(
+            sync.msg_list[1].origin_kind(),
+            Some(WorkAccountServiceMessageOriginKind::Servicer)
+        );
+        assert_eq!(
+            sync.msg_list[1].servicer_userid.as_deref(),
+            Some("servicer")
+        );
+        assert_eq!(
             sync.msg_list[2].link.as_ref().expect("link").url.as_deref(),
             Some("https://example.com")
+        );
+        assert_eq!(
+            sync.msg_list[2]
+                .link
+                .as_ref()
+                .expect("link")
+                .pic_url
+                .as_deref(),
+            Some("https://example.com/thumb.png")
         );
         assert_eq!(
             sync.msg_list[3].msgmenu.as_ref().expect("msgmenu").list[0]
@@ -16591,6 +16924,46 @@ mod tests {
         assert_eq!(
             WorkAccountServiceSessionChangeKind::from(99),
             WorkAccountServiceSessionChangeKind::Other(99)
+        );
+        let product = sync.msg_list[9]
+            .channels_shop_product
+            .as_ref()
+            .expect("channels product");
+        assert_eq!(
+            sync.msg_list[9].msgtype_kind(),
+            Some(WorkAccountServiceMessageTypeKind::ChannelsShopProduct)
+        );
+        assert_eq!(
+            sync.msg_list[9].origin_kind(),
+            Some(WorkAccountServiceMessageOriginKind::IntelligentAssistant)
+        );
+        assert_eq!(product.product_id.as_deref(), Some("product"));
+        assert_eq!(product.extra["currency"], "CNY");
+        let order = sync.msg_list[10]
+            .channels_shop_order
+            .as_ref()
+            .expect("channels order");
+        assert_eq!(
+            sync.msg_list[10].msgtype_kind(),
+            Some(WorkAccountServiceMessageTypeKind::ChannelsShopOrder)
+        );
+        assert_eq!(
+            sync.msg_list[10].origin_kind(),
+            Some(WorkAccountServiceMessageOriginKind::System)
+        );
+        assert_eq!(order.order_id.as_deref(), Some("order"));
+        assert_eq!(order.extra["order_version"], 2);
+        assert_eq!(
+            WorkAccountServiceMessageOriginKind::from(99),
+            WorkAccountServiceMessageOriginKind::Other(99)
+        );
+        assert_eq!(
+            WorkAccountServiceMessageTypeKind::from_code("future"),
+            WorkAccountServiceMessageTypeKind::Other
+        );
+        assert_eq!(
+            WorkAccountServiceMessageTypeKind::Other.as_code(),
+            "unknown"
         );
 
         let send: WorkAccountServiceSendMsgResponse =
@@ -16663,7 +17036,27 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(state.service_state, Some(2));
+        assert_eq!(
+            state.service_state_kind(),
+            Some(WorkAccountServiceStateKind::WaitingPool)
+        );
         assert_eq!(state.extra["state_source"], "api");
+        assert!(WorkAccountServiceStateKind::Ended.is_terminal());
+        assert!(!WorkAccountServiceStateKind::HumanServicer.is_terminal());
+        assert_eq!(
+            WorkAccountServiceStateKind::from_code(99),
+            WorkAccountServiceStateKind::Other(99)
+        );
+
+        let state_trans: WorkAccountServiceStateTransResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "msg_code": "state-code",
+            "request_id": "state-trans"
+        }))
+        .unwrap();
+        assert_eq!(state_trans.msg_code.as_deref(), Some("state-code"));
+        assert_eq!(state_trans.extra["request_id"], "state-trans");
 
         let tag_create: WorkAccountServiceTagCreateResponse =
             serde_json::from_value(json!({ "tagid": 1, "request_id": "tag-create" })).unwrap();

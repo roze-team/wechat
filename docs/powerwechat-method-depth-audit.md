@@ -211,6 +211,10 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   department assignments; operation/list records expose department and stop
   details, and servicer/event/message-failure/session-change codes provide
   forward-compatible semantic helpers.
+- account-service synchronized messages now expose semantic message-origin and
+  message-type helpers, servicer ids, menu/link metadata, and typed Channels
+  shop product/order payloads; service-state requests/responses expose
+  0-through-4 state helpers and typed transition message codes.
 - Work status/ticket, AI Bot long-connection, and account-service sync/send,
   servicer, state, and tag responses now preserve unknown upstream fields
   across wrappers and response-only nested records.
