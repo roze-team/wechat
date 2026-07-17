@@ -180,6 +180,8 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 - external-contact group-message template, welcome-message, and moment-task
   requests now reuse typed text/attachment DTOs with constructors for image,
   link, mini-program, video, and file attachments instead of raw JSON vectors.
+- external group welcome-template request and response payloads now reuse typed
+  text, image, link, mini-program, file, and video DTOs instead of raw JSON.
 - external-contact group-chat owner filters, statistic owner filters, and
   moment-task visible ranges now use typed DTOs instead of raw JSON values.
 - external-pay merchant and bill-list responses now expose typed use-scope and

@@ -6889,17 +6889,17 @@ pub struct ExternalContactStrategyTagAddResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalGroupWelcomeTemplateRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<Value>,
+    pub text: Option<ExternalContactMessageText>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub image: Option<Value>,
+    pub image: Option<ExternalContactMessageImage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub link: Option<Value>,
+    pub link: Option<ExternalContactMessageLink>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub miniprogram: Option<Value>,
+    pub miniprogram: Option<ExternalContactMessageMiniProgram>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub file: Option<Value>,
+    pub file: Option<ExternalContactMessageFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub video: Option<Value>,
+    pub video: Option<ExternalContactMessageVideo>,
     pub agentid: i64,
     pub notify: i64,
 }
@@ -6928,17 +6928,17 @@ pub struct ExternalGroupWelcomeTemplateResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub text: Option<Value>,
+    pub text: Option<ExternalContactMessageText>,
     #[serde(default)]
-    pub image: Option<Value>,
+    pub image: Option<ExternalContactMessageImage>,
     #[serde(default)]
-    pub link: Option<Value>,
+    pub link: Option<ExternalContactMessageLink>,
     #[serde(default)]
-    pub miniprogram: Option<Value>,
+    pub miniprogram: Option<ExternalContactMessageMiniProgram>,
     #[serde(default)]
-    pub file: Option<Value>,
+    pub file: Option<ExternalContactMessageFile>,
     #[serde(default)]
-    pub video: Option<Value>,
+    pub video: Option<ExternalContactMessageVideo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10882,19 +10882,39 @@ mod tests {
     #[test]
     fn serializes_external_group_welcome_templates() {
         let template = ExternalGroupWelcomeTemplateRequest {
-            text: Some(json!({ "content": "welcome" })),
-            image: None,
-            link: Some(json!({ "title": "docs", "url": "https://example.com" })),
-            miniprogram: None,
-            file: None,
-            video: None,
+            text: Some(ExternalContactMessageText::new("welcome")),
+            image: Some(ExternalContactMessageImage {
+                media_id: Some("image-media".to_string()),
+                pic_url: None,
+            }),
+            link: Some(ExternalContactMessageLink {
+                title: Some("docs".to_string()),
+                picurl: Some("https://example.com/a.png".to_string()),
+                desc: Some("desc".to_string()),
+                url: Some("https://example.com".to_string()),
+            }),
+            miniprogram: Some(ExternalContactMessageMiniProgram {
+                title: Some("mini".to_string()),
+                pic_media_id: Some("pic-media".to_string()),
+                appid: Some("wx-app".to_string()),
+                page: Some("pages/index".to_string()),
+            }),
+            file: Some(ExternalContactMessageFile {
+                media_id: Some("file-media".to_string()),
+            }),
+            video: Some(ExternalContactMessageVideo {
+                media_id: Some("video-media".to_string()),
+            }),
             agentid: 100001,
             notify: 1,
         };
         let value = serde_json::to_value(&template).unwrap();
         assert_eq!(value["text"]["content"], "welcome");
+        assert_eq!(value["image"]["media_id"], "image-media");
         assert_eq!(value["link"]["title"], "docs");
-        assert!(value.get("image").is_none());
+        assert_eq!(value["miniprogram"]["appid"], "wx-app");
+        assert_eq!(value["file"]["media_id"], "file-media");
+        assert_eq!(value["video"]["media_id"], "video-media");
 
         let update = serde_json::to_value(ExternalGroupWelcomeTemplateUpdateRequest {
             template_id: "template".to_string(),
@@ -10910,11 +10930,22 @@ mod tests {
 
         let detail: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
             "text": { "content": "welcome" },
-            "image": { "media_id": "media" }
+            "image": { "media_id": "media" },
+            "link": { "title": "docs", "url": "https://example.com" },
+            "miniprogram": { "title": "mini", "appid": "wx-app", "page": "pages/index" },
+            "file": { "media_id": "file-media" },
+            "video": { "media_id": "video-media" }
         }))
         .unwrap();
-        assert_eq!(detail.text.unwrap()["content"], "welcome");
-        assert_eq!(detail.image.unwrap()["media_id"], "media");
+        assert_eq!(detail.text.unwrap().content.as_deref(), Some("welcome"));
+        assert_eq!(detail.image.unwrap().media_id.as_deref(), Some("media"));
+        assert_eq!(detail.link.unwrap().title.as_deref(), Some("docs"));
+        assert_eq!(detail.miniprogram.unwrap().appid.as_deref(), Some("wx-app"));
+        assert_eq!(detail.file.unwrap().media_id.as_deref(), Some("file-media"));
+        assert_eq!(
+            detail.video.unwrap().media_id.as_deref(),
+            Some("video-media")
+        );
     }
 
     #[test]
