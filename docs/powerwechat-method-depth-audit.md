@@ -248,14 +248,19 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   media, video, link, mini-program, menu, location, and customer-acquisition link DTOs.
 - group robot text, markdown, and file message payloads now expose typed DTOs
   instead of generic JSON values.
-- group robot image, news, and template-card message payloads now expose typed
-  DTOs while preserving card extension fields.
+- group robot image and news message payloads now expose typed DTOs.
+- Work app sends, group robots, and template-card updates now share typed card
+  DTOs for source/action menus, titles, quote/emphasis/content areas, jumps,
+  images, selection controls, buttons, checkboxes, submit controls, and select
+  lists while preserving card extension fields.
 - Work app, linked-corp, school, appchat, and group-robot messages now expose
   semantic message-type helpers for text, media, rich, mini-program, and
   template-card dispatch while retaining upstream `msgtype` strings.
-- Work template-card update requests and group-robot template-card payloads now
+- Work template-card sends, update requests, and group-robot payloads now
   expose semantic card-type helpers for text notice, news notice, and button
-  interaction cards while retaining upstream `card_type` strings.
+  / vote / multiple interaction cards while retaining upstream `card_type`
+  strings; update button replacement is also an explicit DTO rather than raw
+  JSON.
 - Work upload-media responses now expose semantic media-type helpers for image,
   voice, video, and file while retaining the original upstream `type` string.
 - Work temporary-media downloads now expose HTTP status, headers, content type,

@@ -2307,6 +2307,7 @@ impl Work {
                 news: None,
                 mpnews: None,
                 miniprogram_notice: None,
+                template_card: None,
                 safe: Some(0),
                 enable_id_trans: None,
                 enable_duplicate_check: None,
@@ -2435,6 +2436,22 @@ impl Work {
             "miniprogram_notice",
             "miniprogram_notice",
             to_value(notice)?,
+        )
+        .await
+    }
+
+    pub async fn send_template_card_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        template_card: WorkTemplateCard,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            WorkMessageTypeKind::TemplateCard.as_code(),
+            "template_card",
+            to_value(template_card)?,
         )
         .await
     }
@@ -5516,6 +5533,8 @@ pub struct WorkMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub template_card: Option<WorkTemplateCard>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub safe: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_id_trans: Option<i64>,
@@ -5621,6 +5640,233 @@ pub struct WorkMediaMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCard {
+    pub card_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<WorkTemplateCardSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_menu: Option<WorkTemplateCardActionMenu>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub main_title: Option<WorkTemplateCardMainTitle>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quote_area: Option<WorkTemplateCardQuoteArea>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub emphasis_content: Option<WorkTemplateCardEmphasisContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_title_text: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub horizontal_content_list: Vec<WorkTemplateCardHorizontalContent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jump_list: Vec<WorkTemplateCardJump>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card_action: Option<WorkTemplateCardAction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_text_area: Option<WorkTemplateCardImageTextArea>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card_image: Option<WorkTemplateCardImage>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vertical_content_list: Vec<WorkTemplateCardVerticalContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_selection: Option<WorkTemplateCardButtonSelection>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub button_list: Vec<WorkTemplateCardButton>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checkbox: Option<WorkTemplateCardCheckbox>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub submit_button: Option<WorkTemplateCardSubmitButton>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub select_list: Vec<WorkTemplateCardSelect>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkTemplateCard {
+    pub fn new(card_type: WorkTemplateCardTypeKind) -> Self {
+        Self {
+            card_type: card_type.as_code().to_string(),
+            source: None,
+            action_menu: None,
+            task_id: None,
+            main_title: None,
+            quote_area: None,
+            emphasis_content: None,
+            sub_title_text: None,
+            horizontal_content_list: Vec::new(),
+            jump_list: Vec::new(),
+            card_action: None,
+            image_text_area: None,
+            card_image: None,
+            vertical_content_list: Vec::new(),
+            button_selection: None,
+            button_list: Vec::new(),
+            checkbox: None,
+            submit_button: None,
+            select_list: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn card_type_kind(&self) -> WorkTemplateCardTypeKind {
+        WorkTemplateCardTypeKind::from_code(&self.card_type)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardSource {
+    pub icon_url: String,
+    pub desc: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub desc_color: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardActionMenu {
+    pub desc: String,
+    pub action_list: Vec<WorkTemplateCardActionMenuItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardActionMenuItem {
+    pub text: String,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardMainTitle {
+    pub title: String,
+    pub desc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardQuoteArea {
+    #[serde(rename = "type")]
+    pub action_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    pub title: String,
+    pub quote_text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardEmphasisContent {
+    pub title: String,
+    pub desc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardHorizontalContent {
+    pub keyname: String,
+    pub value: String,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardJump {
+    #[serde(rename = "type")]
+    pub jump_type: i64,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub appid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagepath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardAction {
+    #[serde(rename = "type")]
+    pub action_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub appid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagepath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardImageTextArea {
+    #[serde(rename = "type")]
+    pub action_type: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    pub title: String,
+    pub desc: String,
+    pub image_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardImage {
+    pub url: String,
+    pub aspect_ratio: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardVerticalContent {
+    pub title: String,
+    pub desc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardButtonSelection {
+    pub question_key: String,
+    pub title: String,
+    pub option_list: Vec<WorkTemplateCardOption>,
+    pub selected_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardOption {
+    pub id: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardButton {
+    pub text: String,
+    pub style: i64,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardCheckbox {
+    pub question_key: String,
+    pub option_list: Vec<WorkTemplateCardCheckboxOption>,
+    pub mode: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardCheckboxOption {
+    pub id: String,
+    pub text: String,
+    pub is_checked: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardSubmitButton {
+    pub text: String,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardSelect {
+    pub question_key: String,
+    pub title: String,
+    pub selected_id: String,
+    pub option_list: Vec<WorkTemplateCardOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMessageAudience {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub touser: Option<String>,
@@ -5667,9 +5913,9 @@ pub struct WorkTemplateCardUpdateRequest {
     pub agentid: i64,
     pub response_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub button: Option<Value>,
+    pub button: Option<WorkTemplateCardUpdateButton>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub template_card: Option<Value>,
+    pub template_card: Option<WorkTemplateCard>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -5678,10 +5924,15 @@ impl WorkTemplateCardUpdateRequest {
     pub fn template_card_type_kind(&self) -> Option<WorkTemplateCardTypeKind> {
         self.template_card
             .as_ref()
-            .and_then(|card| card.get("card_type"))
-            .and_then(Value::as_str)
-            .map(WorkTemplateCardTypeKind::from_code)
+            .map(WorkTemplateCard::card_type_kind)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTemplateCardUpdateButton {
+    pub replace_name: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5689,6 +5940,8 @@ pub enum WorkTemplateCardTypeKind {
     TextNotice,
     NewsNotice,
     ButtonInteraction,
+    VoteInteraction,
+    MultipleInteraction,
     Other,
 }
 
@@ -5700,6 +5953,10 @@ impl WorkTemplateCardTypeKind {
             Self::NewsNotice
         } else if value.eq_ignore_ascii_case("button_interaction") {
             Self::ButtonInteraction
+        } else if value.eq_ignore_ascii_case("vote_interaction") {
+            Self::VoteInteraction
+        } else if value.eq_ignore_ascii_case("multiple_interaction") {
+            Self::MultipleInteraction
         } else {
             Self::Other
         }
@@ -5710,12 +5967,17 @@ impl WorkTemplateCardTypeKind {
             Self::TextNotice => "text_notice",
             Self::NewsNotice => "news_notice",
             Self::ButtonInteraction => "button_interaction",
+            Self::VoteInteraction => "vote_interaction",
+            Self::MultipleInteraction => "multiple_interaction",
             Self::Other => "unknown",
         }
     }
 
     pub fn is_interactive(self) -> bool {
-        matches!(self, Self::ButtonInteraction)
+        matches!(
+            self,
+            Self::ButtonInteraction | Self::VoteInteraction | Self::MultipleInteraction
+        )
     }
 }
 
@@ -9118,25 +9380,7 @@ pub struct GroupRobotNewsArticle {
     pub picurl: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupRobotTemplateCardMessage {
-    pub card_type: String,
-    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
-    pub extra: Value,
-}
-
-impl GroupRobotTemplateCardMessage {
-    pub fn new(card_type: WorkTemplateCardTypeKind, extra: Value) -> Self {
-        Self {
-            card_type: card_type.as_code().to_string(),
-            extra,
-        }
-    }
-
-    pub fn card_type_kind(&self) -> WorkTemplateCardTypeKind {
-        WorkTemplateCardTypeKind::from_code(&self.card_type)
-    }
-}
+pub type GroupRobotTemplateCardMessage = WorkTemplateCard;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotFileMessage {
@@ -12023,6 +12267,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            template_card: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -12068,6 +12313,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            template_card: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -12098,6 +12344,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            template_card: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -12125,6 +12372,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            template_card: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -12157,6 +12405,7 @@ mod tests {
             }),
             mpnews: None,
             miniprogram_notice: None,
+            template_card: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -12194,6 +12443,7 @@ mod tests {
                 }],
             }),
             miniprogram_notice: None,
+            template_card: None,
             safe: Some(0),
             enable_id_trans: None,
             enable_duplicate_check: None,
@@ -12265,6 +12515,35 @@ mod tests {
         assert_eq!(notice["content_item"][0]["key"], "time");
         assert_eq!(notice["emphasis_first_item"], true);
 
+        let mut template_card = WorkTemplateCard::new(WorkTemplateCardTypeKind::ButtonInteraction);
+        template_card.source = Some(WorkTemplateCardSource {
+            icon_url: "https://example.com/icon.png".to_string(),
+            desc: "Roze".to_string(),
+            desc_color: Some(1),
+        });
+        template_card.main_title = Some(WorkTemplateCardMainTitle {
+            title: "Approval".to_string(),
+            desc: "Choose an action".to_string(),
+        });
+        template_card.button_list = vec![WorkTemplateCardButton {
+            text: "Approve".to_string(),
+            style: 1,
+            key: "approve".to_string(),
+        }];
+        template_card.checkbox = Some(WorkTemplateCardCheckbox {
+            question_key: "terms".to_string(),
+            option_list: vec![WorkTemplateCardCheckboxOption {
+                id: "accept".to_string(),
+                text: "Accept".to_string(),
+                is_checked: true,
+            }],
+            mode: 0,
+        });
+        assert_eq!(
+            template_card.card_type_kind(),
+            WorkTemplateCardTypeKind::ButtonInteraction
+        );
+
         let update_request = WorkTemplateCardUpdateRequest {
             userids: vec!["user".to_string()],
             partyids: Vec::new(),
@@ -12272,8 +12551,11 @@ mod tests {
             atall: None,
             agentid: 100001,
             response_code: "response".to_string(),
-            button: Some(json!({ "replace_name": "done" })),
-            template_card: Some(json!({ "card_type": "button_interaction" })),
+            button: Some(WorkTemplateCardUpdateButton {
+                replace_name: "done".to_string(),
+                extra: Value::Null,
+            }),
+            template_card: Some(template_card),
             extra: serde_json::Value::Null,
         };
         assert_eq!(
@@ -12281,6 +12563,8 @@ mod tests {
             Some(WorkTemplateCardTypeKind::ButtonInteraction)
         );
         assert!(WorkTemplateCardTypeKind::ButtonInteraction.is_interactive());
+        assert!(WorkTemplateCardTypeKind::VoteInteraction.is_interactive());
+        assert!(WorkTemplateCardTypeKind::MultipleInteraction.is_interactive());
         assert!(!WorkTemplateCardTypeKind::TextNotice.is_interactive());
         assert_eq!(
             WorkTemplateCardTypeKind::from_code("NEWS_NOTICE"),
@@ -12290,10 +12574,24 @@ mod tests {
             WorkTemplateCardTypeKind::from_code("SOMETHING_NEW"),
             WorkTemplateCardTypeKind::Other
         );
+        assert_eq!(
+            WorkTemplateCardTypeKind::from_code("VOTE_INTERACTION"),
+            WorkTemplateCardTypeKind::VoteInteraction
+        );
+        assert_eq!(
+            WorkTemplateCardTypeKind::MultipleInteraction.as_code(),
+            "multiple_interaction"
+        );
         let update = serde_json::to_value(update_request).unwrap();
         assert_eq!(update["userids"][0], "user");
         assert_eq!(update["response_code"], "response");
         assert_eq!(update["button"]["replace_name"], "done");
+        assert_eq!(update["template_card"]["source"]["desc_color"], 1);
+        assert_eq!(update["template_card"]["button_list"][0]["key"], "approve");
+        assert_eq!(
+            update["template_card"]["checkbox"]["option_list"][0]["is_checked"],
+            true
+        );
         assert!(update.get("partyids").is_none());
 
         let response: MessageSendResponse = serde_json::from_value(json!({
@@ -12764,13 +13062,17 @@ mod tests {
         .unwrap();
         assert_eq!(news["news"]["articles"][0]["title"], "title");
 
-        let template_card = GroupRobotTemplateCardMessage::new(
-            WorkTemplateCardTypeKind::TextNotice,
-            json!({
-                "source": { "desc": "Roze" },
-                "main_title": { "title": "hello" }
-            }),
-        );
+        let mut template_card =
+            GroupRobotTemplateCardMessage::new(WorkTemplateCardTypeKind::TextNotice);
+        template_card.source = Some(WorkTemplateCardSource {
+            icon_url: "https://example.com/icon.png".to_string(),
+            desc: "Roze".to_string(),
+            desc_color: None,
+        });
+        template_card.main_title = Some(WorkTemplateCardMainTitle {
+            title: "hello".to_string(),
+            desc: "world".to_string(),
+        });
         assert_eq!(
             template_card.card_type_kind(),
             WorkTemplateCardTypeKind::TextNotice
