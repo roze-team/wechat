@@ -7863,6 +7863,59 @@ pub struct ExternalCustomerTransferRecord {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalCustomerTransferStatusKind {
+    Completed,
+    Pending,
+    CustomerRefused,
+    TakeoverLimitExceeded,
+    NoRecord,
+    Other,
+}
+
+impl ExternalCustomerTransferStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::Completed,
+            2 => Self::Pending,
+            3 => Self::CustomerRefused,
+            4 => Self::TakeoverLimitExceeded,
+            5 => Self::NoRecord,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        !matches!(self, Self::Pending)
+    }
+
+    pub fn is_failure(self) -> bool {
+        matches!(
+            self,
+            Self::CustomerRefused | Self::TakeoverLimitExceeded | Self::NoRecord | Self::Other
+        )
+    }
+}
+
+impl ExternalCustomerTransferRecord {
+    pub fn status_kind(&self) -> Option<ExternalCustomerTransferStatusKind> {
+        self.status
+            .map(ExternalCustomerTransferStatusKind::from_code)
+    }
+
+    pub fn is_completed(&self) -> bool {
+        self.status_kind() == Some(ExternalCustomerTransferStatusKind::Completed)
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.status_kind() == Some(ExternalCustomerTransferStatusKind::Pending)
+    }
+
+    pub fn is_failed(&self) -> bool {
+        self.status_kind().is_some_and(|status| status.is_failure())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactUnassignedListRequest {
     pub page_id: i64,
@@ -12447,10 +12500,40 @@ mod tests {
             Some("external")
         );
         assert_eq!(response.customer[0].status, Some(1));
+        assert_eq!(
+            response.customer[0].status_kind(),
+            Some(ExternalCustomerTransferStatusKind::Completed)
+        );
+        assert!(response.customer[0].is_completed());
+        assert!(response.customer[0]
+            .status_kind()
+            .expect("status")
+            .is_terminal());
         assert_eq!(response.customer[0].takeover_time, Some(100));
         assert_eq!(response.customer[0].extra["transfer_remark"], "manual");
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(response.extra["job_id"], "transfer-job-1");
+        assert_eq!(
+            ExternalCustomerTransferStatusKind::from_code(2),
+            ExternalCustomerTransferStatusKind::Pending
+        );
+        assert!(!ExternalCustomerTransferStatusKind::Pending.is_terminal());
+        assert_eq!(
+            ExternalCustomerTransferStatusKind::from_code(3),
+            ExternalCustomerTransferStatusKind::CustomerRefused
+        );
+        assert_eq!(
+            ExternalCustomerTransferStatusKind::from_code(4),
+            ExternalCustomerTransferStatusKind::TakeoverLimitExceeded
+        );
+        assert_eq!(
+            ExternalCustomerTransferStatusKind::from_code(5),
+            ExternalCustomerTransferStatusKind::NoRecord
+        );
+        assert!(ExternalCustomerTransferStatusKind::CustomerRefused.is_failure());
+        assert!(ExternalCustomerTransferStatusKind::TakeoverLimitExceeded.is_failure());
+        assert!(ExternalCustomerTransferStatusKind::NoRecord.is_failure());
+        assert!(ExternalCustomerTransferStatusKind::Other.is_failure());
 
         let unassigned_response: ExternalContactUnassignedListResponse =
             serde_json::from_value(json!({

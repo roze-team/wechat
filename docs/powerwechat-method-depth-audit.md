@@ -196,6 +196,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   unknown upstream fields across response wrappers, items, and data payloads.
 - external-customer transfer and unassigned-customer responses now expose typed
   customer transfer records and unassigned customer metadata.
+- external-customer transfer-result records now expose semantic status helpers
+  for completed, pending, refused, takeover-limit, and no-record outcomes while
+  retaining the original numeric `status` code.
 - external-customer transfer-result and unassigned-customer DTOs now preserve
   unknown upstream fields across response wrappers and per-customer records.
 - account-service responses now expose typed customer-service accounts,
