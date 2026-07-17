@@ -270,6 +270,9 @@ Implemented on 2026-07-16 in Roze WeChat Mini Program base/message/live depth:
   create-room, room, goods, replay, warehouse, and follower payloads.
 - express order, account, delivery, waybill, path, and contact responses now
   expose typed logistics DTOs.
+- express logistics response DTOs now preserve unknown upstream fields across
+  order, waybill, account, delivery, path, printer, quota, contact, and
+  preview-template payloads.
 - express batch order query requests now use typed order-id/openid/delivery-id
   and waybill-id DTOs instead of raw JSON order entries.
 - immediateDelivery bind-account, provider-list, and order-detail responses now
