@@ -2034,7 +2034,7 @@ impl Work {
         mentioned_list: Vec<String>,
     ) -> GroupRobotMessage {
         GroupRobotMessage {
-            msgtype: "text".to_string(),
+            msgtype: WorkMessageTypeKind::Text.as_code().to_string(),
             text: Some(GroupRobotTextMessage {
                 content: content.into(),
                 mentioned_list,
@@ -2050,7 +2050,7 @@ impl Work {
 
     pub fn group_robot_markdown(content: impl Into<String>) -> GroupRobotMessage {
         GroupRobotMessage {
-            msgtype: "markdown".to_string(),
+            msgtype: WorkMessageTypeKind::Markdown.as_code().to_string(),
             text: None,
             markdown: Some(GroupRobotMarkdownMessage {
                 content: content.into(),
@@ -5435,6 +5435,84 @@ pub struct WorkMessage {
     pub extra: Value,
 }
 
+impl WorkMessage {
+    pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
+        WorkMessageTypeKind::from_code(&self.msgtype)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMessageTypeKind {
+    Text,
+    Image,
+    Voice,
+    Video,
+    File,
+    Markdown,
+    TextCard,
+    News,
+    MpNews,
+    MiniProgramNotice,
+    TemplateCard,
+    Other,
+}
+
+impl WorkMessageTypeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("text") {
+            Self::Text
+        } else if value.eq_ignore_ascii_case("image") {
+            Self::Image
+        } else if value.eq_ignore_ascii_case("voice") {
+            Self::Voice
+        } else if value.eq_ignore_ascii_case("video") {
+            Self::Video
+        } else if value.eq_ignore_ascii_case("file") {
+            Self::File
+        } else if value.eq_ignore_ascii_case("markdown") {
+            Self::Markdown
+        } else if value.eq_ignore_ascii_case("textcard") || value.eq_ignore_ascii_case("text_card")
+        {
+            Self::TextCard
+        } else if value.eq_ignore_ascii_case("news") {
+            Self::News
+        } else if value.eq_ignore_ascii_case("mpnews") || value.eq_ignore_ascii_case("mp_news") {
+            Self::MpNews
+        } else if value.eq_ignore_ascii_case("miniprogram_notice")
+            || value.eq_ignore_ascii_case("mini_program_notice")
+        {
+            Self::MiniProgramNotice
+        } else if value.eq_ignore_ascii_case("template_card")
+            || value.eq_ignore_ascii_case("templatecard")
+        {
+            Self::TemplateCard
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn as_code(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Image => "image",
+            Self::Voice => "voice",
+            Self::Video => "video",
+            Self::File => "file",
+            Self::Markdown => "markdown",
+            Self::TextCard => "textcard",
+            Self::News => "news",
+            Self::MpNews => "mpnews",
+            Self::MiniProgramNotice => "miniprogram_notice",
+            Self::TemplateCard => "template_card",
+            Self::Other => "unknown",
+        }
+    }
+
+    pub fn is_media(self) -> bool {
+        matches!(self, Self::Image | Self::Voice | Self::Video | Self::File)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkTextMessage {
     pub content: String,
@@ -5539,8 +5617,12 @@ pub struct WorkLinkedCorpMessage {
 }
 
 impl WorkLinkedCorpMessage {
+    pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
+        WorkMessageTypeKind::from_code(&self.msgtype)
+    }
+
     pub fn text(agent_id: i64, content: impl Into<String>) -> Self {
-        let mut message = Self::empty(agent_id, "text");
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Text);
         message.text = Some(WorkTextMessage {
             content: content.into(),
         });
@@ -5548,7 +5630,7 @@ impl WorkLinkedCorpMessage {
     }
 
     pub fn image(agent_id: i64, media_id: impl Into<String>) -> Self {
-        let mut message = Self::empty(agent_id, "image");
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Image);
         message.image = Some(WorkMediaMessage {
             media_id: media_id.into(),
         });
@@ -5556,7 +5638,7 @@ impl WorkLinkedCorpMessage {
     }
 
     pub fn file(agent_id: i64, media_id: impl Into<String>) -> Self {
-        let mut message = Self::empty(agent_id, "file");
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::File);
         message.file = Some(WorkMediaMessage {
             media_id: media_id.into(),
         });
@@ -5578,12 +5660,12 @@ impl WorkLinkedCorpMessage {
         self
     }
 
-    fn empty(agent_id: i64, msg_type: impl Into<String>) -> Self {
+    fn empty(agent_id: i64, msg_type: WorkMessageTypeKind) -> Self {
         Self {
             touser: Vec::new(),
             toparty: Vec::new(),
             totag: Vec::new(),
-            msgtype: msg_type.into(),
+            msgtype: msg_type.as_code().to_string(),
             agentid: agent_id,
             text: None,
             image: None,
@@ -5625,8 +5707,12 @@ pub struct WorkExternalContactSchoolMessage {
 }
 
 impl WorkExternalContactSchoolMessage {
+    pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
+        WorkMessageTypeKind::from_code(&self.msgtype)
+    }
+
     pub fn text(agent_id: i64, content: impl Into<String>) -> Self {
-        let mut message = Self::empty(agent_id, "text");
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Text);
         message.text = Some(WorkTextMessage {
             content: content.into(),
         });
@@ -5634,7 +5720,7 @@ impl WorkExternalContactSchoolMessage {
     }
 
     pub fn image(agent_id: i64, media_id: impl Into<String>) -> Self {
-        let mut message = Self::empty(agent_id, "image");
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Image);
         message.image = Some(WorkMediaMessage {
             media_id: media_id.into(),
         });
@@ -5666,14 +5752,14 @@ impl WorkExternalContactSchoolMessage {
         self
     }
 
-    fn empty(agent_id: i64, msg_type: impl Into<String>) -> Self {
+    fn empty(agent_id: i64, msg_type: WorkMessageTypeKind) -> Self {
         Self {
             recv_scope: None,
             to_external_userid: Vec::new(),
             to_parent_userid: Vec::new(),
             to_student_userid: Vec::new(),
             to_party: Vec::new(),
-            msgtype: msg_type.into(),
+            msgtype: msg_type.as_code().to_string(),
             agentid: agent_id,
             text: None,
             image: None,
@@ -8735,6 +8821,12 @@ pub struct GroupRobotMessage {
     pub template_card: Option<GroupRobotTemplateCardMessage>,
 }
 
+impl GroupRobotMessage {
+    pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
+        WorkMessageTypeKind::from_code(&self.msgtype)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotTextMessage {
     pub content: String,
@@ -11007,10 +11099,14 @@ pub struct AppChatMessage {
 }
 
 impl AppChatMessage {
+    pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
+        WorkMessageTypeKind::from_code(&self.msgtype)
+    }
+
     pub fn text(chat_id: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             chatid: chat_id.into(),
-            msgtype: "text".to_string(),
+            msgtype: WorkMessageTypeKind::Text.as_code().to_string(),
             text: Some(json!({ "content": content.into() })),
             extra: Value::Null,
         }
@@ -11083,7 +11179,7 @@ mod tests {
 
     #[test]
     fn serializes_text_message_shape() {
-        let value = serde_json::to_value(WorkMessage {
+        let text_message = WorkMessage {
             touser: Some("user".to_string()),
             toparty: None,
             totag: None,
@@ -11106,12 +11202,27 @@ mod tests {
             enable_duplicate_check: None,
             duplicate_check_interval: None,
             extra: serde_json::Value::Null,
-        })
-        .unwrap();
+        };
+        assert_eq!(text_message.msgtype_kind(), WorkMessageTypeKind::Text);
+        let value = serde_json::to_value(text_message).unwrap();
 
         assert_eq!(value["touser"], "user");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+        assert_eq!(
+            WorkMessageTypeKind::from_code("mini_program_notice"),
+            WorkMessageTypeKind::MiniProgramNotice
+        );
+        assert_eq!(
+            WorkMessageTypeKind::from_code("templatecard"),
+            WorkMessageTypeKind::TemplateCard
+        );
+        assert_eq!(
+            WorkMessageTypeKind::from_code("SOMETHING_NEW"),
+            WorkMessageTypeKind::Other
+        );
+        assert!(WorkMessageTypeKind::Image.is_media());
+        assert!(!WorkMessageTypeKind::Text.is_media());
 
         let markdown = serde_json::to_value(WorkMessage {
             touser: Some("user".to_string()),
@@ -11396,6 +11507,10 @@ mod tests {
         assert_eq!(linked_text["agentid"], 100001);
         assert_eq!(linked_text["touser"][0], "Corp/user");
         assert_eq!(linked_text["text"]["content"], "hello");
+        assert_eq!(
+            WorkLinkedCorpMessage::text(100001, "hello").msgtype_kind(),
+            WorkMessageTypeKind::Text
+        );
 
         let linked_file =
             serde_json::to_value(WorkLinkedCorpMessage::file(100001, "file-media")).unwrap();
@@ -11403,7 +11518,7 @@ mod tests {
         assert_eq!(linked_file["file"]["media_id"], "file-media");
         assert!(linked_file.get("touser").is_none());
 
-        let mut linked_rich = WorkLinkedCorpMessage::empty(100001, "video");
+        let mut linked_rich = WorkLinkedCorpMessage::empty(100001, WorkMessageTypeKind::Video);
         linked_rich.video = Some(WorkVideoMessage {
             media_id: "video-media".to_string(),
             title: Some("title".to_string()),
@@ -11480,6 +11595,10 @@ mod tests {
         assert_eq!(school_text["recv_scope"], 0);
         assert_eq!(school_text["text"]["content"], "notice");
         assert_eq!(school_text["to_parent_userid"][0], "parent");
+        assert_eq!(
+            WorkExternalContactSchoolMessage::image(100001, "image").msgtype_kind(),
+            WorkMessageTypeKind::Image
+        );
 
         let school_image = serde_json::to_value(WorkExternalContactSchoolMessage::image(
             100001,
@@ -11491,7 +11610,7 @@ mod tests {
         assert!(school_image.get("to_parent_userid").is_none());
 
         let mut school_notice =
-            WorkExternalContactSchoolMessage::empty(100001, "miniprogram_notice");
+            WorkExternalContactSchoolMessage::empty(100001, WorkMessageTypeKind::MiniProgramNotice);
         school_notice.miniprogram_notice = Some(WorkMiniProgramNoticeMessage {
             appid: "wx-app".to_string(),
             page: Some("pages/index".to_string()),
@@ -11747,12 +11866,16 @@ mod tests {
 
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["mentioned_list"][0], "@all");
+        assert_eq!(
+            Work::group_robot_text("hello", Vec::new()).msgtype_kind(),
+            WorkMessageTypeKind::Text
+        );
 
         let markdown = serde_json::to_value(Work::group_robot_markdown("**hello**")).unwrap();
         assert_eq!(markdown["msgtype"], "markdown");
         assert_eq!(markdown["markdown"]["content"], "**hello**");
 
-        let file = serde_json::to_value(GroupRobotMessage {
+        let file = GroupRobotMessage {
             msgtype: "file".to_string(),
             text: None,
             markdown: None,
@@ -11762,8 +11885,9 @@ mod tests {
                 media_id: "media".to_string(),
             }),
             template_card: None,
-        })
-        .unwrap();
+        };
+        assert_eq!(file.msgtype_kind(), WorkMessageTypeKind::File);
+        let file = serde_json::to_value(file).unwrap();
         assert_eq!(file["file"]["media_id"], "media");
 
         let image = serde_json::to_value(GroupRobotMessage {
@@ -11800,7 +11924,7 @@ mod tests {
         .unwrap();
         assert_eq!(news["news"]["articles"][0]["title"], "title");
 
-        let card = serde_json::to_value(GroupRobotMessage {
+        let card_message = GroupRobotMessage {
             msgtype: "template_card".to_string(),
             text: None,
             markdown: None,
@@ -11814,8 +11938,12 @@ mod tests {
                     "main_title": { "title": "hello" }
                 }),
             }),
-        })
-        .unwrap();
+        };
+        assert_eq!(
+            card_message.msgtype_kind(),
+            WorkMessageTypeKind::TemplateCard
+        );
+        let card = serde_json::to_value(card_message).unwrap();
         assert_eq!(card["template_card"]["card_type"], "text_notice");
         assert_eq!(card["template_card"]["main_title"]["title"], "hello");
     }
@@ -16173,7 +16301,9 @@ mod tests {
             chatid: Some("chatid".to_string()),
         })
         .unwrap();
-        let message = serde_json::to_value(AppChatMessage::text("chatid", "hello")).unwrap();
+        let appchat_message = AppChatMessage::text("chatid", "hello");
+        assert_eq!(appchat_message.msgtype_kind(), WorkMessageTypeKind::Text);
+        let message = serde_json::to_value(appchat_message).unwrap();
 
         assert_eq!(create["userlist"][0], "user");
         assert_eq!(message["chatid"], "chatid");
