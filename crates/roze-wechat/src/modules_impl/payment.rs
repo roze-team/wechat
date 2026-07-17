@@ -2209,6 +2209,8 @@ pub struct PaymentStatusResponse {
     pub code: Option<String>,
     #[serde(default)]
     pub message: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3312,6 +3314,50 @@ impl PaymentBillStatement {
             .count()
     }
 
+    pub fn records_matching(&self, name: &str, value: &str) -> Result<Vec<&PaymentBillRecord>> {
+        self.require_columns(&[name])?;
+        Ok(self
+            .records
+            .iter()
+            .filter(|record| record.get(name) == Some(value))
+            .collect())
+    }
+
+    pub fn sum_i64_where(
+        &self,
+        filter_name: &str,
+        filter_value: &str,
+        amount_name: &str,
+    ) -> Result<i64> {
+        self.require_columns(&[filter_name, amount_name])?;
+        self.records.iter().try_fold(0_i64, |sum, record| {
+            if record.get(filter_name) == Some(filter_value) {
+                record.require_i64(amount_name).map(|amount| sum + amount)
+            } else {
+                Ok(sum)
+            }
+        })
+    }
+
+    pub fn non_empty_count_where(
+        &self,
+        filter_name: &str,
+        filter_value: &str,
+        count_name: &str,
+    ) -> Result<usize> {
+        self.require_columns(&[filter_name, count_name])?;
+        Ok(self
+            .records
+            .iter()
+            .filter(|record| {
+                record.get(filter_name) == Some(filter_value)
+                    && record
+                        .get(count_name)
+                        .is_some_and(|value| !value.is_empty())
+            })
+            .count())
+    }
+
     pub fn index_by_unique_column(
         &self,
         name: &str,
@@ -4412,8 +4458,8 @@ mod tests {
         PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
         PayScoreTimeRange, PaymentBillDownloadRequest, PaymentCredentials, PaymentDownloadedBill,
         PaymentNotification, PaymentOrderResponse, PaymentRefundNotification, PaymentResource,
-        PaymentTransactionNotification, PaymentTransferBillNotification, PrepayResponse,
-        ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        PaymentStatusResponse, PaymentTransactionNotification, PaymentTransferBillNotification,
+        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
         ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
@@ -4459,6 +4505,15 @@ mod tests {
 
     #[test]
     fn deserializes_payment_order_and_prepay_responses() {
+        let status: PaymentStatusResponse = serde_json::from_value(json!({
+            "code": "SUCCESS",
+            "message": "ok",
+            "request_id": "status-request"
+        }))
+        .unwrap();
+        assert_eq!(status.code.as_deref(), Some("SUCCESS"));
+        assert_eq!(status.extra["request_id"], "status-request");
+
         let prepay: PrepayResponse = serde_json::from_value(json!({
             "prepay_id": "prepay-id",
             "request_id": "prepay-request"
@@ -5720,7 +5775,7 @@ mod tests {
     fn validates_payment_bill_required_columns_and_summary_totals() {
         let bill = PaymentDownloadedBill::from_verified_bytes(
             bytes::Bytes::from_static(
-                b"transaction_id,out_trade_no,amount\n4200001,order-1,100\n4200002,order-2,50\nsum,2,150\n",
+                b"transaction_id,out_trade_no,amount,trade_state\n4200001,order-1,100,SUCCESS\n4200002,order-2,50,REFUND\n4200003,,25,SUCCESS\nsum,3,175\n",
             ),
             None,
             None,
@@ -5730,34 +5785,86 @@ mod tests {
         let statement = bill.statement().unwrap();
         assert_eq!(statement.column_index("out_trade_no"), Some(1));
         statement
-            .require_columns(&["transaction_id", "out_trade_no", "amount"])
+            .require_columns(&["transaction_id", "out_trade_no", "amount", "trade_state"])
             .unwrap();
         assert_eq!(
             statement.assert_sum_matches_summary("amount", 2).unwrap(),
-            150
+            175
         );
         let grouped = statement.group_sum_i64("out_trade_no", "amount").unwrap();
         assert_eq!(grouped.get("order-1"), Some(&100));
         assert_eq!(grouped.get("order-2"), Some(&50));
+        assert_eq!(grouped.get(""), Some(&25));
         assert_eq!(
             statement
-                .index_by_unique_column("transaction_id")
+                .records_matching("trade_state", "SUCCESS")
                 .unwrap()
                 .len(),
             2
         );
         assert_eq!(
             statement
+                .records_matching("trade_state", "SUCCESS")
+                .unwrap()[0]
+                .get("transaction_id"),
+            Some("4200001")
+        );
+        assert_eq!(
+            statement
+                .records_matching("trade_state", "NOT_EXIST")
+                .unwrap()
+                .len(),
+            0
+        );
+        assert_eq!(
+            statement
+                .sum_i64_where("trade_state", "SUCCESS", "amount")
+                .unwrap(),
+            125
+        );
+        assert_eq!(
+            statement
+                .sum_i64_where("trade_state", "REFUND", "amount")
+                .unwrap(),
+            50
+        );
+        assert_eq!(
+            statement
+                .non_empty_count_where("trade_state", "SUCCESS", "out_trade_no")
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            statement
+                .index_by_unique_column("transaction_id")
+                .unwrap()
+                .len(),
+            3
+        );
+        assert_eq!(
+            statement
                 .assert_non_empty_count_matches_summary("transaction_id", 1)
                 .unwrap(),
-            2
+            3
         );
-        assert_eq!(statement.assert_record_count_matches_summary(1).unwrap(), 2);
+        assert_eq!(statement.assert_record_count_matches_summary(1).unwrap(), 3);
 
         let missing_column = statement
             .require_columns(&["transaction_id", "missing"])
             .expect_err("missing required columns should fail");
         assert!(missing_column.to_string().contains("missing"));
+        let missing_filter_column = statement
+            .records_matching("missing", "SUCCESS")
+            .expect_err("missing filter column should fail");
+        assert!(missing_filter_column.to_string().contains("missing"));
+        let missing_sum_column = statement
+            .sum_i64_where("trade_state", "SUCCESS", "missing")
+            .expect_err("missing sum column should fail");
+        assert!(missing_sum_column.to_string().contains("missing"));
+        let missing_count_column = statement
+            .non_empty_count_where("trade_state", "SUCCESS", "missing")
+            .expect_err("missing count column should fail");
+        assert!(missing_count_column.to_string().contains("missing"));
 
         let mismatched = PaymentDownloadedBill::from_verified_bytes(
             bytes::Bytes::from_static(
