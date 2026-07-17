@@ -10950,9 +10950,73 @@ pub struct WorkApprovalTemplateDetailResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub template_names: Vec<Value>,
+    pub template_names: Vec<WorkApprovalLocalizedText>,
     #[serde(default)]
-    pub template_content: Option<Value>,
+    pub template_content: Option<WorkApprovalTemplateContent>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalLocalizedText {
+    pub text: String,
+    pub lang: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalTemplateContent {
+    #[serde(default)]
+    pub controls: Vec<WorkApprovalTemplateControl>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalTemplateControl {
+    pub property: WorkApprovalTemplateProperty,
+    #[serde(default)]
+    pub config: WorkApprovalTemplateConfig,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalTemplateProperty {
+    pub control: String,
+    pub id: String,
+    #[serde(default)]
+    pub title: Vec<WorkApprovalLocalizedText>,
+    #[serde(default)]
+    pub placeholder: Vec<WorkApprovalLocalizedText>,
+    pub require: i64,
+    pub un_print: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkApprovalTemplateConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selector: Option<WorkApprovalSelector>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalSelector {
+    #[serde(rename = "type")]
+    pub selector_type: String,
+    #[serde(default)]
+    pub options: Vec<WorkApprovalSelectorOption>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalSelectorOption {
+    pub key: String,
+    #[serde(default)]
+    pub value: Vec<WorkApprovalLocalizedText>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -10976,14 +11040,160 @@ pub struct WorkApprovalApplyEventRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_template_approver: Option<i64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approver: Vec<Value>,
+    pub approver: Vec<WorkApprovalApprover>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notifyer: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notify_type: Option<i64>,
-    pub apply_data: Value,
+    pub apply_data: WorkApprovalApplyData,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub summary_list: Vec<Value>,
+    pub summary_list: Vec<WorkApprovalSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalApprover {
+    pub attr: i64,
+    #[serde(default)]
+    pub userid: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalSummary {
+    #[serde(default)]
+    pub summary_info: Vec<WorkApprovalLocalizedText>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalApplyData {
+    #[serde(default)]
+    pub contents: Vec<WorkApprovalContent>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalContent {
+    pub control: String,
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub title: Vec<WorkApprovalLocalizedText>,
+    pub value: WorkApprovalControlValue,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub require: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkApprovalControlValue {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_money: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date: Option<WorkApprovalDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_range: Option<WorkApprovalDateRange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selector: Option<WorkApprovalSelector>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<WorkApprovalMember>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub departments: Vec<WorkApprovalDepartment>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<WorkApprovalFile>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<WorkApprovalTableRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub related_approval: Vec<WorkApprovalRelatedApplication>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tips: Vec<WorkApprovalLocalizedText>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stat_field: Vec<WorkApprovalStatField>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sum_field: Vec<WorkApprovalStatField>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDate {
+    #[serde(rename = "type")]
+    pub date_type: String,
+    pub s_timestamp: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDateRange {
+    #[serde(rename = "type")]
+    pub date_type: String,
+    pub new_begin: i64,
+    pub new_end: i64,
+    pub new_duration: i64,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalMember {
+    pub userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDepartment {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openapi_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalFile {
+    pub file_id: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalTableRow {
+    #[serde(default)]
+    pub list: Vec<WorkApprovalContent>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalRelatedApplication {
+    pub sp_no: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalStatField {
+    pub id: String,
+    #[serde(default)]
+    pub title: Vec<WorkApprovalLocalizedText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exp_type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10994,7 +11204,13 @@ pub struct WorkApprovalInfoRequest {
     pub new_cursor: Option<String>,
     pub size: i64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub filters: Vec<Value>,
+    pub filters: Vec<WorkApprovalInfoFilter>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalInfoFilter {
+    pub key: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11018,7 +11234,111 @@ pub struct WorkApprovalDetailResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub info: Option<Value>,
+    pub info: Option<WorkApprovalDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalDetail {
+    pub sp_no: String,
+    pub sp_name: String,
+    pub sp_status: i64,
+    pub template_id: String,
+    pub apply_time: i64,
+    pub applyer: WorkApprovalUser,
+    #[serde(default)]
+    pub sp_record: Vec<WorkApprovalRecord>,
+    #[serde(default)]
+    pub notifyer: Vec<WorkApprovalUser>,
+    pub apply_data: WorkApprovalApplyData,
+    #[serde(default)]
+    pub comments: Vec<WorkApprovalComment>,
+    #[serde(default)]
+    pub process_list: Option<WorkApprovalProcessList>,
+    #[serde(default)]
+    pub batch_applyer: Vec<WorkApprovalUser>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalUser {
+    pub userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partyid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalRecord {
+    pub sp_status: i64,
+    pub approverattr: i64,
+    #[serde(default)]
+    pub details: Vec<WorkApprovalRecordDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalRecordDetail {
+    pub approver: WorkApprovalUser,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speech: Option<String>,
+    pub sp_status: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sptime: Option<i64>,
+    #[serde(default)]
+    pub media_id: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalComment {
+    pub comment_user_info: WorkApprovalUser,
+    pub comment_time: i64,
+    pub comment_content: String,
+    pub comment_id: String,
+    #[serde(default)]
+    pub media_id: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalProcessList {
+    #[serde(default)]
+    pub node_list: Vec<WorkApprovalProcessNode>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalProcessNode {
+    pub node_type: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sp_status: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apv_rel: Option<i64>,
+    #[serde(default)]
+    pub sub_node_list: Vec<WorkApprovalProcessSubNode>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalProcessSubNode {
+    pub userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speech: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sp_yj: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sptime: Option<i64>,
+    #[serde(default)]
+    pub media_ids: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -11043,7 +11363,87 @@ pub struct WorkApprovalDataResponse {
     #[serde(default)]
     pub next_spnum: Option<i64>,
     #[serde(default)]
-    pub data: Option<Value>,
+    pub data: Vec<WorkLegacyApprovalRecord>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLegacyApprovalRecord {
+    pub spname: String,
+    pub apply_name: String,
+    pub apply_org: String,
+    #[serde(default)]
+    pub approval_name: Vec<String>,
+    #[serde(default)]
+    pub notify_name: Vec<String>,
+    pub sp_status: i64,
+    pub sp_num: i64,
+    #[serde(default)]
+    pub mediaids: Vec<String>,
+    pub apply_time: i64,
+    pub apply_user_id: String,
+    #[serde(default)]
+    pub expense: Option<WorkLegacyApprovalExpense>,
+    #[serde(default)]
+    pub comm: Option<WorkLegacyApprovalCommon>,
+    #[serde(default)]
+    pub leave: Option<WorkLegacyApprovalLeave>,
+    #[serde(default)]
+    pub apply_data: Vec<WorkLegacyApprovalField>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLegacyApprovalExpense {
+    pub expense_type: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub item: Vec<WorkLegacyApprovalExpenseItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLegacyApprovalExpenseItem {
+    pub expenseitem_type: i64,
+    pub time: i64,
+    pub sums: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLegacyApprovalCommon {
+    pub apply_data: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLegacyApprovalLeave {
+    pub timeunit: i64,
+    pub leave_type: i64,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub duration: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkLegacyApprovalField {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    pub value: String,
+    pub title: String,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -11081,15 +11481,15 @@ pub struct WorkVacationQuotaUpdateItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalCreateTemplateRequest {
-    pub template_name: Vec<Value>,
-    pub template_content: Value,
+    pub template_name: Vec<WorkApprovalLocalizedText>,
+    pub template_content: WorkApprovalTemplateContent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalUpdateTemplateRequest {
     pub template_id: String,
-    pub template_name: Vec<Value>,
-    pub template_content: Value,
+    pub template_name: Vec<WorkApprovalLocalizedText>,
+    pub template_content: WorkApprovalTemplateContent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16338,20 +16738,32 @@ mod tests {
     #[test]
     fn serializes_work_oa_approval_journal_and_schedule_requests() {
         let approval_create = serde_json::to_value(WorkApprovalCreateTemplateRequest {
-            template_name: vec![json!({ "text": "Leave", "lang": "zh_CN" })],
-            template_content: json!({
-                "controls": [{
-                    "property": {
-                        "control": "Text",
-                        "id": "Text-1",
-                        "title": [{ "text": "Reason", "lang": "zh_CN" }],
-                        "placeholder": [{ "text": "Input", "lang": "zh_CN" }],
-                        "require": 1,
-                        "un_print": 0
+            template_name: vec![WorkApprovalLocalizedText {
+                text: "Leave".to_string(),
+                lang: "zh_CN".to_string(),
+            }],
+            template_content: WorkApprovalTemplateContent {
+                controls: vec![WorkApprovalTemplateControl {
+                    property: WorkApprovalTemplateProperty {
+                        control: "Text".to_string(),
+                        id: "Text-1".to_string(),
+                        title: vec![WorkApprovalLocalizedText {
+                            text: "Reason".to_string(),
+                            lang: "zh_CN".to_string(),
+                        }],
+                        placeholder: vec![WorkApprovalLocalizedText {
+                            text: "Input".to_string(),
+                            lang: "zh_CN".to_string(),
+                        }],
+                        require: 1,
+                        un_print: 0,
+                        extra: Value::Null,
                     },
-                    "config": {}
-                }]
-            }),
+                    config: WorkApprovalTemplateConfig::default(),
+                    extra: Value::Null,
+                }],
+                extra: Value::Null,
+            },
         })
         .unwrap();
         assert_eq!(approval_create["template_name"][0]["text"], "Leave");
@@ -16362,8 +16774,14 @@ mod tests {
 
         let approval_update = serde_json::to_value(WorkApprovalUpdateTemplateRequest {
             template_id: "template-1".to_string(),
-            template_name: vec![json!({ "text": "Leave", "lang": "zh_CN" })],
-            template_content: json!({ "controls": [] }),
+            template_name: vec![WorkApprovalLocalizedText {
+                text: "Leave".to_string(),
+                lang: "zh_CN".to_string(),
+            }],
+            template_content: WorkApprovalTemplateContent {
+                controls: Vec::new(),
+                extra: Value::Null,
+            },
         })
         .unwrap();
         assert_eq!(approval_update["template_id"], "template-1");
@@ -16510,11 +16928,33 @@ mod tests {
             creator_userid: "user".to_string(),
             template_id: "template".to_string(),
             use_template_approver: Some(1),
-            approver: vec![json!({ "attr": 1, "userid": ["manager"] })],
+            approver: vec![WorkApprovalApprover {
+                attr: 1,
+                userid: vec!["manager".to_string()],
+            }],
             notifyer: vec!["notify".to_string()],
             notify_type: Some(1),
-            apply_data: json!({ "contents": [{ "control": "Text", "value": { "text": "hi" } }] }),
-            summary_list: vec![json!({ "summary_info": [{ "text": "hi", "lang": "zh_CN" }] })],
+            apply_data: WorkApprovalApplyData {
+                contents: vec![WorkApprovalContent {
+                    control: "Text".to_string(),
+                    id: "Text-1".to_string(),
+                    title: Vec::new(),
+                    value: WorkApprovalControlValue {
+                        text: Some("hi".to_string()),
+                        ..WorkApprovalControlValue::default()
+                    },
+                    display: None,
+                    require: None,
+                    extra: Value::Null,
+                }],
+                extra: Value::Null,
+            },
+            summary_list: vec![WorkApprovalSummary {
+                summary_info: vec![WorkApprovalLocalizedText {
+                    text: "hi".to_string(),
+                    lang: "zh_CN".to_string(),
+                }],
+            }],
         })
         .unwrap();
         assert_eq!(apply["creator_userid"], "user");
@@ -16526,7 +16966,10 @@ mod tests {
             endtime: 1_800_086_400,
             new_cursor: None,
             size: 100,
-            filters: vec![json!({ "key": "template_id", "value": "template" })],
+            filters: vec![WorkApprovalInfoFilter {
+                key: "template_id".to_string(),
+                value: "template".to_string(),
+            }],
         })
         .unwrap();
         assert!(info.get("new_cursor").is_none());
@@ -16774,11 +17217,49 @@ mod tests {
 
         let template: WorkApprovalTemplateDetailResponse = serde_json::from_value(json!({
             "template_names": [{ "text": "Leave", "lang": "zh_CN" }],
-            "template_content": { "controls": [] },
+            "template_content": {
+                "controls": [{
+                    "property": {
+                        "control": "Selector",
+                        "id": "Selector-1",
+                        "title": [{ "text": "Leave type", "lang": "zh_CN" }],
+                        "placeholder": [],
+                        "require": 1,
+                        "un_print": 0
+                    },
+                    "config": {
+                        "selector": {
+                            "type": "single",
+                            "options": [{
+                                "key": "annual",
+                                "value": [{ "text": "Annual", "lang": "zh_CN" }]
+                            }],
+                            "selector_version": 2
+                        }
+                    },
+                    "control_version": 3
+                }],
+                "content_version": 4
+            },
             "template_version": 2
         }))
         .unwrap();
-        assert_eq!(template.template_names[0]["text"], "Leave");
+        assert_eq!(template.template_names[0].text, "Leave");
+        let template_content = template
+            .template_content
+            .as_ref()
+            .expect("approval template content");
+        assert_eq!(template_content.controls[0].property.id, "Selector-1");
+        let selector = template_content.controls[0]
+            .config
+            .selector
+            .as_ref()
+            .expect("approval selector");
+        assert_eq!(selector.selector_type, "single");
+        assert_eq!(selector.options[0].value[0].text, "Annual");
+        assert_eq!(selector.extra["selector_version"], 2);
+        assert_eq!(template_content.controls[0].extra["control_version"], 3);
+        assert_eq!(template_content.extra["content_version"], 4);
         assert_eq!(template.extra["template_version"], 2);
 
         let apply: WorkApprovalApplyEventResponse = serde_json::from_value(json!({
@@ -16799,22 +17280,146 @@ mod tests {
         assert_eq!(info.extra["total"], 1);
 
         let detail: WorkApprovalDetailResponse = serde_json::from_value(json!({
-            "info": { "sp_no": "202607160001" },
+            "info": {
+                "sp_no": "202607160001",
+                "sp_name": "Leave",
+                "sp_status": 2,
+                "template_id": "template",
+                "apply_time": 1_800_000_000,
+                "applyer": { "userid": "user", "partyid": "2" },
+                "sp_record": [{
+                    "sp_status": 2,
+                    "approverattr": 1,
+                    "details": [{
+                        "approver": { "userid": "manager" },
+                        "speech": "approved",
+                        "sp_status": 2,
+                        "sptime": 1_800_000_100,
+                        "media_id": ["media-1"]
+                    }]
+                }],
+                "notifyer": [{ "userid": "notify" }],
+                "apply_data": {
+                    "contents": [{
+                        "control": "Table",
+                        "id": "Table-1",
+                        "title": [{ "text": "Items", "lang": "zh_CN" }],
+                        "value": {
+                            "children": [{
+                                "list": [{
+                                    "control": "Money",
+                                    "id": "Money-1",
+                                    "value": { "new_money": "12.50" },
+                                    "display": 1,
+                                    "require": 1
+                                }]
+                            }],
+                            "stat_field": [{
+                                "id": "Money-1",
+                                "title": [{ "text": "Total", "lang": "zh_CN" }],
+                                "value": "12.50",
+                                "exp_type": 1,
+                                "control": "Money"
+                            }]
+                        },
+                        "display": 1,
+                        "require": 1
+                    }]
+                },
+                "comments": [{
+                    "comment_user_info": { "userid": "manager" },
+                    "comment_time": 1_800_000_200,
+                    "comment_content": "done",
+                    "comment_id": "comment-1",
+                    "media_id": []
+                }],
+                "process_list": {
+                    "node_list": [{
+                        "node_type": 1,
+                        "sp_status": 2,
+                        "apv_rel": 2,
+                        "sub_node_list": [{
+                            "userid": "manager",
+                            "sp_yj": 2,
+                            "sptime": 1_800_000_100,
+                            "media_ids": []
+                        }]
+                    }]
+                },
+                "batch_applyer": [],
+                "detail_version": 2
+            },
             "trace_id": "approval-detail"
         }))
         .unwrap();
         assert_eq!(detail.extra["trace_id"], "approval-detail");
-        assert_eq!(detail.info.unwrap()["sp_no"], "202607160001");
+        let detail = detail.info.expect("approval detail");
+        assert_eq!(detail.sp_no, "202607160001");
+        assert_eq!(detail.applyer.partyid.as_deref(), Some("2"));
+        assert_eq!(detail.sp_record[0].details[0].media_id[0], "media-1");
+        assert_eq!(
+            detail.apply_data.contents[0].value.children[0].list[0]
+                .value
+                .new_money
+                .as_deref(),
+            Some("12.50")
+        );
+        assert_eq!(detail.comments[0].comment_id, "comment-1");
+        assert_eq!(
+            detail
+                .process_list
+                .as_ref()
+                .expect("approval process")
+                .node_list[0]
+                .sub_node_list[0]
+                .userid,
+            "manager"
+        );
+        assert_eq!(detail.extra["detail_version"], 2);
 
         let data: WorkApprovalDataResponse = serde_json::from_value(json!({
             "count": 1,
             "total": 1,
             "next_spnum": 2,
-            "data": { "sp_no": "1" },
+            "data": [{
+                "spname": "Expense",
+                "apply_name": "Alice",
+                "apply_org": "Finance",
+                "approval_name": ["Manager"],
+                "notify_name": ["Auditor"],
+                "sp_status": 2,
+                "sp_num": 1,
+                "mediaids": ["media-1"],
+                "apply_time": 1_800_000_000,
+                "apply_user_id": "alice",
+                "expense": {
+                    "expense_type": 4,
+                    "reason": "travel",
+                    "item": [{
+                        "expenseitem_type": 2,
+                        "time": 1_800_000_000,
+                        "sums": 12.5,
+                        "reason": "taxi"
+                    }]
+                },
+                "comm": { "apply_data": "{}" },
+                "apply_data": [{
+                    "id": "Text-1",
+                    "type": "text",
+                    "value": "travel",
+                    "title": "Reason"
+                }]
+            }],
             "has_more": true
         }))
         .unwrap();
         assert_eq!(data.next_spnum, Some(2));
+        assert_eq!(data.data[0].spname, "Expense");
+        assert_eq!(
+            data.data[0].expense.as_ref().expect("legacy expense").item[0].sums,
+            12.5
+        );
+        assert_eq!(data.data[0].apply_data[0].field_type, "text");
         assert_eq!(data.extra["has_more"], true);
 
         let vacation: WorkVacationConfigResponse = serde_json::from_value(json!({

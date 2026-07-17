@@ -117,6 +117,11 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
   face, option add/update/delete wrappers;
 - OA approval template/detail/list/data/apply wrappers and vacation
   config/quota/update wrappers.
+- OA approval template names, controls, properties, selector configurations,
+  application approvers, summaries, filters, form contents, table rows,
+  aggregate fields, approval records, comments, process nodes, and legacy
+  approval records now use typed DTOs instead of generic JSON values while
+  preserving upstream extension fields.
 - OA meeting create/update requests and meeting detail responses now expose
   typed internal-member, external-user, and device attendee DTOs instead of
   generic maps.
