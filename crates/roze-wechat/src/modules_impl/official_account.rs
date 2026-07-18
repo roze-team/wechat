@@ -1150,6 +1150,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: PublishDraftAddRequest,
     ) -> Result<PublishDraftAddResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/draft/add", Some(access_token.into()), request)
             .await
@@ -1160,11 +1161,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<PublishDraftGetResponse> {
+        let media_id = media_id.into();
+        validate_publish_required("draft media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/draft/get",
                 Some(access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -1174,11 +1177,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let media_id = media_id.into();
+        validate_publish_required("draft media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/draft/delete",
                 Some(access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -1188,6 +1193,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: PublishDraftUpdateRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/draft/update", Some(access_token.into()), request)
             .await
@@ -1207,6 +1213,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: PublishBatchGetRequest,
     ) -> Result<PublishBatchGetResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/draft/batchget", Some(access_token.into()), request)
             .await
@@ -1241,11 +1248,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<PublishSubmitResponse> {
+        let media_id = media_id.into();
+        validate_publish_required("publish media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/freepublish/submit",
                 Some(access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -1255,6 +1264,11 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         publish_id: u64,
     ) -> Result<PublishStatusResponse> {
+        if publish_id == 0 {
+            return Err(WechatError::Config(
+                "official account publish id must be positive".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "cgi-bin/freepublish/get",
@@ -1270,11 +1284,14 @@ impl OfficialAccount {
         article_id: impl Into<String>,
         index: i64,
     ) -> Result<WechatStatusResponse> {
+        let article_id = article_id.into();
+        validate_publish_required("published article id", &article_id)?;
+        validate_publish_index(index)?;
         self.inner
             .post(
                 "cgi-bin/freepublish/delete",
                 Some(access_token.into()),
-                json!({ "article_id": article_id.into(), "index": index }),
+                json!({ "article_id": article_id, "index": index }),
             )
             .await
     }
@@ -1284,11 +1301,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         article_id: impl Into<String>,
     ) -> Result<PublishArticleResponse> {
+        let article_id = article_id.into();
+        validate_publish_required("published article id", &article_id)?;
         self.inner
             .post(
                 "cgi-bin/freepublish/getarticle",
                 Some(access_token.into()),
-                json!({ "article_id": article_id.into() }),
+                json!({ "article_id": article_id }),
             )
             .await
     }
@@ -1298,6 +1317,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: PublishBatchGetRequest,
     ) -> Result<PublishBatchGetResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/freepublish/batchget",
@@ -1334,6 +1354,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: CreateMenuRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/menu/create",
@@ -1348,6 +1369,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: CreateConditionalMenuRequest,
     ) -> Result<CreateConditionalMenuResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/menu/addconditional",
@@ -1374,11 +1396,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         menu_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let menu_id = menu_id.into();
+        validate_menu_required("conditional menu id", &menu_id)?;
         self.inner
             .post(
                 "cgi-bin/menu/delconditional",
                 Some(access_token.into()),
-                json!({ "menuid": menu_id.into() }),
+                json!({ "menuid": menu_id }),
             )
             .await
     }
@@ -1388,11 +1412,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<MenuTryMatchResponse> {
+        let user_id = user_id.into();
+        validate_menu_required("match user id", &user_id)?;
         self.inner
             .post(
                 "cgi-bin/menu/trymatch",
                 Some(access_token.into()),
-                json!({ "user_id": user_id.into() }),
+                json!({ "user_id": user_id }),
             )
             .await
     }
@@ -3617,8 +3643,293 @@ pub struct MenuButton {
     pub appid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub article_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sub_button: Vec<MenuButton>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuButtonKind {
+    Click,
+    View,
+    ScanCodePush,
+    ScanCodeWaitMessage,
+    PictureSystemPhoto,
+    PicturePhotoOrAlbum,
+    PictureWeixin,
+    LocationSelect,
+    MediaId,
+    ViewLimited,
+    MiniProgram,
+    ArticleId,
+    ArticleViewLimited,
+}
+
+impl MenuButtonKind {
+    pub fn from_code(value: &str) -> Option<Self> {
+        match value {
+            "click" => Some(Self::Click),
+            "view" => Some(Self::View),
+            "scancode_push" => Some(Self::ScanCodePush),
+            "scancode_waitmsg" => Some(Self::ScanCodeWaitMessage),
+            "pic_sysphoto" => Some(Self::PictureSystemPhoto),
+            "pic_photo_or_album" => Some(Self::PicturePhotoOrAlbum),
+            "pic_weixin" => Some(Self::PictureWeixin),
+            "location_select" => Some(Self::LocationSelect),
+            "media_id" => Some(Self::MediaId),
+            "view_limited" => Some(Self::ViewLimited),
+            "miniprogram" => Some(Self::MiniProgram),
+            "article_id" => Some(Self::ArticleId),
+            "article_view_limited" => Some(Self::ArticleViewLimited),
+            _ => None,
+        }
+    }
+
+    pub const fn as_code(self) -> &'static str {
+        match self {
+            Self::Click => "click",
+            Self::View => "view",
+            Self::ScanCodePush => "scancode_push",
+            Self::ScanCodeWaitMessage => "scancode_waitmsg",
+            Self::PictureSystemPhoto => "pic_sysphoto",
+            Self::PicturePhotoOrAlbum => "pic_photo_or_album",
+            Self::PictureWeixin => "pic_weixin",
+            Self::LocationSelect => "location_select",
+            Self::MediaId => "media_id",
+            Self::ViewLimited => "view_limited",
+            Self::MiniProgram => "miniprogram",
+            Self::ArticleId => "article_id",
+            Self::ArticleViewLimited => "article_view_limited",
+        }
+    }
+
+    fn uses_key(self) -> bool {
+        matches!(
+            self,
+            Self::Click
+                | Self::ScanCodePush
+                | Self::ScanCodeWaitMessage
+                | Self::PictureSystemPhoto
+                | Self::PicturePhotoOrAlbum
+                | Self::PictureWeixin
+                | Self::LocationSelect
+        )
+    }
+}
+
+impl MenuButton {
+    pub fn leaf(
+        name: impl Into<String>,
+        kind: MenuButtonKind,
+        value: impl Into<String>,
+    ) -> Result<Self> {
+        if kind == MenuButtonKind::MiniProgram {
+            return Err(WechatError::Config(
+                "official account mini-program menu must use the mini_program constructor"
+                    .to_string(),
+            ));
+        }
+        let value = value.into();
+        let mut button = Self {
+            name: name.into(),
+            kind: Some(kind.as_code().to_string()),
+            key: None,
+            url: None,
+            media_id: None,
+            appid: None,
+            pagepath: None,
+            article_id: None,
+            sub_button: Vec::new(),
+        };
+        if kind.uses_key() {
+            button.key = Some(value);
+        } else if kind == MenuButtonKind::View {
+            button.url = Some(value);
+        } else if matches!(kind, MenuButtonKind::MediaId | MenuButtonKind::ViewLimited) {
+            button.media_id = Some(value);
+        } else if matches!(
+            kind,
+            MenuButtonKind::ArticleId | MenuButtonKind::ArticleViewLimited
+        ) {
+            button.article_id = Some(value);
+        }
+        Ok(button)
+    }
+
+    pub fn parent(name: impl Into<String>, sub_button: Vec<MenuButton>) -> Self {
+        Self {
+            name: name.into(),
+            kind: None,
+            key: None,
+            url: None,
+            media_id: None,
+            appid: None,
+            pagepath: None,
+            article_id: None,
+            sub_button,
+        }
+    }
+
+    pub fn mini_program(
+        name: impl Into<String>,
+        url: impl Into<String>,
+        appid: impl Into<String>,
+        pagepath: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            kind: Some(MenuButtonKind::MiniProgram.as_code().to_string()),
+            key: None,
+            url: Some(url.into()),
+            media_id: None,
+            appid: Some(appid.into()),
+            pagepath: Some(pagepath.into()),
+            article_id: None,
+            sub_button: Vec::new(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.validate_at_depth(0)
+    }
+
+    fn validate_at_depth(&self, depth: usize) -> Result<()> {
+        validate_menu_required("button name", &self.name)?;
+        if !self.sub_button.is_empty() {
+            if depth > 0 {
+                return Err(WechatError::Config(
+                    "official account menu supports only one sub-button level".to_string(),
+                ));
+            }
+            if self.sub_button.len() > 5 {
+                return Err(WechatError::Config(
+                    "official account menu parent supports at most 5 sub-buttons".to_string(),
+                ));
+            }
+            if self.kind.is_some() || self.has_payload() {
+                return Err(WechatError::Config(
+                    "official account menu parent must not contain a type or action payload"
+                        .to_string(),
+                ));
+            }
+            for child in &self.sub_button {
+                child.validate_at_depth(depth + 1)?;
+            }
+            return Ok(());
+        }
+
+        let kind = self
+            .kind
+            .as_deref()
+            .and_then(MenuButtonKind::from_code)
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "official account menu leaf has an unsupported or missing type".to_string(),
+                )
+            })?;
+        match kind {
+            kind if kind.uses_key() => Self::require_only(
+                "key",
+                self.key.as_deref(),
+                &[
+                    self.url.as_ref(),
+                    self.media_id.as_ref(),
+                    self.appid.as_ref(),
+                    self.pagepath.as_ref(),
+                    self.article_id.as_ref(),
+                ],
+            ),
+            MenuButtonKind::View => {
+                Self::require_only(
+                    "URL",
+                    self.url.as_deref(),
+                    &[
+                        self.key.as_ref(),
+                        self.media_id.as_ref(),
+                        self.appid.as_ref(),
+                        self.pagepath.as_ref(),
+                        self.article_id.as_ref(),
+                    ],
+                )?;
+                validate_material_http_url(
+                    "menu view URL",
+                    self.url.as_deref().expect("validated URL"),
+                )
+            }
+            MenuButtonKind::MediaId | MenuButtonKind::ViewLimited => Self::require_only(
+                "media id",
+                self.media_id.as_deref(),
+                &[
+                    self.key.as_ref(),
+                    self.url.as_ref(),
+                    self.appid.as_ref(),
+                    self.pagepath.as_ref(),
+                    self.article_id.as_ref(),
+                ],
+            ),
+            MenuButtonKind::ArticleId | MenuButtonKind::ArticleViewLimited => Self::require_only(
+                "article id",
+                self.article_id.as_deref(),
+                &[
+                    self.key.as_ref(),
+                    self.url.as_ref(),
+                    self.media_id.as_ref(),
+                    self.appid.as_ref(),
+                    self.pagepath.as_ref(),
+                ],
+            ),
+            MenuButtonKind::MiniProgram => {
+                validate_menu_required(
+                    "mini-program fallback URL",
+                    self.url.as_deref().unwrap_or_default(),
+                )?;
+                validate_material_http_url(
+                    "menu mini-program fallback URL",
+                    self.url.as_deref().expect("validated URL"),
+                )?;
+                validate_menu_required(
+                    "mini-program appid",
+                    self.appid.as_deref().unwrap_or_default(),
+                )?;
+                validate_menu_required(
+                    "mini-program page path",
+                    self.pagepath.as_deref().unwrap_or_default(),
+                )?;
+                if self.key.is_some() || self.media_id.is_some() || self.article_id.is_some() {
+                    return Err(WechatError::Config(
+                        "official account mini-program menu contains conflicting payload fields"
+                            .to_string(),
+                    ));
+                }
+                Ok(())
+            }
+            _ => unreachable!("all key-based menu kinds were handled by the guard"),
+        }
+    }
+
+    fn has_payload(&self) -> bool {
+        self.key.is_some()
+            || self.url.is_some()
+            || self.media_id.is_some()
+            || self.appid.is_some()
+            || self.pagepath.is_some()
+            || self.article_id.is_some()
+    }
+
+    fn require_only<T>(
+        kind: &str,
+        required: Option<&str>,
+        conflicting: &[Option<&T>],
+    ) -> Result<()> {
+        validate_menu_required(kind, required.unwrap_or_default())?;
+        if conflicting.iter().any(Option::is_some) {
+            return Err(WechatError::Config(format!(
+                "official account menu {kind} action contains conflicting payload fields"
+            )));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3684,10 +3995,27 @@ pub struct CreateMenuRequest {
     pub button: Vec<MenuButton>,
 }
 
+impl CreateMenuRequest {
+    pub fn new(button: Vec<MenuButton>) -> Self {
+        Self { button }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_menu_buttons(&self.button)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateConditionalMenuRequest {
     pub button: Vec<MenuButton>,
     pub matchrule: MatchRule,
+}
+
+impl CreateConditionalMenuRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_menu_buttons(&self.button)?;
+        self.matchrule.validate()
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -3708,6 +4036,70 @@ pub struct MatchRule {
     pub language: Option<String>,
 }
 
+impl MatchRule {
+    pub fn validate(&self) -> Result<()> {
+        let fields = [
+            ("tag id", self.tag_id.as_deref()),
+            ("sex", self.sex.as_deref()),
+            ("country", self.country.as_deref()),
+            ("province", self.province.as_deref()),
+            ("city", self.city.as_deref()),
+            ("client platform type", self.client_platform_type.as_deref()),
+            ("language", self.language.as_deref()),
+        ];
+        if fields.iter().all(|(_, value)| value.is_none()) {
+            return Err(WechatError::Config(
+                "official account conditional menu requires at least one match rule".to_string(),
+            ));
+        }
+        for (kind, value) in fields {
+            if let Some(value) = value {
+                validate_menu_required(kind, value)?;
+            }
+        }
+        if self
+            .sex
+            .as_deref()
+            .is_some_and(|value| !matches!(value, "1" | "2"))
+        {
+            return Err(WechatError::Config(
+                "official account conditional menu sex must be 1 or 2".to_string(),
+            ));
+        }
+        if self
+            .client_platform_type
+            .as_deref()
+            .is_some_and(|value| !matches!(value, "1" | "2" | "3"))
+        {
+            return Err(WechatError::Config(
+                "official account conditional menu client platform must be 1, 2, or 3".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_menu_buttons(buttons: &[MenuButton]) -> Result<()> {
+    if buttons.is_empty() || buttons.len() > 3 {
+        return Err(WechatError::Config(
+            "official account menu must contain between 1 and 3 top-level buttons".to_string(),
+        ));
+    }
+    for button in buttons {
+        button.validate()?;
+    }
+    Ok(())
+}
+
+fn validate_menu_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "official account menu {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateConditionalMenuResponse {
     #[serde(default)]
@@ -3716,6 +4108,8 @@ pub struct CreateConditionalMenuResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub menuid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3735,17 +4129,69 @@ pub struct MenuGetResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfficialMenuInfo {
     #[serde(default)]
-    pub button: Vec<MenuButton>,
+    pub button: Vec<MenuResponseButton>,
+    #[serde(default)]
+    pub menuid: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuResponseButton {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default, rename = "type")]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+    #[serde(default)]
+    pub article_id: Option<String>,
+    #[serde(default)]
+    pub sub_button: Vec<MenuResponseButton>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuMatchRuleResponse {
+    #[serde(default)]
+    pub group_id: Option<Value>,
+    #[serde(default)]
+    pub tag_id: Option<Value>,
+    #[serde(default)]
+    pub sex: Option<Value>,
+    #[serde(default)]
+    pub country: Option<String>,
+    #[serde(default)]
+    pub province: Option<String>,
+    #[serde(default)]
+    pub city: Option<String>,
+    #[serde(default)]
+    pub client_platform_type: Option<Value>,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfficialConditionalMenuInfo {
     #[serde(default)]
-    pub button: Vec<MenuButton>,
+    pub button: Vec<MenuResponseButton>,
     #[serde(default)]
-    pub matchrule: Option<MatchRule>,
+    pub matchrule: Option<MenuMatchRuleResponse>,
     #[serde(default)]
-    pub menuid: Option<String>,
+    pub menuid: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3757,8 +4203,86 @@ pub struct CurrentSelfMenuResponse {
     #[serde(default)]
     pub is_menu_open: Option<i64>,
     #[serde(default)]
-    pub selfmenu_info: Option<OfficialMenuInfo>,
+    pub selfmenu_info: Option<CurrentSelfMenuInfo>,
     #[serde(flatten)]
+    pub extra: Value,
+}
+
+impl CurrentSelfMenuResponse {
+    pub fn is_open(&self) -> bool {
+        self.is_menu_open == Some(1)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSelfMenuInfo {
+    #[serde(default)]
+    pub button: Vec<CurrentSelfMenuButton>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSelfMenuButton {
+    #[serde(default, rename = "type")]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub value: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub pagepath: Option<String>,
+    #[serde(default)]
+    pub article_id: Option<String>,
+    #[serde(default)]
+    pub sub_button: Option<CurrentSelfMenuSubButtons>,
+    #[serde(default)]
+    pub news_info: Option<CurrentSelfMenuNewsInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSelfMenuSubButtons {
+    #[serde(default)]
+    pub list: Vec<CurrentSelfMenuButton>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSelfMenuNewsInfo {
+    #[serde(default)]
+    pub list: Vec<CurrentSelfMenuNewsItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSelfMenuNewsItem {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub digest: Option<String>,
+    #[serde(default)]
+    pub show_cover: Option<i64>,
+    #[serde(default)]
+    pub cover_url: Option<String>,
+    #[serde(default)]
+    pub content_url: Option<String>,
+    #[serde(default)]
+    pub source_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
@@ -3769,7 +4293,7 @@ pub struct MenuTryMatchResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub button: Vec<MenuButton>,
+    pub button: Vec<MenuResponseButton>,
     #[serde(flatten)]
     pub extra: Value,
 }
@@ -5605,9 +6129,47 @@ pub struct PublishArticle {
     pub only_fans_can_comment: Option<i64>,
 }
 
+impl PublishArticle {
+    pub fn validate(&self) -> Result<()> {
+        validate_publish_required("article title", &self.title)?;
+        validate_publish_required("article thumbnail media id", &self.thumb_media_id)?;
+        validate_publish_required("article content", &self.content)?;
+        for (kind, value) in [
+            ("open-comment flag", self.need_open_comment),
+            ("fans-only-comment flag", self.only_fans_can_comment),
+        ] {
+            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "official account publish {kind} must be 0 or 1"
+                )));
+            }
+        }
+        if self.only_fans_can_comment == Some(1) && self.need_open_comment != Some(1) {
+            return Err(WechatError::Config(
+                "official account publish fans-only comments require comments to be enabled"
+                    .to_string(),
+            ));
+        }
+        if !self.content_source_url.trim().is_empty() {
+            validate_material_http_url("publish article source URL", &self.content_source_url)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishDraftAddRequest {
     pub articles: Vec<PublishArticle>,
+}
+
+impl PublishDraftAddRequest {
+    pub fn new(articles: Vec<PublishArticle>) -> Self {
+        Self { articles }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_publish_articles(&self.articles)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5617,11 +6179,78 @@ pub struct PublishDraftUpdateRequest {
     pub articles: PublishArticle,
 }
 
+impl PublishDraftUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_publish_required("draft media id", &self.media_id)?;
+        validate_publish_index(self.index)?;
+        self.articles.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishBatchGetRequest {
     pub offset: i64,
     pub count: i64,
     pub no_content: i64,
+}
+
+impl PublishBatchGetRequest {
+    pub fn new(offset: i64, count: i64, no_content: bool) -> Self {
+        Self {
+            offset,
+            count,
+            no_content: i64::from(no_content),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "official account publish list offset must not be negative".to_string(),
+            ));
+        }
+        if !(1..=20).contains(&self.count) {
+            return Err(WechatError::Config(
+                "official account publish list count must be between 1 and 20".to_string(),
+            ));
+        }
+        if !matches!(self.no_content, 0 | 1) {
+            return Err(WechatError::Config(
+                "official account publish no-content flag must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_publish_articles(articles: &[PublishArticle]) -> Result<()> {
+    if articles.is_empty() || articles.len() > 8 {
+        return Err(WechatError::Config(
+            "official account publish articles must contain between 1 and 8 entries".to_string(),
+        ));
+    }
+    for article in articles {
+        article.validate()?;
+    }
+    Ok(())
+}
+
+fn validate_publish_index(index: i64) -> Result<()> {
+    if !(0..=7).contains(&index) {
+        return Err(WechatError::Config(
+            "official account publish article index must be between 0 and 7".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_publish_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must not be blank"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5752,6 +6381,12 @@ pub struct PublishDraftSwitchStatusResponse {
     pub extra: Value,
 }
 
+impl PublishDraftSwitchStatusResponse {
+    pub fn is_open(&self) -> bool {
+        self.is_open == Some(1)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishSubmitResponse {
     #[serde(default)]
@@ -5845,8 +6480,31 @@ impl PublishStatusResponse {
                 PublishStatusKind::OriginalFailed
                     | PublishStatusKind::Failed
                     | PublishStatusKind::AuditRefused
+                    | PublishStatusKind::UserDeleted
+                    | PublishStatusKind::SystemBanned
             )
         )
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        self.status_kind()
+            .is_some_and(PublishStatusKind::is_terminal)
+    }
+
+    pub fn article_ids(&self) -> Vec<&str> {
+        match &self.article_id {
+            Some(Value::String(article_id)) => vec![article_id],
+            Some(Value::Array(article_ids)) => {
+                article_ids.iter().filter_map(Value::as_str).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+}
+
+impl PublishStatusKind {
+    pub fn is_terminal(self) -> bool {
+        !matches!(self, Self::Publishing | Self::Other)
     }
 }
 
@@ -6225,12 +6883,61 @@ mod tests {
             media_id: None,
             appid: None,
             pagepath: None,
+            article_id: None,
             sub_button: Vec::new(),
         })
         .unwrap();
 
         assert_eq!(value["type"], "view");
         assert_eq!(value["url"], "https://example.com");
+    }
+
+    #[test]
+    fn validates_menu_button_and_match_rule_workflows() {
+        let menu = CreateMenuRequest::new(vec![
+            MenuButton::leaf("Website", MenuButtonKind::View, "https://example.com")
+                .expect("view button"),
+            MenuButton::parent(
+                "Services",
+                vec![
+                    MenuButton::leaf("Scan", MenuButtonKind::ScanCodePush, "scan")
+                        .expect("scan button"),
+                    MenuButton::mini_program(
+                        "Mini Program",
+                        "https://example.com/fallback",
+                        "wx-mini-program",
+                        "pages/index/index",
+                    ),
+                ],
+            ),
+        ]);
+        assert!(menu.validate().is_ok());
+
+        assert!(MenuButton::leaf("Mini", MenuButtonKind::MiniProgram, "ignored").is_err());
+        let mut conflicting =
+            MenuButton::leaf("Website", MenuButtonKind::View, "https://example.com")
+                .expect("view button");
+        conflicting.key = Some("unexpected".to_string());
+        assert!(conflicting.validate().is_err());
+        assert!(CreateMenuRequest::new(Vec::new()).validate().is_err());
+
+        let conditional = CreateConditionalMenuRequest {
+            button: vec![
+                MenuButton::leaf("VIP", MenuButtonKind::Click, "vip").expect("click button")
+            ],
+            matchrule: MatchRule {
+                tag_id: Some("2".to_string()),
+                ..MatchRule::default()
+            },
+        };
+        assert!(conditional.validate().is_ok());
+        assert!(MatchRule::default().validate().is_err());
+        assert!(MatchRule {
+            sex: Some("3".to_string()),
+            ..MatchRule::default()
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
@@ -6482,10 +7189,24 @@ mod tests {
         assert_eq!(stats.news_count, Some(4));
 
         let menu: MenuGetResponse = serde_json::from_value(json!({
-            "menu": { "button": [{ "name": "Open", "type": "view", "url": "https://example.com" }] },
+            "menu": {
+                "button": [{
+                    "name": "Open",
+                    "type": "view",
+                    "url": "https://example.com",
+                    "button_extra": "kept"
+                }],
+                "menuid": 10,
+                "menu_extra": "kept"
+            },
             "conditionalmenu": [{
                 "button": [{ "name": "VIP", "type": "click", "key": "vip" }],
-                "matchrule": { "tag_id": "2" },
+                "matchrule": {
+                    "tag_id": 2,
+                    "sex": 1,
+                    "client_platform_type": 3,
+                    "rule_extra": "kept"
+                },
                 "menuid": "menu-1"
             }]
         }))
@@ -6496,6 +7217,11 @@ mod tests {
             Some("https://example.com")
         );
         assert_eq!(
+            menu.menu.as_ref().unwrap().button[0].extra["button_extra"],
+            "kept"
+        );
+        assert_eq!(menu.menu.as_ref().unwrap().menuid, Some(json!(10)));
+        assert_eq!(
             menu.conditionalmenu[0].button[0].key.as_deref(),
             Some("vip")
         );
@@ -6503,24 +7229,64 @@ mod tests {
             menu.conditionalmenu[0]
                 .matchrule
                 .as_ref()
-                .and_then(|rule| rule.tag_id.as_deref()),
-            Some("2")
+                .and_then(|rule| rule.tag_id.as_ref())
+                .and_then(Value::as_i64),
+            Some(2)
+        );
+        assert_eq!(
+            menu.conditionalmenu[0].matchrule.as_ref().unwrap().extra["rule_extra"],
+            "kept"
         );
 
         let current: CurrentSelfMenuResponse = serde_json::from_value(json!({
             "is_menu_open": 1,
-            "selfmenu_info": { "button": [{ "name": "Current", "type": "view" }] }
+            "selfmenu_info": {
+                "button": [{
+                    "name": "Current",
+                    "sub_button": {
+                        "list": [{
+                            "name": "Article",
+                            "type": "news",
+                            "news_info": {
+                                "list": [{
+                                    "title": "Published",
+                                    "content_url": "https://example.com/article",
+                                    "news_extra": "kept"
+                                }]
+                            }
+                        }]
+                    },
+                    "button_extra": "kept"
+                }],
+                "menu_extra": "kept"
+            }
         }))
         .unwrap();
         assert_eq!(current.is_menu_open, Some(1));
+        assert!(current.is_open());
         assert_eq!(
-            current.selfmenu_info.as_ref().unwrap().button[0].name,
-            "Current"
+            current.selfmenu_info.as_ref().unwrap().button[0]
+                .name
+                .as_deref(),
+            Some("Current")
+        );
+        let current_button = &current.selfmenu_info.as_ref().unwrap().button[0];
+        assert_eq!(current_button.extra["button_extra"], "kept");
+        let child = &current_button.sub_button.as_ref().unwrap().list[0];
+        assert_eq!(
+            child.news_info.as_ref().unwrap().list[0]
+                .content_url
+                .as_deref(),
+            Some("https://example.com/article")
+        );
+        assert_eq!(
+            child.news_info.as_ref().unwrap().list[0].extra["news_extra"],
+            "kept"
         );
 
         let matched: MenuTryMatchResponse =
             serde_json::from_value(json!({ "button": [{ "name": "Open" }] })).unwrap();
-        assert_eq!(matched.button[0].name, "Open");
+        assert_eq!(matched.button[0].name.as_deref(), Some("Open"));
 
         let semantic: OfficialSemanticQueryResponse = serde_json::from_value(json!({
             "query": "weather",
@@ -7313,10 +8079,7 @@ mod tests {
             only_fans_can_comment: Some(0),
         };
 
-        let add = serde_json::to_value(PublishDraftAddRequest {
-            articles: vec![article.clone()],
-        })
-        .unwrap();
+        let add = serde_json::to_value(PublishDraftAddRequest::new(vec![article.clone()])).unwrap();
         assert_eq!(add["articles"][0]["title"], "Title");
         assert_eq!(add["articles"][0]["need_open_comment"], 1);
 
@@ -7329,13 +8092,45 @@ mod tests {
         assert_eq!(update["media_id"], "media");
         assert_eq!(update["articles"]["thumb_media_id"], "thumb");
 
-        let batch = serde_json::to_value(PublishBatchGetRequest {
-            offset: 0,
-            count: 20,
-            no_content: 1,
-        })
-        .unwrap();
+        let batch = serde_json::to_value(PublishBatchGetRequest::new(0, 20, true)).unwrap();
         assert_eq!(batch, json!({ "offset": 0, "count": 20, "no_content": 1 }));
+    }
+
+    #[test]
+    fn validates_publish_workflow_requests() {
+        let article = PublishArticle {
+            title: "Title".to_string(),
+            author: "Roze".to_string(),
+            digest: "Digest".to_string(),
+            content: "<p>Hello</p>".to_string(),
+            content_source_url: "https://example.com/source".to_string(),
+            thumb_media_id: "thumb".to_string(),
+            need_open_comment: Some(1),
+            only_fans_can_comment: Some(0),
+        };
+        assert!(PublishDraftAddRequest::new(vec![article.clone()])
+            .validate()
+            .is_ok());
+        assert!(PublishDraftUpdateRequest {
+            media_id: "draft".to_string(),
+            index: 0,
+            articles: article.clone(),
+        }
+        .validate()
+        .is_ok());
+        assert!(PublishDraftAddRequest::new(Vec::new()).validate().is_err());
+
+        let mut invalid_article = article;
+        invalid_article.content_source_url = "javascript:alert(1)".to_string();
+        assert!(invalid_article.validate().is_err());
+        assert!(PublishBatchGetRequest::new(0, 20, true).validate().is_ok());
+        assert!(PublishBatchGetRequest {
+            offset: -1,
+            count: 21,
+            no_content: 2,
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
@@ -7410,6 +8205,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(switch_status.is_open, Some(1));
+        assert!(switch_status.is_open());
         assert_eq!(switch_status.extra["request_id"], "switch");
 
         let submit: PublishSubmitResponse = serde_json::from_value(json!({
@@ -7440,6 +8236,8 @@ mod tests {
         assert_eq!(status.publish_status, Some(0));
         assert_eq!(status.status_kind(), Some(PublishStatusKind::Success));
         assert!(status.is_success());
+        assert!(status.is_terminal());
+        assert_eq!(status.article_ids(), vec!["article"]);
         assert!(!status.is_pending());
         assert!(!status.is_failed());
         assert_eq!(status.extra["request_id"], "status");
@@ -7492,13 +8290,15 @@ mod tests {
             user_deleted.status_kind(),
             Some(PublishStatusKind::UserDeleted)
         );
-        assert!(!user_deleted.is_failed());
+        assert!(user_deleted.is_failed());
+        assert!(user_deleted.is_terminal());
         let system_banned: PublishStatusResponse =
             serde_json::from_value(json!({ "publish_status": 6 })).unwrap();
         assert_eq!(
             system_banned.status_kind(),
             Some(PublishStatusKind::SystemBanned)
         );
+        assert!(system_banned.is_failed());
         let unknown_status: PublishStatusResponse =
             serde_json::from_value(json!({ "publish_status": 99 })).unwrap();
         assert_eq!(unknown_status.status_kind(), Some(PublishStatusKind::Other));

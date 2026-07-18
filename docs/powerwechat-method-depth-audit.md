@@ -1114,6 +1114,30 @@ permanent-material depth:
   unknown-field retention, avoiding direct `Value` traversal for normal news
   list workflows.
 
+Implemented on 2026-07-18 in Official Account draft, publish, and menu depth:
+
+- draft add/update and draft/published list requests expose constructors and
+  validate one-to-eight articles, required content/media fields, comment flag
+  dependencies, source URLs, zero-to-seven indices, non-negative offsets,
+  one-to-twenty page sizes, and 0/1 no-content flags;
+- draft get/delete, publish submit, published article get/delete, and publish
+  status lookup reject blank identifiers or a zero publish id before network
+  I/O;
+- publish status helpers now treat user deletion and system banning as terminal
+  failures, expose terminal-state semantics, and normalize string-or-array
+  `article_id` values;
+- menu creation validates one to three top-level buttons, at most five
+  sub-buttons, one nesting level, supported action types, action-specific
+  key/URL/media/article/mini-program payloads, conflicting fields, and absolute
+  HTTP(S) fallback URLs;
+- typed menu constructors cover leaf, parent, and mini-program buttons, while
+  conditional menus require a non-empty match rule and validate sex and client
+  platform codes;
+- menu-get, conditional-menu, current-self-menu, and try-match responses use
+  response-specific DTOs for numeric match fields, object-shaped sub-button
+  lists, news metadata, flexible menu ids, and forward-compatible unknown
+  fields; switch/menu-open helpers expose their 0/1 state as booleans.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
