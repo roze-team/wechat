@@ -80,6 +80,16 @@ Implemented on 2026-07-18 in Roze WeChat Open Work server depth:
 - Enterprise WeChat `AuthCode` and `TimeStamp` XML names are accepted alongside
   existing aliases, and typed callback fields retain event-specific payloads.
 
+Implemented on 2026-07-18 in Roze WeChat suite authorization depth:
+
+- Authorized applications now expose typed contact privileges, shared-source
+  corporations, customized-app flags, and enterprise location.
+- Permanent-code and authorization responses expose typed edition agents,
+  edition IDs/names, paid/trial status, user limits, expiration, virtual
+  editions, and cross-corporation sharing state.
+- Privilege levels and application edition states provide semantic write,
+  active-entitlement, payment, and shared-install helpers.
+
 ## Endpoint Audit
 
 The following exact endpoint comparison was generated from the latest

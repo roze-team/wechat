@@ -1213,6 +1213,8 @@ pub struct OpenWorkAuthCorpInfo {
     pub corp_industry: Option<String>,
     #[serde(default)]
     pub corp_sub_industry: Option<String>,
+    #[serde(default)]
+    pub location: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
 }
@@ -1240,10 +1242,54 @@ pub struct OpenWorkAuthAgent {
     #[serde(default)]
     pub auth_mode: Option<i64>,
     #[serde(default)]
-    pub privilege: Option<Value>,
+    pub is_customized_app: Option<bool>,
     #[serde(default)]
-    pub shared_from: Option<Value>,
+    pub privilege: Option<OpenWorkAuthPrivilege>,
+    #[serde(default)]
+    pub shared_from: Option<OpenWorkAuthSharedFrom>,
+    #[serde(default)]
+    pub edition_id: Option<String>,
+    #[serde(default)]
+    pub edition_name: Option<String>,
+    #[serde(default)]
+    pub app_status: Option<i64>,
+    #[serde(default)]
+    pub user_limit: Option<i64>,
+    #[serde(default)]
+    pub expired_time: Option<i64>,
+    #[serde(default)]
+    pub is_virtual_version: Option<bool>,
+    #[serde(default)]
+    pub is_shared_from_other_corp: Option<bool>,
     #[serde(default, flatten)]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkAuthPrivilege {
+    #[serde(default)]
+    pub allow_party: Vec<i64>,
+    #[serde(default)]
+    pub allow_tag: Vec<i64>,
+    #[serde(default)]
+    pub allow_user: Vec<String>,
+    #[serde(default)]
+    pub extra_party: Vec<i64>,
+    #[serde(default)]
+    pub extra_user: Vec<String>,
+    #[serde(default)]
+    pub extra_tag: Vec<i64>,
+    #[serde(default)]
+    pub level: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkAuthSharedFrom {
+    #[serde(default)]
+    pub corpid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
@@ -1268,6 +1314,90 @@ impl OpenWorkAuthModeKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkAuthPrivilegeLevelKind {
+    BasicReadOnly,
+    FullReadOnly,
+    FullReadWrite,
+    SingleBasicReadOnly,
+    FullWriteOnly,
+    Other,
+}
+
+impl OpenWorkAuthPrivilegeLevelKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::BasicReadOnly,
+            2 => Self::FullReadOnly,
+            3 => Self::FullReadWrite,
+            4 => Self::SingleBasicReadOnly,
+            5 => Self::FullWriteOnly,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn can_write(self) -> bool {
+        matches!(self, Self::FullReadWrite | Self::FullWriteOnly)
+    }
+}
+
+impl OpenWorkAuthPrivilege {
+    pub fn level_kind(&self) -> Option<OpenWorkAuthPrivilegeLevelKind> {
+        self.level.map(OpenWorkAuthPrivilegeLevelKind::from_code)
+    }
+
+    pub fn can_write_contacts(&self) -> bool {
+        self.level_kind()
+            .is_some_and(OpenWorkAuthPrivilegeLevelKind::can_write)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkAuthAppStatusKind {
+    Unpaid,
+    LimitedTrial,
+    TrialExpired,
+    Purchased,
+    PurchaseExpired,
+    UnlimitedTrial,
+    PurchasedOverLimitGrace,
+    PurchasedOverLimitExpired,
+    Other,
+}
+
+impl OpenWorkAuthAppStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Unpaid,
+            1 => Self::LimitedTrial,
+            2 => Self::TrialExpired,
+            3 => Self::Purchased,
+            4 => Self::PurchaseExpired,
+            5 => Self::UnlimitedTrial,
+            6 => Self::PurchasedOverLimitGrace,
+            7 => Self::PurchasedOverLimitExpired,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn has_active_entitlement(self) -> bool {
+        matches!(
+            self,
+            Self::LimitedTrial
+                | Self::Purchased
+                | Self::UnlimitedTrial
+                | Self::PurchasedOverLimitGrace
+        )
+    }
+
+    pub fn is_paid(self) -> bool {
+        matches!(
+            self,
+            Self::Purchased | Self::PurchasedOverLimitGrace | Self::PurchasedOverLimitExpired
+        )
+    }
+}
+
 impl OpenWorkAuthAgent {
     pub fn auth_mode_kind(&self) -> Option<OpenWorkAuthModeKind> {
         self.auth_mode.map(OpenWorkAuthModeKind::from_code)
@@ -1276,6 +1406,19 @@ impl OpenWorkAuthAgent {
     pub fn is_member_auth(&self) -> bool {
         self.auth_mode_kind()
             .is_some_and(OpenWorkAuthModeKind::is_member_auth)
+    }
+
+    pub fn app_status_kind(&self) -> Option<OpenWorkAuthAppStatusKind> {
+        self.app_status.map(OpenWorkAuthAppStatusKind::from_code)
+    }
+
+    pub fn has_active_edition_entitlement(&self) -> bool {
+        self.app_status_kind()
+            .is_some_and(OpenWorkAuthAppStatusKind::has_active_entitlement)
+    }
+
+    pub fn is_shared_install(&self) -> bool {
+        self.is_shared_from_other_corp == Some(true) || self.shared_from.is_some()
     }
 }
 
@@ -1327,6 +1470,8 @@ pub struct OpenWorkPermanentCodeResponse {
     pub auth_corp_info: Option<OpenWorkAuthCorpInfo>,
     #[serde(default)]
     pub auth_info: Option<OpenWorkAuthInfo>,
+    #[serde(default)]
+    pub edition_info: Option<OpenWorkAuthInfo>,
     #[serde(default)]
     pub auth_user_info: Option<OpenWorkAuthUserInfo>,
     #[serde(default)]
@@ -2493,8 +2638,50 @@ mod tests {
             "access_token": "corp-token",
             "expires_in": 7200,
             "permanent_code": "permanent",
-            "auth_corp_info": { "corpid": "corp", "corp_name": "Corp", "corp_region": "CN" },
-            "auth_info": { "agent": [{ "agentid": 100001, "name": "App", "auth_mode": 1, "edition": "pro" }], "auth_scope": "all" },
+            "auth_corp_info": {
+                "corpid": "corp",
+                "corp_name": "Corp",
+                "location": "Guangdong Shenzhen",
+                "corp_region": "CN"
+            },
+            "auth_info": {
+                "agent": [{
+                    "agentid": 100001,
+                    "name": "App",
+                    "auth_mode": 1,
+                    "is_customized_app": true,
+                    "privilege": {
+                        "level": 3,
+                        "allow_party": [1, 2],
+                        "allow_user": ["user-a"],
+                        "allow_tag": [10],
+                        "extra_party": [3],
+                        "extra_user": ["user-b"],
+                        "extra_tag": [11],
+                        "scope_revision": 2
+                    },
+                    "shared_from": {
+                        "corpid": "upstream-corp",
+                        "share_revision": 3
+                    },
+                    "edition": "pro"
+                }],
+                "auth_scope": "all"
+            },
+            "edition_info": {
+                "agent": [{
+                    "agentid": 100001,
+                    "edition_id": "RLS65535",
+                    "edition_name": "Professional",
+                    "app_status": 6,
+                    "user_limit": 200,
+                    "expired_time": 1807776000,
+                    "is_virtual_version": false,
+                    "is_shared_from_other_corp": true,
+                    "edition_revision": 4
+                }],
+                "edition_source": "provider"
+            },
             "auth_user_info": { "userid": "admin", "name": "Admin", "role": "owner" },
             "register_code_info": {
                 "register_code": "register",
@@ -2512,6 +2699,7 @@ mod tests {
         let auth_corp = permanent.auth_corp_info.expect("auth corp");
         assert_eq!(auth_corp.corpid.as_deref(), Some("corp"));
         assert_eq!(auth_corp.corp_name.as_deref(), Some("Corp"));
+        assert_eq!(auth_corp.location.as_deref(), Some("Guangdong Shenzhen"));
         assert_eq!(auth_corp.extra["corp_region"], "CN");
         let auth_info = permanent.auth_info.expect("auth info");
         assert_eq!(auth_info.extra["auth_scope"], "all");
@@ -2526,7 +2714,53 @@ mod tests {
             OpenWorkAuthModeKind::from_code(0),
             OpenWorkAuthModeKind::Admin
         );
+        assert_eq!(auth_info.agent[0].is_customized_app, Some(true));
+        let privilege = auth_info.agent[0]
+            .privilege
+            .as_ref()
+            .expect("agent privilege");
+        assert_eq!(privilege.allow_party, vec![1, 2]);
+        assert_eq!(privilege.allow_user[0], "user-a");
+        assert_eq!(
+            privilege.level_kind(),
+            Some(OpenWorkAuthPrivilegeLevelKind::FullReadWrite)
+        );
+        assert!(privilege.can_write_contacts());
+        assert_eq!(privilege.extra["scope_revision"], 2);
+        let shared_from = auth_info.agent[0]
+            .shared_from
+            .as_ref()
+            .expect("shared source");
+        assert_eq!(shared_from.corpid.as_deref(), Some("upstream-corp"));
+        assert_eq!(shared_from.extra["share_revision"], 3);
+        assert!(auth_info.agent[0].is_shared_install());
         assert_eq!(auth_info.agent[0].extra["edition"], "pro");
+        let edition_info = permanent.edition_info.as_ref().expect("edition info");
+        assert_eq!(edition_info.extra["edition_source"], "provider");
+        let edition = &edition_info.agent[0];
+        assert_eq!(edition.edition_id.as_deref(), Some("RLS65535"));
+        assert_eq!(edition.edition_name.as_deref(), Some("Professional"));
+        assert_eq!(
+            edition.app_status_kind(),
+            Some(OpenWorkAuthAppStatusKind::PurchasedOverLimitGrace)
+        );
+        assert!(edition.has_active_edition_entitlement());
+        assert!(edition.app_status_kind().expect("app status").is_paid());
+        assert_eq!(edition.user_limit, Some(200));
+        assert_eq!(edition.expired_time, Some(1_807_776_000));
+        assert_eq!(edition.is_virtual_version, Some(false));
+        assert!(edition.is_shared_install());
+        assert_eq!(edition.extra["edition_revision"], 4);
+        assert_eq!(
+            OpenWorkAuthAppStatusKind::from_code(2),
+            OpenWorkAuthAppStatusKind::TrialExpired
+        );
+        assert!(!OpenWorkAuthAppStatusKind::PurchasedOverLimitExpired.has_active_entitlement());
+        assert_eq!(
+            OpenWorkAuthPrivilegeLevelKind::from_code(5),
+            OpenWorkAuthPrivilegeLevelKind::FullWriteOnly
+        );
+        assert!(OpenWorkAuthPrivilegeLevelKind::FullWriteOnly.can_write());
         let auth_user = permanent.auth_user_info.expect("auth user");
         assert_eq!(auth_user.userid.as_deref(), Some("admin"));
         assert_eq!(auth_user.name.as_deref(), Some("Admin"));
