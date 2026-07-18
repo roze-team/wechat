@@ -232,6 +232,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformMiniProgramCommitRequest,
     ) -> Result<OpenPlatformStatusResponse> {
+        request.validate()?;
         self.inner
             .post("wxa/commit", Some(authorizer_access_token.into()), request)
             .await
@@ -274,6 +275,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformMiniProgramSubmitAuditRequest,
     ) -> Result<OpenPlatformMiniProgramSubmitAuditResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/submit_audit",
@@ -288,6 +290,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         audit_id: i64,
     ) -> Result<OpenPlatformMiniProgramAuditStatusResponse> {
+        validate_open_platform_positive("mini-program audit id", audit_id)?;
         self.inner
             .post(
                 "wxa/get_auditstatus",
@@ -346,13 +349,13 @@ impl OpenPlatform {
     pub async fn change_authorizer_mini_program_visit_status(
         &self,
         authorizer_access_token: impl Into<String>,
-        action: impl Into<String>,
+        action: OpenPlatformMiniProgramVisitStatusAction,
     ) -> Result<OpenPlatformStatusResponse> {
         self.inner
             .post(
                 "wxa/change_visitstatus",
                 Some(authorizer_access_token.into()),
-                json!({ "action": action.into() }),
+                json!({ "action": action }),
             )
             .await
     }
@@ -362,6 +365,11 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         gray_percentage: i64,
     ) -> Result<OpenPlatformStatusResponse> {
+        if !(1..=100).contains(&gray_percentage) {
+            return Err(WechatError::Config(
+                "open platform mini-program gray percentage must be between 1 and 100".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "wxa/grayrelease",
@@ -413,11 +421,13 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         version: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
+        let version = version.into();
+        validate_open_platform_non_empty("mini-program support version", &version)?;
         self.inner
             .post(
                 "cgi-bin/wxopen/setweappsupportversion",
                 Some(authorizer_access_token.into()),
-                json!({ "version": version.into() }),
+                json!({ "version": version }),
             )
             .await
     }
@@ -436,6 +446,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         audit_id: i64,
     ) -> Result<OpenPlatformStatusResponse> {
+        validate_open_platform_positive("mini-program audit id", audit_id)?;
         self.inner
             .post(
                 "wxa/speedupaudit",
@@ -1518,6 +1529,39 @@ pub struct OpenPlatformMiniProgramCommitRequest {
     pub user_desc: String,
 }
 
+impl OpenPlatformMiniProgramCommitRequest {
+    pub fn new(
+        template_id: impl Into<String>,
+        ext_json: impl Into<String>,
+        user_version: impl Into<String>,
+        user_desc: impl Into<String>,
+    ) -> Self {
+        Self {
+            template_id: template_id.into(),
+            ext_json: ext_json.into(),
+            user_version: user_version.into(),
+            user_desc: user_desc.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_non_empty("mini-program template id", &self.template_id)?;
+        validate_open_platform_non_empty("mini-program user version", &self.user_version)?;
+        validate_open_platform_non_empty("mini-program user description", &self.user_desc)?;
+        let ext_json: Value = serde_json::from_str(&self.ext_json).map_err(|error| {
+            WechatError::Config(format!(
+                "open platform mini-program ext_json is invalid JSON: {error}"
+            ))
+        })?;
+        if !ext_json.is_object() {
+            return Err(WechatError::Config(
+                "open platform mini-program ext_json must be a JSON object".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramAuditItem {
     pub address: String,
@@ -1551,8 +1595,8 @@ pub struct OpenPlatformMiniProgramAuditPreviewInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramUgcDeclare {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scene: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scene: Vec<i64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub method: Vec<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1580,6 +1624,136 @@ pub struct OpenPlatformMiniProgramSubmitAuditRequest {
     pub privacy_api_not_use: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order_path: Option<String>,
+}
+
+impl OpenPlatformMiniProgramSubmitAuditRequest {
+    pub fn new(item_list: Vec<OpenPlatformMiniProgramAuditItem>) -> Self {
+        Self {
+            item_list,
+            feedback_info: None,
+            feedback_stuff: None,
+            preview_info: None,
+            version_desc: None,
+            ugc_declare: None,
+            privacy_api_not_use: None,
+            order_path: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.item_list.is_empty() {
+            return Err(WechatError::Config(
+                "open platform mini-program audit item list must not be empty".to_string(),
+            ));
+        }
+        let mut addresses = std::collections::HashSet::with_capacity(self.item_list.len());
+        for item in &self.item_list {
+            item.validate()?;
+            if !addresses.insert(item.address.trim()) {
+                return Err(WechatError::Config(
+                    "open platform mini-program audit page addresses must be unique".to_string(),
+                ));
+            }
+        }
+        validate_open_platform_optional_non_empty(
+            "mini-program audit feedback information",
+            self.feedback_info.as_deref(),
+        )?;
+        validate_open_platform_optional_non_empty(
+            "mini-program audit feedback material",
+            self.feedback_stuff.as_deref(),
+        )?;
+        validate_open_platform_optional_non_empty(
+            "mini-program audit version description",
+            self.version_desc.as_deref(),
+        )?;
+        validate_open_platform_optional_non_empty(
+            "mini-program audit order path",
+            self.order_path.as_deref(),
+        )?;
+        if let Some(preview) = &self.preview_info {
+            preview.validate()?;
+        }
+        if let Some(ugc) = &self.ugc_declare {
+            ugc.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl OpenPlatformMiniProgramAuditItem {
+    fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("audit page address", self.address.as_str()),
+            ("audit tag", self.tag.as_str()),
+            ("audit first category", self.first_class.as_str()),
+            ("audit second category", self.second_class.as_str()),
+            ("audit page title", self.title.as_str()),
+        ] {
+            validate_open_platform_non_empty(kind, value)?;
+        }
+        validate_open_platform_positive("audit first category id", self.first_id)?;
+        validate_open_platform_positive("audit second category id", self.second_id)?;
+        match (&self.third_class, self.third_id) {
+            (None, None) => {}
+            (Some(third_class), Some(third_id)) => {
+                validate_open_platform_non_empty("audit third category", third_class)?;
+                validate_open_platform_positive("audit third category id", third_id)?;
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "open platform mini-program audit third category name and id must be supplied together"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_open_platform_optional_non_empty(
+            "audit item feedback information",
+            self.feedback_info.as_deref(),
+        )?;
+        validate_open_platform_optional_non_empty(
+            "audit item feedback material",
+            self.feedback_stuff.as_deref(),
+        )
+    }
+}
+
+impl OpenPlatformMiniProgramAuditPreviewInfo {
+    fn validate(&self) -> Result<()> {
+        validate_open_platform_unique_values("audit preview picture id", &self.pic_id_list)?;
+        validate_open_platform_unique_values("audit preview video id", &self.video_id_list)
+    }
+}
+
+impl OpenPlatformMiniProgramUgcDeclare {
+    fn validate(&self) -> Result<()> {
+        validate_open_platform_unique_positive_values("UGC scene", &self.scene)?;
+        validate_open_platform_unique_positive_values("UGC method", &self.method)?;
+        if self
+            .has_audit_team
+            .is_some_and(|value| !matches!(value, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "open platform mini-program UGC audit-team flag must be 0 or 1".to_string(),
+            ));
+        }
+        validate_open_platform_optional_non_empty(
+            "UGC audit description",
+            self.audit_desc.as_deref(),
+        )?;
+        if self.has_audit_team == Some(1)
+            && self
+                .audit_desc
+                .as_deref()
+                .is_none_or(|description| description.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "open platform mini-program UGC audit description is required when an audit team exists"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1763,9 +1937,13 @@ pub struct OpenPlatformMiniProgramReleaseVersion {
     #[serde(default)]
     pub create_time: Option<i64>,
     #[serde(default)]
+    pub commit_time: Option<i64>,
+    #[serde(default)]
     pub user_version: Option<String>,
     #[serde(default)]
     pub user_desc: Option<String>,
+    #[serde(default)]
+    pub app_version: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -1865,9 +2043,18 @@ pub struct OpenPlatformMiniProgramUvInfoItem {
     #[serde(default)]
     pub visit_uv: Option<i64>,
     #[serde(default)]
+    pub percentage: Option<i64>,
+    #[serde(default)]
     pub version: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenPlatformMiniProgramVisitStatusAction {
+    Open,
+    Close,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2003,6 +2190,48 @@ fn validate_open_platform_non_empty(kind: &str, value: &str) -> Result<()> {
         return Err(WechatError::Config(format!(
             "open platform {kind} must not be blank"
         )));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_optional_non_empty(kind: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_open_platform_non_empty(kind, value)?;
+    }
+    Ok(())
+}
+
+fn validate_open_platform_positive(kind: &str, value: i64) -> Result<()> {
+    if value <= 0 {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_unique_values(kind: &str, values: &[String]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_open_platform_non_empty(kind, value)?;
+        if !seen.insert(value.trim()) {
+            return Err(WechatError::Config(format!(
+                "open platform {kind} values must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_platform_unique_positive_values(kind: &str, values: &[i64]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_open_platform_positive(kind, *value)?;
+        if !seen.insert(*value) {
+            return Err(WechatError::Config(format!(
+                "open platform {kind} values must be unique"
+            )));
+        }
     }
     Ok(())
 }
@@ -2764,6 +2993,7 @@ mod tests {
         OpenPlatformMiniProgramSubmitAuditRequest, OpenPlatformMiniProgramSubmitAuditResponse,
         OpenPlatformMiniProgramSupportVersionResponse, OpenPlatformMiniProgramTesterBindResponse,
         OpenPlatformMiniProgramTesterListResponse, OpenPlatformMiniProgramTesterUnbindRequest,
+        OpenPlatformMiniProgramUgcDeclare, OpenPlatformMiniProgramVisitStatusAction,
         OpenPlatformOfficialAccountFastRegistrationUrlRequest, OpenPlatformOpenAccountResponse,
         OpenPlatformStatusResponse, OpenPlatformTemplateDraftListResponse,
         OpenPlatformTemplateListResponse, PreauthCodeResponse, QueryAuthResponse,
@@ -3065,12 +3295,12 @@ mod tests {
 
     #[test]
     fn serializes_authorizer_mini_program_code_requests() {
-        let commit = serde_json::to_value(OpenPlatformMiniProgramCommitRequest {
-            template_id: "100".to_string(),
-            ext_json: "{\"extAppid\":\"wx\"}".to_string(),
-            user_version: "1.0.0".to_string(),
-            user_desc: "release".to_string(),
-        })
+        let commit = serde_json::to_value(OpenPlatformMiniProgramCommitRequest::new(
+            "100",
+            "{\"extAppid\":\"wx\"}",
+            "1.0.0",
+            "release",
+        ))
         .unwrap();
         assert_eq!(commit["template_id"], "100");
         assert_eq!(commit["user_version"], "1.0.0");
@@ -3099,15 +3329,95 @@ mod tests {
                 extra: serde_json::Value::Null,
             }),
             version_desc: Some("v1".to_string()),
-            ugc_declare: None,
+            ugc_declare: Some(OpenPlatformMiniProgramUgcDeclare {
+                scene: vec![1, 2],
+                method: vec![1],
+                has_audit_team: Some(1),
+                audit_desc: Some("Content is reviewed before publishing".to_string()),
+                extra: Value::Null,
+            }),
             privacy_api_not_use: Some(true),
             order_path: None,
         })
         .unwrap();
         assert_eq!(audit["item_list"][0]["address"], "pages/index/index");
         assert_eq!(audit["preview_info"]["pic_id_list"][0], "pic");
+        assert_eq!(audit["ugc_declare"]["scene"], json!([1, 2]));
         assert_eq!(audit["privacy_api_not_use"], true);
         assert!(audit.get("feedback_stuff").is_none());
+    }
+
+    #[test]
+    fn validates_authorizer_mini_program_code_release_requests() {
+        assert!(OpenPlatformMiniProgramCommitRequest::new(
+            "100",
+            "{\"extAppid\":\"wx\"}",
+            "1.0.0",
+            "release"
+        )
+        .validate()
+        .is_ok());
+        assert!(
+            OpenPlatformMiniProgramCommitRequest::new("100", "[]", "1.0.0", "release")
+                .validate()
+                .is_err()
+        );
+
+        let item = OpenPlatformMiniProgramAuditItem {
+            address: "pages/index/index".to_string(),
+            tag: "tool".to_string(),
+            first_class: "tool".to_string(),
+            second_class: "efficiency".to_string(),
+            first_id: 1,
+            second_id: 2,
+            title: "home".to_string(),
+            third_class: None,
+            third_id: None,
+            feedback_info: None,
+            feedback_stuff: None,
+            extra: Value::Null,
+        };
+        let mut audit = OpenPlatformMiniProgramSubmitAuditRequest::new(vec![item.clone()]);
+        audit.preview_info = Some(OpenPlatformMiniProgramAuditPreviewInfo {
+            pic_id_list: vec!["pic-1".to_string()],
+            video_id_list: vec!["video-1".to_string()],
+            extra: Value::Null,
+        });
+        audit.ugc_declare = Some(OpenPlatformMiniProgramUgcDeclare {
+            scene: vec![1, 2],
+            method: vec![1],
+            has_audit_team: Some(1),
+            audit_desc: Some("Content is reviewed before publishing".to_string()),
+            extra: Value::Null,
+        });
+        assert!(audit.validate().is_ok());
+
+        let mut duplicate = audit.clone();
+        duplicate.item_list.push(item.clone());
+        assert!(duplicate.validate().is_err());
+
+        let mut incomplete_category = OpenPlatformMiniProgramSubmitAuditRequest::new(vec![item]);
+        incomplete_category.item_list[0].third_class = Some("utility".to_string());
+        assert!(incomplete_category.validate().is_err());
+
+        let mut invalid_ugc = audit;
+        invalid_ugc.ugc_declare = Some(OpenPlatformMiniProgramUgcDeclare {
+            scene: vec![1, 1],
+            method: vec![1],
+            has_audit_team: Some(1),
+            audit_desc: None,
+            extra: Value::Null,
+        });
+        assert!(invalid_ugc.validate().is_err());
+
+        assert_eq!(
+            serde_json::to_value(OpenPlatformMiniProgramVisitStatusAction::Open).unwrap(),
+            "open"
+        );
+        assert_eq!(
+            serde_json::to_value(OpenPlatformMiniProgramVisitStatusAction::Close).unwrap(),
+            "close"
+        );
     }
 
     #[test]
@@ -3216,7 +3526,11 @@ mod tests {
 
         let rollback: OpenPlatformMiniProgramRollbackReleaseResponse =
             serde_json::from_value(json!({
-                "version_list": [{ "user_version": "1.0.0", "app_version": 1 }],
+                "version_list": [{
+                    "commit_time": 1800000000,
+                    "user_version": "1.0.0",
+                    "app_version": 1
+                }],
                 "request_id": "rollback"
             }))
             .unwrap();
@@ -3224,7 +3538,8 @@ mod tests {
             rollback.version_list[0].user_version.as_deref(),
             Some("1.0.0")
         );
-        assert_eq!(rollback.version_list[0].extra["app_version"], 1);
+        assert_eq!(rollback.version_list[0].commit_time, Some(1800000000));
+        assert_eq!(rollback.version_list[0].app_version, Some(1));
         assert_eq!(rollback.extra["request_id"], "rollback");
 
         let gray: OpenPlatformMiniProgramGrayReleasePlanResponse = serde_json::from_value(json!({
@@ -3252,7 +3567,12 @@ mod tests {
             serde_json::from_value(json!({
                 "now_version": "3.0.0",
                 "uv_info": {
-                    "items": [{ "visit_uv": 90, "version": "3.0.0", "uv_extra": "kept" }],
+                    "items": [{
+                        "visit_uv": 90,
+                        "percentage": 90,
+                        "version": "3.0.0",
+                        "uv_extra": "kept"
+                    }],
                     "uv_total": 1
                 },
                 "request_id": "support"
@@ -3263,6 +3583,7 @@ mod tests {
         let uv_info = support.uv_info.unwrap();
         assert_eq!(uv_info.extra["uv_total"], 1);
         assert_eq!(uv_info.items[0].version.as_deref(), Some("3.0.0"));
+        assert_eq!(uv_info.items[0].percentage, Some(90));
         assert_eq!(uv_info.items[0].extra["uv_extra"], "kept");
 
         let quota: OpenPlatformMiniProgramAuditQuotaResponse = serde_json::from_value(json!({

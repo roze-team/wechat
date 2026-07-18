@@ -1074,6 +1074,25 @@ tester, and privacy depth:
 - domain, tester, privacy-setting, and extension-file responses retain unknown
   fields so newly added WeChat response metadata remains forward compatible.
 
+Implemented on 2026-07-18 in Open Platform authorizer mini-program code,
+audit, and release depth:
+
+- code-commit requests expose a constructor and reject blank template/version/
+  description values, malformed `ext_json`, and non-object extension payloads
+  before uploading an experience build;
+- audit requests expose a first-class constructor and validate non-empty unique
+  pages, category names and positive ids, paired third-level categories,
+  optional feedback/order fields, and unique non-empty preview media ids;
+- UGC declarations now match PowerWeChat's array-shaped `scene` contract,
+  validate positive unique scene/method codes, constrain the audit-team flag to
+  0/1, and require its description when an audit team is declared;
+- audit lookup and acceleration require positive audit ids, visit status uses
+  typed open/close actions, gray release enforces a 1-to-100 percentage, and
+  support-version updates reject blank versions before network I/O;
+- rollback versions type `commit_time` and `app_version`, support-version usage
+  items type `percentage`, and existing unknown-field preservation remains
+  intact across release and audit responses.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
