@@ -2689,6 +2689,20 @@ impl Work {
             .await
     }
 
+    pub async fn get_message_statistics(
+        &self,
+        access_token: impl Into<String>,
+        time_type: WorkMessageStatisticsTimeKind,
+    ) -> Result<WorkMessageStatisticsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/get_statistics",
+                Some(access_token.into()),
+                WorkMessageStatisticsRequest::new(time_type),
+            )
+            .await
+    }
+
     pub async fn send_text_message(
         &self,
         access_token: impl Into<String>,
@@ -2716,6 +2730,7 @@ impl Work {
                 news: None,
                 mpnews: None,
                 miniprogram_notice: None,
+                taskcard: None,
                 template_card: None,
                 safe: Some(0),
                 enable_id_trans: None,
@@ -2865,6 +2880,22 @@ impl Work {
         .await
     }
 
+    pub async fn send_task_card_message(
+        &self,
+        access_token: impl Into<String>,
+        audience: WorkMessageAudience,
+        task_card: WorkTaskCardMessage,
+    ) -> Result<MessageSendResponse> {
+        self.send_message_payload(
+            access_token,
+            audience,
+            WorkMessageTypeKind::TaskCard.as_code(),
+            "taskcard",
+            to_value(task_card)?,
+        )
+        .await
+    }
+
     async fn send_media_message(
         &self,
         access_token: impl Into<String>,
@@ -2924,6 +2955,20 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/message/update_template_card",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_task_card_message(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkTaskCardUpdateRequest,
+    ) -> Result<WorkTaskCardUpdateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/message/update_taskcard",
                 Some(access_token.into()),
                 request,
             )
@@ -6787,6 +6832,8 @@ pub struct WorkMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub taskcard: Option<WorkTaskCardMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub template_card: Option<WorkTemplateCard>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub safe: Option<i64>,
@@ -6819,6 +6866,7 @@ pub enum WorkMessageTypeKind {
     News,
     MpNews,
     MiniProgramNotice,
+    TaskCard,
     TemplateCard,
     Other,
 }
@@ -6852,6 +6900,9 @@ impl WorkMessageTypeKind {
             || value.eq_ignore_ascii_case("mini_program_notice")
         {
             Self::MiniProgramNotice
+        } else if value.eq_ignore_ascii_case("taskcard") || value.eq_ignore_ascii_case("task_card")
+        {
+            Self::TaskCard
         } else if value.eq_ignore_ascii_case("template_card")
             || value.eq_ignore_ascii_case("templatecard")
         {
@@ -6874,6 +6925,7 @@ impl WorkMessageTypeKind {
             Self::News => "news",
             Self::MpNews => "mpnews",
             Self::MiniProgramNotice => "miniprogram_notice",
+            Self::TaskCard => "taskcard",
             Self::TemplateCard => "template_card",
             Self::Other => "unknown",
         }
@@ -6897,6 +6949,28 @@ pub struct WorkMarkdownMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMediaMessage {
     pub media_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTaskCardMessage {
+    pub title: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    pub task_id: String,
+    pub btn: Vec<WorkTaskCardButton>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTaskCardButton {
+    pub key: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replace_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_bold: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7157,6 +7231,112 @@ impl WorkMessageAudience {
             enable_duplicate_check: None,
             duplicate_check_interval: None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMessageStatisticsTimeKind {
+    Today,
+    Yesterday,
+}
+
+impl WorkMessageStatisticsTimeKind {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::Today => 0,
+            Self::Yesterday => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMessageStatisticsRequest {
+    pub time_type: i64,
+}
+
+impl WorkMessageStatisticsRequest {
+    pub fn new(time_type: WorkMessageStatisticsTimeKind) -> Self {
+        Self {
+            time_type: time_type.as_code(),
+        }
+    }
+
+    pub fn time_kind(&self) -> Option<WorkMessageStatisticsTimeKind> {
+        match self.time_type {
+            0 => Some(WorkMessageStatisticsTimeKind::Today),
+            1 => Some(WorkMessageStatisticsTimeKind::Yesterday),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMessageStatisticsResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub statistics: Vec<WorkMessageStatistic>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkMessageStatisticsResponse {
+    pub fn total_count(&self) -> i64 {
+        self.statistics.iter().filter_map(|item| item.count).sum()
+    }
+
+    pub fn by_agent_id(&self, agent_id: i64) -> Option<&WorkMessageStatistic> {
+        self.statistics
+            .iter()
+            .find(|item| item.agentid == Some(agent_id))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMessageStatistic {
+    #[serde(default)]
+    pub app_name: Option<String>,
+    #[serde(default)]
+    pub agentid: Option<i64>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTaskCardUpdateRequest {
+    pub userids: Vec<String>,
+    pub agentid: i64,
+    pub task_id: String,
+    pub clicked_key: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkTaskCardUpdateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub invaliduser: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkTaskCardUpdateResponse {
+    pub fn invalid_users(&self) -> Vec<&str> {
+        work_message_recipient_ids(self.invaliduser.as_deref()).collect()
+    }
+
+    pub fn has_delivery_failures(&self) -> bool {
+        work_message_recipient_ids(self.invaliduser.as_deref())
+            .next()
+            .is_some()
     }
 }
 
@@ -17606,6 +17786,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            taskcard: None,
             template_card: None,
             safe: Some(0),
             enable_id_trans: None,
@@ -17652,6 +17833,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            taskcard: None,
             template_card: None,
             safe: Some(0),
             enable_id_trans: None,
@@ -17683,6 +17865,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            taskcard: None,
             template_card: None,
             safe: Some(0),
             enable_id_trans: None,
@@ -17711,6 +17894,7 @@ mod tests {
             news: None,
             mpnews: None,
             miniprogram_notice: None,
+            taskcard: None,
             template_card: None,
             safe: Some(0),
             enable_id_trans: None,
@@ -17744,6 +17928,7 @@ mod tests {
             }),
             mpnews: None,
             miniprogram_notice: None,
+            taskcard: None,
             template_card: None,
             safe: Some(0),
             enable_id_trans: None,
@@ -17782,6 +17967,7 @@ mod tests {
                 }],
             }),
             miniprogram_notice: None,
+            taskcard: None,
             template_card: None,
             safe: Some(0),
             enable_id_trans: None,
@@ -17791,6 +17977,116 @@ mod tests {
         })
         .unwrap();
         assert_eq!(mpnews["mpnews"]["articles"][0]["thumb_media_id"], "thumb");
+    }
+
+    #[test]
+    fn serializes_work_task_card_and_message_statistics_contracts() {
+        let task_card = WorkTaskCardMessage {
+            title: "Approval".to_string(),
+            description: "Please review".to_string(),
+            url: Some("https://example.test/task".to_string()),
+            task_id: "task-1".to_string(),
+            btn: vec![WorkTaskCardButton {
+                key: "approve".to_string(),
+                name: "Approve".to_string(),
+                replace_name: Some("Approved".to_string()),
+                color: Some("red".to_string()),
+                is_bold: Some(true),
+            }],
+        };
+        let message = serde_json::to_value(WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: WorkMessageTypeKind::TaskCard.as_code().to_string(),
+            agentid: 100001,
+            text: None,
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            markdown: None,
+            textcard: None,
+            news: None,
+            mpnews: None,
+            miniprogram_notice: None,
+            taskcard: Some(task_card),
+            template_card: None,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+            extra: Value::Null,
+        })
+        .unwrap();
+        assert_eq!(message["msgtype"], "taskcard");
+        assert_eq!(message["taskcard"]["task_id"], "task-1");
+        assert_eq!(message["taskcard"]["btn"][0]["replace_name"], "Approved");
+        assert_eq!(message["taskcard"]["btn"][0]["is_bold"], true);
+        assert_eq!(
+            WorkMessageTypeKind::from_code("task_card"),
+            WorkMessageTypeKind::TaskCard
+        );
+
+        let statistics =
+            WorkMessageStatisticsRequest::new(WorkMessageStatisticsTimeKind::Yesterday);
+        assert_eq!(
+            statistics.time_kind(),
+            Some(WorkMessageStatisticsTimeKind::Yesterday)
+        );
+        assert_eq!(
+            serde_json::to_value(statistics).unwrap(),
+            json!({ "time_type": 1 })
+        );
+
+        let update = serde_json::to_value(WorkTaskCardUpdateRequest {
+            userids: vec!["user".to_string(), "other".to_string()],
+            agentid: 100001,
+            task_id: "task-1".to_string(),
+            clicked_key: "approve".to_string(),
+            extra: json!({ "trace_id": "task-update" }),
+        })
+        .unwrap();
+        assert_eq!(update["userids"][1], "other");
+        assert_eq!(update["clicked_key"], "approve");
+        assert_eq!(update["trace_id"], "task-update");
+    }
+
+    #[test]
+    fn deserializes_work_message_statistics_and_task_card_update_responses() {
+        let response: WorkMessageStatisticsResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "statistics": [{
+                "app_name": "CRM",
+                "agentid": 100001,
+                "count": 12,
+                "failed_count": 2
+            }, {
+                "app_name": "OA",
+                "agentid": 100002,
+                "count": 8
+            }],
+            "statistic_date": "2026-07-17"
+        }))
+        .unwrap();
+        assert_eq!(response.total_count(), 20);
+        let crm = response.by_agent_id(100001).expect("CRM statistics");
+        assert_eq!(crm.app_name.as_deref(), Some("CRM"));
+        assert_eq!(crm.extra["failed_count"], 2);
+        assert_eq!(response.extra["statistic_date"], "2026-07-17");
+
+        let update: WorkTaskCardUpdateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "invaliduser": "missing-user|inactive-user",
+            "request_id": "task-update"
+        }))
+        .unwrap();
+        assert_eq!(
+            update.invalid_users(),
+            vec!["missing-user", "inactive-user"]
+        );
+        assert!(update.has_delivery_failures());
+        assert_eq!(update.extra["request_id"], "task-update");
     }
 
     #[test]

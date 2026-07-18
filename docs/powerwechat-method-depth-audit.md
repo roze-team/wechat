@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 367 | high |
+| Work | 363 | 370 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,19 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-18 in Roze WeChat Work message endpoint depth:
+
+- Application-message statistics now expose typed today/yesterday requests,
+  per-application counters, total aggregation, agent lookup, and
+  forward-compatible response fields.
+- Legacy interactive task cards now support typed send payloads and a
+  convenience sender, including replacement text, color, and bold button
+  options.
+- Task-card state updates now expose typed recipients, task/button identifiers,
+  invalid-user parsing, and delivery-failure semantics.
+- The current WxJava Work `user`, `message`, and `media` exact-path comparison
+  is now green.
 
 Implemented on 2026-07-18 in Roze WeChat Work OA exact endpoint depth:
 
