@@ -1201,6 +1201,23 @@ migration depth:
   state, preserve unknown fields, and distinguish fully successful transfers
   from responses containing failed chats.
 
+Implemented on 2026-07-18 in Work external-contact strategy and customer
+transfer depth:
+
+- moment strategy coverage now includes the missing detail endpoint, typed
+  view/send/profile privileges, typed user/department ranges, and corrected
+  array-shaped range responses;
+- moment and customer strategy list/range requests validate positive strategy
+  ids, parent ids, non-blank cursors and names, the one-to-one-thousand page
+  boundary, unique administrators, valid ranges, and disjoint range patches;
+- strategy create/edit/delete paths validate before network I/O, while typed
+  user and department constructors avoid ambiguous range payloads;
+- customer strategy list and range responses expose `next_cursor` through the
+  shared cursor-page helpers, preserving unknown response fields;
+- on-job and resigned-customer transfer paths validate distinct handover and
+  takeover users, one-to-one-hundred unique customers, optional message length,
+  unassigned-customer pagination, and transfer-result cursors.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

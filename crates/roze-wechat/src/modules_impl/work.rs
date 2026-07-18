@@ -1556,11 +1556,28 @@ impl Work {
         cursor: impl Into<String>,
         limit: i64,
     ) -> Result<ExternalContactMomentStrategyListResponse> {
+        let cursor = cursor.into();
+        validate_external_strategy_page(&cursor, limit)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/moment_strategy/list",
                 Some(access_token.into()),
-                json!({ "cursor": cursor.into(), "limit": limit }),
+                json!({ "cursor": cursor, "limit": limit }),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_moment_strategy(
+        &self,
+        access_token: impl Into<String>,
+        strategy_id: i64,
+    ) -> Result<ExternalContactMomentStrategyResponse> {
+        validate_external_strategy_id(strategy_id)?;
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/moment_strategy/get",
+                Some(access_token.into()),
+                json!({ "strategy_id": strategy_id }),
             )
             .await
     }
@@ -1570,6 +1587,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactMomentStrategyRangeRequest,
     ) -> Result<ExternalContactMomentStrategyRangeResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/moment_strategy/get_range",
@@ -1584,6 +1602,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactMomentStrategyCreateRequest,
     ) -> Result<ExternalContactMomentStrategyCreateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/moment_strategy/create",
@@ -1598,6 +1617,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactMomentStrategyEditRequest,
     ) -> Result<ExternalContactMomentStrategyCreateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/moment_strategy/edit",
@@ -1612,6 +1632,7 @@ impl Work {
         access_token: impl Into<String>,
         strategy_id: i64,
     ) -> Result<WorkStatusResponse> {
+        validate_external_strategy_id(strategy_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/moment_strategy/del",
@@ -2123,6 +2144,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalCustomerTransferRequest,
     ) -> Result<ExternalCustomerTransferResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/transfer_customer",
@@ -2137,6 +2159,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactUnassignedTransferRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/transfer",
@@ -2151,6 +2174,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalCustomerTransferResultRequest,
     ) -> Result<ExternalCustomerTransferResultResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/transfer_result",
@@ -2165,6 +2189,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactUnassignedListRequest,
     ) -> Result<ExternalContactUnassignedListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_unassigned_list",
@@ -2179,6 +2204,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ResignedExternalCustomerTransferRequest,
     ) -> Result<ExternalCustomerTransferResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/resigned/transfer_customer",
@@ -2193,6 +2219,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalCustomerTransferResultRequest,
     ) -> Result<ExternalCustomerTransferResultResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/resigned/transfer_result",
@@ -2371,11 +2398,13 @@ impl Work {
         cursor: impl Into<String>,
         limit: i64,
     ) -> Result<ExternalContactCustomerStrategyListResponse> {
+        let cursor = cursor.into();
+        validate_external_strategy_page(&cursor, limit)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/list",
                 Some(access_token.into()),
-                json!({ "cursor": cursor.into(), "limit": limit }),
+                json!({ "cursor": cursor, "limit": limit }),
             )
             .await
     }
@@ -2385,6 +2414,7 @@ impl Work {
         access_token: impl Into<String>,
         strategy_id: i64,
     ) -> Result<ExternalContactCustomerStrategyResponse> {
+        validate_external_strategy_id(strategy_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/get",
@@ -2401,11 +2431,14 @@ impl Work {
         cursor: impl Into<String>,
         limit: i64,
     ) -> Result<ExternalContactCustomerStrategyRangeResponse> {
+        let cursor = cursor.into();
+        validate_external_strategy_id(strategy_id)?;
+        validate_external_strategy_page(&cursor, limit)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/get_range",
                 Some(access_token.into()),
-                json!({ "strategy_id": strategy_id, "cursor": cursor.into(), "limit": limit }),
+                json!({ "strategy_id": strategy_id, "cursor": cursor, "limit": limit }),
             )
             .await
     }
@@ -2415,6 +2448,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactCustomerStrategyCreateRequest,
     ) -> Result<ExternalContactCustomerStrategyCreateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/create",
@@ -2429,6 +2463,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactCustomerStrategyEditRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/edit",
@@ -2443,6 +2478,7 @@ impl Work {
         access_token: impl Into<String>,
         strategy_id: i64,
     ) -> Result<WorkStatusResponse> {
+        validate_external_strategy_id(strategy_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/del",
@@ -11307,12 +11343,40 @@ pub struct ExternalContactMomentStrategyRangeRequest {
     pub limit: i64,
 }
 
+impl ExternalContactMomentStrategyRangeRequest {
+    pub fn first_page(strategy_id: i64, limit: i64) -> Self {
+        Self {
+            strategy_id,
+            cursor: None,
+            limit,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_id(self.strategy_id)?;
+        validate_external_strategy_page(self.cursor.as_deref().unwrap_or_default(), self.limit)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentStrategyCreateRequest {
     pub parent_id: i64,
     pub strategy_name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub admin_list: Vec<String>,
+    pub privilege: ExternalContactMomentStrategyPrivilege,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range: Vec<ExternalContactStrategyRange>,
+}
+
+impl ExternalContactMomentStrategyCreateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_parent(self.parent_id)?;
+        validate_external_strategy_name(&self.strategy_name)?;
+        validate_external_strategy_admins(&self.admin_list)?;
+        validate_external_strategy_ranges(&self.range, true)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11321,6 +11385,27 @@ pub struct ExternalContactMomentStrategyEditRequest {
     pub strategy_name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub admin_list: Vec<String>,
+    pub privilege: ExternalContactMomentStrategyPrivilege,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range_add: Vec<ExternalContactStrategyRange>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub range_del: Vec<ExternalContactStrategyRange>,
+}
+
+impl ExternalContactMomentStrategyEditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_id(self.strategy_id)?;
+        validate_external_strategy_name(&self.strategy_name)?;
+        validate_external_strategy_admins(&self.admin_list)?;
+        validate_external_strategy_range_patch(&self.range_add, &self.range_del)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyPrivilege {
+    pub view_moment_list: bool,
+    pub send_moment: bool,
+    pub manage_moment_cover_and_sign: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11334,21 +11419,9 @@ pub struct ExternalContactMomentStrategy {
     #[serde(default)]
     pub admin_list: Vec<String>,
     #[serde(default)]
+    pub privilege: Option<ExternalContactMomentStrategyPrivilege>,
+    #[serde(default)]
     pub create_time: Option<i64>,
-    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
-    pub extra: Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExternalContactMomentStrategyRange {
-    #[serde(default)]
-    pub user_list: Vec<String>,
-    #[serde(default)]
-    pub party_list: Vec<i64>,
-    #[serde(default)]
-    pub department_list: Vec<i64>,
-    #[serde(default)]
-    pub tag_list: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -11368,13 +11441,25 @@ pub struct ExternalContactMomentStrategyListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMomentStrategyResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub strategy: Option<ExternalContactMomentStrategy>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentStrategyRangeResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub range: Option<ExternalContactMomentStrategyRange>,
+    pub range: Vec<ExternalContactStrategyRange>,
     #[serde(default)]
     pub next_cursor: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
@@ -12842,11 +12927,49 @@ pub struct ExternalCustomerTransferRequest {
     pub transfer_success_msg: Option<String>,
 }
 
+impl ExternalCustomerTransferRequest {
+    pub fn new(
+        handover_userid: impl Into<String>,
+        takeover_userid: impl Into<String>,
+        external_userids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            handover_userid: handover_userid.into(),
+            takeover_userid: takeover_userid.into(),
+            external_userid: external_userids.into_iter().map(Into::into).collect(),
+            transfer_success_msg: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_customer_transfer_users(&self.handover_userid, &self.takeover_userid)?;
+        validate_external_customer_transfer_batch(&self.external_userid)?;
+        if self
+            .transfer_success_msg
+            .as_ref()
+            .is_some_and(|message| message.chars().count() > 200)
+        {
+            return Err(WechatError::Config(
+                "external-customer transfer success message must not exceed 200 characters"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactUnassignedTransferRequest {
     pub external_userid: String,
     pub handover_userid: String,
     pub takeover_userid: String,
+}
+
+impl ExternalContactUnassignedTransferRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_identifier("external userid", &self.external_userid)?;
+        validate_external_customer_transfer_users(&self.handover_userid, &self.takeover_userid)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12856,12 +12979,90 @@ pub struct ResignedExternalCustomerTransferRequest {
     pub external_userid: Vec<String>,
 }
 
+impl ResignedExternalCustomerTransferRequest {
+    pub fn new(
+        handover_userid: impl Into<String>,
+        takeover_userid: impl Into<String>,
+        external_userids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            handover_userid: handover_userid.into(),
+            takeover_userid: takeover_userid.into(),
+            external_userid: external_userids.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_customer_transfer_users(&self.handover_userid, &self.takeover_userid)?;
+        validate_external_customer_transfer_batch(&self.external_userid)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalCustomerTransferResultRequest {
     pub handover_userid: String,
     pub takeover_userid: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+}
+
+impl ExternalCustomerTransferResultRequest {
+    pub fn first_page(
+        handover_userid: impl Into<String>,
+        takeover_userid: impl Into<String>,
+    ) -> Self {
+        Self {
+            handover_userid: handover_userid.into(),
+            takeover_userid: takeover_userid.into(),
+            cursor: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_customer_transfer_users(&self.handover_userid, &self.takeover_userid)?;
+        if self
+            .cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-customer transfer result cursor must not be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_external_customer_transfer_users(
+    handover_userid: &str,
+    takeover_userid: &str,
+) -> Result<()> {
+    validate_external_contact_identifier("handover userid", handover_userid)?;
+    validate_external_contact_identifier("takeover userid", takeover_userid)?;
+    if handover_userid == takeover_userid {
+        return Err(WechatError::Config(
+            "external-customer handover and takeover users must be different".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_customer_transfer_batch(external_userids: &[String]) -> Result<()> {
+    if external_userids.is_empty() || external_userids.len() > 100 {
+        return Err(WechatError::Config(
+            "external-customer transfer must contain between 1 and 100 customers".to_string(),
+        ));
+    }
+    if external_userids
+        .iter()
+        .any(|external_userid| external_userid.trim().is_empty())
+        || has_duplicate_strings(external_userids)
+    {
+        return Err(WechatError::Config(
+            "external-customer transfer ids must be non-empty and unique".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12957,6 +13158,39 @@ pub struct ExternalContactUnassignedListRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub page_size: i64,
+}
+
+impl ExternalContactUnassignedListRequest {
+    pub fn first_page(page_size: i64) -> Self {
+        Self {
+            page_id: 0,
+            cursor: None,
+            page_size,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.page_id < 0 {
+            return Err(WechatError::Config(
+                "external-contact unassigned page id must not be negative".to_string(),
+            ));
+        }
+        if !(1..=1_000).contains(&self.page_size) {
+            return Err(WechatError::Config(
+                "external-contact unassigned page size must be between 1 and 1000".to_string(),
+            ));
+        }
+        if self
+            .cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-contact unassigned cursor must not be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13176,6 +13410,8 @@ impl_external_contact_cursor_page!(
     ExternalGroupChatListResponse,
     ExternalContactMomentStrategyListResponse,
     ExternalContactMomentStrategyRangeResponse,
+    ExternalContactCustomerStrategyListResponse,
+    ExternalContactCustomerStrategyRangeResponse,
     CustomerAcquisitionLinkListResponse,
     ExternalContactProductAlbumListResponse,
     CustomerAcquisitionCustomerListResponse,
@@ -13464,6 +13700,102 @@ pub struct ExternalContactCustomerStrategyRange {
     pub extra: Value,
 }
 
+pub type ExternalContactStrategyRange = ExternalContactCustomerStrategyRange;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactStrategyRangeKind {
+    User,
+    Department,
+    Other(i64),
+}
+
+impl ExternalContactStrategyRangeKind {
+    pub fn code(self) -> i64 {
+        match self {
+            Self::User => 1,
+            Self::Department => 2,
+            Self::Other(code) => code,
+        }
+    }
+}
+
+impl From<i64> for ExternalContactStrategyRangeKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::User,
+            2 => Self::Department,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl ExternalContactCustomerStrategyRange {
+    pub fn user(userid: impl Into<String>) -> Self {
+        Self {
+            kind: ExternalContactStrategyRangeKind::User.code(),
+            partyid: None,
+            userid: Some(userid.into()),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn department(partyid: i64) -> Self {
+        Self {
+            kind: ExternalContactStrategyRangeKind::Department.code(),
+            partyid: Some(partyid),
+            userid: None,
+            extra: Value::Null,
+        }
+    }
+
+    pub fn range_kind(&self) -> ExternalContactStrategyRangeKind {
+        ExternalContactStrategyRangeKind::from(self.kind)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self.range_kind() {
+            ExternalContactStrategyRangeKind::User => {
+                if self.partyid.is_some()
+                    || self
+                        .userid
+                        .as_deref()
+                        .is_none_or(|userid| userid.trim().is_empty())
+                {
+                    return Err(WechatError::Config(
+                        "external-contact strategy user range requires only userid".to_string(),
+                    ));
+                }
+            }
+            ExternalContactStrategyRangeKind::Department => {
+                if self.userid.is_some() || self.partyid.is_none_or(|partyid| partyid <= 0) {
+                    return Err(WechatError::Config(
+                        "external-contact strategy department range requires only positive partyid"
+                            .to_string(),
+                    ));
+                }
+            }
+            ExternalContactStrategyRangeKind::Other(code) => {
+                return Err(WechatError::Config(format!(
+                    "unsupported external-contact strategy range type {code}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn identity(&self) -> String {
+        match self.range_kind() {
+            ExternalContactStrategyRangeKind::User => {
+                format!("user:{}", self.userid.as_deref().unwrap_or_default())
+            }
+            ExternalContactStrategyRangeKind::Department => {
+                format!("department:{}", self.partyid.unwrap_or_default())
+            }
+            ExternalContactStrategyRangeKind::Other(code) => format!("other:{code}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactCustomerStrategyCreateRequest {
     pub parent_id: i64,
@@ -13473,6 +13805,15 @@ pub struct ExternalContactCustomerStrategyCreateRequest {
     pub privilege: ExternalContactCustomerStrategyPrivilege,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub range: Vec<ExternalContactCustomerStrategyRange>,
+}
+
+impl ExternalContactCustomerStrategyCreateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_parent(self.parent_id)?;
+        validate_external_strategy_name(&self.strategy_name)?;
+        validate_external_strategy_admins(&self.admin_list)?;
+        validate_external_strategy_ranges(&self.range, true)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13488,6 +13829,102 @@ pub struct ExternalContactCustomerStrategyEditRequest {
     pub range_del: Vec<ExternalContactCustomerStrategyRange>,
 }
 
+impl ExternalContactCustomerStrategyEditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_id(self.strategy_id)?;
+        validate_external_strategy_name(&self.strategy_name)?;
+        validate_external_strategy_admins(&self.admin_list)?;
+        validate_external_strategy_range_patch(&self.range_add, &self.range_del)
+    }
+}
+
+fn validate_external_strategy_page(cursor: &str, limit: i64) -> Result<()> {
+    if !cursor.is_empty() && cursor.trim().is_empty() {
+        return Err(WechatError::Config(
+            "external-contact strategy cursor must not contain only whitespace".to_string(),
+        ));
+    }
+    if !(1..=1_000).contains(&limit) {
+        return Err(WechatError::Config(
+            "external-contact strategy page limit must be between 1 and 1000".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_parent(parent_id: i64) -> Result<()> {
+    if parent_id < 0 {
+        return Err(WechatError::Config(
+            "external-contact strategy parent id must not be negative".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_name(name: &str) -> Result<()> {
+    if name.trim().is_empty() {
+        return Err(WechatError::Config(
+            "external-contact strategy name must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_admins(admins: &[String]) -> Result<()> {
+    if admins.is_empty()
+        || admins.iter().any(|admin| admin.trim().is_empty())
+        || has_duplicate_strings(admins)
+    {
+        return Err(WechatError::Config(
+            "external-contact strategy admins must be non-empty and unique".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_ranges(
+    ranges: &[ExternalContactStrategyRange],
+    require_range: bool,
+) -> Result<()> {
+    if require_range && ranges.is_empty() {
+        return Err(WechatError::Config(
+            "external-contact strategy requires at least one management range".to_string(),
+        ));
+    }
+    let mut identities = std::collections::HashSet::with_capacity(ranges.len());
+    for range in ranges {
+        range.validate()?;
+        if !identities.insert(range.identity()) {
+            return Err(WechatError::Config(
+                "external-contact strategy ranges must be unique".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_range_patch(
+    additions: &[ExternalContactStrategyRange],
+    removals: &[ExternalContactStrategyRange],
+) -> Result<()> {
+    validate_external_strategy_ranges(additions, false)?;
+    validate_external_strategy_ranges(removals, false)?;
+    let additions = additions
+        .iter()
+        .map(ExternalContactStrategyRange::identity)
+        .collect::<std::collections::HashSet<_>>();
+    if removals
+        .iter()
+        .map(ExternalContactStrategyRange::identity)
+        .any(|identity| additions.contains(&identity))
+    {
+        return Err(WechatError::Config(
+            "external-contact strategy range cannot be added and removed together".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactCustomerStrategyListResponse {
     #[serde(default)]
@@ -13496,6 +13933,8 @@ pub struct ExternalContactCustomerStrategyListResponse {
     pub errmsg: Option<String>,
     #[serde(default, alias = "momentStrategy")]
     pub strategy: Vec<ExternalContactCustomerStrategy>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13540,6 +13979,8 @@ pub struct ExternalContactCustomerStrategyRangeResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub range: Vec<ExternalContactCustomerStrategyRange>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -26049,40 +26490,33 @@ mod tests {
 
     #[test]
     fn serializes_external_customer_transfer_requests_and_responses() {
-        let transfer = serde_json::to_value(ExternalCustomerTransferRequest {
-            handover_userid: "old".to_string(),
-            takeover_userid: "new".to_string(),
-            external_userid: vec!["external".to_string()],
-            transfer_success_msg: Some("done".to_string()),
-        })
-        .unwrap();
+        let mut transfer_request = ExternalCustomerTransferRequest::new("old", "new", ["external"]);
+        transfer_request.transfer_success_msg = Some("done".to_string());
+        assert!(transfer_request.validate().is_ok());
+        let transfer = serde_json::to_value(transfer_request).unwrap();
         assert_eq!(transfer["handover_userid"], "old");
         assert_eq!(transfer["takeover_userid"], "new");
         assert_eq!(transfer["external_userid"][0], "external");
         assert_eq!(transfer["transfer_success_msg"], "done");
 
-        let resigned = serde_json::to_value(ResignedExternalCustomerTransferRequest {
-            handover_userid: "old".to_string(),
-            takeover_userid: "new".to_string(),
-            external_userid: vec!["external".to_string()],
-        })
-        .unwrap();
+        let resigned_request =
+            ResignedExternalCustomerTransferRequest::new("old", "new", ["external"]);
+        assert!(resigned_request.validate().is_ok());
+        let resigned = serde_json::to_value(resigned_request).unwrap();
         assert_eq!(resigned["external_userid"][0], "external");
 
-        let query = serde_json::to_value(ExternalCustomerTransferResultRequest {
-            handover_userid: "old".to_string(),
-            takeover_userid: "new".to_string(),
-            cursor: None,
-        })
-        .unwrap();
+        let query_request = ExternalCustomerTransferResultRequest::first_page("old", "new");
+        assert!(query_request.validate().is_ok());
+        let query = serde_json::to_value(query_request).unwrap();
         assert!(query.get("cursor").is_none());
 
-        let unassigned = serde_json::to_value(ExternalContactUnassignedListRequest {
+        let unassigned_request = ExternalContactUnassignedListRequest {
             page_id: 1,
             cursor: Some("cursor".to_string()),
             page_size: 100,
-        })
-        .unwrap();
+        };
+        assert!(unassigned_request.validate().is_ok());
+        let unassigned = serde_json::to_value(unassigned_request).unwrap();
         assert_eq!(unassigned["page_id"], 1);
         assert_eq!(unassigned["cursor"], "cursor");
 
@@ -26165,6 +26599,48 @@ mod tests {
         assert_eq!(unassigned_response.info[0].extra["handover_department"], 1);
         assert_eq!(unassigned_response.is_last, Some(false));
         assert_eq!(unassigned_response.extra["total"], 1);
+    }
+
+    #[test]
+    fn validates_external_customer_transfer_lifecycle() {
+        assert!(
+            ExternalCustomerTransferRequest::new("old", "new", ["external"])
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ExternalCustomerTransferRequest::new("same", "same", ["external"])
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ExternalCustomerTransferRequest::new("old", "new", ["external", "external"],)
+                .validate()
+                .is_err()
+        );
+        let mut long_message = ExternalCustomerTransferRequest::new("old", "new", ["external"]);
+        long_message.transfer_success_msg = Some("x".repeat(201));
+        assert!(long_message.validate().is_err());
+        assert!(ExternalContactUnassignedTransferRequest {
+            external_userid: String::new(),
+            handover_userid: "old".to_string(),
+            takeover_userid: "new".to_string(),
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalCustomerTransferResultRequest {
+            handover_userid: "old".to_string(),
+            takeover_userid: "new".to_string(),
+            cursor: Some(String::new()),
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalContactUnassignedListRequest::first_page(1_000)
+            .validate()
+            .is_ok());
+        assert!(ExternalContactUnassignedListRequest::first_page(1_001)
+            .validate()
+            .is_err());
     }
 
     #[test]
@@ -26326,25 +26802,39 @@ mod tests {
         assert_eq!(strategy_range["strategy_id"], 100);
         assert_eq!(strategy_range["cursor"], "cursor");
 
-        let create_strategy = serde_json::to_value(ExternalContactMomentStrategyCreateRequest {
+        let moment_privilege = ExternalContactMomentStrategyPrivilege {
+            view_moment_list: true,
+            send_moment: true,
+            manage_moment_cover_and_sign: true,
+        };
+        let create_strategy_request = ExternalContactMomentStrategyCreateRequest {
             parent_id: 0,
             strategy_name: "vip".to_string(),
             admin_list: vec!["admin".to_string()],
-        })
-        .unwrap();
+            privilege: moment_privilege.clone(),
+            range: vec![ExternalContactStrategyRange::user("user")],
+        };
+        assert!(create_strategy_request.validate().is_ok());
+        let create_strategy = serde_json::to_value(create_strategy_request).unwrap();
         assert_eq!(create_strategy["parent_id"], 0);
         assert_eq!(create_strategy["strategy_name"], "vip");
         assert_eq!(create_strategy["admin_list"][0], "admin");
+        assert_eq!(create_strategy["privilege"]["send_moment"], true);
+        assert_eq!(create_strategy["range"][0]["userid"], "user");
 
-        let edit_strategy = serde_json::to_value(ExternalContactMomentStrategyEditRequest {
+        let edit_strategy_request = ExternalContactMomentStrategyEditRequest {
             strategy_id: 100,
             strategy_name: "vip2".to_string(),
-            admin_list: Vec::new(),
-        })
-        .unwrap();
+            admin_list: vec!["admin".to_string()],
+            privilege: moment_privilege,
+            range_add: vec![ExternalContactStrategyRange::department(2)],
+            range_del: vec![ExternalContactStrategyRange::user("old-user")],
+        };
+        assert!(edit_strategy_request.validate().is_ok());
+        let edit_strategy = serde_json::to_value(edit_strategy_request).unwrap();
         assert_eq!(edit_strategy["strategy_id"], 100);
         assert_eq!(edit_strategy["strategy_name"], "vip2");
-        assert!(edit_strategy.get("admin_list").is_none());
+        assert_eq!(edit_strategy["range_add"][0]["partyid"], 2);
 
         let strategies: ExternalContactMomentStrategyListResponse = serde_json::from_value(json!({
             "strategy": [{
@@ -26352,6 +26842,11 @@ mod tests {
                 "strategy_name": "vip",
                 "parent_id": 0,
                 "admin_list": ["admin"],
+                "privilege": {
+                    "view_moment_list": true,
+                    "send_moment": true,
+                    "manage_moment_cover_and_sign": true
+                },
                 "create_time": 1_720_000_000,
                 "strategy_source": "moment"
             }],
@@ -26361,21 +26856,47 @@ mod tests {
         .unwrap();
         assert_eq!(strategies.strategy[0].strategy_name.as_deref(), Some("vip"));
         assert_eq!(strategies.strategy[0].admin_list[0], "admin");
+        assert!(
+            strategies.strategy[0]
+                .privilege
+                .as_ref()
+                .unwrap()
+                .send_moment
+        );
         assert_eq!(strategies.strategy[0].extra["strategy_source"], "moment");
         assert_eq!(strategies.next_cursor.as_deref(), Some("next"));
         assert_eq!(strategies.extra["strategy_total"], 1);
 
-        let range: ExternalContactMomentStrategyRangeResponse = serde_json::from_value(json!({
-            "range": { "user_list": ["user"], "party_list": [2], "tag_list": ["tag"], "range_source": "manual" },
-            "next_cursor": "next",
-            "range_total": 1
+        let detail: ExternalContactMomentStrategyResponse = serde_json::from_value(json!({
+            "strategy": {
+                "strategy_id": 100,
+                "strategy_name": "vip",
+                "admin_list": ["admin"]
+            }
         }))
         .unwrap();
-        assert_eq!(range.extra["range_total"], 1);
-        let range_info = range.range.unwrap();
-        assert_eq!(range_info.user_list[0], "user");
-        assert_eq!(range_info.party_list[0], 2);
-        assert_eq!(range_info.extra["range_source"], "manual");
+        assert_eq!(
+            detail.strategy.unwrap().strategy_name.as_deref(),
+            Some("vip")
+        );
+
+        let range: ExternalContactMomentStrategyRangeResponse = serde_json::from_value(json!({
+            "range": [
+                { "type": 1, "userid": "user", "range_source": "manual" },
+                { "type": 2, "partyid": 2 }
+            ],
+            "next_cursor": "next",
+            "range_total": 2
+        }))
+        .unwrap();
+        assert_eq!(range.extra["range_total"], 2);
+        assert_eq!(range.range[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            range.range[0].range_kind(),
+            ExternalContactStrategyRangeKind::User
+        );
+        assert_eq!(range.range[0].extra["range_source"], "manual");
+        assert_eq!(range.range[1].partyid, Some(2));
 
         let created_strategy: ExternalContactMomentStrategyCreateResponse = serde_json::from_value(
             json!({ "strategy_id": 100, "request_id": "moment-strategy-create" }),
@@ -26503,41 +27024,33 @@ mod tests {
             manage_customer_tag: true,
         };
 
-        let create = serde_json::to_value(ExternalContactCustomerStrategyCreateRequest {
+        let create_request = ExternalContactCustomerStrategyCreateRequest {
             parent_id: 1,
             strategy_name: "strategy".to_string(),
             admin_list: vec!["admin".to_string()],
             privilege: privilege.clone(),
-            range: vec![ExternalContactCustomerStrategyRange {
-                kind: 1,
-                partyid: Some(2),
-                userid: None,
-                extra: Value::Null,
-            }],
-        })
-        .unwrap();
+            range: vec![ExternalContactCustomerStrategyRange::user("user")],
+        };
+        assert!(create_request.validate().is_ok());
+        let create = serde_json::to_value(create_request).unwrap();
         assert_eq!(create["parent_id"], 1);
         assert_eq!(create["privilege"]["view_customer_list"], true);
         assert_eq!(create["range"][0]["type"], 1);
-        assert!(create["range"][0].get("userid").is_none());
+        assert_eq!(create["range"][0]["userid"], "user");
 
-        let edit = serde_json::to_value(ExternalContactCustomerStrategyEditRequest {
+        let edit_request = ExternalContactCustomerStrategyEditRequest {
             strategy_id: 2,
             strategy_name: "strategy-new".to_string(),
-            admin_list: Vec::new(),
+            admin_list: vec!["admin".to_string()],
             privilege,
-            range_add: vec![ExternalContactCustomerStrategyRange {
-                kind: 2,
-                partyid: None,
-                userid: Some("user".to_string()),
-                extra: Value::Null,
-            }],
+            range_add: vec![ExternalContactCustomerStrategyRange::department(2)],
             range_del: Vec::new(),
-        })
-        .unwrap();
+        };
+        assert!(edit_request.validate().is_ok());
+        let edit = serde_json::to_value(edit_request).unwrap();
         assert_eq!(edit["strategy_id"], 2);
-        assert!(edit.get("admin_list").is_none());
-        assert_eq!(edit["range_add"][0]["userid"], "user");
+        assert_eq!(edit["admin_list"][0], "admin");
+        assert_eq!(edit["range_add"][0]["partyid"], 2);
 
         let list: ExternalContactCustomerStrategyListResponse = serde_json::from_value(json!({
             "momentStrategy": [{
@@ -26548,6 +27061,7 @@ mod tests {
                 "create_time": 1_720_000_000,
                 "strategy_source": "crm"
             }],
+            "next_cursor": "next",
             "total": 1
         }))
         .unwrap();
@@ -26555,6 +27069,8 @@ mod tests {
         assert_eq!(list.strategy[0].strategy_name.as_deref(), Some("strategy"));
         assert_eq!(list.strategy[0].admin_list[0], "admin");
         assert_eq!(list.strategy[0].extra["strategy_source"], "crm");
+        assert_eq!(list.next_cursor(), Some("next"));
+        assert!(list.has_more());
         assert_eq!(list.extra["total"], 1);
 
         let detail: ExternalContactCustomerStrategyResponse = serde_json::from_value(json!({
@@ -26595,13 +27111,16 @@ mod tests {
         assert_eq!(strategy.extra["strategy_source"], "detail");
 
         let range: ExternalContactCustomerStrategyRangeResponse = serde_json::from_value(json!({
-            "range": [{ "type": 2, "userid": "user", "range_source": "manual" }],
+            "range": [{ "type": 1, "userid": "user", "range_source": "manual" }],
+            "next_cursor": "range-next",
             "range_total": 1
         }))
         .unwrap();
-        assert_eq!(range.range[0].kind, 2);
+        assert_eq!(range.range[0].kind, 1);
         assert_eq!(range.range[0].userid.as_deref(), Some("user"));
         assert_eq!(range.range[0].extra["range_source"], "manual");
+        assert_eq!(range.next_cursor(), Some("range-next"));
+        assert!(range.has_more());
         assert_eq!(range.extra["range_total"], 1);
 
         let created: ExternalContactCustomerStrategyCreateResponse =
@@ -26609,6 +27128,69 @@ mod tests {
                 .unwrap();
         assert_eq!(created.strategy_id, Some(3));
         assert_eq!(created.extra["request_id"], "strategy-create-1");
+    }
+
+    #[test]
+    fn validates_external_contact_strategy_lifecycle() {
+        assert!(
+            ExternalContactMomentStrategyRangeRequest::first_page(1, 1_000)
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ExternalContactMomentStrategyRangeRequest::first_page(0, 100)
+                .validate()
+                .is_err()
+        );
+        assert!(validate_external_strategy_page("", 1_001).is_err());
+
+        let privilege = ExternalContactMomentStrategyPrivilege {
+            view_moment_list: true,
+            send_moment: true,
+            manage_moment_cover_and_sign: false,
+        };
+        assert!(ExternalContactMomentStrategyCreateRequest {
+            parent_id: 0,
+            strategy_name: "strategy".to_string(),
+            admin_list: vec!["admin".to_string()],
+            privilege: privilege.clone(),
+            range: vec![
+                ExternalContactStrategyRange::user("user"),
+                ExternalContactStrategyRange::department(2),
+            ],
+        }
+        .validate()
+        .is_ok());
+        assert!(ExternalContactMomentStrategyCreateRequest {
+            parent_id: 0,
+            strategy_name: "strategy".to_string(),
+            admin_list: vec!["admin".to_string(), "admin".to_string()],
+            privilege: privilege.clone(),
+            range: vec![ExternalContactStrategyRange::user("user")],
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalContactMomentStrategyEditRequest {
+            strategy_id: 1,
+            strategy_name: "strategy".to_string(),
+            admin_list: vec!["admin".to_string()],
+            privilege,
+            range_add: vec![ExternalContactStrategyRange::user("same")],
+            range_del: vec![ExternalContactStrategyRange::user("same")],
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalContactStrategyRange {
+            kind: 1,
+            partyid: Some(2),
+            userid: None,
+            extra: Value::Null,
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalContactStrategyRange::department(0)
+            .validate()
+            .is_err());
     }
 
     #[test]
