@@ -946,6 +946,19 @@ Implemented on 2026-07-18 in Work OA WeDoc smart-sheet lifecycle depth:
 - sub-sheet responses now expose typed visibility and semantic smart-sheet,
   dashboard, external, or unknown sheet kinds while preserving extensions.
 
+Implemented on 2026-07-18 in Work OA WeDoc smart-sheet field-group and privilege depth:
+
+- field-group add/update/list/delete requests now validate document and sheet
+  scope, names, identifiers, pagination, uniqueness, and the documented
+  150-field/150-group ceilings before network I/O;
+- field-group updates distinguish an omitted child patch from an explicit empty
+  list, so renaming cannot accidentally clear fields and callers can
+  intentionally clear a group;
+- content-permission queries expose semantic all-member/additional rule types,
+  validate their rule-id requirements, and retain unknown response rule types;
+- mixed string/integer response rule identifiers and field-type semantics are
+  typed while upstream extension fields remain forward compatible.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

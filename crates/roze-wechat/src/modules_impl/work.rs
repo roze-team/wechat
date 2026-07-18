@@ -4417,6 +4417,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetAddFieldGroupRequest,
     ) -> Result<WorkWeDocSmartSheetFieldGroupResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_field_group",
@@ -4431,6 +4432,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetUpdateFieldGroupRequest,
     ) -> Result<WorkWeDocSmartSheetFieldGroupResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_field_group",
@@ -4445,6 +4447,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetGetFieldGroupsRequest,
     ) -> Result<WorkWeDocSmartSheetGetFieldGroupsResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_field_groups",
@@ -4459,6 +4462,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetDeleteFieldGroupsRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_field_groups",
@@ -4473,6 +4477,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetGetPrivilegesRequest,
     ) -> Result<WorkWeDocSmartSheetGetPrivilegesResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/content_priv/get_sheet_priv",
@@ -17953,12 +17958,43 @@ pub struct WorkWeDocSmartSheetFieldGroupChild {
     pub extra: Value,
 }
 
+impl WorkWeDocSmartSheetFieldGroupChild {
+    pub fn new(field_id: impl Into<String>) -> Self {
+        Self {
+            field_id: field_id.into(),
+            extra: Value::Null,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetAddFieldGroupRequest {
     pub docid: String,
     pub sheet_id: String,
     pub name: String,
     pub children: Vec<WorkWeDocSmartSheetFieldGroupChild>,
+}
+
+impl WorkWeDocSmartSheetAddFieldGroupRequest {
+    pub fn new(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        name: impl Into<String>,
+        children: impl IntoIterator<Item = WorkWeDocSmartSheetFieldGroupChild>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            name: name.into(),
+            children: children.into_iter().collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_field_group_scope(&self.docid, &self.sheet_id)?;
+        validate_wedoc_smartsheet_field_group_name(&self.name)?;
+        validate_wedoc_smartsheet_field_group_children(&self.children)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17968,8 +18004,61 @@ pub struct WorkWeDocSmartSheetUpdateFieldGroupRequest {
     pub field_group_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub children: Vec<WorkWeDocSmartSheetFieldGroupChild>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<WorkWeDocSmartSheetFieldGroupChild>>,
+}
+
+impl WorkWeDocSmartSheetUpdateFieldGroupRequest {
+    pub fn rename(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        field_group_id: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            field_group_id: field_group_id.into(),
+            name: Some(name.into()),
+            children: None,
+        }
+    }
+
+    pub fn replace_children(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        field_group_id: impl Into<String>,
+        children: impl IntoIterator<Item = WorkWeDocSmartSheetFieldGroupChild>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            field_group_id: field_group_id.into(),
+            name: None,
+            children: Some(children.into_iter().collect()),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_field_group_scope(&self.docid, &self.sheet_id)?;
+        if self.field_group_id.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field-group id cannot be empty".to_string(),
+            ));
+        }
+        if self.name.is_none() && self.children.is_none() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field-group update requires a name or children".to_string(),
+            ));
+        }
+        if let Some(name) = &self.name {
+            validate_wedoc_smartsheet_field_group_name(name)?;
+        }
+        if let Some(children) = &self.children {
+            validate_wedoc_smartsheet_field_group_children(children)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18006,6 +18095,23 @@ pub struct WorkWeDocSmartSheetGetFieldGroupsRequest {
     pub limit: Option<i64>,
 }
 
+impl WorkWeDocSmartSheetGetFieldGroupsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_field_group_scope(&self.docid, &self.sheet_id)?;
+        if self.offset.is_some_and(|offset| offset < 0) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field-group offset cannot be negative".to_string(),
+            ));
+        }
+        if self.limit.is_some_and(|limit| limit <= 0) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field-group limit must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetGetFieldGroupsResponse {
     #[serde(default)]
@@ -18031,13 +18137,136 @@ pub struct WorkWeDocSmartSheetDeleteFieldGroupsRequest {
     pub field_group_ids: Vec<String>,
 }
 
+impl WorkWeDocSmartSheetDeleteFieldGroupsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_field_group_scope(&self.docid, &self.sheet_id)?;
+        if self.field_group_ids.is_empty()
+            || self.field_group_ids.len() > 150
+            || self
+                .field_group_ids
+                .iter()
+                .any(|field_group_id| field_group_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field-group deletion requires 1 to 150 non-empty ids"
+                    .to_string(),
+            ));
+        }
+        if has_duplicate_strings(&self.field_group_ids) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field-group ids cannot contain duplicates".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetGetPrivilegesRequest {
     pub docid: String,
     #[serde(rename = "type")]
-    pub rule_type: i64,
+    pub rule_type: WorkWeDocSmartSheetPrivilegeRuleType,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rule_id_list: Vec<String>,
+}
+
+impl WorkWeDocSmartSheetGetPrivilegesRequest {
+    pub fn all_members(docid: impl Into<String>) -> Self {
+        Self {
+            docid: docid.into(),
+            rule_type: WorkWeDocSmartSheetPrivilegeRuleType::AllMembers,
+            rule_id_list: Vec::new(),
+        }
+    }
+
+    pub fn additional(
+        docid: impl Into<String>,
+        rule_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            rule_type: WorkWeDocSmartSheetPrivilegeRuleType::Additional,
+            rule_id_list: rule_ids.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.docid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet privilege document id cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .rule_id_list
+            .iter()
+            .any(|rule_id| rule_id.trim().is_empty())
+            || has_duplicate_strings(&self.rule_id_list)
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet privilege rule ids must be non-empty and unique".to_string(),
+            ));
+        }
+        match self.rule_type {
+            WorkWeDocSmartSheetPrivilegeRuleType::AllMembers if !self.rule_id_list.is_empty() => {
+                Err(WechatError::Config(
+                    "all-member WeDoc smart-sheet privilege queries cannot include rule ids"
+                        .to_string(),
+                ))
+            }
+            WorkWeDocSmartSheetPrivilegeRuleType::Additional if self.rule_id_list.is_empty() => {
+                Err(WechatError::Config(
+                    "additional WeDoc smart-sheet privilege queries require rule ids".to_string(),
+                ))
+            }
+            WorkWeDocSmartSheetPrivilegeRuleType::Other(code) => Err(WechatError::Config(format!(
+                "unsupported WeDoc smart-sheet privilege rule type {code}"
+            ))),
+            _ => Ok(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetPrivilegeRuleType {
+    AllMembers,
+    Additional,
+    Other(i64),
+}
+
+impl WorkWeDocSmartSheetPrivilegeRuleType {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::AllMembers => 1,
+            Self::Additional => 2,
+            Self::Other(code) => code,
+        }
+    }
+
+    pub const fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::AllMembers,
+            2 => Self::Additional,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl Serialize for WorkWeDocSmartSheetPrivilegeRuleType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_code())
+    }
+}
+
+impl<'de> Deserialize<'de> for WorkWeDocSmartSheetPrivilegeRuleType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_code(i64::deserialize(deserializer)?))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18104,15 +18333,22 @@ impl WorkWeDocSmartSheetAuthResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetPrivilegeRule {
     #[serde(default)]
-    pub rule_id: Option<Value>,
+    pub rule_id: Option<WorkWeDocSmartSheetPrivilegeRuleId>,
     #[serde(rename = "type", default)]
-    pub rule_type: Option<i64>,
+    pub rule_type: Option<WorkWeDocSmartSheetPrivilegeRuleType>,
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
     pub priv_list: Vec<WorkWeDocSmartSheetPrivilege>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WorkWeDocSmartSheetPrivilegeRuleId {
+    String(String),
+    Integer(i64),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18169,6 +18405,61 @@ pub struct WorkWeDocSmartSheetFieldPrivilegeRule {
     pub can_view: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetFieldPrivilegeRule {
+    pub fn field_type_kind(&self) -> Option<WorkWeDocSmartSheetFieldTypeKind> {
+        self.field_type
+            .as_deref()
+            .map(WorkWeDocSmartSheetFieldTypeKind::from_code)
+    }
+}
+
+fn validate_wedoc_smartsheet_field_group_scope(docid: &str, sheet_id: &str) -> Result<()> {
+    if docid.trim().is_empty() || sheet_id.trim().is_empty() {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet field-group docid and sheet id cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_smartsheet_field_group_name(name: &str) -> Result<()> {
+    if name.trim().is_empty() {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet field-group name cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_smartsheet_field_group_children(
+    children: &[WorkWeDocSmartSheetFieldGroupChild],
+) -> Result<()> {
+    if children.len() > 150
+        || children
+            .iter()
+            .any(|child| child.field_id.trim().is_empty())
+    {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet field groups accept at most 150 non-empty field ids".to_string(),
+        ));
+    }
+    let field_ids = children
+        .iter()
+        .map(|child| child.field_id.as_str())
+        .collect::<Vec<_>>();
+    if has_duplicate_strings(&field_ids) {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet field-group children cannot contain duplicate field ids".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn has_duplicate_strings<S: AsRef<str>>(values: &[S]) -> bool {
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    values.iter().any(|value| !seen.insert(value.as_ref()))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29667,10 +29958,10 @@ mod tests {
             sheet_id: "sheet".to_string(),
             field_group_id: "group".to_string(),
             name: None,
-            children: vec![WorkWeDocSmartSheetFieldGroupChild {
+            children: Some(vec![WorkWeDocSmartSheetFieldGroupChild {
                 field_id: "field-status".to_string(),
                 extra: Value::Null,
-            }],
+            }]),
         })
         .unwrap();
         assert!(update.get("name").is_none());
@@ -29688,7 +29979,7 @@ mod tests {
 
         let privileges = serde_json::to_value(WorkWeDocSmartSheetGetPrivilegesRequest {
             docid: "doc".to_string(),
-            rule_type: 2,
+            rule_type: WorkWeDocSmartSheetPrivilegeRuleType::Additional,
             rule_id_list: vec!["rule-1".to_string()],
         })
         .unwrap();
@@ -29764,8 +30055,14 @@ mod tests {
         }))
         .unwrap();
         let rule = &privileges.rule_list[0];
-        assert_eq!(rule.rule_id.as_ref().unwrap(), &json!(1));
-        assert_eq!(rule.rule_type, Some(1));
+        assert_eq!(
+            rule.rule_id,
+            Some(WorkWeDocSmartSheetPrivilegeRuleId::Integer(1))
+        );
+        assert_eq!(
+            rule.rule_type,
+            Some(WorkWeDocSmartSheetPrivilegeRuleType::AllMembers)
+        );
         let sheet = &rule.priv_list[0];
         assert_eq!(sheet.priv_level, Some(2));
         assert_eq!(
@@ -29775,11 +30072,80 @@ mod tests {
         let field_priv = sheet.field_priv.as_ref().unwrap();
         assert_eq!(field_priv.field_range_type, Some(2));
         assert_eq!(
-            field_priv.field_rule_list[0].field_type.as_deref(),
-            Some("FIELD_TYPE_USER")
+            field_priv.field_rule_list[0].field_type_kind(),
+            Some(WorkWeDocSmartSheetFieldTypeKind::User)
         );
         assert_eq!(field_priv.field_rule_list[0].extra["mask_mode"], "none");
         assert_eq!(sheet.extra["audit_required"], true);
         assert_eq!(privileges.extra["trace_id"], "privileges");
+    }
+
+    #[test]
+    fn validates_work_wedoc_smartsheet_field_groups_and_privilege_queries() {
+        let add = WorkWeDocSmartSheetAddFieldGroupRequest::new(
+            "doc",
+            "sheet",
+            "Ownership",
+            [WorkWeDocSmartSheetFieldGroupChild::new("field-owner")],
+        );
+        assert!(add.validate().is_ok());
+
+        let clear = WorkWeDocSmartSheetUpdateFieldGroupRequest::replace_children(
+            "doc",
+            "sheet",
+            "group",
+            [],
+        );
+        assert!(clear.validate().is_ok());
+        let clear_json = serde_json::to_value(&clear).unwrap();
+        assert_eq!(clear_json["children"], json!([]));
+        assert!(clear_json.get("name").is_none());
+
+        let rename =
+            WorkWeDocSmartSheetUpdateFieldGroupRequest::rename("doc", "sheet", "group", "New");
+        assert!(rename.validate().is_ok());
+        let rename_json = serde_json::to_value(&rename).unwrap();
+        assert!(rename_json.get("children").is_none());
+
+        let no_change = WorkWeDocSmartSheetUpdateFieldGroupRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            field_group_id: "group".to_string(),
+            name: None,
+            children: None,
+        };
+        assert!(no_change.validate().is_err());
+
+        let duplicate_children = WorkWeDocSmartSheetAddFieldGroupRequest::new(
+            "doc",
+            "sheet",
+            "Ownership",
+            [
+                WorkWeDocSmartSheetFieldGroupChild::new("field-owner"),
+                WorkWeDocSmartSheetFieldGroupChild::new("field-owner"),
+            ],
+        );
+        assert!(duplicate_children.validate().is_err());
+
+        let bad_page = WorkWeDocSmartSheetGetFieldGroupsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            offset: Some(-1),
+            limit: Some(0),
+        };
+        assert!(bad_page.validate().is_err());
+
+        let all = WorkWeDocSmartSheetGetPrivilegesRequest::all_members("doc");
+        assert!(all.validate().is_ok());
+        assert_eq!(serde_json::to_value(all).unwrap()["type"], 1);
+
+        let additional =
+            WorkWeDocSmartSheetGetPrivilegesRequest::additional("doc", ["rule-1", "rule-2"]);
+        assert!(additional.validate().is_ok());
+        assert_eq!(serde_json::to_value(additional).unwrap()["type"], 2);
+
+        let missing_rules =
+            WorkWeDocSmartSheetGetPrivilegesRequest::additional("doc", Vec::<String>::new());
+        assert!(missing_rules.validate().is_err());
     }
 }
