@@ -2041,9 +2041,11 @@ impl Work {
                 mentioned_mobile_list: Vec::new(),
             }),
             markdown: None,
+            markdown_v2: None,
             image: None,
             news: None,
             file: None,
+            voice: None,
             template_card: None,
         }
     }
@@ -2055,9 +2057,43 @@ impl Work {
             markdown: Some(GroupRobotMarkdownMessage {
                 content: content.into(),
             }),
+            markdown_v2: None,
             image: None,
             news: None,
             file: None,
+            voice: None,
+            template_card: None,
+        }
+    }
+
+    pub fn group_robot_markdown_v2(content: impl Into<String>) -> GroupRobotMessage {
+        GroupRobotMessage {
+            msgtype: WorkMessageTypeKind::MarkdownV2.as_code().to_string(),
+            text: None,
+            markdown: None,
+            markdown_v2: Some(GroupRobotMarkdownMessage {
+                content: content.into(),
+            }),
+            image: None,
+            news: None,
+            file: None,
+            voice: None,
+            template_card: None,
+        }
+    }
+
+    pub fn group_robot_voice(media_id: impl Into<String>) -> GroupRobotMessage {
+        GroupRobotMessage {
+            msgtype: WorkMessageTypeKind::Voice.as_code().to_string(),
+            text: None,
+            markdown: None,
+            markdown_v2: None,
+            image: None,
+            news: None,
+            file: None,
+            voice: Some(GroupRobotVoiceMessage {
+                media_id: media_id.into(),
+            }),
             template_card: None,
         }
     }
@@ -6215,6 +6251,7 @@ pub enum WorkMessageTypeKind {
     Video,
     File,
     Markdown,
+    MarkdownV2,
     TextCard,
     News,
     MpNews,
@@ -6237,6 +6274,10 @@ impl WorkMessageTypeKind {
             Self::File
         } else if value.eq_ignore_ascii_case("markdown") {
             Self::Markdown
+        } else if value.eq_ignore_ascii_case("markdown_v2")
+            || value.eq_ignore_ascii_case("markdownv2")
+        {
+            Self::MarkdownV2
         } else if value.eq_ignore_ascii_case("textcard") || value.eq_ignore_ascii_case("text_card")
         {
             Self::TextCard
@@ -6265,6 +6306,7 @@ impl WorkMessageTypeKind {
             Self::Video => "video",
             Self::File => "file",
             Self::Markdown => "markdown",
+            Self::MarkdownV2 => "markdown_v2",
             Self::TextCard => "textcard",
             Self::News => "news",
             Self::MpNews => "mpnews",
@@ -7627,11 +7669,54 @@ pub struct MessageSendResponse {
     #[serde(default)]
     pub invalidtag: Option<String>,
     #[serde(default)]
+    pub unlicenseduser: Option<String>,
+    #[serde(default)]
     pub msgid: Option<String>,
     #[serde(default)]
     pub response_code: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+fn work_message_recipient_ids(value: Option<&str>) -> impl Iterator<Item = &str> {
+    value
+        .into_iter()
+        .flat_map(|value| value.split('|'))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+impl MessageSendResponse {
+    pub fn invalid_users(&self) -> Vec<&str> {
+        work_message_recipient_ids(self.invaliduser.as_deref()).collect()
+    }
+
+    pub fn invalid_parties(&self) -> Vec<&str> {
+        work_message_recipient_ids(self.invalidparty.as_deref()).collect()
+    }
+
+    pub fn invalid_tags(&self) -> Vec<&str> {
+        work_message_recipient_ids(self.invalidtag.as_deref()).collect()
+    }
+
+    pub fn unlicensed_users(&self) -> Vec<&str> {
+        work_message_recipient_ids(self.unlicenseduser.as_deref()).collect()
+    }
+
+    pub fn has_delivery_failures(&self) -> bool {
+        work_message_recipient_ids(self.invaliduser.as_deref())
+            .next()
+            .is_some()
+            || work_message_recipient_ids(self.invalidparty.as_deref())
+                .next()
+                .is_some()
+            || work_message_recipient_ids(self.invalidtag.as_deref())
+                .next()
+                .is_some()
+            || work_message_recipient_ids(self.unlicenseduser.as_deref())
+                .next()
+                .is_some()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9985,11 +10070,15 @@ pub struct GroupRobotMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<GroupRobotMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub markdown_v2: Option<GroupRobotMarkdownMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<GroupRobotImageMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub news: Option<GroupRobotNewsMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file: Option<GroupRobotFileMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<GroupRobotVoiceMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub template_card: Option<GroupRobotTemplateCardMessage>,
 }
@@ -10041,6 +10130,8 @@ pub type GroupRobotTemplateCardMessage = WorkTemplateCard;
 pub struct GroupRobotFileMessage {
     pub media_id: String,
 }
+
+pub type GroupRobotVoiceMessage = GroupRobotFileMessage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUploadImageResponse {
@@ -16462,16 +16553,31 @@ mod tests {
 
         let response: MessageSendResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "invaliduser": "bad-user",
+            "invaliduser": "bad-user| second-user ||",
+            "invalidparty": "party-a",
+            "invalidtag": "tag-a",
+            "unlicenseduser": "user-c|user-d",
             "msgid": "msg",
             "response_code": "response",
             "request_id": "req-1"
         }))
         .unwrap();
-        assert_eq!(response.invaliduser.as_deref(), Some("bad-user"));
+        assert_eq!(
+            response.invaliduser.as_deref(),
+            Some("bad-user| second-user ||")
+        );
+        assert_eq!(response.invalid_users(), vec!["bad-user", "second-user"]);
+        assert_eq!(response.invalid_parties(), vec!["party-a"]);
+        assert_eq!(response.invalid_tags(), vec!["tag-a"]);
+        assert_eq!(response.unlicensed_users(), vec!["user-c", "user-d"]);
+        assert!(response.has_delivery_failures());
         assert_eq!(response.msgid.as_deref(), Some("msg"));
         assert_eq!(response.response_code.as_deref(), Some("response"));
         assert_eq!(response.extra["request_id"], "req-1");
+
+        let delivered: MessageSendResponse =
+            serde_json::from_value(json!({ "errcode": 0, "errmsg": "ok" })).unwrap();
+        assert!(!delivered.has_delivery_failures());
     }
 
     #[test]
@@ -16879,15 +16985,29 @@ mod tests {
         assert_eq!(markdown["msgtype"], "markdown");
         assert_eq!(markdown["markdown"]["content"], "**hello**");
 
+        let markdown_v2 = serde_json::to_value(Work::group_robot_markdown_v2("# hello")).unwrap();
+        assert_eq!(markdown_v2["msgtype"], "markdown_v2");
+        assert_eq!(markdown_v2["markdown_v2"]["content"], "# hello");
+        assert_eq!(
+            Work::group_robot_markdown_v2("# hello").msgtype_kind(),
+            WorkMessageTypeKind::MarkdownV2
+        );
+
+        let voice = serde_json::to_value(Work::group_robot_voice("voice-media")).unwrap();
+        assert_eq!(voice["msgtype"], "voice");
+        assert_eq!(voice["voice"]["media_id"], "voice-media");
+
         let file = GroupRobotMessage {
             msgtype: "file".to_string(),
             text: None,
             markdown: None,
+            markdown_v2: None,
             image: None,
             news: None,
             file: Some(GroupRobotFileMessage {
                 media_id: "media".to_string(),
             }),
+            voice: None,
             template_card: None,
         };
         assert_eq!(file.msgtype_kind(), WorkMessageTypeKind::File);
@@ -16898,12 +17018,14 @@ mod tests {
             msgtype: "image".to_string(),
             text: None,
             markdown: None,
+            markdown_v2: None,
             image: Some(GroupRobotImageMessage {
                 base64: "aW1hZ2U=".to_string(),
                 md5: "md5".to_string(),
             }),
             news: None,
             file: None,
+            voice: None,
             template_card: None,
         })
         .unwrap();
@@ -16913,6 +17035,7 @@ mod tests {
             msgtype: "news".to_string(),
             text: None,
             markdown: None,
+            markdown_v2: None,
             image: None,
             news: Some(GroupRobotNewsMessage {
                 articles: vec![GroupRobotNewsArticle {
@@ -16923,6 +17046,7 @@ mod tests {
                 }],
             }),
             file: None,
+            voice: None,
             template_card: None,
         })
         .unwrap();
@@ -16947,9 +17071,11 @@ mod tests {
             msgtype: "template_card".to_string(),
             text: None,
             markdown: None,
+            markdown_v2: None,
             image: None,
             news: None,
             file: None,
+            voice: None,
             template_card: Some(template_card),
         };
         assert_eq!(

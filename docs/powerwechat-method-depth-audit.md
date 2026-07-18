@@ -78,6 +78,15 @@ uses Rust `format!` placeholders.
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
 
+Implemented on 2026-07-18 in Roze WeChat Work message depth:
+
+- Work application-message responses now expose `unlicenseduser` and semantic
+  list helpers for invalid users, departments, tags, and unlicensed users,
+  including a single delivery-failure check for partial-send handling.
+- Work group robots now support typed `markdown_v2` and voice payloads with
+  constructors and semantic message-type detection, matching the current
+  webhook message contract.
+
 Implemented on 2026-07-18 in Roze WeChat Work media depth:
 
 - Work media now covers the current asynchronous CDN upload lifecycle:
