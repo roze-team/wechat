@@ -153,6 +153,21 @@ Implemented on 2026-07-18 in Roze WeChat Work external-contact operations:
   status semantics are reused for legacy result records. The current WxJava
   external-contact exact-path comparison is now green.
 
+Implemented on 2026-07-18 in Roze WeChat Work external-contact message depth:
+
+- enterprise group-message `tag_filter` is now a typed group/tag DTO instead
+  of arbitrary JSON, with constructors, tag counting, non-empty ID checks, and
+  the upstream 100-tags-per-group limit;
+- group-message template requests expose semantic `single`/`group` chat-type
+  classification and are validated before the HTTP request is sent;
+- validation enforces audience-field separation, required sender rules,
+  10,000-customer and 2,000-chat audience limits, the nine-attachment limit,
+  and a non-empty message payload;
+- `ExternalContactCursorPage` now provides a shared `next_cursor`/`has_more`
+  contract across 20 served-contact, detail, contact-way, group-chat,
+  acquisition, product, group-message, transfer, unassigned, strategy, and
+  moment response types, treating blank cursors as terminal pages.
+
 Implemented on 2026-07-18 in Roze WeChat Work external-contact management:
 
 - External-contact sensitive-word interception now covers add, update, delete,

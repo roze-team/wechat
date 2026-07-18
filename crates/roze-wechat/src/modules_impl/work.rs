@@ -1922,6 +1922,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactMessageTemplateRequest,
     ) -> Result<ExternalContactMessageTemplateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_msg_template",
@@ -10277,7 +10278,7 @@ pub struct ExternalContactMessageTemplateRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chat_id_list: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tag_filter: Option<Value>,
+    pub tag_filter: Option<ExternalContactMessageTagFilter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender: Option<String>,
     pub allow_select: bool,
@@ -10285,6 +10286,175 @@ pub struct ExternalContactMessageTemplateRequest {
     pub text: Option<ExternalContactMessageText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<ExternalContactMessageAttachment>,
+}
+
+impl ExternalContactMessageTemplateRequest {
+    pub fn chat_type_kind(&self) -> ExternalContactMessageChatTypeKind {
+        ExternalContactMessageChatTypeKind::from_code(&self.chat_type)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self.chat_type_kind() {
+            ExternalContactMessageChatTypeKind::Single => {
+                if !self.chat_id_list.is_empty() {
+                    return Err(WechatError::Config(
+                        "single external-contact message cannot contain chat_id_list".to_string(),
+                    ));
+                }
+                if self.external_userid.is_empty()
+                    && self
+                        .sender
+                        .as_deref()
+                        .is_none_or(|sender| sender.trim().is_empty())
+                {
+                    return Err(WechatError::Config(
+                        "single external-contact message requires external_userid or sender"
+                            .to_string(),
+                    ));
+                }
+                if self.external_userid.len() > 10_000 {
+                    return Err(WechatError::Config(
+                        "single external-contact message supports at most 10000 customers"
+                            .to_string(),
+                    ));
+                }
+            }
+            ExternalContactMessageChatTypeKind::Group => {
+                if !self.external_userid.is_empty() {
+                    return Err(WechatError::Config(
+                        "group external-contact message cannot contain external_userid".to_string(),
+                    ));
+                }
+                if self
+                    .sender
+                    .as_deref()
+                    .is_none_or(|sender| sender.trim().is_empty())
+                {
+                    return Err(WechatError::Config(
+                        "group external-contact message requires sender".to_string(),
+                    ));
+                }
+                if self.chat_id_list.len() > 2_000 {
+                    return Err(WechatError::Config(
+                        "group external-contact message supports at most 2000 chats".to_string(),
+                    ));
+                }
+            }
+            ExternalContactMessageChatTypeKind::Other => {
+                return Err(WechatError::Config(format!(
+                    "unsupported external-contact message chat_type: {}",
+                    self.chat_type
+                )));
+            }
+        }
+        if self.attachments.len() > 9 {
+            return Err(WechatError::Config(
+                "external-contact message supports at most 9 attachments".to_string(),
+            ));
+        }
+        if self.text.is_none() && self.attachments.is_empty() {
+            return Err(WechatError::Config(
+                "external-contact message requires text or at least one attachment".to_string(),
+            ));
+        }
+        if let Some(tag_filter) = &self.tag_filter {
+            tag_filter.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactMessageChatTypeKind {
+    Single,
+    Group,
+    Other,
+}
+
+impl ExternalContactMessageChatTypeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("single") {
+            Self::Single
+        } else if value.eq_ignore_ascii_case("group") {
+            Self::Group
+        } else {
+            Self::Other
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageTagFilter {
+    pub group_list: Vec<ExternalContactMessageTagGroup>,
+}
+
+impl ExternalContactMessageTagFilter {
+    pub fn from_tag_groups(
+        groups: impl IntoIterator<Item = impl IntoIterator<Item = impl Into<String>>>,
+    ) -> Self {
+        Self {
+            group_list: groups
+                .into_iter()
+                .map(ExternalContactMessageTagGroup::new)
+                .collect(),
+        }
+    }
+
+    pub fn tag_count(&self) -> usize {
+        self.group_list
+            .iter()
+            .map(|group| group.tag_list.len())
+            .sum()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.group_list.is_empty() {
+            return Err(WechatError::Config(
+                "external-contact message tag filter requires at least one group".to_string(),
+            ));
+        }
+        if self
+            .group_list
+            .iter()
+            .any(|group| group.tag_list.is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-contact message tag group cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .group_list
+            .iter()
+            .any(|group| group.tag_list.iter().any(|tag_id| tag_id.trim().is_empty()))
+        {
+            return Err(WechatError::Config(
+                "external-contact message tag id cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .group_list
+            .iter()
+            .any(|group| group.tag_list.len() > 100)
+        {
+            return Err(WechatError::Config(
+                "external-contact message tag group supports at most 100 tags".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactMessageTagGroup {
+    pub tag_list: Vec<String>,
+}
+
+impl ExternalContactMessageTagGroup {
+    pub fn new(tags: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            tag_list: tags.into_iter().map(Into::into).collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10995,6 +11165,50 @@ pub struct ExternalContactMomentCommentResponse {
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
+
+pub trait ExternalContactCursorPage {
+    fn next_cursor(&self) -> Option<&str>;
+
+    fn has_more(&self) -> bool {
+        self.next_cursor()
+            .is_some_and(|cursor| !cursor.trim().is_empty())
+    }
+}
+
+macro_rules! impl_external_contact_cursor_page {
+    ($($response:ty),+ $(,)?) => {
+        $(
+            impl ExternalContactCursorPage for $response {
+                fn next_cursor(&self) -> Option<&str> {
+                    self.next_cursor.as_deref()
+                }
+            }
+        )+
+    };
+}
+
+impl_external_contact_cursor_page!(
+    ExternalContactServedListResponse,
+    ExternalContactDetailResponse,
+    ExternalContactBatchGetResponse,
+    ContactWayListResponse,
+    ExternalGroupChatListResponse,
+    ExternalContactMomentStrategyListResponse,
+    ExternalContactMomentStrategyRangeResponse,
+    CustomerAcquisitionLinkListResponse,
+    ExternalContactProductAlbumListResponse,
+    CustomerAcquisitionCustomerListResponse,
+    ExternalContactGroupMessageListResponse,
+    ExternalContactGroupMessageTaskResponse,
+    ExternalContactGroupMessageSendResultResponse,
+    ExternalContactGroupMessageResultResponse,
+    ExternalCustomerTransferResponse,
+    ExternalContactUnassignedListResponse,
+    ExternalContactMomentListResponse,
+    ExternalContactMomentTaskResponse,
+    ExternalContactMomentCustomerListResponse,
+    ExternalContactMomentCommentResponse,
+);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentComment {
@@ -20015,11 +20229,11 @@ mod tests {
 
     #[test]
     fn serializes_external_contact_message_template_requests() {
-        let template = serde_json::to_value(ExternalContactMessageTemplateRequest {
+        let request = ExternalContactMessageTemplateRequest {
             chat_type: "single".to_string(),
             external_userid: vec!["external".to_string()],
             chat_id_list: Vec::new(),
-            tag_filter: Some(json!({ "group_list": [{ "tag_list": ["tag"] }] })),
+            tag_filter: Some(ExternalContactMessageTagFilter::from_tag_groups([["tag"]])),
             sender: Some("sender".to_string()),
             allow_select: true,
             text: Some(ExternalContactMessageText::new("hello")),
@@ -20032,10 +20246,20 @@ mod tests {
                     extra: Value::Null,
                 },
             )],
-        })
-        .unwrap();
+        };
+        request.validate().unwrap();
+        assert_eq!(
+            request.chat_type_kind(),
+            ExternalContactMessageChatTypeKind::Single
+        );
+        assert_eq!(request.tag_filter.as_ref().unwrap().tag_count(), 1);
+        let template = serde_json::to_value(request).unwrap();
         assert_eq!(template["chat_type"], "single");
         assert_eq!(template["external_userid"][0], "external");
+        assert_eq!(
+            template["tag_filter"]["group_list"][0]["tag_list"][0],
+            "tag"
+        );
         assert_eq!(template["attachments"][0]["msgtype"], "link");
         assert_eq!(
             template["attachments"][0]["link"],
@@ -20043,6 +20267,49 @@ mod tests {
         );
         assert!(template.get("chat_id_list").is_none());
         assert!(template["attachments"][0].get("image").is_none());
+
+        let invalid_group = ExternalContactMessageTemplateRequest {
+            chat_type: "group".to_string(),
+            external_userid: vec!["external".to_string()],
+            chat_id_list: Vec::new(),
+            tag_filter: None,
+            sender: None,
+            allow_select: false,
+            text: Some(ExternalContactMessageText::new("hello")),
+            attachments: Vec::new(),
+        };
+        assert!(invalid_group.validate().is_err());
+
+        let invalid_filter = ExternalContactMessageTagFilter::from_tag_groups([[""]]);
+        assert!(invalid_filter.validate().is_err());
+        let oversized_filter = ExternalContactMessageTagFilter::from_tag_groups([
+            (0..101).map(|index| format!("tag-{index}"))
+        ]);
+        assert!(oversized_filter.validate().is_err());
+
+        let valid_group = ExternalContactMessageTemplateRequest {
+            chat_type: "group".to_string(),
+            external_userid: Vec::new(),
+            chat_id_list: vec!["chat".to_string()],
+            tag_filter: None,
+            sender: Some("sender".to_string()),
+            allow_select: false,
+            text: None,
+            attachments: vec![ExternalContactMessageAttachment::image("media")],
+        };
+        valid_group.validate().unwrap();
+        assert_eq!(
+            valid_group.chat_type_kind(),
+            ExternalContactMessageChatTypeKind::Group
+        );
+
+        let page: ExternalContactGroupMessageListResponse =
+            serde_json::from_value(json!({ "next_cursor": " cursor " })).unwrap();
+        assert!(page.has_more());
+        assert_eq!(page.next_cursor(), Some(" cursor "));
+        let last_page: ExternalContactGroupMessageListResponse =
+            serde_json::from_value(json!({ "next_cursor": "" })).unwrap();
+        assert!(!last_page.has_more());
 
         let list = serde_json::to_value(ExternalContactGroupMessageListRequest {
             chat_type: "group".to_string(),
