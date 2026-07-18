@@ -1159,6 +1159,24 @@ depth:
   sender accounts; text, media, and sender-account constructors provide common
   production request paths without hand-building JSON.
 
+Implemented on 2026-07-18 in Work external-contact corporate and strategy tag
+depth:
+
+- corporate tag list/add/edit/delete and strategy tag list/add/edit/delete now
+  validate their request DTOs before network I/O while retaining the existing
+  PowerWeChat-compatible wire contracts;
+- list requests permit empty filters for a full tag library but reject blank or
+  duplicate tag and group ids, while delete requests require at least one
+  selected tag or group;
+- add requests distinguish new tag groups from additions to existing groups,
+  validate one to thirty unique named tags, enforce the thirty-character name
+  boundary, and reject negative group or tag ordering values;
+- edit requests validate tag-or-group identity, names and ordering, optional
+  corporate application ids must be positive, and strategy operations require
+  positive strategy ids;
+- new-group, existing-group, tag-item and full-list constructors provide valid
+  defaults for common corporate and strategy tag workflows without ad hoc JSON.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

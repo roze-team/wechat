@@ -1317,6 +1317,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CorpTagListRequest,
     ) -> Result<CorpTagListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_corp_tag_list",
@@ -1331,6 +1332,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CorpTagAddRequest,
     ) -> Result<CorpTagAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_corp_tag",
@@ -1345,6 +1347,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CorpTagEditRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/edit_corp_tag",
@@ -1359,6 +1362,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CorpTagDeleteRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/del_corp_tag",
@@ -1602,6 +1606,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactStrategyTagListRequest,
     ) -> Result<ExternalContactStrategyTagListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_strategy_tag_list",
@@ -1616,6 +1621,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactStrategyTagAddRequest,
     ) -> Result<ExternalContactStrategyTagAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_strategy_tag",
@@ -1630,6 +1636,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactStrategyTagEditRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/edit_strategy_tag",
@@ -1644,6 +1651,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactStrategyTagDeleteRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/del_strategy_tag",
@@ -10413,6 +10421,19 @@ pub struct CorpTagListRequest {
     pub group_id: Vec<String>,
 }
 
+impl CorpTagListRequest {
+    pub fn all() -> Self {
+        Self {
+            tag_id: Vec::new(),
+            group_id: Vec::new(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_id_lists(&self.tag_id, &self.group_id, false)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorpTag {
     #[serde(default)]
@@ -10473,11 +10494,54 @@ pub struct CorpTagAddRequest {
     pub agentid: Option<i64>,
 }
 
+impl CorpTagAddRequest {
+    pub fn new_group(group_name: impl Into<String>, tag: Vec<CorpTagAddItem>) -> Self {
+        Self {
+            group_id: None,
+            group_name: group_name.into(),
+            order: None,
+            tag,
+            agentid: None,
+        }
+    }
+
+    pub fn existing_group(group_id: impl Into<String>, tag: Vec<CorpTagAddItem>) -> Self {
+        Self {
+            group_id: Some(group_id.into()),
+            group_name: String::new(),
+            order: None,
+            tag,
+            agentid: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_group_target(self.group_id.as_deref(), &self.group_name)?;
+        validate_external_tag_order("corporate tag group", self.order)?;
+        validate_external_tag_items(&self.tag)?;
+        validate_external_tag_agent_id(self.agentid)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorpTagAddItem {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order: Option<i64>,
+}
+
+impl CorpTagAddItem {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            order: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_name("corporate tag", &self.name)?;
+        validate_external_tag_order("corporate tag", self.order)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10502,6 +10566,15 @@ pub struct CorpTagEditRequest {
     pub agentid: Option<i64>,
 }
 
+impl CorpTagEditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_identifier("corporate tag or group id", &self.id)?;
+        validate_external_tag_name("corporate tag or group", &self.name)?;
+        validate_external_tag_order("corporate tag or group", self.order)?;
+        validate_external_tag_agent_id(self.agentid)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorpTagDeleteRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -10510,6 +10583,13 @@ pub struct CorpTagDeleteRequest {
     pub group_id: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agentid: Option<i64>,
+}
+
+impl CorpTagDeleteRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_id_lists(&self.tag_id, &self.group_id, true)?;
+        validate_external_tag_agent_id(self.agentid)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10954,6 +11034,21 @@ pub struct ExternalContactStrategyTagListRequest {
     pub group_id: Vec<String>,
 }
 
+impl ExternalContactStrategyTagListRequest {
+    pub fn all(strategy_id: i64) -> Self {
+        Self {
+            strategy_id,
+            tag_id: Vec::new(),
+            group_id: Vec::new(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_id(self.strategy_id)?;
+        validate_external_tag_id_lists(&self.tag_id, &self.group_id, false)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactStrategyTagAddRequest {
     pub strategy_id: i64,
@@ -10964,10 +11059,61 @@ pub struct ExternalContactStrategyTagAddRequest {
     pub tag: Vec<ExternalContactStrategyTagAddItem>,
 }
 
+impl ExternalContactStrategyTagAddRequest {
+    pub fn new_group(
+        strategy_id: i64,
+        group_name: impl Into<String>,
+        tag: Vec<ExternalContactStrategyTagAddItem>,
+    ) -> Self {
+        Self {
+            strategy_id,
+            group_id: None,
+            group_name: group_name.into(),
+            order: 0,
+            tag,
+        }
+    }
+
+    pub fn existing_group(
+        strategy_id: i64,
+        group_id: impl Into<String>,
+        tag: Vec<ExternalContactStrategyTagAddItem>,
+    ) -> Self {
+        Self {
+            strategy_id,
+            group_id: Some(group_id.into()),
+            group_name: String::new(),
+            order: 0,
+            tag,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_strategy_id(self.strategy_id)?;
+        validate_external_tag_group_target(self.group_id.as_deref(), &self.group_name)?;
+        validate_external_tag_order("strategy tag group", Some(self.order))?;
+        validate_external_strategy_tag_items(&self.tag)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactStrategyTagAddItem {
     pub name: String,
     pub order: i64,
+}
+
+impl ExternalContactStrategyTagAddItem {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            order: 0,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_name("strategy tag", &self.name)?;
+        validate_external_tag_order("strategy tag", Some(self.order))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10977,12 +11123,144 @@ pub struct ExternalContactStrategyTagEditRequest {
     pub order: i64,
 }
 
+impl ExternalContactStrategyTagEditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_identifier("strategy tag or group id", &self.id)?;
+        validate_external_tag_name("strategy tag or group", &self.name)?;
+        validate_external_tag_order("strategy tag or group", Some(self.order))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactStrategyTagDeleteRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tag_id: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub group_id: Vec<String>,
+}
+
+impl ExternalContactStrategyTagDeleteRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_tag_id_lists(&self.tag_id, &self.group_id, true)
+    }
+}
+
+fn validate_external_tag_group_target(group_id: Option<&str>, group_name: &str) -> Result<()> {
+    if let Some(group_id) = group_id {
+        validate_external_tag_identifier("tag group id", group_id)?;
+    } else {
+        validate_external_tag_name("tag group", group_name)?;
+    }
+    Ok(())
+}
+
+fn validate_external_tag_items(items: &[CorpTagAddItem]) -> Result<()> {
+    if items.is_empty() || items.len() > 30 {
+        return Err(WechatError::Config(
+            "external-contact tag group must contain between 1 and 30 tags".to_string(),
+        ));
+    }
+    let mut names = std::collections::HashSet::with_capacity(items.len());
+    for item in items {
+        item.validate()?;
+        if !names.insert(item.name.trim()) {
+            return Err(WechatError::Config(
+                "external-contact tag names must be unique within a group".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_tag_items(items: &[ExternalContactStrategyTagAddItem]) -> Result<()> {
+    if items.is_empty() || items.len() > 30 {
+        return Err(WechatError::Config(
+            "external-contact strategy tag group must contain between 1 and 30 tags".to_string(),
+        ));
+    }
+    let mut names = std::collections::HashSet::with_capacity(items.len());
+    for item in items {
+        item.validate()?;
+        if !names.insert(item.name.trim()) {
+            return Err(WechatError::Config(
+                "external-contact strategy tag names must be unique within a group".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_external_tag_id_lists(
+    tag_ids: &[String],
+    group_ids: &[String],
+    require_selection: bool,
+) -> Result<()> {
+    if require_selection && tag_ids.is_empty() && group_ids.is_empty() {
+        return Err(WechatError::Config(
+            "external-contact tag deletion requires at least one tag or group id".to_string(),
+        ));
+    }
+    validate_external_tag_ids("tag", tag_ids)?;
+    validate_external_tag_ids("tag group", group_ids)
+}
+
+fn validate_external_tag_ids(kind: &str, ids: &[String]) -> Result<()> {
+    let mut unique = std::collections::HashSet::with_capacity(ids.len());
+    for id in ids {
+        validate_external_tag_identifier(kind, id)?;
+        if !unique.insert(id.trim()) {
+            return Err(WechatError::Config(format!(
+                "external-contact {kind} ids must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_external_tag_identifier(kind: &str, id: &str) -> Result<()> {
+    if id.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "external-contact {kind} must not be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_tag_name(kind: &str, name: &str) -> Result<()> {
+    let length = name.chars().count();
+    if length == 0 || name.trim().is_empty() || length > 30 {
+        return Err(WechatError::Config(format!(
+            "external-contact {kind} name must contain between 1 and 30 characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_tag_order(kind: &str, order: Option<i64>) -> Result<()> {
+    if order.is_some_and(|order| order < 0) {
+        return Err(WechatError::Config(format!(
+            "external-contact {kind} order must not be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_tag_agent_id(agent_id: Option<i64>) -> Result<()> {
+    if agent_id.is_some_and(|agent_id| agent_id <= 0) {
+        return Err(WechatError::Config(
+            "external-contact tag agent id must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_strategy_id(strategy_id: i64) -> Result<()> {
+    if strategy_id <= 0 {
+        return Err(WechatError::Config(
+            "external-contact strategy id must be positive".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24040,17 +24318,12 @@ mod tests {
         assert_eq!(remark["remark_mobiles"][0], "13800138000");
         assert!(remark.get("remark_company").is_none());
 
-        let add = serde_json::to_value(CorpTagAddRequest {
-            group_id: None,
-            group_name: "level".to_string(),
-            order: Some(1),
-            tag: vec![CorpTagAddItem {
-                name: "vip".to_string(),
-                order: None,
-            }],
-            agentid: Some(100001),
-        })
-        .unwrap();
+        let mut add_request =
+            CorpTagAddRequest::new_group("level", vec![CorpTagAddItem::new("vip")]);
+        add_request.order = Some(1);
+        add_request.agentid = Some(100001);
+        assert!(add_request.validate().is_ok());
+        let add = serde_json::to_value(add_request).unwrap();
         assert_eq!(add["group_name"], "level");
         assert_eq!(add["tag"][0]["name"], "vip");
         assert_eq!(add["agentid"], 100001);
@@ -24104,27 +24377,23 @@ mod tests {
         assert_eq!(mark["add_tag"][0], "tag-add");
         assert!(mark.get("remove_tag").is_none());
 
-        let strategy_list = serde_json::to_value(ExternalContactStrategyTagListRequest {
-            strategy_id: 1,
-            tag_id: vec!["tag".to_string()],
-            group_id: Vec::new(),
-        })
-        .unwrap();
+        let mut strategy_list_request = ExternalContactStrategyTagListRequest::all(1);
+        strategy_list_request.tag_id.push("tag".to_string());
+        assert!(strategy_list_request.validate().is_ok());
+        let strategy_list = serde_json::to_value(strategy_list_request).unwrap();
         assert_eq!(strategy_list["strategy_id"], 1);
         assert_eq!(strategy_list["tag_id"][0], "tag");
         assert!(strategy_list.get("group_id").is_none());
 
-        let strategy_add = serde_json::to_value(ExternalContactStrategyTagAddRequest {
-            strategy_id: 1,
-            group_id: None,
-            group_name: "strategy".to_string(),
-            order: 1,
-            tag: vec![ExternalContactStrategyTagAddItem {
-                name: "gold".to_string(),
-                order: 1,
-            }],
-        })
-        .unwrap();
+        let mut strategy_add_request = ExternalContactStrategyTagAddRequest::new_group(
+            1,
+            "strategy",
+            vec![ExternalContactStrategyTagAddItem::new("gold")],
+        );
+        strategy_add_request.order = 1;
+        strategy_add_request.tag[0].order = 1;
+        assert!(strategy_add_request.validate().is_ok());
+        let strategy_add = serde_json::to_value(strategy_add_request).unwrap();
         assert_eq!(strategy_add["group_name"], "strategy");
         assert_eq!(strategy_add["tag"][0]["name"], "gold");
 
@@ -24182,6 +24451,102 @@ mod tests {
         assert_eq!(strategy_created.group_id.as_deref(), Some("group"));
         assert_eq!(strategy_created.tag[0].id.as_deref(), Some("tag"));
         assert_eq!(strategy_created.extra["group_source"], "created");
+    }
+
+    #[test]
+    fn validates_external_contact_tag_lifecycle() {
+        assert!(CorpTagListRequest::all().validate().is_ok());
+        assert!(CorpTagListRequest {
+            tag_id: vec!["tag".to_string(), "tag".to_string()],
+            group_id: Vec::new(),
+        }
+        .validate()
+        .is_err());
+
+        assert!(CorpTagAddRequest::new_group(
+            "group",
+            vec![CorpTagAddItem::new("one"), CorpTagAddItem::new("two")],
+        )
+        .validate()
+        .is_ok());
+        assert!(
+            CorpTagAddRequest::existing_group("group-id", vec![CorpTagAddItem::new("tag")],)
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            CorpTagAddRequest::new_group("", vec![CorpTagAddItem::new("tag")],)
+                .validate()
+                .is_err()
+        );
+        assert!(CorpTagAddRequest::new_group(
+            "group",
+            vec![CorpTagAddItem::new("tag"), CorpTagAddItem::new("tag")],
+        )
+        .validate()
+        .is_err());
+        assert!(CorpTagAddRequest::new_group(
+            "group",
+            (0..31)
+                .map(|index| CorpTagAddItem::new(format!("tag-{index}")))
+                .collect(),
+        )
+        .validate()
+        .is_err());
+
+        assert!(CorpTagEditRequest {
+            id: "tag-id".to_string(),
+            name: "renamed".to_string(),
+            order: Some(1),
+            agentid: Some(100001),
+        }
+        .validate()
+        .is_ok());
+        assert!(CorpTagEditRequest {
+            id: "tag-id".to_string(),
+            name: "renamed".to_string(),
+            order: Some(-1),
+            agentid: None,
+        }
+        .validate()
+        .is_err());
+        assert!(CorpTagDeleteRequest {
+            tag_id: Vec::new(),
+            group_id: Vec::new(),
+            agentid: None,
+        }
+        .validate()
+        .is_err());
+
+        assert!(ExternalContactStrategyTagListRequest::all(1)
+            .validate()
+            .is_ok());
+        assert!(ExternalContactStrategyTagListRequest::all(0)
+            .validate()
+            .is_err());
+        assert!(ExternalContactStrategyTagAddRequest::existing_group(
+            1,
+            "group-id",
+            vec![ExternalContactStrategyTagAddItem::new("tag")],
+        )
+        .validate()
+        .is_ok());
+        assert!(ExternalContactStrategyTagAddRequest::new_group(
+            1,
+            "group",
+            vec![
+                ExternalContactStrategyTagAddItem::new("tag"),
+                ExternalContactStrategyTagAddItem::new("tag"),
+            ],
+        )
+        .validate()
+        .is_err());
+        assert!(ExternalContactStrategyTagDeleteRequest {
+            tag_id: Vec::new(),
+            group_id: Vec::new(),
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
