@@ -1043,6 +1043,20 @@ Implemented on 2026-07-18 in Work user mutation and batch-job depth:
   sizes and 43-character base64 AES keys, and result lookups reject blank or
   over-64-character job ids.
 
+Implemented on 2026-07-18 in Work OA calendar and schedule depth:
+
+- calendar add/update/get/delete paths validate positive agent ids, organizer,
+  identity, summary, `#RRGGBB` color, unique share users, readonly semantics,
+  and 1-to-1000 unique lookup ids before network I/O;
+- schedule add/update/get/delete paths validate identity, positive ordered time
+  ranges, unique admins and attendees, attendee response states, optional
+  calendar/organizer identity, and 1-to-1000 unique lookup ids;
+- reminder DTOs validate 0/1 switches, unique relative offsets, non-negative
+  before-event seconds, positive repeat intervals, future repeat termination,
+  valid unique week/month days, and positive exclusion timestamps;
+- calendar schedule queries expose a first-page constructor and enforce
+  non-negative offsets plus the 1000-row page boundary.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

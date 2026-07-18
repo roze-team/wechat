@@ -3577,6 +3577,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCalendarAddRequest,
     ) -> Result<WorkCalendarAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/calendar/add",
@@ -3591,6 +3592,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCalendarUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/calendar/update",
@@ -3605,6 +3607,7 @@ impl Work {
         access_token: impl Into<String>,
         cal_id_list: Vec<String>,
     ) -> Result<WorkCalendarGetResponse> {
+        validate_work_oa_id_batch("calendar", &cal_id_list, 1000)?;
         self.inner
             .post(
                 "cgi-bin/oa/calendar/get",
@@ -3619,11 +3622,13 @@ impl Work {
         access_token: impl Into<String>,
         cal_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let cal_id = cal_id.into();
+        validate_work_oa_identifier("calendar id", &cal_id)?;
         self.inner
             .post(
                 "cgi-bin/oa/calendar/del",
                 Some(access_token.into()),
-                json!({ "cal_id": cal_id.into() }),
+                json!({ "cal_id": cal_id }),
             )
             .await
     }
@@ -3771,6 +3776,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkScheduleAddRequest,
     ) -> Result<WorkScheduleAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/schedule/add",
@@ -3785,6 +3791,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkScheduleUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/schedule/update",
@@ -3799,6 +3806,7 @@ impl Work {
         access_token: impl Into<String>,
         schedule_id_list: Vec<String>,
     ) -> Result<WorkScheduleGetResponse> {
+        validate_work_oa_id_batch("schedule", &schedule_id_list, 1000)?;
         self.inner
             .post(
                 "cgi-bin/oa/schedule/get",
@@ -3813,6 +3821,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkScheduleByCalendarRequest,
     ) -> Result<WorkScheduleGetResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/schedule/get_by_calendar",
@@ -3827,11 +3836,13 @@ impl Work {
         access_token: impl Into<String>,
         schedule_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let schedule_id = schedule_id.into();
+        validate_work_oa_identifier("schedule id", &schedule_id)?;
         self.inner
             .post(
                 "cgi-bin/oa/schedule/del",
                 Some(access_token.into()),
-                json!({ "schedule_id": schedule_id.into() }),
+                json!({ "schedule_id": schedule_id }),
             )
             .await
     }
@@ -16157,6 +16168,17 @@ pub struct WorkCalendarAddRequest {
     pub agentid: i64,
 }
 
+impl WorkCalendarAddRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid <= 0 {
+            return Err(WechatError::Config(
+                "work calendar agent id must be positive".to_string(),
+            ));
+        }
+        self.calendar.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarCreate {
     pub organizer: String,
@@ -16172,9 +16194,22 @@ pub struct WorkCalendarCreate {
     pub extra: Value,
 }
 
+impl WorkCalendarCreate {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("calendar organizer", &self.organizer)?;
+        validate_work_calendar_fields(&self.summary, &self.color, &self.shares, self.readonly)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarUpdateRequest {
     pub calendar: WorkCalendarUpdate,
+}
+
+impl WorkCalendarUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.calendar.validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16192,9 +16227,73 @@ pub struct WorkCalendarUpdate {
     pub extra: Value,
 }
 
+impl WorkCalendarUpdate {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("calendar id", &self.cal_id)?;
+        validate_work_calendar_fields(&self.summary, &self.color, &self.shares, self.readonly)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarShareRequest {
     pub userid: String,
+}
+
+fn validate_work_calendar_fields(
+    summary: &str,
+    color: &str,
+    shares: &[WorkCalendarShareRequest],
+    readonly: Option<i64>,
+) -> Result<()> {
+    validate_work_oa_identifier("calendar summary", summary)?;
+    if color.len() != 7
+        || !color.starts_with('#')
+        || !color[1..]
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err(WechatError::Config(
+            "work calendar color must use #RRGGBB hexadecimal format".to_string(),
+        ));
+    }
+    let share_ids = shares
+        .iter()
+        .map(|share| share.userid.as_str())
+        .collect::<Vec<_>>();
+    if share_ids.iter().any(|userid| userid.trim().is_empty()) || has_duplicate_strings(&share_ids)
+    {
+        return Err(WechatError::Config(
+            "work calendar share user ids must be non-empty and unique".to_string(),
+        ));
+    }
+    if readonly.is_some_and(|readonly| !matches!(readonly, 0 | 1)) {
+        return Err(WechatError::Config(
+            "work calendar readonly must be 0 or 1".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_oa_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work OA {label} cannot be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_oa_id_batch(label: &str, ids: &[String], maximum: usize) -> Result<()> {
+    if ids.is_empty()
+        || ids.len() > maximum
+        || ids.iter().any(|id| id.trim().is_empty())
+        || has_duplicate_strings(ids)
+    {
+        return Err(WechatError::Config(format!(
+            "work OA {label} queries require 1 to {maximum} unique non-empty ids"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21763,6 +21862,17 @@ pub struct WorkScheduleAddRequest {
     pub agentid: i64,
 }
 
+impl WorkScheduleAddRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid <= 0 {
+            return Err(WechatError::Config(
+                "work schedule agent id must be positive".to_string(),
+            ));
+        }
+        self.schedule.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleCreate {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -21787,9 +21897,29 @@ pub struct WorkScheduleCreate {
     pub extra: Value,
 }
 
+impl WorkScheduleCreate {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_schedule_fields(
+            self.start_time,
+            self.end_time,
+            &self.admins,
+            &self.attendees,
+            self.reminders.as_ref(),
+            self.cal_id.as_deref(),
+            self.organizer.as_deref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleUpdateRequest {
     pub schedule: WorkScheduleUpdate,
+}
+
+impl WorkScheduleUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.schedule.validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21817,6 +21947,21 @@ pub struct WorkScheduleUpdate {
     pub extra: Value,
 }
 
+impl WorkScheduleUpdate {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("schedule id", &self.schedule_id)?;
+        validate_work_schedule_fields(
+            self.start_time,
+            self.end_time,
+            &self.admins,
+            &self.attendees,
+            self.reminders.as_ref(),
+            self.cal_id.as_deref(),
+            self.organizer.as_deref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleAttendee {
     pub userid: String,
@@ -21824,6 +21969,53 @@ pub struct WorkScheduleAttendee {
     pub response_status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+fn validate_work_schedule_fields(
+    start_time: i64,
+    end_time: i64,
+    admins: &[String],
+    attendees: &[WorkScheduleAttendee],
+    reminders: Option<&WorkScheduleReminders>,
+    cal_id: Option<&str>,
+    organizer: Option<&str>,
+) -> Result<()> {
+    if start_time <= 0 || end_time <= start_time {
+        return Err(WechatError::Config(
+            "work schedule end time must be later than its positive start time".to_string(),
+        ));
+    }
+    if admins.iter().any(|admin| admin.trim().is_empty()) || has_duplicate_strings(admins) {
+        return Err(WechatError::Config(
+            "work schedule admins must be non-empty and unique".to_string(),
+        ));
+    }
+    let attendee_ids = attendees
+        .iter()
+        .map(|attendee| attendee.userid.as_str())
+        .collect::<Vec<_>>();
+    if attendee_ids.iter().any(|userid| userid.trim().is_empty())
+        || has_duplicate_strings(&attendee_ids)
+        || attendees.iter().any(|attendee| {
+            attendee
+                .response_status
+                .is_some_and(|status| !(0..=3).contains(&status))
+        })
+    {
+        return Err(WechatError::Config(
+            "work schedule attendees must have unique ids and response status 0 to 3".to_string(),
+        ));
+    }
+    if let Some(cal_id) = cal_id {
+        validate_work_oa_identifier("calendar id", cal_id)?;
+    }
+    if let Some(organizer) = organizer {
+        validate_work_oa_identifier("schedule organizer", organizer)?;
+    }
+    if let Some(reminders) = reminders {
+        reminders.validate(start_time)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21856,6 +22048,70 @@ pub struct WorkScheduleReminders {
     pub extra: Value,
 }
 
+impl WorkScheduleReminders {
+    pub fn validate(&self, start_time: i64) -> Result<()> {
+        for (label, value) in [
+            ("is_remind", self.is_remind),
+            ("is_repeat", self.is_repeat),
+            ("is_custom_repeat", self.is_custom_repeat),
+        ] {
+            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "work schedule reminder {label} must be 0 or 1"
+                )));
+            }
+        }
+        if self
+            .remind_before_event_secs
+            .is_some_and(|seconds| seconds < 0)
+            || has_duplicate_i64(&self.remind_time_diffs)
+        {
+            return Err(WechatError::Config(
+                "work schedule reminder offsets must be unique and before-event seconds cannot be negative"
+                    .to_string(),
+            ));
+        }
+        if self.repeat_interval.is_some_and(|interval| interval <= 0) {
+            return Err(WechatError::Config(
+                "work schedule repeat interval must be positive".to_string(),
+            ));
+        }
+        if self
+            .repeat_until
+            .is_some_and(|repeat_until| repeat_until <= start_time)
+        {
+            return Err(WechatError::Config(
+                "work schedule repeat-until time must be later than the event start".to_string(),
+            ));
+        }
+        if self
+            .repeat_day_of_week
+            .iter()
+            .any(|day| !(1..=7).contains(day))
+            || has_duplicate_i64(&self.repeat_day_of_week)
+            || self
+                .repeat_day_of_month
+                .iter()
+                .any(|day| !(1..=31).contains(day))
+            || has_duplicate_i64(&self.repeat_day_of_month)
+        {
+            return Err(WechatError::Config(
+                "work schedule repeat days must be unique valid week or month days".to_string(),
+            ));
+        }
+        if self
+            .exclude_time_list
+            .iter()
+            .any(|excluded| excluded.start_time <= 0)
+        {
+            return Err(WechatError::Config(
+                "work schedule excluded occurrence times must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleExcludeTime {
     pub start_time: i64,
@@ -21870,6 +22126,29 @@ pub struct WorkScheduleByCalendarRequest {
     pub offset: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i64>,
+}
+
+impl WorkScheduleByCalendarRequest {
+    pub fn first_page(cal_id: impl Into<String>, limit: i64) -> Self {
+        Self {
+            cal_id: cal_id.into(),
+            offset: None,
+            limit: Some(limit),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("calendar id", &self.cal_id)?;
+        if self.offset.is_some_and(|offset| offset < 0)
+            || self.limit.is_some_and(|limit| !(1..=1000).contains(&limit))
+        {
+            return Err(WechatError::Config(
+                "work schedule calendar pagination requires non-negative offset and limit 1 to 1000"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26886,7 +27165,7 @@ mod tests {
 
     #[test]
     fn serializes_work_oa_calendar_and_dial_requests() {
-        let calendar = serde_json::to_value(WorkCalendarAddRequest {
+        let calendar_request = WorkCalendarAddRequest {
             calendar: WorkCalendarCreate {
                 organizer: "user".to_string(),
                 summary: "Team".to_string(),
@@ -26899,13 +27178,14 @@ mod tests {
                 extra: Value::Null,
             },
             agentid: 100001,
-        })
-        .unwrap();
+        };
+        assert!(calendar_request.validate().is_ok());
+        let calendar = serde_json::to_value(calendar_request).unwrap();
         assert_eq!(calendar["agentid"], 100001);
         assert_eq!(calendar["calendar"]["summary"], "Team");
         assert_eq!(calendar["calendar"]["shares"][0]["userid"], "member");
 
-        let calendar_update = serde_json::to_value(WorkCalendarUpdateRequest {
+        let calendar_update_request = WorkCalendarUpdateRequest {
             calendar: WorkCalendarUpdate {
                 cal_id: "wc100".to_string(),
                 summary: "Team updated".to_string(),
@@ -26915,10 +27195,32 @@ mod tests {
                 readonly: None,
                 extra: Value::Null,
             },
-        })
-        .unwrap();
+        };
+        assert!(calendar_update_request.validate().is_ok());
+        let calendar_update = serde_json::to_value(calendar_update_request).unwrap();
         assert_eq!(calendar_update["calendar"]["cal_id"], "wc100");
         assert!(calendar_update["calendar"].get("description").is_none());
+        assert!(validate_work_oa_id_batch(
+            "calendar",
+            &["calendar-a".to_string(), "calendar-b".to_string()],
+            1000
+        )
+        .is_ok());
+        assert!(validate_work_oa_id_batch("calendar", &[], 1000).is_err());
+
+        let invalid_calendar = WorkCalendarAddRequest {
+            calendar: WorkCalendarCreate {
+                organizer: "user".to_string(),
+                summary: "Team".to_string(),
+                color: "red".to_string(),
+                description: None,
+                shares: Vec::new(),
+                readonly: None,
+                extra: Value::Null,
+            },
+            agentid: 100001,
+        };
+        assert!(invalid_calendar.validate().is_err());
 
         let dial = serde_json::to_value(WorkDialRecordRequest {
             start_time: 1_800_000_000,
@@ -27094,7 +27396,7 @@ mod tests {
         .unwrap();
         assert_eq!(stat["template_id"], "template-1");
 
-        let schedule = serde_json::to_value(WorkScheduleAddRequest {
+        let schedule_request = WorkScheduleAddRequest {
             schedule: WorkScheduleCreate {
                 admins: vec!["admin".to_string()],
                 start_time: 1_800_000_000,
@@ -27130,8 +27432,9 @@ mod tests {
                 extra: Value::Null,
             },
             agentid: 100001,
-        })
-        .unwrap();
+        };
+        assert!(schedule_request.validate().is_ok());
+        let schedule = serde_json::to_value(schedule_request).unwrap();
         assert_eq!(schedule["agentid"], 100001);
         assert_eq!(schedule["schedule"]["organizer"], "user");
         assert_eq!(
@@ -27143,7 +27446,7 @@ mod tests {
             1_800_086_400
         );
 
-        let schedule_update = serde_json::to_value(WorkScheduleUpdateRequest {
+        let schedule_update_request = WorkScheduleUpdateRequest {
             schedule: WorkScheduleUpdate {
                 schedule_id: "schedule-1".to_string(),
                 admins: Vec::new(),
@@ -27158,19 +27461,42 @@ mod tests {
                 organizer: None,
                 extra: Value::Null,
             },
-        })
-        .unwrap();
+        };
+        assert!(schedule_update_request.validate().is_ok());
+        let schedule_update = serde_json::to_value(schedule_update_request).unwrap();
         assert_eq!(schedule_update["schedule"]["schedule_id"], "schedule-1");
         assert!(schedule_update["schedule"].get("attendees").is_none());
 
-        let by_calendar = serde_json::to_value(WorkScheduleByCalendarRequest {
+        let by_calendar_request = WorkScheduleByCalendarRequest {
             cal_id: "wc100".to_string(),
             offset: Some(100),
             limit: Some(1000),
-        })
-        .unwrap();
+        };
+        assert!(by_calendar_request.validate().is_ok());
+        let by_calendar = serde_json::to_value(by_calendar_request).unwrap();
         assert_eq!(by_calendar["cal_id"], "wc100");
         assert_eq!(by_calendar["limit"], 1000);
+        assert!(WorkScheduleByCalendarRequest::first_page("wc100", 1001)
+            .validate()
+            .is_err());
+
+        let invalid_schedule = WorkScheduleAddRequest {
+            schedule: WorkScheduleCreate {
+                admins: Vec::new(),
+                start_time: 100,
+                end_time: 100,
+                attendees: Vec::new(),
+                summary: None,
+                description: None,
+                reminders: None,
+                location: None,
+                cal_id: None,
+                organizer: None,
+                extra: Value::Null,
+            },
+            agentid: 100001,
+        };
+        assert!(invalid_schedule.validate().is_err());
     }
 
     #[test]
