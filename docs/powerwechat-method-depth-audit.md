@@ -1057,6 +1057,23 @@ Implemented on 2026-07-18 in Work OA calendar and schedule depth:
 - calendar schedule queries expose a first-page constructor and enforce
   non-negative offsets plus the 1000-row page boundary.
 
+Implemented on 2026-07-18 in Open Platform authorizer mini-program domain,
+tester, and privacy depth:
+
+- server and web-view domain operations use typed get/set/add/delete actions,
+  validate action payload semantics, reject duplicate or blank entries, and
+  enforce HTTPS, WSS, UDP, and TCP schemes before network I/O;
+- tester binding rejects blank WeChat ids, while unbinding provides explicit
+  WeChat-id/userstr constructors and requires exactly one non-empty identity;
+- privacy owner settings now include extension-media and storage-expiration
+  fields, and privacy requests/responses cover SDK privacy information,
+  privacy lists, code state, update time, and structured privacy descriptions;
+- privacy setting, extension-file upload, and privacy-interface applications
+  validate contacts, keys, descriptions, SDK uniqueness, versions, byte
+  payloads, scenes, and absolute HTTP(S) evidence URLs before submission;
+- domain, tester, privacy-setting, and extension-file responses retain unknown
+  fields so newly added WeChat response metadata remains forward compatible.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

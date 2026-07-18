@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 
 use crate::{
     config::Platform,
-    error::Result,
+    error::{Result, WechatError},
     modules::{
         official_account::{
             Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
@@ -457,6 +457,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformMiniProgramModifyDomainRequest,
     ) -> Result<OpenPlatformMiniProgramModifyDomainResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/modify_domain",
@@ -469,14 +470,16 @@ impl OpenPlatform {
     pub async fn set_authorizer_mini_program_webview_domain(
         &self,
         authorizer_access_token: impl Into<String>,
-        action: impl Into<String>,
+        action: OpenPlatformMiniProgramDomainAction,
         domains: Vec<String>,
     ) -> Result<OpenPlatformStatusResponse> {
+        validate_open_platform_domains("web-view", &domains, &["https"])?;
+        validate_open_platform_domain_action(action, !domains.is_empty())?;
         self.inner
             .post(
                 "wxa/setwebviewdomain",
                 Some(authorizer_access_token.into()),
-                json!({ "action": action.into(), "webviewdomain": domains }),
+                json!({ "action": action, "webviewdomain": domains }),
             )
             .await
     }
@@ -493,11 +496,13 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         wechat_id: impl Into<String>,
     ) -> Result<OpenPlatformMiniProgramTesterBindResponse> {
+        let wechat_id = wechat_id.into();
+        validate_open_platform_non_empty("tester WeChat ID", &wechat_id)?;
         self.inner
             .post(
                 "wxa/bind_tester",
                 Some(authorizer_access_token.into()),
-                json!({ "wechatid": wechat_id.into() }),
+                json!({ "wechatid": wechat_id }),
             )
             .await
     }
@@ -507,6 +512,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformMiniProgramTesterUnbindRequest,
     ) -> Result<OpenPlatformStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/unbind_tester",
@@ -541,6 +547,11 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         privacy_version: i64,
     ) -> Result<OpenPlatformMiniProgramPrivacySettingResponse> {
+        if privacy_version <= 0 {
+            return Err(WechatError::Config(
+                "open platform privacy version must be positive".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "cgi-bin/component/getprivacysetting",
@@ -555,6 +566,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformMiniProgramPrivacySettingRequest,
     ) -> Result<OpenPlatformStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/component/setprivacysetting",
@@ -570,9 +582,16 @@ impl OpenPlatform {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<OpenPlatformMiniProgramPrivacyExtFileResponse> {
+        let file_name = file_name.into();
+        validate_open_platform_non_empty("privacy extension file name", &file_name)?;
+        if data.is_empty() {
+            return Err(WechatError::Config(
+                "open platform privacy extension file must not be empty".to_string(),
+            ));
+        }
         let form = reqwest::multipart::Form::new().part(
             "file",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
@@ -927,6 +946,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
     ) -> Result<OpenPlatformMiniProgramPrivacyInterfaceApplyResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/security/apply_privacy_interface",
@@ -1882,9 +1902,18 @@ pub struct OpenPlatformMiniProgramAuditQuotaResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenPlatformMiniProgramDomainAction {
+    Get,
+    Set,
+    Add,
+    Delete,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramModifyDomainRequest {
-    pub action: String,
+    pub action: OpenPlatformMiniProgramDomainAction,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requestdomain: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1897,6 +1926,85 @@ pub struct OpenPlatformMiniProgramModifyDomainRequest {
     pub udpdomain: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tcpdomain: Vec<String>,
+}
+
+impl OpenPlatformMiniProgramModifyDomainRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_domains("request", &self.requestdomain, &["https"])?;
+        validate_open_platform_domains("WebSocket request", &self.wsrequestdomain, &["wss"])?;
+        validate_open_platform_domains("upload", &self.uploaddomain, &["https"])?;
+        validate_open_platform_domains("download", &self.downloaddomain, &["https"])?;
+        validate_open_platform_domains("UDP", &self.udpdomain, &["udp"])?;
+        validate_open_platform_domains("TCP", &self.tcpdomain, &["tcp"])?;
+
+        let has_domains = [
+            &self.requestdomain,
+            &self.wsrequestdomain,
+            &self.uploaddomain,
+            &self.downloaddomain,
+            &self.udpdomain,
+            &self.tcpdomain,
+        ]
+        .into_iter()
+        .any(|domains| !domains.is_empty());
+        validate_open_platform_domain_action(self.action, has_domains)
+    }
+}
+
+fn validate_open_platform_domain_action(
+    action: OpenPlatformMiniProgramDomainAction,
+    has_domains: bool,
+) -> Result<()> {
+    match (action, has_domains) {
+        (OpenPlatformMiniProgramDomainAction::Get, true) => Err(WechatError::Config(
+            "open platform domain get request must not include domains".to_string(),
+        )),
+        (
+            OpenPlatformMiniProgramDomainAction::Add | OpenPlatformMiniProgramDomainAction::Delete,
+            false,
+        ) => Err(WechatError::Config(
+            "open platform domain add/delete request must include at least one domain".to_string(),
+        )),
+        _ => Ok(()),
+    }
+}
+
+fn validate_open_platform_domains(kind: &str, domains: &[String], schemes: &[&str]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(domains.len());
+    for domain in domains {
+        let normalized = domain.trim().to_ascii_lowercase();
+        if normalized.is_empty() {
+            return Err(WechatError::Config(format!(
+                "open platform {kind} domain must not be blank"
+            )));
+        }
+        if !seen.insert(normalized) {
+            return Err(WechatError::Config(format!(
+                "open platform {kind} domains must be unique"
+            )));
+        }
+        let parsed = url::Url::parse(domain).map_err(|error| {
+            WechatError::Config(format!(
+                "open platform {kind} domain is not an absolute URL: {error}"
+            ))
+        })?;
+        if parsed.host_str().is_none() || !schemes.contains(&parsed.scheme()) {
+            return Err(WechatError::Config(format!(
+                "open platform {kind} domain must use {}",
+                schemes.join(" or ")
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_platform_non_empty(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} must not be blank"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1964,6 +2072,8 @@ pub struct OpenPlatformMiniProgramModifyDomainResponse {
     pub invalid_tcpdomain: Vec<OpenPlatformMiniProgramDomainResult>,
     #[serde(default, deserialize_with = "deserialize_domain_results")]
     pub no_icp_domain: Vec<OpenPlatformMiniProgramDomainResult>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1974,6 +2084,38 @@ pub struct OpenPlatformMiniProgramTesterUnbindRequest {
     pub userstr: Option<String>,
 }
 
+impl OpenPlatformMiniProgramTesterUnbindRequest {
+    pub fn by_wechat_id(wechat_id: impl Into<String>) -> Self {
+        Self {
+            wechatid: Some(wechat_id.into()),
+            userstr: None,
+        }
+    }
+
+    pub fn by_userstr(userstr: impl Into<String>) -> Self {
+        Self {
+            wechatid: None,
+            userstr: Some(userstr.into()),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match (&self.wechatid, &self.userstr) {
+            (Some(wechat_id), None) => {
+                validate_open_platform_non_empty("tester WeChat ID", wechat_id)
+            }
+            (None, Some(userstr)) => validate_open_platform_non_empty("tester userstr", userstr),
+            (None, None) => Err(WechatError::Config(
+                "open platform tester unbind requires wechatid or userstr".to_string(),
+            )),
+            (Some(_), Some(_)) => Err(WechatError::Config(
+                "open platform tester unbind accepts either wechatid or userstr, not both"
+                    .to_string(),
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramTesterBindResponse {
     #[serde(default)]
@@ -1982,6 +2124,8 @@ pub struct OpenPlatformMiniProgramTesterBindResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userstr: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2006,38 +2150,91 @@ pub struct OpenPlatformMiniProgramTesterListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub members: Vec<OpenPlatformMiniProgramTesterMember>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramPrivacyOwnerSetting {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contact_email: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contact_phone: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contact_qq: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contact_weixin: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ext_file_media_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notice_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub store_expire_timestamp: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramPrivacySettingItem {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_key: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_text: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_label: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_desc: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacySdkItem {
+    pub privacy_key: String,
+    pub privacy_text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_label: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl OpenPlatformMiniProgramPrivacySdkItem {
+    fn validate(&self) -> Result<()> {
+        validate_open_platform_non_empty("privacy SDK key", &self.privacy_key)?;
+        validate_open_platform_non_empty("privacy SDK text", &self.privacy_text)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacySdkInfo {
+    pub sdk_name: String,
+    pub sdk_biz_name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sdk_list: Vec<OpenPlatformMiniProgramPrivacySdkItem>,
+}
+
+impl OpenPlatformMiniProgramPrivacySdkInfo {
+    fn validate(&self) -> Result<()> {
+        validate_open_platform_non_empty("privacy SDK name", &self.sdk_name)?;
+        validate_open_platform_non_empty("privacy SDK business name", &self.sdk_biz_name)?;
+        if self.sdk_list.is_empty() {
+            return Err(WechatError::Config(
+                "open platform privacy SDK list must not be empty".to_string(),
+            ));
+        }
+        let mut keys = std::collections::HashSet::with_capacity(self.sdk_list.len());
+        for item in &self.sdk_list {
+            item.validate()?;
+            if !keys.insert(item.privacy_key.trim()) {
+                return Err(WechatError::Config(
+                    "open platform privacy SDK keys must be unique within an SDK".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2045,8 +2242,117 @@ pub struct OpenPlatformMiniProgramPrivacySettingRequest {
     pub owner_setting: OpenPlatformMiniProgramPrivacyOwnerSetting,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub setting_list: Vec<OpenPlatformMiniProgramPrivacySettingItem>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sdk_privacy_info_list: Vec<OpenPlatformMiniProgramPrivacySdkInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_ver: Option<i64>,
+}
+
+impl OpenPlatformMiniProgramPrivacySettingRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.owner_setting.validate()?;
+        if self.privacy_ver.is_some_and(|version| version <= 0) {
+            return Err(WechatError::Config(
+                "open platform privacy version must be positive".to_string(),
+            ));
+        }
+        let mut keys = std::collections::HashSet::with_capacity(self.setting_list.len());
+        for item in &self.setting_list {
+            item.validate()?;
+            let key = item
+                .privacy_key
+                .as_deref()
+                .expect("validated privacy key is present")
+                .trim();
+            if !keys.insert(key) {
+                return Err(WechatError::Config(
+                    "open platform privacy setting keys must be unique".to_string(),
+                ));
+            }
+        }
+        let mut sdk_names =
+            std::collections::HashSet::with_capacity(self.sdk_privacy_info_list.len());
+        for sdk in &self.sdk_privacy_info_list {
+            sdk.validate()?;
+            if !sdk_names.insert(sdk.sdk_name.trim()) {
+                return Err(WechatError::Config(
+                    "open platform privacy SDK names must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OpenPlatformMiniProgramPrivacyOwnerSetting {
+    fn validate(&self) -> Result<()> {
+        let contacts = [
+            self.contact_email.as_deref(),
+            self.contact_phone.as_deref(),
+            self.contact_qq.as_deref(),
+            self.contact_weixin.as_deref(),
+        ];
+        if !contacts
+            .into_iter()
+            .flatten()
+            .any(|contact| !contact.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "open platform privacy owner requires at least one contact method".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            (
+                "privacy extension media id",
+                self.ext_file_media_id.as_deref(),
+            ),
+            ("privacy notice method", self.notice_method.as_deref()),
+            (
+                "privacy store expiration timestamp",
+                self.store_expire_timestamp.as_deref(),
+            ),
+        ] {
+            if let Some(value) = value {
+                validate_open_platform_non_empty(kind, value)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OpenPlatformMiniProgramPrivacySettingItem {
+    fn validate(&self) -> Result<()> {
+        let key = self.privacy_key.as_deref().ok_or_else(|| {
+            WechatError::Config("open platform privacy setting key is required".to_string())
+        })?;
+        let text = self.privacy_text.as_deref().ok_or_else(|| {
+            WechatError::Config("open platform privacy setting text is required".to_string())
+        })?;
+        validate_open_platform_non_empty("privacy setting key", key)?;
+        validate_open_platform_non_empty("privacy setting text", text)?;
+        if let Some(url) = self.privacy_url.as_deref() {
+            validate_open_platform_http_url("privacy setting URL", url)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyDescriptionItem {
+    #[serde(default)]
+    pub privacy_key: Option<String>,
+    #[serde(default)]
+    pub privacy_desc: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramPrivacyDescription {
+    #[serde(default)]
+    pub privacy_desc_list: Vec<OpenPlatformMiniProgramPrivacyDescriptionItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2060,7 +2366,19 @@ pub struct OpenPlatformMiniProgramPrivacySettingResponse {
     #[serde(default)]
     pub setting_list: Vec<OpenPlatformMiniProgramPrivacySettingItem>,
     #[serde(default)]
+    pub sdk_privacy_info_list: Vec<OpenPlatformMiniProgramPrivacySdkInfo>,
+    #[serde(default)]
+    pub privacy_list: Vec<String>,
+    #[serde(default)]
+    pub code_exist: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
+    #[serde(default)]
+    pub privacy_desc: Option<OpenPlatformMiniProgramPrivacyDescription>,
+    #[serde(default)]
     pub privacy_ver: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2071,6 +2389,8 @@ pub struct OpenPlatformMiniProgramPrivacyExtFileResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub ext_file_media_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2267,6 +2587,34 @@ pub struct OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
     pub scene: Option<i64>,
 }
 
+impl OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_non_empty("privacy interface API name", &self.api_name)?;
+        validate_open_platform_non_empty("privacy interface application content", &self.content)?;
+        if let Some(url) = self.url.as_deref() {
+            validate_open_platform_http_url("privacy interface application URL", url)?;
+        }
+        if self.scene.is_some_and(|scene| scene <= 0) {
+            return Err(WechatError::Config(
+                "open platform privacy interface scene must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_open_platform_http_url(kind: &str, value: &str) -> Result<()> {
+    let url = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("open platform {kind} is invalid: {error}"))
+    })?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramPrivacyInterfaceApplyResponse {
     #[serde(default)]
@@ -2383,7 +2731,7 @@ pub struct OpenPlatformStatusResponse {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     use crate::modules::official_account::{
         Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
@@ -2401,14 +2749,15 @@ mod tests {
         OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditState,
         OpenPlatformMiniProgramAuditStatusResponse, OpenPlatformMiniProgramCategoryAuditState,
         OpenPlatformMiniProgramCategoryResponse, OpenPlatformMiniProgramCommitRequest,
-        OpenPlatformMiniProgramGrayReleasePlanResponse, OpenPlatformMiniProgramGrayReleaseState,
-        OpenPlatformMiniProgramLatestAuditStatusResponse,
+        OpenPlatformMiniProgramDomainAction, OpenPlatformMiniProgramGrayReleasePlanResponse,
+        OpenPlatformMiniProgramGrayReleaseState, OpenPlatformMiniProgramLatestAuditStatusResponse,
         OpenPlatformMiniProgramModifyDomainRequest, OpenPlatformMiniProgramModifyDomainResponse,
         OpenPlatformMiniProgramPageResponse, OpenPlatformMiniProgramPrivacyExtFileResponse,
         OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
         OpenPlatformMiniProgramPrivacyInterfaceApplyResponse,
         OpenPlatformMiniProgramPrivacyInterfaceResponse,
         OpenPlatformMiniProgramPrivacyInterfaceState, OpenPlatformMiniProgramPrivacyOwnerSetting,
+        OpenPlatformMiniProgramPrivacySdkInfo, OpenPlatformMiniProgramPrivacySdkItem,
         OpenPlatformMiniProgramPrivacySettingItem, OpenPlatformMiniProgramPrivacySettingRequest,
         OpenPlatformMiniProgramPrivacySettingResponse,
         OpenPlatformMiniProgramRollbackReleaseResponse, OpenPlatformMiniProgramSessionResponse,
@@ -2932,7 +3281,7 @@ mod tests {
     #[test]
     fn serializes_authorizer_mini_program_domain_and_tester_requests() {
         let domain = serde_json::to_value(OpenPlatformMiniProgramModifyDomainRequest {
-            action: "set".to_string(),
+            action: OpenPlatformMiniProgramDomainAction::Set,
             requestdomain: vec!["https://api.example.com".to_string()],
             wsrequestdomain: Vec::new(),
             uploaddomain: vec!["https://upload.example.com".to_string()],
@@ -2992,7 +3341,9 @@ mod tests {
                 contact_phone: None,
                 contact_qq: None,
                 contact_weixin: None,
+                ext_file_media_id: Some("privacy-media".to_string()),
                 notice_method: Some("email".to_string()),
+                store_expire_timestamp: Some("1735689600".to_string()),
                 extra: serde_json::Value::Null,
             },
             setting_list: vec![OpenPlatformMiniProgramPrivacySettingItem {
@@ -3003,18 +3354,52 @@ mod tests {
                 privacy_url: None,
                 extra: serde_json::Value::Null,
             }],
+            sdk_privacy_info_list: vec![OpenPlatformMiniProgramPrivacySdkInfo {
+                sdk_name: "analytics-sdk".to_string(),
+                sdk_biz_name: "Analytics".to_string(),
+                sdk_list: vec![OpenPlatformMiniProgramPrivacySdkItem {
+                    privacy_key: "DeviceInfo".to_string(),
+                    privacy_text: "device info".to_string(),
+                    privacy_label: None,
+                    extra: Value::Null,
+                }],
+            }],
             privacy_ver: Some(2),
         })
         .unwrap();
         assert_eq!(privacy["owner_setting"]["contact_email"], "dev@example.com");
         assert_eq!(privacy["setting_list"][0]["privacy_key"], "UserInfo");
+        assert_eq!(
+            privacy["sdk_privacy_info_list"][0]["sdk_list"][0]["privacy_key"],
+            "DeviceInfo"
+        );
         assert_eq!(privacy["privacy_ver"], 2);
 
         let response: OpenPlatformMiniProgramPrivacySettingResponse =
             serde_json::from_value(json!({
                 "owner_setting": { "contact_email": "dev@example.com" },
                 "setting_list": [{ "privacy_key": "UserInfo" }],
-                "privacy_ver": 2
+                "sdk_privacy_info_list": [{
+                    "sdk_name": "analytics-sdk",
+                    "sdk_biz_name": "Analytics",
+                    "sdk_list": [{
+                        "privacy_key": "DeviceInfo",
+                        "privacy_text": "device info",
+                        "privacy_label": "device information"
+                    }]
+                }],
+                "privacy_list": ["UserInfo"],
+                "privacy_desc": {
+                    "privacy_desc_list": [{
+                        "privacy_key": "UserInfo",
+                        "privacy_desc": "member profile",
+                        "description_source": "wechat"
+                    }]
+                },
+                "code_exist": 1,
+                "update_time": 1735689600,
+                "privacy_ver": 2,
+                "request_id": "privacy-setting"
             }))
             .unwrap();
         assert_eq!(
@@ -3025,6 +3410,21 @@ mod tests {
             response.setting_list[0].privacy_key.as_deref(),
             Some("UserInfo")
         );
+        assert_eq!(response.sdk_privacy_info_list[0].sdk_name, "analytics-sdk");
+        assert_eq!(
+            response.sdk_privacy_info_list[0].sdk_list[0]
+                .privacy_label
+                .as_deref(),
+            Some("device information")
+        );
+        assert_eq!(response.privacy_list, vec!["UserInfo"]);
+        assert_eq!(response.code_exist, Some(1));
+        assert_eq!(
+            response.privacy_desc.as_ref().unwrap().privacy_desc_list[0].extra
+                ["description_source"],
+            "wechat"
+        );
+        assert_eq!(response.extra["request_id"], "privacy-setting");
 
         let upload: OpenPlatformMiniProgramPrivacyExtFileResponse =
             serde_json::from_value(json!({ "ext_file_media_id": "media" })).unwrap();
@@ -3096,6 +3496,93 @@ mod tests {
             serde_json::from_value(json!({ "audit_id": 10, "request_id": "apply-10" })).unwrap();
         assert_eq!(apply_response.audit_id, Some(10));
         assert_eq!(apply_response.extra["request_id"], "apply-10");
+    }
+
+    #[test]
+    fn validates_authorizer_mini_program_domain_tester_and_privacy_requests() {
+        let valid_domain = OpenPlatformMiniProgramModifyDomainRequest {
+            action: OpenPlatformMiniProgramDomainAction::Add,
+            requestdomain: vec!["https://api.example.com".to_string()],
+            wsrequestdomain: vec!["wss://socket.example.com".to_string()],
+            uploaddomain: Vec::new(),
+            downloaddomain: Vec::new(),
+            udpdomain: vec!["udp://network.example.com:443".to_string()],
+            tcpdomain: vec!["tcp://network.example.com:443".to_string()],
+        };
+        assert!(valid_domain.validate().is_ok());
+
+        let mut invalid_domain = valid_domain.clone();
+        invalid_domain.action = OpenPlatformMiniProgramDomainAction::Get;
+        assert!(invalid_domain.validate().is_err());
+        invalid_domain.action = OpenPlatformMiniProgramDomainAction::Add;
+        invalid_domain.wsrequestdomain = vec!["https://socket.example.com".to_string()];
+        assert!(invalid_domain.validate().is_err());
+
+        assert!(
+            OpenPlatformMiniProgramTesterUnbindRequest::by_wechat_id("tester")
+                .validate()
+                .is_ok()
+        );
+        assert!(OpenPlatformMiniProgramTesterUnbindRequest {
+            wechatid: Some("tester".to_string()),
+            userstr: Some("userstr".to_string()),
+        }
+        .validate()
+        .is_err());
+
+        let valid_privacy = OpenPlatformMiniProgramPrivacySettingRequest {
+            owner_setting: OpenPlatformMiniProgramPrivacyOwnerSetting {
+                contact_email: Some("dev@example.com".to_string()),
+                contact_phone: None,
+                contact_qq: None,
+                contact_weixin: None,
+                ext_file_media_id: None,
+                notice_method: Some("email".to_string()),
+                store_expire_timestamp: None,
+                extra: Value::Null,
+            },
+            setting_list: vec![OpenPlatformMiniProgramPrivacySettingItem {
+                privacy_key: Some("UserInfo".to_string()),
+                privacy_text: Some("user info".to_string()),
+                privacy_label: None,
+                privacy_desc: None,
+                privacy_url: Some("https://example.com/privacy".to_string()),
+                extra: Value::Null,
+            }],
+            sdk_privacy_info_list: vec![OpenPlatformMiniProgramPrivacySdkInfo {
+                sdk_name: "analytics-sdk".to_string(),
+                sdk_biz_name: "Analytics".to_string(),
+                sdk_list: vec![OpenPlatformMiniProgramPrivacySdkItem {
+                    privacy_key: "DeviceInfo".to_string(),
+                    privacy_text: "device info".to_string(),
+                    privacy_label: None,
+                    extra: Value::Null,
+                }],
+            }],
+            privacy_ver: Some(2),
+        };
+        assert!(valid_privacy.validate().is_ok());
+
+        let mut invalid_privacy = valid_privacy.clone();
+        invalid_privacy.setting_list[0].privacy_text = None;
+        assert!(invalid_privacy.validate().is_err());
+
+        assert!(OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
+            api_name: "getUserInfo".to_string(),
+            content: "Used to display the member profile".to_string(),
+            url: Some("https://example.com/privacy".to_string()),
+            scene: Some(1),
+        }
+        .validate()
+        .is_ok());
+        assert!(OpenPlatformMiniProgramPrivacyInterfaceApplyRequest {
+            api_name: String::new(),
+            content: "reason".to_string(),
+            url: Some("javascript:alert(1)".to_string()),
+            scene: Some(0),
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
