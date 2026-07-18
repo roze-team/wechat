@@ -920,6 +920,20 @@ Implemented on 2026-07-18 in Work OA WeDoc smart-sheet record depth:
   sort-plus-filter combination; response values retain heterogeneous,
   forward-compatible JSON cells behind a typed field map.
 
+Implemented on 2026-07-18 in Work OA WeDoc smart-sheet view depth:
+
+- view add/update/query responses now use typed view kinds, date ranges, and
+  properties instead of raw JSON;
+- grid, Kanban, gallery, Gantt, and calendar constructors emit exact upstream
+  view codes, while Gantt/calendar date-range requirements are checked before
+  transport;
+- view properties type automatic sorting, sort/group specifications, filters,
+  field statistics, field visibility, and frozen-field count while preserving
+  unknown upstream extensions;
+- add/update/get/delete paths validate document, sheet, view identity, update
+  changes, pagination, date-property compatibility, and nested property
+  contracts locally.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

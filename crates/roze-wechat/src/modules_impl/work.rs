@@ -4295,6 +4295,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetAddViewRequest,
     ) -> Result<WorkWeDocSmartSheetViewResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_view",
@@ -4309,6 +4310,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetGetViewsRequest,
     ) -> Result<WorkWeDocSmartSheetGetViewsResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_views",
@@ -4323,6 +4325,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetUpdateViewRequest,
     ) -> Result<WorkWeDocSmartSheetViewResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_view",
@@ -4337,6 +4340,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetDeleteViewsRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_views",
@@ -16692,9 +16696,164 @@ pub struct WorkWeDocSmartSheetAddViewRequest {
     pub view_title: String,
     pub view_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub property_gantt: Option<Value>,
+    pub property_gantt: Option<WorkWeDocSmartSheetViewDateRange>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub property_calendar: Option<Value>,
+    pub property_calendar: Option<WorkWeDocSmartSheetViewDateRange>,
+}
+
+impl WorkWeDocSmartSheetAddViewRequest {
+    pub fn grid(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_title: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            docid,
+            sheet_id,
+            view_title,
+            WorkWeDocSmartSheetViewTypeKind::Grid,
+        )
+    }
+
+    pub fn kanban(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_title: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            docid,
+            sheet_id,
+            view_title,
+            WorkWeDocSmartSheetViewTypeKind::Kanban,
+        )
+    }
+
+    pub fn gallery(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_title: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            docid,
+            sheet_id,
+            view_title,
+            WorkWeDocSmartSheetViewTypeKind::Gallery,
+        )
+    }
+
+    pub fn gantt(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_title: impl Into<String>,
+        date_range: WorkWeDocSmartSheetViewDateRange,
+    ) -> Self {
+        Self {
+            property_gantt: Some(date_range),
+            ..Self::new(
+                docid,
+                sheet_id,
+                view_title,
+                WorkWeDocSmartSheetViewTypeKind::Gantt,
+            )
+        }
+    }
+
+    pub fn calendar(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_title: impl Into<String>,
+        date_range: WorkWeDocSmartSheetViewDateRange,
+    ) -> Self {
+        Self {
+            property_calendar: Some(date_range),
+            ..Self::new(
+                docid,
+                sheet_id,
+                view_title,
+                WorkWeDocSmartSheetViewTypeKind::Calendar,
+            )
+        }
+    }
+
+    fn new(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_title: impl Into<String>,
+        view_type: WorkWeDocSmartSheetViewTypeKind,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            view_title: view_title.into(),
+            view_type: view_type.as_code().unwrap_or_default().to_string(),
+            property_gantt: None,
+            property_calendar: None,
+        }
+    }
+
+    pub fn view_type_kind(&self) -> WorkWeDocSmartSheetViewTypeKind {
+        WorkWeDocSmartSheetViewTypeKind::from_code(&self.view_type)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_view_scope(&self.docid, &self.sheet_id)?;
+        if self.view_title.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet view title cannot be empty".to_string(),
+            ));
+        }
+        match self.view_type_kind() {
+            WorkWeDocSmartSheetViewTypeKind::Gantt => {
+                self.property_gantt.as_ref().ok_or_else(|| {
+                    WechatError::Config(
+                        "WeDoc smart-sheet Gantt view requires a date range".to_string(),
+                    )
+                })?;
+                if self.property_calendar.is_some() {
+                    return Err(WechatError::Config(
+                        "WeDoc smart-sheet Gantt view cannot include calendar properties"
+                            .to_string(),
+                    ));
+                }
+            }
+            WorkWeDocSmartSheetViewTypeKind::Calendar => {
+                self.property_calendar.as_ref().ok_or_else(|| {
+                    WechatError::Config(
+                        "WeDoc smart-sheet calendar view requires a date range".to_string(),
+                    )
+                })?;
+                if self.property_gantt.is_some() {
+                    return Err(WechatError::Config(
+                        "WeDoc smart-sheet calendar view cannot include Gantt properties"
+                            .to_string(),
+                    ));
+                }
+            }
+            WorkWeDocSmartSheetViewTypeKind::Grid
+            | WorkWeDocSmartSheetViewTypeKind::Kanban
+            | WorkWeDocSmartSheetViewTypeKind::Gallery => {
+                if self.property_gantt.is_some() || self.property_calendar.is_some() {
+                    return Err(WechatError::Config(
+                        "WeDoc smart-sheet view type cannot include date-range properties"
+                            .to_string(),
+                    ));
+                }
+            }
+            WorkWeDocSmartSheetViewTypeKind::Unknown | WorkWeDocSmartSheetViewTypeKind::Other => {
+                return Err(WechatError::Config(
+                    "WeDoc smart-sheet view type is invalid".to_string(),
+                ));
+            }
+        }
+        if let Some(range) = self
+            .property_gantt
+            .as_ref()
+            .or(self.property_calendar.as_ref())
+        {
+            range.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16705,7 +16864,234 @@ pub struct WorkWeDocSmartSheetUpdateViewRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub property: Option<Value>,
+    pub property: Option<WorkWeDocSmartSheetViewProperty>,
+}
+
+impl WorkWeDocSmartSheetUpdateViewRequest {
+    pub fn new(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        view_id: impl Into<String>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            view_id: view_id.into(),
+            view_title: None,
+            property: None,
+        }
+    }
+
+    pub fn with_title(mut self, view_title: impl Into<String>) -> Self {
+        self.view_title = Some(view_title.into());
+        self
+    }
+
+    pub fn with_property(mut self, property: WorkWeDocSmartSheetViewProperty) -> Self {
+        self.property = Some(property);
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_view_scope(&self.docid, &self.sheet_id)?;
+        if self.view_id.trim().is_empty() {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet view id cannot be empty".to_string(),
+            ));
+        }
+        if self.view_title.is_none() && self.property.is_none() {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet view requires at least one change".to_string(),
+            ));
+        }
+        if self
+            .view_title
+            .as_deref()
+            .is_some_and(|title| title.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet view title cannot be empty".to_string(),
+            ));
+        }
+        if let Some(property) = &self.property {
+            property.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetViewTypeKind {
+    Unknown,
+    Grid,
+    Kanban,
+    Gallery,
+    Gantt,
+    Calendar,
+    Other,
+}
+
+impl WorkWeDocSmartSheetViewTypeKind {
+    pub const fn as_code(self) -> Option<&'static str> {
+        Some(match self {
+            Self::Unknown => "VEW_UNKNOWN",
+            Self::Grid => "VIEW_TYPE_GRID",
+            Self::Kanban => "VIEW_TYPE_KANBAN",
+            Self::Gallery => "VIEW_TYPE_GALLERY",
+            Self::Gantt => "VIEW_TYPE_GANTT",
+            Self::Calendar => "VIEW_TYPE_CALENDAR",
+            Self::Other => return None,
+        })
+    }
+
+    pub fn from_code(value: &str) -> Self {
+        match value {
+            "VEW_UNKNOWN" | "VIEW_UNKNOWN" => Self::Unknown,
+            "VIEW_TYPE_GRID" => Self::Grid,
+            "VIEW_TYPE_KANBAN" => Self::Kanban,
+            "VIEW_TYPE_GALLERY" => Self::Gallery,
+            "VIEW_TYPE_GANTT" => Self::Gantt,
+            "VIEW_TYPE_CALENDAR" => Self::Calendar,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetViewDateRange {
+    pub start_date_field_id: String,
+    pub end_date_field_id: String,
+}
+
+impl WorkWeDocSmartSheetViewDateRange {
+    pub fn new(
+        start_date_field_id: impl Into<String>,
+        end_date_field_id: impl Into<String>,
+    ) -> Self {
+        Self {
+            start_date_field_id: start_date_field_id.into(),
+            end_date_field_id: end_date_field_id.into(),
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.start_date_field_id.trim().is_empty() || self.end_date_field_id.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet view date field ids cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetViewProperty {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_sort: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort_spec: Option<WorkWeDocSmartSheetViewSortSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_spec: Option<WorkWeDocSmartSheetViewGroupSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_spec: Option<WorkWeDocSmartSheetRecordFilter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_field_stat_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub field_visibility: std::collections::BTreeMap<String, bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frozen_field_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetViewProperty {
+    pub fn with_sort(
+        mut self,
+        sort_infos: impl IntoIterator<Item = WorkWeDocSmartSheetRecordSort>,
+    ) -> Self {
+        self.sort_spec = Some(WorkWeDocSmartSheetViewSortSpec {
+            sort_infos: sort_infos.into_iter().collect(),
+        });
+        self
+    }
+
+    pub fn with_groups(
+        mut self,
+        groups: impl IntoIterator<Item = WorkWeDocSmartSheetRecordSort>,
+    ) -> Self {
+        self.group_spec = Some(WorkWeDocSmartSheetViewGroupSpec {
+            sort_infos: groups.into_iter().collect(),
+        });
+        self
+    }
+
+    pub fn with_filter(mut self, filter: WorkWeDocSmartSheetRecordFilter) -> Self {
+        self.filter_spec = Some(filter);
+        self
+    }
+
+    pub fn set_field_visible(mut self, field_id: impl Into<String>, visible: bool) -> Self {
+        self.field_visibility.insert(field_id.into(), visible);
+        self
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self
+            .frozen_field_count
+            .is_some_and(|frozen_field_count| frozen_field_count < 0)
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet frozen field count cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .field_visibility
+            .iter()
+            .any(|(field_id, _)| field_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field visibility requires field ids".to_string(),
+            ));
+        }
+        if let Some(sort_spec) = &self.sort_spec {
+            sort_spec.validate()?;
+        }
+        if let Some(group_spec) = &self.group_spec {
+            group_spec.validate()?;
+        }
+        if let Some(filter_spec) = &self.filter_spec {
+            filter_spec.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetViewSortSpec {
+    pub sort_infos: Vec<WorkWeDocSmartSheetRecordSort>,
+}
+
+impl WorkWeDocSmartSheetViewSortSpec {
+    fn validate(&self) -> Result<()> {
+        for sort in &self.sort_infos {
+            sort.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetViewGroupSpec {
+    pub sort_infos: Vec<WorkWeDocSmartSheetRecordSort>,
+}
+
+impl WorkWeDocSmartSheetViewGroupSpec {
+    fn validate(&self) -> Result<()> {
+        for group in &self.sort_infos {
+            group.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16729,13 +17115,21 @@ pub struct WorkWeDocSmartSheetView {
     #[serde(default)]
     pub view_type: Option<String>,
     #[serde(default)]
-    pub property: Option<Value>,
+    pub property: Option<WorkWeDocSmartSheetViewProperty>,
     #[serde(default)]
-    pub property_gantt: Option<Value>,
+    pub property_gantt: Option<WorkWeDocSmartSheetViewDateRange>,
     #[serde(default)]
-    pub property_calendar: Option<Value>,
+    pub property_calendar: Option<WorkWeDocSmartSheetViewDateRange>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetView {
+    pub fn view_type_kind(&self) -> Option<WorkWeDocSmartSheetViewTypeKind> {
+        self.view_type
+            .as_deref()
+            .map(WorkWeDocSmartSheetViewTypeKind::from_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16748,6 +17142,35 @@ pub struct WorkWeDocSmartSheetGetViewsRequest {
     pub offset: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i64>,
+}
+
+impl WorkWeDocSmartSheetGetViewsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_view_scope(&self.docid, &self.sheet_id)?;
+        if self
+            .view_ids
+            .iter()
+            .any(|view_id| view_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet view id cannot be empty".to_string(),
+            ));
+        }
+        if self.offset.is_some_and(|offset| offset < 0) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet view query offset cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .limit
+            .is_some_and(|limit| !(1..=1_000).contains(&limit))
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet view query limit must be between 1 and 1000".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16773,6 +17196,27 @@ pub struct WorkWeDocSmartSheetDeleteViewsRequest {
     pub docid: String,
     pub sheet_id: String,
     pub view_ids: Vec<String>,
+}
+
+impl WorkWeDocSmartSheetDeleteViewsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_view_scope(&self.docid, &self.sheet_id)?;
+        if self.view_ids.is_empty() || self.view_ids.iter().any(|id| id.trim().is_empty()) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet view deletion requires non-empty view ids".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_smartsheet_view_scope(docid: &str, sheet_id: &str) -> Result<()> {
+    if docid.trim().is_empty() || sheet_id.trim().is_empty() {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet view docid and sheet id cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28549,17 +28993,19 @@ mod tests {
         assert_eq!(get["sheet_id"], "sheet");
         assert_eq!(get["need_all_type_sheet"], true);
 
-        let view = serde_json::to_value(WorkWeDocSmartSheetAddViewRequest {
-            docid: "doc".to_string(),
-            sheet_id: "sheet".to_string(),
-            view_title: "Calendar".to_string(),
-            view_type: "VIEW_TYPE_CALENDAR".to_string(),
-            property_gantt: None,
-            property_calendar: Some(json!({ "date_field_id": "field-date" })),
-        })
-        .unwrap();
+        let view_request = WorkWeDocSmartSheetAddViewRequest::calendar(
+            "doc",
+            "sheet",
+            "Calendar",
+            WorkWeDocSmartSheetViewDateRange::new("field-start", "field-end"),
+        );
+        view_request.validate().unwrap();
+        let view = serde_json::to_value(view_request).unwrap();
         assert!(view.get("property_gantt").is_none());
-        assert_eq!(view["property_calendar"]["date_field_id"], "field-date");
+        assert_eq!(
+            view["property_calendar"]["start_date_field_id"],
+            "field-start"
+        );
 
         let fields_request = WorkWeDocSmartSheetFieldsMutationRequest::new(
             "doc",
@@ -28602,6 +29048,75 @@ mod tests {
         })
         .unwrap();
         assert_eq!(deletes["record_ids"][1], "record-2");
+    }
+
+    #[test]
+    fn serializes_and_validates_work_wedoc_smartsheet_views() {
+        let gantt = WorkWeDocSmartSheetAddViewRequest::gantt(
+            "doc",
+            "sheet",
+            "Schedule",
+            WorkWeDocSmartSheetViewDateRange::new("field-start", "field-end"),
+        );
+        gantt.validate().unwrap();
+        assert_eq!(
+            gantt.view_type_kind(),
+            WorkWeDocSmartSheetViewTypeKind::Gantt
+        );
+        let value = serde_json::to_value(gantt).unwrap();
+        assert_eq!(value["view_type"], "VIEW_TYPE_GANTT");
+        assert_eq!(value["property_gantt"]["end_date_field_id"], "field-end");
+
+        let property = WorkWeDocSmartSheetViewProperty::default()
+            .with_sort([WorkWeDocSmartSheetRecordSort::desc("field-score")])
+            .with_groups([WorkWeDocSmartSheetRecordSort::asc("field-status")])
+            .with_filter(WorkWeDocSmartSheetRecordFilter::and([
+                WorkWeDocSmartSheetRecordFilterCondition::string(
+                    "field-status",
+                    WorkWeDocSmartSheetFilterOperatorKind::Is,
+                    ["Ready"],
+                ),
+            ]))
+            .set_field_visible("field-private", false);
+        let update = WorkWeDocSmartSheetUpdateViewRequest::new("doc", "sheet", "view-1")
+            .with_title("Ready orders")
+            .with_property(property);
+        update.validate().unwrap();
+        let value = serde_json::to_value(update).unwrap();
+        assert_eq!(
+            value["property"]["sort_spec"]["sort_infos"][0]["desc"],
+            true
+        );
+        assert_eq!(
+            value["property"]["group_spec"]["sort_infos"][0]["field_id"],
+            "field-status"
+        );
+        assert_eq!(
+            value["property"]["field_visibility"]["field-private"],
+            false
+        );
+
+        let empty_update = WorkWeDocSmartSheetUpdateViewRequest::new("doc", "sheet", "view-1");
+        assert!(empty_update.validate().is_err());
+
+        let invalid_calendar = WorkWeDocSmartSheetAddViewRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            view_title: "Calendar".to_string(),
+            view_type: "VIEW_TYPE_CALENDAR".to_string(),
+            property_gantt: None,
+            property_calendar: None,
+        };
+        assert!(invalid_calendar.validate().is_err());
+
+        let invalid_query = WorkWeDocSmartSheetGetViewsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            view_ids: Vec::new(),
+            offset: Some(-1),
+            limit: Some(1_001),
+        };
+        assert!(invalid_query.validate().is_err());
     }
 
     #[test]
@@ -28818,6 +29333,14 @@ mod tests {
         .unwrap();
         assert_eq!(views.total, Some(1));
         assert_eq!(views.views[0].view_id.as_deref(), Some("view"));
+        assert_eq!(
+            views.views[0].view_type_kind(),
+            Some(WorkWeDocSmartSheetViewTypeKind::Calendar)
+        );
+        assert_eq!(
+            views.views[0].property.as_ref().unwrap().extra["groups"],
+            json!([])
+        );
         assert_eq!(views.views[0].extra["display_density"], "compact");
 
         let fields: WorkWeDocSmartSheetGetFieldsResponse = serde_json::from_value(json!({
