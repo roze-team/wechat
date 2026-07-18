@@ -1156,18 +1156,17 @@ impl Work {
             .await
     }
 
-    pub async fn get_new_external_user_id(
+    pub async fn get_new_external_user_ids(
         &self,
         access_token: impl Into<String>,
-        external_userid: impl Into<String>,
-    ) -> Result<WorkExternalUserIdConvertResponse> {
-        let external_userid = external_userid.into();
-        validate_external_contact_identifier("external userid", &external_userid)?;
+        request: WorkExternalUserIdMigrationRequest,
+    ) -> Result<WorkExternalUserIdMigrationResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_new_external_userid",
                 Some(access_token.into()),
-                json!({ "external_userid": external_userid }),
+                request,
             )
             .await
     }
@@ -1392,6 +1391,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalGroupChatListRequest,
     ) -> Result<ExternalGroupChatListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/list",
@@ -1407,11 +1407,18 @@ impl Work {
         chat_id: impl Into<String>,
         need_name: i64,
     ) -> Result<ExternalGroupChatGetResponse> {
+        let chat_id = chat_id.into();
+        validate_external_group_chat_identifier("chat id", &chat_id)?;
+        if !matches!(need_name, 0 | 1) {
+            return Err(WechatError::Config(
+                "external group-chat need-name flag must be 0 or 1".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/get",
                 Some(access_token.into()),
-                json!({ "chat_id": chat_id.into(), "need_name": need_name }),
+                json!({ "chat_id": chat_id, "need_name": need_name }),
             )
             .await
     }
@@ -1422,11 +1429,13 @@ impl Work {
         chat_id_list: Vec<String>,
         new_owner: impl Into<String>,
     ) -> Result<ExternalGroupChatTransferResponse> {
+        let new_owner = new_owner.into();
+        validate_external_group_chat_transfer(&chat_id_list, &new_owner)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/transfer",
                 Some(access_token.into()),
-                json!({ "chat_id_list": chat_id_list, "new_owner": new_owner.into() }),
+                json!({ "chat_id_list": chat_id_list, "new_owner": new_owner }),
             )
             .await
     }
@@ -1437,11 +1446,13 @@ impl Work {
         chat_id_list: Vec<String>,
         new_owner: impl Into<String>,
     ) -> Result<ExternalGroupChatTransferResponse> {
+        let new_owner = new_owner.into();
+        validate_external_group_chat_transfer(&chat_id_list, &new_owner)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/onjob_transfer",
                 Some(access_token.into()),
-                json!({ "chat_id_list": chat_id_list, "new_owner": new_owner.into() }),
+                json!({ "chat_id_list": chat_id_list, "new_owner": new_owner }),
             )
             .await
     }
@@ -1451,11 +1462,13 @@ impl Work {
         access_token: impl Into<String>,
         open_gid: impl Into<String>,
     ) -> Result<ExternalGroupChatOpenGidToChatIdResponse> {
+        let open_gid = open_gid.into();
+        validate_external_group_chat_identifier("openGID", &open_gid)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/opengid_to_chatid",
                 Some(access_token.into()),
-                json!({ "opengid": open_gid.into() }),
+                json!({ "opengid": open_gid }),
             )
             .await
     }
@@ -1465,6 +1478,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalGroupChatJoinWayRequest,
     ) -> Result<ExternalGroupChatJoinWayAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/add_join_way",
@@ -1479,11 +1493,13 @@ impl Work {
         access_token: impl Into<String>,
         config_id: impl Into<String>,
     ) -> Result<ExternalGroupChatJoinWayResponse> {
+        let config_id = config_id.into();
+        validate_external_group_chat_identifier("join-way config id", &config_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/get_join_way",
                 Some(access_token.into()),
-                json!({ "config_id": config_id.into() }),
+                json!({ "config_id": config_id }),
             )
             .await
     }
@@ -1493,6 +1509,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalGroupChatJoinWayUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/update_join_way",
@@ -1507,25 +1524,28 @@ impl Work {
         access_token: impl Into<String>,
         config_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let config_id = config_id.into();
+        validate_external_group_chat_identifier("join-way config id", &config_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/del_join_way",
                 Some(access_token.into()),
-                json!({ "config_id": config_id.into() }),
+                json!({ "config_id": config_id }),
             )
             .await
     }
 
-    pub async fn get_new_external_group_chat_user_id(
+    pub async fn get_new_external_group_chat_user_ids(
         &self,
         access_token: impl Into<String>,
-        external_userid: impl Into<String>,
-    ) -> Result<WorkExternalUserIdConvertResponse> {
+        request: ExternalGroupChatUserIdMigrationRequest,
+    ) -> Result<WorkExternalUserIdMigrationResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/get_new_external_userid",
                 Some(access_token.into()),
-                json!({ "external_userid": external_userid.into() }),
+                request,
             )
             .await
     }
@@ -6406,6 +6426,86 @@ pub struct WorkUnionIdToExternalUserIdResponse {
 pub type WorkExternalUserIdConvertResponse = WorkUnionIdToExternalUserIdResponse;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalUserIdMigrationRequest {
+    pub external_userid_list: Vec<String>,
+}
+
+impl WorkExternalUserIdMigrationRequest {
+    pub fn new(external_userids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            external_userid_list: external_userids.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_user_id_migration_list(&self.external_userid_list)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupChatUserIdMigrationRequest {
+    pub chatid: String,
+    pub external_userid_list: Vec<String>,
+}
+
+impl ExternalGroupChatUserIdMigrationRequest {
+    pub fn new(
+        chat_id: impl Into<String>,
+        external_userids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            chatid: chat_id.into(),
+            external_userid_list: external_userids.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_identifier("chat id", &self.chatid)?;
+        validate_external_user_id_migration_list(&self.external_userid_list)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalUserIdMigrationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub items: Vec<WorkExternalUserIdMigrationItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalUserIdMigrationItem {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub new_external_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+fn validate_external_user_id_migration_list(external_userids: &[String]) -> Result<()> {
+    if external_userids.is_empty() || external_userids.len() > 1_000 {
+        return Err(WechatError::Config(
+            "external-userid migration must contain between 1 and 1000 ids".to_string(),
+        ));
+    }
+    if external_userids
+        .iter()
+        .any(|external_userid| external_userid.trim().is_empty())
+        || has_duplicate_strings(external_userids)
+    {
+        return Err(WechatError::Config(
+            "external-userid migration ids must be non-empty and unique".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalUserIdToPendingIdRequest {
     pub external_userid: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -10650,6 +10750,46 @@ pub struct ExternalGroupChatListRequest {
     pub limit: i64,
 }
 
+impl ExternalGroupChatListRequest {
+    pub fn first_page(limit: i64) -> Self {
+        Self {
+            status_filter: None,
+            owner_filter: None,
+            cursor: None,
+            limit,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .status_filter
+            .is_some_and(|status| !matches!(status, 0..=3))
+        {
+            return Err(WechatError::Config(
+                "external group-chat status filter must be between 0 and 3".to_string(),
+            ));
+        }
+        if !(1..=1_000).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "external group-chat list limit must be between 1 and 1000".to_string(),
+            ));
+        }
+        if self
+            .cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external group-chat list cursor must not be empty".to_string(),
+            ));
+        }
+        if let Some(owner_filter) = &self.owner_filter {
+            owner_filter.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactOwnerFilter {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -10667,6 +10807,25 @@ impl ExternalContactOwnerFilter {
         Self {
             userid_list: user_ids.into_iter().map(Into::into).collect(),
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.userid_list.is_empty() || self.userid_list.len() > 100 {
+            return Err(WechatError::Config(
+                "external group-chat owner filter must contain between 1 and 100 users".to_string(),
+            ));
+        }
+        if self
+            .userid_list
+            .iter()
+            .any(|userid| userid.trim().is_empty())
+            || has_duplicate_strings(&self.userid_list)
+        {
+            return Err(WechatError::Config(
+                "external group-chat owner ids must be non-empty and unique".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -10780,6 +10939,25 @@ pub struct ExternalGroupChatMember {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalGroupChatJoinSceneKind {
+    MemberInvite,
+    QrCode,
+    MiniProgram,
+    Other(i64),
+}
+
+impl From<i64> for ExternalGroupChatJoinSceneKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::MemberInvite,
+            2 => Self::QrCode,
+            3 => Self::MiniProgram,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExternalGroupChatMemberKind {
     WorkUser,
     ExternalContact,
@@ -10801,6 +10979,10 @@ impl ExternalGroupChatMember {
 
     pub fn is_external_contact(&self) -> bool {
         self.member_kind() == Some(ExternalGroupChatMemberKind::ExternalContact)
+    }
+
+    pub fn join_scene_kind(&self) -> Option<ExternalGroupChatJoinSceneKind> {
+        self.join_scene.map(ExternalGroupChatJoinSceneKind::from)
     }
 }
 
@@ -10830,6 +11012,12 @@ pub struct ExternalGroupChatTransferResponse {
     pub failed_chat_list: Vec<ExternalGroupChatFailedChat>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatTransferResponse {
+    pub fn all_transferred(&self) -> bool {
+        self.errcode.unwrap_or_default() == 0 && self.failed_chat_list.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10869,6 +11057,80 @@ pub struct ExternalGroupChatJoinWayRequest {
     pub state: Option<String>,
 }
 
+impl ExternalGroupChatJoinWayRequest {
+    pub fn existing_chats(
+        scene: ExternalGroupChatJoinWaySceneKind,
+        remark: impl Into<String>,
+        chat_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            scene: scene.code(),
+            remark: remark.into(),
+            auto_create_room: 0,
+            room_base_name: String::new(),
+            room_base_id: 0,
+            chat_id_list: chat_ids.into_iter().map(Into::into).collect(),
+            state: None,
+        }
+    }
+
+    pub fn auto_create(
+        scene: ExternalGroupChatJoinWaySceneKind,
+        remark: impl Into<String>,
+        room_base_name: impl Into<String>,
+        room_base_id: i64,
+    ) -> Self {
+        Self {
+            scene: scene.code(),
+            remark: remark.into(),
+            auto_create_room: 1,
+            room_base_name: room_base_name.into(),
+            room_base_id,
+            chat_id_list: Vec::new(),
+            state: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_join_way(
+            self.scene,
+            &self.remark,
+            self.auto_create_room,
+            &self.room_base_name,
+            self.room_base_id,
+            &self.chat_id_list,
+            self.state.as_deref(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalGroupChatJoinWaySceneKind {
+    QrCode,
+    MiniProgram,
+    Other(i64),
+}
+
+impl ExternalGroupChatJoinWaySceneKind {
+    pub fn code(self) -> i64 {
+        match self {
+            Self::QrCode => 1,
+            Self::MiniProgram => 2,
+            Self::Other(code) => code,
+        }
+    }
+}
+
+impl From<i64> for ExternalGroupChatJoinWaySceneKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::QrCode,
+            2 => Self::MiniProgram,
+            other => Self::Other(other),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalGroupChatJoinWayUpdateRequest {
     pub config_id: String,
@@ -10881,6 +11143,21 @@ pub struct ExternalGroupChatJoinWayUpdateRequest {
     pub chat_id_list: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
+}
+
+impl ExternalGroupChatJoinWayUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_identifier("join-way config id", &self.config_id)?;
+        validate_external_group_chat_join_way(
+            self.scene,
+            &self.remark,
+            self.auto_create_room,
+            &self.room_base_name,
+            self.room_base_id,
+            &self.chat_id_list,
+            self.state.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10929,6 +11206,97 @@ pub struct ExternalGroupChatJoinWay {
     pub state: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatJoinWay {
+    pub fn scene_kind(&self) -> Option<ExternalGroupChatJoinWaySceneKind> {
+        self.scene.map(ExternalGroupChatJoinWaySceneKind::from)
+    }
+
+    pub fn automatically_creates_rooms(&self) -> bool {
+        self.auto_create_room == Some(1)
+    }
+}
+
+fn validate_external_group_chat_transfer(chat_ids: &[String], new_owner: &str) -> Result<()> {
+    validate_external_group_chat_identifier("new owner", new_owner)?;
+    if chat_ids.is_empty() || chat_ids.len() > 100 {
+        return Err(WechatError::Config(
+            "external group-chat transfer must contain between 1 and 100 chat ids".to_string(),
+        ));
+    }
+    validate_external_group_chat_ids(chat_ids)
+}
+
+fn validate_external_group_chat_ids(chat_ids: &[String]) -> Result<()> {
+    if chat_ids.iter().any(|chat_id| chat_id.trim().is_empty()) || has_duplicate_strings(chat_ids) {
+        return Err(WechatError::Config(
+            "external group-chat ids must be non-empty and unique".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_group_chat_identifier(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "external group-chat {kind} must not be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_group_chat_join_way(
+    scene: i64,
+    remark: &str,
+    auto_create_room: i64,
+    room_base_name: &str,
+    room_base_id: i64,
+    chat_ids: &[String],
+    state: Option<&str>,
+) -> Result<()> {
+    if !matches!(scene, 1 | 2) {
+        return Err(WechatError::Config(
+            "external group-chat join-way scene must be 1 or 2".to_string(),
+        ));
+    }
+    if remark.chars().count() > 30 {
+        return Err(WechatError::Config(
+            "external group-chat join-way remark must not exceed 30 characters".to_string(),
+        ));
+    }
+    if state.is_some_and(|state| state.trim().is_empty() || state.chars().count() > 30) {
+        return Err(WechatError::Config(
+            "external group-chat join-way state must contain between 1 and 30 characters"
+                .to_string(),
+        ));
+    }
+    if !matches!(auto_create_room, 0 | 1) {
+        return Err(WechatError::Config(
+            "external group-chat auto-create-room flag must be 0 or 1".to_string(),
+        ));
+    }
+    if chat_ids.len() > 5 {
+        return Err(WechatError::Config(
+            "external group-chat join way supports at most 5 initial chats".to_string(),
+        ));
+    }
+    validate_external_group_chat_ids(chat_ids)?;
+    if auto_create_room == 0 && chat_ids.is_empty() {
+        return Err(WechatError::Config(
+            "external group-chat join way requires initial chats when auto creation is disabled"
+                .to_string(),
+        ));
+    }
+    if auto_create_room == 1 {
+        validate_external_group_chat_identifier("room base name", room_base_name)?;
+        if room_base_id <= 0 {
+            return Err(WechatError::Config(
+                "external group-chat room base id must be positive".to_string(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24622,6 +24990,10 @@ mod tests {
             group_chat.member_list[0].member_kind(),
             Some(ExternalGroupChatMemberKind::WorkUser)
         );
+        assert_eq!(
+            group_chat.member_list[0].join_scene_kind(),
+            Some(ExternalGroupChatJoinSceneKind::QrCode)
+        );
         assert!(group_chat.member_list[0].is_work_user());
         assert!(!group_chat.member_list[0].is_external_contact());
         assert_eq!(group_chat.member_list[0].extra["member_role"], "customer");
@@ -24682,38 +25054,43 @@ mod tests {
             "owner left"
         );
         assert_eq!(transfer.extra["request_id"], "req-1");
+        assert!(!transfer.all_transferred());
+        let successful_transfer: ExternalGroupChatTransferResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(successful_transfer.all_transferred());
 
         let open_gid: ExternalGroupChatOpenGidToChatIdResponse =
             serde_json::from_value(json!({ "chat_id": "chat", "source": "appshare" })).unwrap();
         assert_eq!(open_gid.chat_id.as_deref(), Some("chat"));
         assert_eq!(open_gid.extra["source"], "appshare");
 
-        let join = serde_json::to_value(ExternalGroupChatJoinWayRequest {
-            scene: 2,
-            remark: "remark".to_string(),
-            auto_create_room: 1,
-            room_base_name: "room".to_string(),
-            room_base_id: 100,
-            chat_id_list: vec!["chat".to_string()],
-            state: Some("state".to_string()),
-        })
-        .unwrap();
+        let mut join_request = ExternalGroupChatJoinWayRequest::auto_create(
+            ExternalGroupChatJoinWaySceneKind::MiniProgram,
+            "remark",
+            "room",
+            100,
+        );
+        join_request.chat_id_list.push("chat".to_string());
+        join_request.state = Some("state".to_string());
+        assert!(join_request.validate().is_ok());
+        let join = serde_json::to_value(join_request).unwrap();
         assert_eq!(join["scene"], 2);
         assert_eq!(join["chat_id_list"][0], "chat");
 
-        let join_update = serde_json::to_value(ExternalGroupChatJoinWayUpdateRequest {
+        let join_update = ExternalGroupChatJoinWayUpdateRequest {
             config_id: "config".to_string(),
             scene: 2,
             remark: "new".to_string(),
             auto_create_room: 0,
-            room_base_name: "room".to_string(),
-            room_base_id: 101,
-            chat_id_list: Vec::new(),
+            room_base_name: String::new(),
+            room_base_id: 0,
+            chat_id_list: vec!["chat".to_string()],
             state: None,
-        })
-        .unwrap();
+        };
+        assert!(join_update.validate().is_ok());
+        let join_update = serde_json::to_value(join_update).unwrap();
         assert_eq!(join_update["config_id"], "config");
-        assert!(join_update.get("chat_id_list").is_none());
+        assert_eq!(join_update["chat_id_list"][0], "chat");
 
         let join_add: ExternalGroupChatJoinWayAddResponse = serde_json::from_value(json!({
             "config_id": "config",
@@ -24744,13 +25121,123 @@ mod tests {
         assert_eq!(join_way.config_id.as_deref(), Some("config"));
         assert_eq!(join_way.qr_code.as_deref(), Some("https://example.com/qr"));
         assert_eq!(join_way.scene, Some(2));
+        assert_eq!(
+            join_way.scene_kind(),
+            Some(ExternalGroupChatJoinWaySceneKind::MiniProgram)
+        );
+        assert!(join_way.automatically_creates_rooms());
         assert_eq!(join_way.chat_id_list[0], "chat");
         assert_eq!(join_way.state.as_deref(), Some("state"));
         assert_eq!(join_way.extra["future_field"], "kept");
 
-        let converted: WorkExternalUserIdConvertResponse =
-            serde_json::from_value(json!({ "external_userid": "new-external" })).unwrap();
-        assert_eq!(converted.external_userid.as_deref(), Some("new-external"));
+        let migration_request = WorkExternalUserIdMigrationRequest::new(["old-external"]);
+        assert!(migration_request.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(migration_request).unwrap()["external_userid_list"][0],
+            "old-external"
+        );
+        let group_migration =
+            ExternalGroupChatUserIdMigrationRequest::new("chat", ["old-external"]);
+        assert!(group_migration.validate().is_ok());
+        let group_migration = serde_json::to_value(group_migration).unwrap();
+        assert_eq!(group_migration["chatid"], "chat");
+        assert_eq!(group_migration["external_userid_list"][0], "old-external");
+
+        let converted: WorkExternalUserIdMigrationResponse = serde_json::from_value(json!({
+            "items": [{
+                "external_userid": "old-external",
+                "new_external_userid": "new-external",
+                "migration_source": "legacy"
+            }],
+            "request_id": "migration"
+        }))
+        .unwrap();
+        assert_eq!(
+            converted.items[0].new_external_userid.as_deref(),
+            Some("new-external")
+        );
+        assert_eq!(converted.items[0].extra["migration_source"], "legacy");
+        assert_eq!(converted.extra["request_id"], "migration");
+    }
+
+    #[test]
+    fn validates_external_group_chat_lifecycle() {
+        assert!(ExternalGroupChatListRequest::first_page(1_000)
+            .validate()
+            .is_ok());
+        assert!(ExternalGroupChatListRequest::first_page(1_001)
+            .validate()
+            .is_err());
+        assert!(ExternalGroupChatListRequest {
+            status_filter: Some(4),
+            owner_filter: None,
+            cursor: None,
+            limit: 100,
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalGroupChatListRequest {
+            status_filter: None,
+            owner_filter: Some(ExternalContactOwnerFilter::users(["owner", "owner"])),
+            cursor: None,
+            limit: 100,
+        }
+        .validate()
+        .is_err());
+
+        assert!(validate_external_group_chat_transfer(
+            &["chat-a".to_string(), "chat-b".to_string()],
+            "owner"
+        )
+        .is_ok());
+        assert!(validate_external_group_chat_transfer(
+            &["chat".to_string(), "chat".to_string()],
+            "owner"
+        )
+        .is_err());
+        assert!(validate_external_group_chat_transfer(&[], "owner").is_err());
+
+        assert!(ExternalGroupChatJoinWayRequest::existing_chats(
+            ExternalGroupChatJoinWaySceneKind::QrCode,
+            "existing",
+            ["chat"],
+        )
+        .validate()
+        .is_ok());
+        assert!(ExternalGroupChatJoinWayRequest::existing_chats(
+            ExternalGroupChatJoinWaySceneKind::QrCode,
+            "existing",
+            Vec::<String>::new(),
+        )
+        .validate()
+        .is_err());
+        assert!(ExternalGroupChatJoinWayRequest::auto_create(
+            ExternalGroupChatJoinWaySceneKind::MiniProgram,
+            "automatic",
+            "room",
+            1,
+        )
+        .validate()
+        .is_ok());
+        assert!(ExternalGroupChatJoinWayRequest::auto_create(
+            ExternalGroupChatJoinWaySceneKind::MiniProgram,
+            "automatic",
+            "",
+            0,
+        )
+        .validate()
+        .is_err());
+
+        assert!(
+            WorkExternalUserIdMigrationRequest::new(["external", "external"])
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ExternalGroupChatUserIdMigrationRequest::new("", ["external"])
+                .validate()
+                .is_err()
+        );
     }
 
     #[test]

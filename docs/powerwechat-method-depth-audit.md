@@ -1177,6 +1177,30 @@ depth:
 - new-group, existing-group, tag-item and full-list constructors provide valid
   defaults for common corporate and strategy tag workflows without ad hoc JSON.
 
+Implemented on 2026-07-18 in Work external-contact group-chat and identifier
+migration depth:
+
+- external-userid migration now matches the upstream batch contract:
+  ordinary customer migration sends `external_userid_list`, group-member
+  migration sends `chatid` plus `external_userid_list`, and both parse typed
+  `items` containing old and new external-user ids instead of a singular,
+  incompatible response shape;
+- migration constructors enforce one to one thousand unique non-empty ids and
+  group migration additionally validates chat identity before network I/O;
+- group-chat listing validates status filters, non-empty pagination cursors,
+  the one-to-one-thousand page boundary, and one-to-one-hundred unique owner
+  filters;
+- group details validate chat identity and the 0/1 name flag, openGID conversion
+  validates identity, and resigned/on-job transfer paths enforce one to one
+  hundred unique chats plus a non-empty new owner;
+- join-way requests expose existing-chat and automatic-room constructors,
+  validate scene and 0/1 auto-create modes, remarks, state, room metadata, and
+  at most five unique initial chats; get/update/delete validate configuration
+  identity;
+- response helpers type join-way and member join scenes, expose automatic-room
+  state, preserve unknown fields, and distinguish fully successful transfers
+  from responses containing failed chats.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
