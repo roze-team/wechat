@@ -1419,9 +1419,31 @@ pub struct OpenWorkLicenseActiveInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expire_time: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub merge_info: Option<Value>,
+    pub merge_info: Option<OpenWorkLicenseActiveMergeInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub share_info: Option<Value>,
+    pub share_info: Option<OpenWorkLicenseActiveShareInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseActiveMergeInfo {
+    #[serde(default)]
+    pub to_active_code: Option<String>,
+    #[serde(default)]
+    pub from_active_code: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenWorkLicenseActiveShareInfo {
+    #[serde(default)]
+    pub to_corpid: Option<String>,
+    #[serde(default)]
+    pub from_corpid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1450,6 +1472,52 @@ impl OpenWorkLicenseActiveInfo {
         self.account_type
             .map(OpenWorkLicenseAccountTypeKind::from_code)
     }
+
+    pub fn status_kind(&self) -> Option<OpenWorkLicenseActiveStatusKind> {
+        self.status.map(OpenWorkLicenseActiveStatusKind::from_code)
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.status_kind()
+            .is_some_and(OpenWorkLicenseActiveStatusKind::is_active)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseActiveStatusKind {
+    Unbound,
+    Active,
+    Expired,
+    PendingTransfer,
+    Merged,
+    SharedDownstream,
+    Other,
+}
+
+impl OpenWorkLicenseActiveStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::Unbound,
+            2 => Self::Active,
+            3 => Self::Expired,
+            4 => Self::PendingTransfer,
+            5 => Self::Merged,
+            6 => Self::SharedDownstream,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Active)
+    }
+
+    pub fn is_assignable(self) -> bool {
+        matches!(self, Self::Unbound)
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Expired | Self::Merged)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1460,6 +1528,8 @@ pub struct OpenWorkLicenseTransferInfo {
     pub takeover_userid: Option<String>,
     #[serde(default)]
     pub errcode: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1506,6 +1576,8 @@ pub struct OpenWorkLicenseOrder {
 pub enum OpenWorkLicenseOrderTypeKind {
     NewAccount,
     RenewAccount,
+    HistoricalMigration,
+    MultiCorpNewAccount,
     Other,
 }
 
@@ -1514,6 +1586,8 @@ impl OpenWorkLicenseOrderTypeKind {
         match code {
             1 => Self::NewAccount,
             2 => Self::RenewAccount,
+            5 => Self::HistoricalMigration,
+            8 => Self::MultiCorpNewAccount,
             _ => Self::Other,
         }
     }
@@ -1525,7 +1599,10 @@ pub enum OpenWorkLicenseOrderStatusKind {
     Paid,
     Canceled,
     Expired,
+    Refunding,
     Refunded,
+    RefundRejected,
+    Invalid,
     Other,
 }
 
@@ -1536,13 +1613,16 @@ impl OpenWorkLicenseOrderStatusKind {
             1 => Self::Paid,
             2 => Self::Canceled,
             3 => Self::Expired,
-            4 => Self::Refunded,
+            4 => Self::Refunding,
+            5 => Self::Refunded,
+            6 => Self::RefundRejected,
+            7 => Self::Invalid,
             _ => Self::Other,
         }
     }
 
     pub fn is_terminal(self) -> bool {
-        !matches!(self, Self::PendingPayment)
+        !matches!(self, Self::PendingPayment | Self::Refunding)
     }
 
     pub fn is_success(self) -> bool {
@@ -1563,6 +1643,18 @@ impl OpenWorkLicenseOrder {
     pub fn is_paid(&self) -> bool {
         self.order_status_kind()
             .is_some_and(OpenWorkLicenseOrderStatusKind::is_success)
+    }
+}
+
+impl OpenWorkLicenseListOrderResponse {
+    pub fn has_more(&self) -> bool {
+        self.has_more == Some(1)
+    }
+}
+
+impl OpenWorkLicenseListAccountResponse {
+    pub fn has_more(&self) -> bool {
+        self.has_more == Some(1)
     }
 }
 
@@ -1745,6 +1837,39 @@ pub struct OpenWorkLicenseInfoResponse {
     pub trail_info: Option<OpenWorkLicenseTrialInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorkLicenseStatusKind {
+    Disabled,
+    Enabled,
+    Other,
+}
+
+impl OpenWorkLicenseStatusKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Disabled,
+            1 => Self::Enabled,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+}
+
+impl OpenWorkLicenseInfoResponse {
+    pub fn license_status_kind(&self) -> Option<OpenWorkLicenseStatusKind> {
+        self.license_status
+            .map(OpenWorkLicenseStatusKind::from_code)
+    }
+
+    pub fn is_license_check_enabled(&self) -> bool {
+        self.license_status_kind()
+            .is_some_and(OpenWorkLicenseStatusKind::is_enabled)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2290,6 +2415,7 @@ mod tests {
                 expire_time: None,
                 merge_info: None,
                 share_info: None,
+                extra: Value::Null,
             }],
             jobid: None,
         })
@@ -2313,6 +2439,7 @@ mod tests {
             handover_userid: Some("old-user".to_string()),
             takeover_userid: Some("new-user".to_string()),
             errcode: None,
+            extra: Value::Null,
         })
         .unwrap();
         assert_eq!(transfer["handover_userid"], "old-user");
@@ -2377,6 +2504,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(orders.next_cursor.as_deref(), Some("cursor"));
+        assert!(orders.has_more());
         assert_eq!(orders.extra["total"], 1);
         assert_eq!(orders.order_list[0].order_id.as_deref(), Some("order-id"));
         assert_eq!(orders.order_list[0].order_status, Some(1));
@@ -2398,6 +2526,14 @@ mod tests {
             OpenWorkLicenseOrderTypeKind::RenewAccount
         );
         assert_eq!(
+            OpenWorkLicenseOrderTypeKind::from_code(5),
+            OpenWorkLicenseOrderTypeKind::HistoricalMigration
+        );
+        assert_eq!(
+            OpenWorkLicenseOrderTypeKind::from_code(8),
+            OpenWorkLicenseOrderTypeKind::MultiCorpNewAccount
+        );
+        assert_eq!(
             OpenWorkLicenseOrderStatusKind::from_code(0),
             OpenWorkLicenseOrderStatusKind::PendingPayment
         );
@@ -2412,7 +2548,20 @@ mod tests {
         );
         assert_eq!(
             OpenWorkLicenseOrderStatusKind::from_code(4),
+            OpenWorkLicenseOrderStatusKind::Refunding
+        );
+        assert!(!OpenWorkLicenseOrderStatusKind::Refunding.is_terminal());
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(5),
             OpenWorkLicenseOrderStatusKind::Refunded
+        );
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(6),
+            OpenWorkLicenseOrderStatusKind::RefundRejected
+        );
+        assert_eq!(
+            OpenWorkLicenseOrderStatusKind::from_code(7),
+            OpenWorkLicenseOrderStatusKind::Invalid
         );
         assert_eq!(orders.order_list[0].extra["invoice_status"], 1);
         assert_eq!(
@@ -2449,22 +2598,54 @@ mod tests {
 
         let accounts: OpenWorkLicenseListAccountResponse = serde_json::from_value(json!({
             "next_cursor": "account-cursor",
+            "has_more": 1,
             "account_total": 1,
             "account_list": [{
                 "active_code": "active-code",
                 "userid": "user",
                 "type": 1,
-                "status": 2
+                "status": 2,
+                "merge_info": {
+                    "to_active_code": "merged-active-code",
+                    "merge_reason": "duplicate-user"
+                },
+                "share_info": {
+                    "to_corpid": "downstream-corp",
+                    "share_channel": "chain"
+                },
+                "account_revision": 3
             }]
         }))
         .unwrap();
         assert_eq!(accounts.next_cursor.as_deref(), Some("account-cursor"));
+        assert!(accounts.has_more());
         assert_eq!(accounts.extra["account_total"], 1);
         assert_eq!(
             accounts.account_list[0].active_code.as_deref(),
             Some("active-code")
         );
         assert_eq!(accounts.account_list[0].account_type, Some(1));
+        assert_eq!(
+            accounts.account_list[0].status_kind(),
+            Some(OpenWorkLicenseActiveStatusKind::Active)
+        );
+        assert!(accounts.account_list[0].is_active());
+        let merge_info = accounts.account_list[0]
+            .merge_info
+            .as_ref()
+            .expect("merge info");
+        assert_eq!(
+            merge_info.to_active_code.as_deref(),
+            Some("merged-active-code")
+        );
+        assert_eq!(merge_info.extra["merge_reason"], "duplicate-user");
+        let share_info = accounts.account_list[0]
+            .share_info
+            .as_ref()
+            .expect("share info");
+        assert_eq!(share_info.to_corpid.as_deref(), Some("downstream-corp"));
+        assert_eq!(share_info.extra["share_channel"], "chain");
+        assert_eq!(accounts.account_list[0].extra["account_revision"], 3);
         assert_eq!(
             accounts.account_list[0].account_type_kind(),
             Some(OpenWorkLicenseAccountTypeKind::Basic)
@@ -2478,6 +2659,28 @@ mod tests {
             OpenWorkLicenseAccountTypeKind::ExternalContact
         );
         assert!(OpenWorkLicenseAccountTypeKind::ExternalContact.includes_customer_contact());
+        assert_eq!(
+            OpenWorkLicenseActiveStatusKind::from_code(1),
+            OpenWorkLicenseActiveStatusKind::Unbound
+        );
+        assert!(OpenWorkLicenseActiveStatusKind::Unbound.is_assignable());
+        assert_eq!(
+            OpenWorkLicenseActiveStatusKind::from_code(3),
+            OpenWorkLicenseActiveStatusKind::Expired
+        );
+        assert!(OpenWorkLicenseActiveStatusKind::Expired.is_terminal());
+        assert_eq!(
+            OpenWorkLicenseActiveStatusKind::from_code(4),
+            OpenWorkLicenseActiveStatusKind::PendingTransfer
+        );
+        assert_eq!(
+            OpenWorkLicenseActiveStatusKind::from_code(5),
+            OpenWorkLicenseActiveStatusKind::Merged
+        );
+        assert_eq!(
+            OpenWorkLicenseActiveStatusKind::from_code(6),
+            OpenWorkLicenseActiveStatusKind::SharedDownstream
+        );
 
         let active: OpenWorkLicenseActiveInfoResponse = serde_json::from_value(json!({
             "active_info": { "active_code": "active-code", "userid": "user" },
@@ -2541,6 +2744,11 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(license.license_status, Some(1));
+        assert_eq!(
+            license.license_status_kind(),
+            Some(OpenWorkLicenseStatusKind::Enabled)
+        );
+        assert!(license.is_license_check_enabled());
         assert_eq!(license.extra["license_source"], "suite");
         let trial = license.trail_info.expect("trial info");
         assert_eq!(trial.end_time, Some(1_807_776_000));

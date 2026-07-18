@@ -61,6 +61,17 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and
    component/base authorization helpers.
 
+Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
+
+- License activation records now expose typed merge and upstream/downstream
+  sharing details while retaining unknown response fields.
+- License account status covers unbound, active, expired, pending-transfer,
+  merged, and downstream-shared states.
+- License order semantics now cover migration and multi-corporation orders,
+  and distinguish refunding, refunded, refund-rejected, and invalid states.
+- Order/account pagination and application license-check status expose
+  production-oriented semantic helpers.
+
 ## Endpoint Audit
 
 The following exact endpoint comparison was generated from the latest
