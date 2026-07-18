@@ -228,6 +228,16 @@ Implemented on 2026-07-18 in Roze WeChat Work message-audit depth:
 
 Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
 
+- WeDoc document batch updates now expose typed operations for replacing,
+  inserting, and deleting text/content; inserting images, page breaks,
+  paragraphs, and tables; and updating text properties.
+- Document locations and ranges are typed, range end positions are checked,
+  and future operation objects remain round-trip compatible through extension
+  fields.
+- Requests are validated before transport for non-empty document IDs,
+  non-negative versions and locations, the 30-operation batch limit, the
+  50-range text-operation limit, paired positive image dimensions, and the
+  upstream 100-row/60-column/1,000-cell table constraints.
 - OA WeDoc now covers document create/rename/delete/base-info/share and
   collection-form create/modify/info/statistics/answer lifecycles. The
   collection-form create/modify paths use the current upstream

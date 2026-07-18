@@ -4182,6 +4182,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocDocumentBatchUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/document/batch_update",
@@ -15918,7 +15919,442 @@ pub struct WorkWeDocAdmin {
 pub struct WorkWeDocDocumentBatchUpdateRequest {
     pub docid: String,
     pub version: i64,
-    pub requests: Vec<Value>,
+    pub requests: Vec<WorkWeDocDocumentUpdateRequest>,
+}
+
+impl WorkWeDocDocumentBatchUpdateRequest {
+    pub fn new(
+        docid: impl Into<String>,
+        version: i64,
+        requests: impl IntoIterator<Item = WorkWeDocDocumentUpdateRequest>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            version,
+            requests: requests.into_iter().collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.docid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc document batch update docid cannot be empty".to_string(),
+            ));
+        }
+        if self.version < 0 {
+            return Err(WechatError::Config(
+                "WeDoc document batch update version cannot be negative".to_string(),
+            ));
+        }
+        if self.requests.is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc document batch update requires at least one operation".to_string(),
+            ));
+        }
+        if self.requests.len() > 30 {
+            return Err(WechatError::Config(
+                "WeDoc document batch update supports at most 30 operations".to_string(),
+            ));
+        }
+        for request in &self.requests {
+            request.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocDocumentUpdateRequest {
+    #[serde(
+        default,
+        alias = "replace_text_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub replace_text: Option<WorkWeDocDocumentReplaceText>,
+    #[serde(
+        default,
+        alias = "insert_text_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub insert_text: Option<WorkWeDocDocumentInsertText>,
+    #[serde(
+        default,
+        alias = "delete_content_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub delete_content: Option<WorkWeDocDocumentDeleteContent>,
+    #[serde(
+        default,
+        alias = "insert_image_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub insert_image: Option<WorkWeDocDocumentInsertImage>,
+    #[serde(
+        default,
+        alias = "insert_page_break_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub insert_page_break: Option<WorkWeDocDocumentInsertLocation>,
+    #[serde(
+        default,
+        alias = "insert_table_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub insert_table: Option<WorkWeDocDocumentInsertTable>,
+    #[serde(
+        default,
+        alias = "insert_paragraph_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub insert_paragraph: Option<WorkWeDocDocumentInsertLocation>,
+    #[serde(
+        default,
+        alias = "update_text_property_request",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub update_text_property: Option<WorkWeDocDocumentUpdateTextProperty>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocDocumentUpdateRequest {
+    pub fn replace_text(
+        text: impl Into<String>,
+        ranges: impl IntoIterator<Item = WorkWeDocDocumentRange>,
+    ) -> Self {
+        Self {
+            replace_text: Some(WorkWeDocDocumentReplaceText {
+                text: text.into(),
+                ranges: ranges.into_iter().collect(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn insert_text(index: i64, text: impl Into<String>) -> Self {
+        Self {
+            insert_text: Some(WorkWeDocDocumentInsertText {
+                text: text.into(),
+                location: WorkWeDocDocumentLocation { index },
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn delete_content(start_index: i64, length: i64) -> Self {
+        Self {
+            delete_content: Some(WorkWeDocDocumentDeleteContent {
+                range: WorkWeDocDocumentRange::new(start_index, length),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn insert_image(index: i64, image_id: impl Into<String>) -> Self {
+        Self {
+            insert_image: Some(WorkWeDocDocumentInsertImage {
+                image_id: image_id.into(),
+                location: WorkWeDocDocumentLocation { index },
+                width: None,
+                height: None,
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn insert_sized_image(
+        index: i64,
+        image_id: impl Into<String>,
+        width: i64,
+        height: i64,
+    ) -> Self {
+        Self {
+            insert_image: Some(WorkWeDocDocumentInsertImage {
+                image_id: image_id.into(),
+                location: WorkWeDocDocumentLocation { index },
+                width: Some(width),
+                height: Some(height),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn insert_page_break(index: i64) -> Self {
+        Self {
+            insert_page_break: Some(WorkWeDocDocumentInsertLocation {
+                location: WorkWeDocDocumentLocation { index },
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn insert_table(index: i64, rows: i64, cols: i64) -> Self {
+        Self {
+            insert_table: Some(WorkWeDocDocumentInsertTable {
+                rows,
+                cols,
+                location: WorkWeDocDocumentLocation { index },
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn insert_paragraph(index: i64) -> Self {
+        Self {
+            insert_paragraph: Some(WorkWeDocDocumentInsertLocation {
+                location: WorkWeDocDocumentLocation { index },
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn update_text_property(
+        text_property: WorkWeDocDocumentTextProperty,
+        ranges: impl IntoIterator<Item = WorkWeDocDocumentRange>,
+    ) -> Self {
+        Self {
+            update_text_property: Some(WorkWeDocDocumentUpdateTextProperty {
+                text_property,
+                ranges: ranges.into_iter().collect(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn operation_kind(&self) -> Option<WorkWeDocDocumentOperationKind> {
+        let mut kinds = Vec::new();
+        if self.replace_text.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::ReplaceText);
+        }
+        if self.insert_text.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::InsertText);
+        }
+        if self.delete_content.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::DeleteContent);
+        }
+        if self.insert_image.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::InsertImage);
+        }
+        if self.insert_page_break.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::InsertPageBreak);
+        }
+        if self.insert_table.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::InsertTable);
+        }
+        if self.insert_paragraph.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::InsertParagraph);
+        }
+        if self.update_text_property.is_some() {
+            kinds.push(WorkWeDocDocumentOperationKind::UpdateTextProperty);
+        }
+        let unknown_count = self.extra.as_object().map_or(0, serde_json::Map::len);
+        match (kinds.as_slice(), unknown_count) {
+            ([kind], 0) => Some(*kind),
+            ([], 1) => Some(WorkWeDocDocumentOperationKind::Other),
+            _ => None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let kind = self.operation_kind().ok_or_else(|| {
+            WechatError::Config(
+                "each WeDoc document update must contain exactly one operation".to_string(),
+            )
+        })?;
+        match kind {
+            WorkWeDocDocumentOperationKind::ReplaceText => {
+                validate_wedoc_document_ranges(&self.replace_text.as_ref().unwrap().ranges)?;
+            }
+            WorkWeDocDocumentOperationKind::InsertText => {
+                validate_wedoc_document_location(
+                    self.insert_text.as_ref().unwrap().location.index,
+                )?;
+            }
+            WorkWeDocDocumentOperationKind::DeleteContent => {
+                self.delete_content.as_ref().unwrap().range.validate()?;
+            }
+            WorkWeDocDocumentOperationKind::InsertImage => {
+                let image = self.insert_image.as_ref().unwrap();
+                validate_wedoc_document_location(image.location.index)?;
+                if image.image_id.trim().is_empty() {
+                    return Err(WechatError::Config(
+                        "WeDoc inserted image id cannot be empty".to_string(),
+                    ));
+                }
+                if image.width.is_some_and(|width| width <= 0)
+                    || image.height.is_some_and(|height| height <= 0)
+                {
+                    return Err(WechatError::Config(
+                        "WeDoc inserted image dimensions must be positive".to_string(),
+                    ));
+                }
+                if image.width.is_some() != image.height.is_some() {
+                    return Err(WechatError::Config(
+                        "WeDoc inserted image width and height must be provided together"
+                            .to_string(),
+                    ));
+                }
+            }
+            WorkWeDocDocumentOperationKind::InsertPageBreak => {
+                validate_wedoc_document_location(
+                    self.insert_page_break.as_ref().unwrap().location.index,
+                )?;
+            }
+            WorkWeDocDocumentOperationKind::InsertTable => {
+                let table = self.insert_table.as_ref().unwrap();
+                validate_wedoc_document_location(table.location.index)?;
+                if !(1..=100).contains(&table.rows)
+                    || !(1..=60).contains(&table.cols)
+                    || table.rows * table.cols > 1_000
+                {
+                    return Err(WechatError::Config(
+                        "WeDoc inserted table must be within 100 rows, 60 columns, and 1000 cells"
+                            .to_string(),
+                    ));
+                }
+            }
+            WorkWeDocDocumentOperationKind::InsertParagraph => {
+                validate_wedoc_document_location(
+                    self.insert_paragraph.as_ref().unwrap().location.index,
+                )?;
+            }
+            WorkWeDocDocumentOperationKind::UpdateTextProperty => {
+                validate_wedoc_document_ranges(
+                    &self.update_text_property.as_ref().unwrap().ranges,
+                )?;
+            }
+            WorkWeDocDocumentOperationKind::Other => {}
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocDocumentOperationKind {
+    ReplaceText,
+    InsertText,
+    DeleteContent,
+    InsertImage,
+    InsertPageBreak,
+    InsertTable,
+    InsertParagraph,
+    UpdateTextProperty,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentLocation {
+    pub index: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentRange {
+    pub start_index: i64,
+    pub length: i64,
+}
+
+impl WorkWeDocDocumentRange {
+    pub fn new(start_index: i64, length: i64) -> Self {
+        Self {
+            start_index,
+            length,
+        }
+    }
+
+    pub fn end_index(&self) -> Option<i64> {
+        self.start_index.checked_add(self.length)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.start_index < 0 || self.length <= 0 || self.end_index().is_none() {
+            return Err(WechatError::Config(
+                "WeDoc document range requires a non-negative start and positive valid length"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_document_location(index: i64) -> Result<()> {
+    if index < 0 {
+        return Err(WechatError::Config(
+            "WeDoc document location index cannot be negative".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_document_ranges(ranges: &[WorkWeDocDocumentRange]) -> Result<()> {
+    if ranges.is_empty() {
+        return Err(WechatError::Config(
+            "WeDoc document text operation requires at least one range".to_string(),
+        ));
+    }
+    if ranges.len() > 50 {
+        return Err(WechatError::Config(
+            "WeDoc document text operation supports at most 50 ranges".to_string(),
+        ));
+    }
+    for range in ranges {
+        range.validate()?;
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentReplaceText {
+    pub text: String,
+    pub ranges: Vec<WorkWeDocDocumentRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentInsertText {
+    pub text: String,
+    pub location: WorkWeDocDocumentLocation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentDeleteContent {
+    pub range: WorkWeDocDocumentRange,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentInsertImage {
+    pub image_id: String,
+    pub location: WorkWeDocDocumentLocation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentInsertLocation {
+    pub location: WorkWeDocDocumentLocation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentInsertTable {
+    pub rows: i64,
+    pub cols: i64,
+    pub location: WorkWeDocDocumentLocation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentUpdateTextProperty {
+    pub text_property: WorkWeDocDocumentTextProperty,
+    pub ranges: Vec<WorkWeDocDocumentRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocDocumentTextProperty {
+    #[serde(alias = "blod", skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background_color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24556,29 +24992,133 @@ mod tests {
 
     #[test]
     fn serializes_work_wedoc_document_and_spreadsheet_content_requests() {
-        let document = serde_json::to_value(WorkWeDocDocumentBatchUpdateRequest {
-            docid: "doc-1".to_string(),
-            version: 8,
-            requests: vec![
-                json!({
-                    "insert_text_request": {
-                        "location": { "index": 1 },
-                        "text": "Weekly report"
-                    }
-                }),
-                json!({
-                    "delete_content_request": {
-                        "range": { "start_index": 10, "end_index": 20 }
-                    }
-                }),
+        let document_request = WorkWeDocDocumentBatchUpdateRequest::new(
+            "doc-1",
+            8,
+            [
+                WorkWeDocDocumentUpdateRequest::insert_text(1, "Weekly report"),
+                WorkWeDocDocumentUpdateRequest::delete_content(10, 10),
+                WorkWeDocDocumentUpdateRequest::replace_text(
+                    "Revenue",
+                    [WorkWeDocDocumentRange::new(20, 7)],
+                ),
+                WorkWeDocDocumentUpdateRequest::insert_image(30, "image-1"),
+                WorkWeDocDocumentUpdateRequest::insert_page_break(31),
+                WorkWeDocDocumentUpdateRequest::insert_table(32, 10, 6),
+                WorkWeDocDocumentUpdateRequest::insert_paragraph(33),
+                WorkWeDocDocumentUpdateRequest::update_text_property(
+                    WorkWeDocDocumentTextProperty {
+                        bold: Some(true),
+                        color: Some("FF0000".to_string()),
+                        background_color: Some("FFFFFF".to_string()),
+                    },
+                    [WorkWeDocDocumentRange::new(40, 5)],
+                ),
             ],
-        })
-        .unwrap();
+        );
+        document_request.validate().unwrap();
+        assert_eq!(
+            document_request.requests[0].operation_kind(),
+            Some(WorkWeDocDocumentOperationKind::InsertText)
+        );
+        assert_eq!(WorkWeDocDocumentRange::new(10, 10).end_index(), Some(20));
+        let document = serde_json::to_value(document_request).unwrap();
         assert_eq!(document["version"], 8);
         assert_eq!(
-            document["requests"][0]["insert_text_request"]["text"],
+            document["requests"][0]["insert_text"]["text"],
             "Weekly report"
         );
+        assert!(document["requests"][0].get("insert_text_request").is_none());
+        assert_eq!(
+            document["requests"][1]["delete_content"]["range"]["length"],
+            10
+        );
+        assert_eq!(
+            document["requests"][2]["replace_text"]["ranges"][0]["start_index"],
+            20
+        );
+        assert_eq!(
+            document["requests"][3]["insert_image"]["image_id"],
+            "image-1"
+        );
+        assert_eq!(
+            document["requests"][4]["insert_page_break"]["location"]["index"],
+            31
+        );
+        assert_eq!(document["requests"][5]["insert_table"]["cols"], 6);
+        assert_eq!(
+            document["requests"][6]["insert_paragraph"]["location"]["index"],
+            33
+        );
+        assert_eq!(
+            document["requests"][7]["update_text_property"]["text_property"]["background_color"],
+            "FFFFFF"
+        );
+
+        let unknown: WorkWeDocDocumentUpdateRequest =
+            serde_json::from_value(json!({ "future_operation": { "enabled": true } })).unwrap();
+        assert_eq!(
+            unknown.operation_kind(),
+            Some(WorkWeDocDocumentOperationKind::Other)
+        );
+        unknown.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(unknown).unwrap()["future_operation"]["enabled"],
+            true
+        );
+        let legacy: WorkWeDocDocumentUpdateRequest = serde_json::from_value(json!({
+            "insert_text_request": {
+                "text": "legacy",
+                "location": { "index": 2 }
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            legacy.operation_kind(),
+            Some(WorkWeDocDocumentOperationKind::InsertText)
+        );
+        assert!(serde_json::to_value(legacy)
+            .unwrap()
+            .get("insert_text")
+            .is_some());
+
+        assert!(WorkWeDocDocumentBatchUpdateRequest::new("doc", 1, [])
+            .validate()
+            .is_err());
+        assert!(WorkWeDocDocumentBatchUpdateRequest::new(
+            "doc",
+            1,
+            (0..31).map(WorkWeDocDocumentUpdateRequest::insert_paragraph)
+        )
+        .validate()
+        .is_err());
+        assert!(WorkWeDocDocumentBatchUpdateRequest::new(
+            "doc",
+            1,
+            [WorkWeDocDocumentUpdateRequest::insert_table(0, 20, 60)]
+        )
+        .validate()
+        .is_err());
+        let mut incomplete_image = WorkWeDocDocumentUpdateRequest::insert_image(0, "image-1");
+        incomplete_image.insert_image.as_mut().unwrap().width = Some(100);
+        assert!(incomplete_image.validate().is_err());
+        let conflicting = WorkWeDocDocumentUpdateRequest {
+            insert_text: Some(WorkWeDocDocumentInsertText {
+                text: "text".to_string(),
+                location: WorkWeDocDocumentLocation { index: 0 },
+            }),
+            insert_paragraph: Some(WorkWeDocDocumentInsertLocation {
+                location: WorkWeDocDocumentLocation { index: 1 },
+            }),
+            ..WorkWeDocDocumentUpdateRequest::default()
+        };
+        assert!(conflicting.validate().is_err());
+        let known_and_unknown: WorkWeDocDocumentUpdateRequest = serde_json::from_value(json!({
+            "insert_paragraph": { "location": { "index": 1 } },
+            "future_operation": { "enabled": true }
+        }))
+        .unwrap();
+        assert!(known_and_unknown.validate().is_err());
 
         let range = serde_json::to_value(WorkWeDocSpreadsheetRangeRequest {
             docid: "sheet-doc".to_string(),
