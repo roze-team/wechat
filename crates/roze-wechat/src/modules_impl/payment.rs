@@ -4458,6 +4458,16 @@ pub struct ComplaintListResponse {
     pub extra: Value,
 }
 
+impl ComplaintListResponse {
+    pub fn has_more(&self) -> Option<bool> {
+        payment_page_has_more(self.offset, self.total_count, self.data.len())
+    }
+
+    pub fn next_offset(&self) -> Option<i64> {
+        payment_page_next_offset(self.offset, self.total_count, self.data.len())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintDetailResponse {
     #[serde(default)]
@@ -4548,6 +4558,37 @@ impl ComplaintDetailResponse {
         self.user_tag_list
             .iter()
             .map(|value| ComplaintUserTag::from_code(value))
+    }
+
+    pub fn decrypt_payer_phone(&self, merchant_private_key_pem: &str) -> Result<Option<String>> {
+        self.payer_phone
+            .as_deref()
+            .map(|ciphertext| {
+                crypto::rsa_oaep_sha1_decrypt_base64(merchant_private_key_pem, ciphertext)
+            })
+            .transpose()
+    }
+
+    pub fn is_refund_request(&self) -> bool {
+        self.problem_type_kind() == Some(ComplaintProblemType::Refund)
+    }
+
+    pub fn needs_merchant_response(&self) -> bool {
+        self.incoming_user_response == Some(true)
+            && !self
+                .complaint_state_kind()
+                .is_some_and(ComplaintStateKind::is_terminal)
+    }
+
+    pub fn needs_priority_attention(&self) -> bool {
+        !self
+            .complaint_state_kind()
+            .is_some_and(ComplaintStateKind::is_terminal)
+            && (self.need_immediate_service == Some(true)
+                || self.is_refund_request()
+                || self
+                    .user_tag_kinds()
+                    .any(|kind| kind == ComplaintUserTag::HighRisk))
     }
 }
 
@@ -4795,6 +4836,38 @@ pub struct ComplaintNegotiationHistoryResponse {
     pub extra: Value,
 }
 
+impl ComplaintNegotiationHistoryResponse {
+    pub fn has_more(&self) -> Option<bool> {
+        payment_page_has_more(self.offset, self.total_count, self.data.len())
+    }
+
+    pub fn next_offset(&self) -> Option<i64> {
+        payment_page_next_offset(self.offset, self.total_count, self.data.len())
+    }
+}
+
+fn payment_page_has_more(
+    offset: Option<i64>,
+    total_count: Option<i64>,
+    returned: usize,
+) -> Option<bool> {
+    let returned = i64::try_from(returned).ok()?;
+    Some(offset?.checked_add(returned)? < total_count?)
+}
+
+fn payment_page_next_offset(
+    offset: Option<i64>,
+    total_count: Option<i64>,
+    returned: usize,
+) -> Option<i64> {
+    if returned == 0 {
+        return None;
+    }
+    let returned = i64::try_from(returned).ok()?;
+    let next = offset?.checked_add(returned)?;
+    (next < total_count?).then_some(next)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintNegotiationHistoryRecord {
     #[serde(default)]
@@ -4836,6 +4909,17 @@ pub enum ComplaintNegotiationOperateType {
     PlatformServiceFinished,
     MerchantApproveRefund,
     MerchantRejectRefund,
+    UserRevokeComplaint,
+    UserConfirmComplaint,
+    PlatformHelpApplication,
+    UserApplyPlatformHelp,
+    UserSubmitSatisfaction,
+    ServiceOrderCancel,
+    ServiceOrderComplete,
+    ComplaintFullRefunded,
+    ComplaintPartialRefunded,
+    ComplaintRefundReceived,
+    ComplaintEntrustedRefund,
     UserClickResponse,
     SystemMessage,
     Other,
@@ -4855,10 +4939,44 @@ impl ComplaintNegotiationOperateType {
             "PLATFORM_SERVICE_FINISHED" => Self::PlatformServiceFinished,
             "MERCHANT_APPROVE_REFUND" => Self::MerchantApproveRefund,
             "MERCHANT_REFUSE_RERUND" | "MERCHANT_REJECT_REFUND" => Self::MerchantRejectRefund,
+            "USER_REVOKE_COMPLAINT" => Self::UserRevokeComplaint,
+            "USER_COMFIRM_COMPLAINT" | "USER_CONFIRM_COMPLAINT" => Self::UserConfirmComplaint,
+            "PLATFORM_HELP_APPLICATION" => Self::PlatformHelpApplication,
+            "USER_APPLY_PLATFORM_HELP" => Self::UserApplyPlatformHelp,
+            "USER_SUBMIT_SATISFACTION" => Self::UserSubmitSatisfaction,
+            "SERVICE_ORDER_CANCEL" => Self::ServiceOrderCancel,
+            "SERVICE_ORDER_COMPLETE" => Self::ServiceOrderComplete,
+            "COMPLAINT_FULL_REFUNDED_SYSTEM_MESSAGE" => Self::ComplaintFullRefunded,
+            "COMPLAINT_PARTIAL_REFUNDED_SYSTEM_MESSAGE" => Self::ComplaintPartialRefunded,
+            "COMPLAINT_REFUND_RECEIVED_SYSTEM_MESSAGE" => Self::ComplaintRefundReceived,
+            "COMPLAINT_ENTRUSTED_REFUND_SYSTEM_MESSAGE" => Self::ComplaintEntrustedRefund,
             "USER_CLICK_RESPONSE" => Self::UserClickResponse,
             value if value.ends_with("_SYSTEM_MESSAGE") => Self::SystemMessage,
             _ => Self::Other,
         }
+    }
+
+    pub fn is_refund_event(self) -> bool {
+        matches!(
+            self,
+            Self::MerchantApproveRefund
+                | Self::MerchantRejectRefund
+                | Self::ComplaintFullRefunded
+                | Self::ComplaintPartialRefunded
+                | Self::ComplaintRefundReceived
+                | Self::ComplaintEntrustedRefund
+        )
+    }
+
+    pub fn is_system_event(self) -> bool {
+        matches!(
+            self,
+            Self::ComplaintFullRefunded
+                | Self::ComplaintPartialRefunded
+                | Self::ComplaintRefundReceived
+                | Self::ComplaintEntrustedRefund
+                | Self::SystemMessage
+        )
     }
 }
 
@@ -5439,7 +5557,9 @@ impl ComplaintNotificationActionKind {
             "SELLER_REFUND" => Self::SellerRefund,
             "MERCHANT_RESPONSE" => Self::MerchantResponse,
             "MERCHANT_CONFIRM_COMPLETE" => Self::MerchantConfirmComplete,
-            "USER_APPLY_PLATFORM_SERVICE" => Self::UserApplyPlatformService,
+            "USER_APPLY_PLATFORM_SERVICE" | "USER_APPLY_PLATFORM_SERIVCE" => {
+                Self::UserApplyPlatformService
+            }
             "USER_CANCEL_PLATFORM_SERVICE" => Self::UserCancelPlatformService,
             "PLATFORM_SERVICE_FINISHED" => Self::PlatformServiceFinished,
             "MERCHANT_APPROVE_REFUND" => Self::MerchantApproveRefund,
@@ -7994,6 +8114,9 @@ mod tests {
             detail.user_tag_kinds().collect::<Vec<_>>(),
             vec![ComplaintUserTag::HighRisk]
         );
+        assert!(!detail.is_refund_request());
+        assert!(detail.needs_merchant_response());
+        assert!(detail.needs_priority_attention());
         let single_media_detail: ComplaintDetailResponse = serde_json::from_value(json!({
             "complaint_media_list": {
                 "media_type": "VIDEO",
@@ -8078,6 +8201,29 @@ mod tests {
             Some(ComplaintStateKind::Pending)
         );
         assert_eq!(list.extra["next_key"], "cursor-1");
+        assert_eq!(list.has_more(), Some(false));
+        assert_eq!(list.next_offset(), None);
+        let next_page: ComplaintListResponse = serde_json::from_value(json!({
+            "total_count": 3,
+            "offset": 1,
+            "data": [{}]
+        }))
+        .unwrap();
+        assert_eq!(next_page.has_more(), Some(true));
+        assert_eq!(next_page.next_offset(), Some(2));
+        let no_phone: ComplaintDetailResponse = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(no_phone.decrypt_payer_phone("not parsed").unwrap(), None);
+        let completed_refund: ComplaintDetailResponse = serde_json::from_value(json!({
+            "complaint_state": "PROCESSED",
+            "problem_type": "REFUND",
+            "incoming_user_response": true,
+            "need_immediate_service": true,
+            "user_tag_list": ["HIGH_RISK"]
+        }))
+        .unwrap();
+        assert!(completed_refund.is_refund_request());
+        assert!(!completed_refund.needs_merchant_response());
+        assert!(!completed_refund.needs_priority_attention());
         assert_eq!(
             ComplaintStateKind::from_code("processed"),
             ComplaintStateKind::Processed
@@ -8242,6 +8388,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(response.total_count, Some(1));
+        assert_eq!(response.has_more(), Some(false));
+        assert_eq!(response.next_offset(), None);
         assert_eq!(response.data[0].log_id.as_deref(), Some("log-1"));
         assert_eq!(
             response.data[0].operate_type_kind(),
@@ -8313,6 +8461,20 @@ mod tests {
                 .as_ref()
                 .and_then(|message| message.clicked_log_id.as_deref()),
             Some("log-0")
+        );
+        assert_eq!(
+            ComplaintNegotiationOperateType::from_code("USER_COMFIRM_COMPLAINT"),
+            ComplaintNegotiationOperateType::UserConfirmComplaint
+        );
+        assert_eq!(
+            ComplaintNegotiationOperateType::from_code("COMPLAINT_PARTIAL_REFUNDED_SYSTEM_MESSAGE"),
+            ComplaintNegotiationOperateType::ComplaintPartialRefunded
+        );
+        assert!(ComplaintNegotiationOperateType::ComplaintPartialRefunded.is_refund_event());
+        assert!(ComplaintNegotiationOperateType::ComplaintPartialRefunded.is_system_event());
+        assert_eq!(
+            ComplaintNotificationActionKind::from_code("USER_APPLY_PLATFORM_SERIVCE"),
+            ComplaintNotificationActionKind::UserApplyPlatformService
         );
     }
 

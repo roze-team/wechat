@@ -12,7 +12,7 @@ use rsa::{
     pkcs1v15::{Signature, SigningKey, VerifyingKey},
     pkcs8::{DecodePrivateKey, DecodePublicKey},
     signature::{RandomizedSigner, SignatureEncoding, Verifier},
-    RsaPrivateKey, RsaPublicKey,
+    Oaep, RsaPrivateKey, RsaPublicKey,
 };
 use sha1::{Digest as Sha1Digest, Sha1};
 use sha2::Sha256;
@@ -131,6 +131,22 @@ pub fn rsa_sha256_verify_base64(
     Ok(verifying_key.verify(message, &signature).is_ok())
 }
 
+pub fn rsa_oaep_sha1_decrypt_base64(
+    private_key_pem: &str,
+    ciphertext_base64: &str,
+) -> Result<String> {
+    let private_key = RsaPrivateKey::from_pkcs8_pem(private_key_pem)
+        .map_err(|err| WechatError::Crypto(format!("invalid private key: {err}")))?;
+    let ciphertext = general_purpose::STANDARD
+        .decode(ciphertext_base64)
+        .map_err(|err| WechatError::Crypto(format!("invalid base64 ciphertext: {err}")))?;
+    let plaintext = private_key
+        .decrypt(Oaep::new::<Sha1>(), &ciphertext)
+        .map_err(|err| WechatError::Crypto(format!("rsa oaep decrypt failed: {err}")))?;
+    String::from_utf8(plaintext)
+        .map_err(|err| WechatError::Crypto(format!("rsa oaep plaintext is not UTF-8: {err}")))
+}
+
 pub fn callback_aes_key(encoding_aes_key: &str) -> Result<[u8; 32]> {
     let normalized = format!("{encoding_aes_key}=");
     let key = general_purpose::STANDARD
@@ -211,6 +227,8 @@ pub fn payment_v3_encrypt_for_test(
 
 #[cfg(test)]
 mod tests {
+    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
+
     use super::*;
 
     #[test]
@@ -296,5 +314,22 @@ mod tests {
         let encrypted = payment_v3_encrypt_for_test(key, nonce, aad, br#"{"ok":true}"#).unwrap();
         let decrypted = payment_v3_decrypt(key, nonce, aad, &encrypted).unwrap();
         assert_eq!(decrypted, br#"{"ok":true}"#);
+    }
+
+    #[test]
+    fn decrypts_rsa_oaep_sha1_sensitive_field() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 1024).unwrap();
+        let public_key = RsaPublicKey::from(&private_key);
+        let ciphertext = public_key
+            .encrypt(&mut rng, Oaep::new::<Sha1>(), b"13800000000")
+            .unwrap();
+        let private_key_pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
+        let encoded = general_purpose::STANDARD.encode(ciphertext);
+
+        assert_eq!(
+            rsa_oaep_sha1_decrypt_base64(private_key_pem.as_str(), &encoded).unwrap(),
+            "13800000000"
+        );
     }
 }

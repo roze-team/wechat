@@ -710,6 +710,23 @@ Implemented on 2026-07-18 in Roze WeChat payment download depth:
   starting I/O, then reuse the existing SHA-1/SHA-256 streaming verification,
   no-clobber temporary file, flush/sync, and atomic commit path.
 
+Implemented on 2026-07-18 in Roze WeChat merchant-service response depth:
+
+- the shared crypto module now supports WeChat Pay's RSA-OAEP-SHA1 sensitive
+  response-field decryption with PKCS#8 merchant private keys;
+- complaint details can decrypt the encrypted `payer_phone` field directly
+  while preserving the original ciphertext in the response DTO;
+- complaint details expose terminal-aware refund, pending-reply, and priority
+  attention helpers for production complaint routing;
+- complaint list and negotiation-history responses expose checked `has_more`
+  and `next_offset` pagination helpers without advancing empty pages;
+- negotiation operation semantics now cover revoke/confirm, satisfaction,
+  platform-help, service-order completion/cancellation, full/partial/received/
+  entrusted refund system events, and the upstream legacy misspellings;
+- complaint callback action parsing accepts both the documented
+  `USER_APPLY_PLATFORM_SERVICE` value and the historical
+  `USER_APPLY_PLATFORM_SERIVCE` value.
+
 Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 
 - signed WeChat Pay v3 bill download bytes helper with absolute/relative
