@@ -6,8 +6,9 @@ use crate::{
     error::{Result, WechatError},
     modules::{
         official_account::{
+            validate_material_articles, validate_material_required, validate_material_upload,
             Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
-            MaterialMediaResponse, MaterialStatsResponse,
+            MaterialMediaResponse, MaterialStatsResponse, MaterialUploadKind,
         },
         DomainModule, PlatformClient,
     },
@@ -732,11 +733,13 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
         self.inner
             .post_json_bytes(
                 "cgi-bin/material/get_material",
                 Some(authorizer_access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -744,22 +747,69 @@ impl OpenPlatform {
     pub async fn upload_authorizer_material_from_bytes(
         &self,
         authorizer_access_token: impl Into<String>,
-        kind: impl Into<String>,
+        kind: MaterialUploadKind,
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<MaterialMediaResponse> {
+        let file_name = file_name.into();
+        validate_material_upload(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
                 "cgi-bin/material/add_material",
                 Some(authorizer_access_token.into()),
-                vec![("type".to_string(), kind.into())],
+                vec![("type".to_string(), kind.as_code().to_string())],
                 form,
             )
             .await
+    }
+
+    pub async fn upload_authorizer_image_material_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        self.upload_authorizer_material_from_bytes(
+            authorizer_access_token,
+            MaterialUploadKind::Image,
+            file_name,
+            data,
+        )
+        .await
+    }
+
+    pub async fn upload_authorizer_voice_material_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        self.upload_authorizer_material_from_bytes(
+            authorizer_access_token,
+            MaterialUploadKind::Voice,
+            file_name,
+            data,
+        )
+        .await
+    }
+
+    pub async fn upload_authorizer_thumb_material_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        self.upload_authorizer_material_from_bytes(
+            authorizer_access_token,
+            MaterialUploadKind::Thumb,
+            file_name,
+            data,
+        )
+        .await
     }
 
     pub async fn upload_authorizer_video_material_from_bytes(
@@ -770,15 +820,21 @@ impl OpenPlatform {
         title: impl Into<String>,
         introduction: impl Into<String>,
     ) -> Result<MaterialMediaResponse> {
+        let file_name = file_name.into();
+        let title = title.into();
+        let introduction = introduction.into();
+        validate_material_upload(&file_name, &data)?;
+        validate_material_required("video title", &title)?;
+        validate_material_required("video introduction", &introduction)?;
         let description = json!({
-            "title": title.into(),
-            "introduction": introduction.into(),
+            "title": title,
+            "introduction": introduction,
         })
         .to_string();
         let form = reqwest::multipart::Form::new()
             .part(
                 "media",
-                reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+                reqwest::multipart::Part::bytes(data).file_name(file_name),
             )
             .text("description", description.clone())
             .text("Description", description);
@@ -792,11 +848,34 @@ impl OpenPlatform {
             .await
     }
 
+    pub async fn upload_authorizer_article_image_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        let file_name = file_name.into();
+        validate_material_upload(&file_name, &data)?;
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
+        );
+        self.inner
+            .post_multipart(
+                "cgi-bin/media/uploadimg",
+                Some(authorizer_access_token.into()),
+                Vec::new(),
+                form,
+            )
+            .await
+    }
+
     pub async fn add_authorizer_news_material(
         &self,
         authorizer_access_token: impl Into<String>,
         articles: Vec<Article>,
     ) -> Result<MaterialMediaResponse> {
+        validate_material_articles(&articles)?;
         self.inner
             .post(
                 "cgi-bin/material/add_news",
@@ -813,12 +892,20 @@ impl OpenPlatform {
         index: i64,
         article: Article,
     ) -> Result<OpenPlatformStatusResponse> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
+        if !(0..=7).contains(&index) {
+            return Err(WechatError::Config(
+                "open platform material article index must be between 0 and 7".to_string(),
+            ));
+        }
+        article.validate()?;
         self.inner
             .post(
                 "cgi-bin/material/update_news",
                 Some(authorizer_access_token.into()),
                 json!({
-                    "media_id": media_id.into(),
+                    "media_id": media_id,
                     "index": index,
                     "articles": article,
                 }),
@@ -831,11 +918,13 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<MaterialGetResponse> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/material/get_material",
                 Some(authorizer_access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -845,11 +934,13 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/material/del_material",
                 Some(authorizer_access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -859,6 +950,7 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: MaterialListRequest,
     ) -> Result<MaterialListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/material/batchget_material",
@@ -2963,7 +3055,7 @@ mod tests {
     use serde_json::{json, Value};
 
     use crate::modules::official_account::{
-        Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
+        Article, MaterialGetResponse, MaterialListKind, MaterialListRequest, MaterialListResponse,
         MaterialMediaResponse, MaterialStatsResponse,
     };
 
@@ -4036,12 +4128,8 @@ mod tests {
         assert_eq!(article["show_cover_pic"], 1);
         assert_eq!(article["need_open_comment"], 1);
 
-        let list = serde_json::to_value(MaterialListRequest {
-            kind: "news".to_string(),
-            offset: 0,
-            count: 20,
-        })
-        .unwrap();
+        let list =
+            serde_json::to_value(MaterialListRequest::new(MaterialListKind::News, 0, 20)).unwrap();
         assert_eq!(list["type"], "news");
         assert_eq!(list["count"], 20);
     }
@@ -4077,7 +4165,14 @@ mod tests {
             "item_count": 1,
             "item": [{
                 "media_id": "media-1",
-                "name": "release.png",
+                "name": "release",
+                "content": {
+                    "news_item": [{
+                        "title": "Release notes",
+                        "thumb_media_id": "thumb-media"
+                    }],
+                    "update_time": 2
+                },
                 "item_revision": 3
             }],
             "next_offset": 1
@@ -4085,6 +4180,12 @@ mod tests {
         .unwrap();
         assert_eq!(materials.total_count, Some(2));
         assert_eq!(materials.item[0].media_id.as_deref(), Some("media-1"));
+        assert_eq!(
+            materials.item[0].news_content().unwrap().unwrap().news_item[0]
+                .title
+                .as_deref(),
+            Some("Release notes")
+        );
         assert_eq!(materials.item[0].extra["item_revision"], 3);
         assert_eq!(materials.extra["next_offset"], 1);
 

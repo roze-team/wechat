@@ -1093,6 +1093,27 @@ audit, and release depth:
   items type `percentage`, and existing unknown-field preservation remains
   intact across release and audit responses.
 
+Implemented on 2026-07-18 in Open Platform authorizer and Official Account
+permanent-material depth:
+
+- shared upload kinds restrict generic permanent uploads to image, voice, and
+  thumbnail media, with PowerWeChat-style convenience methods for each kind;
+  video uploads retain their required title/introduction metadata;
+- authorizer material now includes the previously missing article-image upload,
+  while Official Account exposes a binary download path for image/voice assets
+  that cannot be decoded through the JSON material response;
+- all upload paths reject blank filenames and empty bytes, material ids are
+  validated before get/delete/update calls, and article updates enforce the
+  zero-to-seven index range;
+- news creation enforces one to eight valid articles, including required
+  title/thumbnail/content, 0/1 cover/comment flags, comment dependencies, and
+  absolute HTTP(S) source URLs when supplied;
+- material listing exposes typed image/voice/video/news kinds and validates
+  non-negative offsets plus the one-to-twenty page boundary;
+- batch material items provide typed news-content decoding with timestamps and
+  unknown-field retention, avoiding direct `Value` traversal for normal news
+  list workflows.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

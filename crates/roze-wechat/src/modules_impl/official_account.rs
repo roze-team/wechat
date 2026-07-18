@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use crate::{
     config::Platform,
     crypto,
-    error::Result,
+    error::{Result, WechatError},
     modules::{DomainModule, PlatformClient},
     types::{StableAccessTokenRequest, StableAccessTokenResponse},
     Client,
@@ -914,22 +914,53 @@ impl OfficialAccount {
     pub async fn upload_material_from_bytes(
         &self,
         access_token: impl Into<String>,
-        kind: impl Into<String>,
+        kind: MaterialUploadKind,
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<MaterialMediaResponse> {
-        let kind = kind.into();
+        let file_name = file_name.into();
+        validate_material_upload(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
                 "cgi-bin/material/add_material",
                 Some(access_token.into()),
-                vec![("type".to_string(), kind)],
+                vec![("type".to_string(), kind.as_code().to_string())],
                 form,
             )
+            .await
+    }
+
+    pub async fn upload_image_material_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        self.upload_material_from_bytes(access_token, MaterialUploadKind::Image, file_name, data)
+            .await
+    }
+
+    pub async fn upload_voice_material_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        self.upload_material_from_bytes(access_token, MaterialUploadKind::Voice, file_name, data)
+            .await
+    }
+
+    pub async fn upload_thumb_material_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        self.upload_material_from_bytes(access_token, MaterialUploadKind::Thumb, file_name, data)
             .await
     }
 
@@ -941,15 +972,21 @@ impl OfficialAccount {
         title: impl Into<String>,
         introduction: impl Into<String>,
     ) -> Result<MaterialMediaResponse> {
+        let file_name = file_name.into();
+        let title = title.into();
+        let introduction = introduction.into();
+        validate_material_upload(&file_name, &data)?;
+        validate_material_required("video title", &title)?;
+        validate_material_required("video introduction", &introduction)?;
         let description = json!({
-            "title": title.into(),
-            "introduction": introduction.into(),
+            "title": title,
+            "introduction": introduction,
         })
         .to_string();
         let form = reqwest::multipart::Form::new()
             .part(
                 "media",
-                reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+                reqwest::multipart::Part::bytes(data).file_name(file_name),
             )
             .text("description", description.clone())
             .text("Description", description);
@@ -969,9 +1006,11 @@ impl OfficialAccount {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<MaterialMediaResponse> {
+        let file_name = file_name.into();
+        validate_material_upload(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
@@ -988,6 +1027,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         articles: Vec<Article>,
     ) -> Result<MaterialMediaResponse> {
+        validate_material_articles(&articles)?;
         self.inner
             .post(
                 "cgi-bin/material/add_news",
@@ -1004,12 +1044,20 @@ impl OfficialAccount {
         index: i64,
         article: Article,
     ) -> Result<WechatStatusResponse> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
+        if !(0..=7).contains(&index) {
+            return Err(WechatError::Config(
+                "official account material article index must be between 0 and 7".to_string(),
+            ));
+        }
+        article.validate()?;
         self.inner
             .post(
                 "cgi-bin/material/update_news",
                 Some(access_token.into()),
                 json!({
-                    "media_id": media_id.into(),
+                    "media_id": media_id,
                     "index": index,
                     "articles": article,
                 }),
@@ -1022,11 +1070,29 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<MaterialGetResponse> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/material/get_material",
                 Some(access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
+            )
+            .await
+    }
+
+    pub async fn get_material_bytes(
+        &self,
+        access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<bytes::Bytes> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
+        self.inner
+            .post_json_bytes(
+                "cgi-bin/material/get_material",
+                Some(access_token.into()),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -1036,11 +1102,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let media_id = media_id.into();
+        validate_material_required("media id", &media_id)?;
         self.inner
             .post(
                 "cgi-bin/material/del_material",
                 Some(access_token.into()),
-                json!({ "media_id": media_id.into() }),
+                json!({ "media_id": media_id }),
             )
             .await
     }
@@ -1050,6 +1118,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: MaterialListRequest,
     ) -> Result<MaterialListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/material/batchget_material",
@@ -5489,6 +5558,39 @@ pub struct Article {
     pub only_fans_can_comment: Option<i64>,
 }
 
+impl Article {
+    pub fn validate(&self) -> Result<()> {
+        validate_material_required("article title", &self.title)?;
+        validate_material_required("article thumbnail media id", &self.thumb_media_id)?;
+        validate_material_required("article content", &self.content)?;
+        if !matches!(self.show_cover_pic, 0 | 1) {
+            return Err(WechatError::Config(
+                "official account material show-cover flag must be 0 or 1".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("open-comment flag", self.need_open_comment),
+            ("fans-only-comment flag", self.only_fans_can_comment),
+        ] {
+            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "official account material {kind} must be 0 or 1"
+                )));
+            }
+        }
+        if self.only_fans_can_comment == Some(1) && self.need_open_comment != Some(1) {
+            return Err(WechatError::Config(
+                "official account material fans-only comments require comments to be enabled"
+                    .to_string(),
+            ));
+        }
+        if !self.content_source_url.trim().is_empty() {
+            validate_material_http_url("article source URL", &self.content_source_url)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishArticle {
     pub title: String,
@@ -5774,6 +5876,56 @@ pub struct MaterialMediaResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MaterialUploadKind {
+    Image,
+    Voice,
+    Thumb,
+}
+
+impl MaterialUploadKind {
+    pub const fn as_code(self) -> &'static str {
+        match self {
+            Self::Image => "image",
+            Self::Voice => "voice",
+            Self::Thumb => "thumb",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MaterialListKind {
+    Image,
+    Voice,
+    Video,
+    News,
+}
+
+impl MaterialListKind {
+    pub const fn as_code(self) -> &'static str {
+        match self {
+            Self::Image => "image",
+            Self::Voice => "voice",
+            Self::Video => "video",
+            Self::News => "news",
+        }
+    }
+
+    pub fn from_code(value: &str) -> Option<Self> {
+        if value.eq_ignore_ascii_case("image") {
+            Some(Self::Image)
+        } else if value.eq_ignore_ascii_case("voice") {
+            Some(Self::Voice)
+        } else if value.eq_ignore_ascii_case("video") {
+            Some(Self::Video)
+        } else if value.eq_ignore_ascii_case("news") {
+            Some(Self::News)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaterialGetResponse {
     #[serde(default)]
@@ -5802,6 +5954,85 @@ pub struct MaterialListRequest {
     pub count: i64,
 }
 
+impl MaterialListRequest {
+    pub fn new(kind: MaterialListKind, offset: i64, count: i64) -> Self {
+        Self {
+            kind: kind.as_code().to_string(),
+            offset,
+            count,
+        }
+    }
+
+    pub fn kind(&self) -> Option<MaterialListKind> {
+        MaterialListKind::from_code(&self.kind)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.kind().is_none() {
+            return Err(WechatError::Config(
+                "official account material list type must be image, voice, video, or news"
+                    .to_string(),
+            ));
+        }
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "official account material list offset must not be negative".to_string(),
+            ));
+        }
+        if !(1..=20).contains(&self.count) {
+            return Err(WechatError::Config(
+                "official account material list count must be between 1 and 20".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn validate_material_articles(articles: &[Article]) -> Result<()> {
+    if articles.is_empty() || articles.len() > 8 {
+        return Err(WechatError::Config(
+            "official account material articles must contain between 1 and 8 entries".to_string(),
+        ));
+    }
+    for article in articles {
+        article.validate()?;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_material_upload(file_name: &str, data: &[u8]) -> Result<()> {
+    validate_material_required("file name", file_name)?;
+    if data.is_empty() {
+        return Err(WechatError::Config(
+            "official account material upload data must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_material_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "official account material {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_material_http_url(kind: &str, value: &str) -> Result<()> {
+    let url = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!(
+            "official account material {kind} is invalid: {error}"
+        ))
+    })?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "official account material {kind} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaterialListItem {
     #[serde(default)]
@@ -5814,6 +6045,28 @@ pub struct MaterialListItem {
     pub url: Option<String>,
     #[serde(default)]
     pub content: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MaterialListItem {
+    pub fn news_content(&self) -> Result<Option<MaterialNewsContent>> {
+        self.content
+            .clone()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(WechatError::from)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialNewsContent {
+    #[serde(default)]
+    pub news_item: Vec<PublishNewsItem>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub update_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -6986,13 +7239,65 @@ mod tests {
 
     #[test]
     fn serializes_material_list_request_type_name() {
-        let value = serde_json::to_value(MaterialListRequest {
-            kind: "news".to_string(),
-            offset: 0,
-            count: 20,
-        })
-        .unwrap();
+        let value =
+            serde_json::to_value(MaterialListRequest::new(MaterialListKind::News, 0, 20)).unwrap();
         assert_eq!(value, json!({ "type": "news", "offset": 0, "count": 20 }));
+    }
+
+    #[test]
+    fn validates_material_requests_and_typed_news_content() {
+        let article = Article {
+            title: "Release notes".to_string(),
+            thumb_media_id: "thumb-media".to_string(),
+            author: "Roze".to_string(),
+            digest: "Production update".to_string(),
+            show_cover_pic: 1,
+            content: "<p>Ready</p>".to_string(),
+            content_source_url: "https://example.com/releases/1".to_string(),
+            need_open_comment: Some(1),
+            only_fans_can_comment: Some(0),
+        };
+        assert!(article.validate().is_ok());
+
+        let mut invalid_article = article;
+        invalid_article.only_fans_can_comment = Some(1);
+        invalid_article.need_open_comment = Some(0);
+        assert!(invalid_article.validate().is_err());
+        assert!(validate_material_articles(&[]).is_err());
+        assert!(validate_material_upload("image.png", b"image").is_ok());
+        assert!(validate_material_upload("", b"image").is_err());
+        assert!(validate_material_upload("image.png", b"").is_err());
+
+        assert!(MaterialListRequest::new(MaterialListKind::Image, 0, 20)
+            .validate()
+            .is_ok());
+        assert!(MaterialListRequest {
+            kind: "unknown".to_string(),
+            offset: -1,
+            count: 21,
+        }
+        .validate()
+        .is_err());
+
+        let item: MaterialListItem = serde_json::from_value(json!({
+            "media_id": "news-media",
+            "content": {
+                "news_item": [{
+                    "title": "Release notes",
+                    "thumb_media_id": "thumb-media",
+                    "article_revision": 2
+                }],
+                "create_time": 1,
+                "update_time": 2,
+                "content_revision": 3
+            }
+        }))
+        .unwrap();
+        let content = item.news_content().unwrap().unwrap();
+        assert_eq!(content.news_item[0].title.as_deref(), Some("Release notes"));
+        assert_eq!(content.news_item[0].extra["article_revision"], 2);
+        assert_eq!(content.update_time, Some(2));
+        assert_eq!(content.extra["content_revision"], 3);
     }
 
     #[test]
