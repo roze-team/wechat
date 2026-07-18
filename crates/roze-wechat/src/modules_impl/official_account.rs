@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -676,13 +678,17 @@ impl OfficialAccount {
         account: impl Into<String>,
         nickname: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        let nickname = nickname.into();
+        validate_official_required("customer service account", &account)?;
+        validate_official_required("customer service nickname", &nickname)?;
         self.inner
             .post(
                 "customservice/kfaccount/add",
                 Some(access_token.into()),
                 json!({
-                    "kf_account": account.into(),
-                    "nickname": nickname.into(),
+                    "kf_account": account,
+                    "nickname": nickname,
                 }),
             )
             .await
@@ -694,13 +700,17 @@ impl OfficialAccount {
         account: impl Into<String>,
         nickname: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        let nickname = nickname.into();
+        validate_official_required("customer service account", &account)?;
+        validate_official_required("customer service nickname", &nickname)?;
         self.inner
             .post(
                 "customservice/kfaccount/update",
                 Some(access_token.into()),
                 json!({
-                    "kf_account": account.into(),
-                    "nickname": nickname.into(),
+                    "kf_account": account,
+                    "nickname": nickname,
                 }),
             )
             .await
@@ -711,11 +721,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         account: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        validate_official_required("customer service account", &account)?;
         self.inner
             .get_with_query(
                 "customservice/kfaccount/del",
                 Some(access_token.into()),
-                vec![("kf_account".to_string(), account.into())],
+                vec![("kf_account".to_string(), account)],
             )
             .await
     }
@@ -726,13 +738,17 @@ impl OfficialAccount {
         account: impl Into<String>,
         wechat_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        let wechat_id = wechat_id.into();
+        validate_official_required("customer service account", &account)?;
+        validate_official_required("customer service WeChat id", &wechat_id)?;
         self.inner
             .post(
                 "customservice/kfaccount/inviteworker",
                 Some(access_token.into()),
                 json!({
-                    "kf_account": account.into(),
-                    "invite_wx": wechat_id.into(),
+                    "kf_account": account,
+                    "invite_wx": wechat_id,
                 }),
             )
             .await
@@ -745,15 +761,19 @@ impl OfficialAccount {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        let file_name = file_name.into();
+        validate_official_required("customer service account", &account)?;
+        validate_material_upload(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
                 "customservice/kfaccount/uploadheadimg",
                 Some(access_token.into()),
-                vec![("kf_account".to_string(), account.into())],
+                vec![("kf_account".to_string(), account)],
                 form,
             )
             .await
@@ -764,11 +784,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         account: impl Into<String>,
     ) -> Result<CustomerServiceSessionListResponse> {
+        let account = account.into();
+        validate_official_required("customer service account", &account)?;
         self.inner
             .get_with_query(
                 "customservice/kfsession/getsessionlist",
                 Some(access_token.into()),
-                vec![("kf_account".to_string(), account.into())],
+                vec![("kf_account".to_string(), account)],
             )
             .await
     }
@@ -791,11 +813,15 @@ impl OfficialAccount {
         account: impl Into<String>,
         openid: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        let openid = openid.into();
+        validate_official_required("customer service account", &account)?;
+        validate_official_required("customer service openid", &openid)?;
         self.inner
             .post(
                 "customservice/kfsession/create",
                 Some(access_token.into()),
-                json!({ "kf_account": account.into(), "openid": openid.into() }),
+                json!({ "kf_account": account, "openid": openid }),
             )
             .await
     }
@@ -806,11 +832,15 @@ impl OfficialAccount {
         account: impl Into<String>,
         openid: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let account = account.into();
+        let openid = openid.into();
+        validate_official_required("customer service account", &account)?;
+        validate_official_required("customer service openid", &openid)?;
         self.inner
             .post(
                 "customservice/kfsession/close",
                 Some(access_token.into()),
-                json!({ "kf_account": account.into(), "openid": openid.into() }),
+                json!({ "kf_account": account, "openid": openid }),
             )
             .await
     }
@@ -820,11 +850,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         openid: impl Into<String>,
     ) -> Result<CustomerServiceSessionResponse> {
+        let openid = openid.into();
+        validate_official_required("customer service openid", &openid)?;
         self.inner
             .get_with_query(
                 "customservice/kfsession/getsession",
                 Some(access_token.into()),
-                vec![("openid".to_string(), openid.into())],
+                vec![("openid".to_string(), openid)],
             )
             .await
     }
@@ -834,6 +866,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: CustomerServiceMessageRecordRequest,
     ) -> Result<CustomerServiceMessageRecordResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "customservice/msgrecord/getmsglist",
@@ -848,6 +881,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         message: CustomerServiceMessage,
     ) -> Result<WechatStatusResponse> {
+        message.validate()?;
         self.inner
             .post(
                 "cgi-bin/message/custom/send",
@@ -863,12 +897,14 @@ impl OfficialAccount {
         openid: impl Into<String>,
         typing: bool,
     ) -> Result<WechatStatusResponse> {
+        let openid = openid.into();
+        validate_official_required("customer service openid", &openid)?;
         self.inner
             .post(
                 "cgi-bin/message/custom/typing",
                 Some(access_token.into()),
                 json!({
-                    "touser": openid.into(),
+                    "touser": openid,
                     "command": if typing { "Typing" } else { "CancelTyping" },
                 }),
             )
@@ -3398,14 +3434,15 @@ impl OfficialAccount {
         openid: impl Into<String>,
         lang: impl Into<String>,
     ) -> Result<OfficialUserInfoResponse> {
+        let openid = openid.into();
+        let lang = lang.into();
+        validate_official_required("user openid", &openid)?;
+        validate_official_user_lang(&lang)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/info",
                 Some(access_token.into()),
-                vec![
-                    ("openid".to_string(), openid.into()),
-                    ("lang".to_string(), lang.into()),
-                ],
+                vec![("openid".to_string(), openid), ("lang".to_string(), lang)],
             )
             .await
     }
@@ -3415,6 +3452,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: BatchGetUserInfoRequest,
     ) -> Result<OfficialBatchUserInfoResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/user/info/batchget",
@@ -3429,11 +3467,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         next_openid: impl Into<String>,
     ) -> Result<OfficialUserListResponse> {
+        let next_openid = next_openid.into();
+        validate_optional_official_identifier("next openid", &next_openid)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/get",
                 Some(access_token.into()),
-                vec![("next_openid".to_string(), next_openid.into())],
+                vec![("next_openid".to_string(), next_openid)],
             )
             .await
     }
@@ -3444,13 +3484,21 @@ impl OfficialAccount {
         openid: impl Into<String>,
         remark: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let openid = openid.into();
+        let remark = remark.into();
+        validate_official_required("user openid", &openid)?;
+        if remark.chars().count() > 30 {
+            return Err(WechatError::Config(
+                "official account user remark must not exceed 30 characters".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "cgi-bin/user/info/updateremark",
                 Some(access_token.into()),
                 json!({
-                    "openid": openid.into(),
-                    "remark": remark.into(),
+                    "openid": openid,
+                    "remark": remark,
                 }),
             )
             .await
@@ -3462,12 +3510,15 @@ impl OfficialAccount {
         from_app_id: impl Into<String>,
         openid_list: Vec<String>,
     ) -> Result<OfficialChangeOpenidResponse> {
+        let from_app_id = from_app_id.into();
+        validate_official_required("source app id", &from_app_id)?;
+        validate_official_identifier_batch("openid migration", &openid_list, 100)?;
         self.inner
             .post(
                 "cgi-bin/changeopenid",
                 Some(access_token.into()),
                 json!({
-                    "from_appid": from_app_id.into(),
+                    "from_appid": from_app_id,
                     "openid_list": openid_list,
                 }),
             )
@@ -3479,11 +3530,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         name: impl Into<String>,
     ) -> Result<OfficialUserTagResponse> {
+        let name = name.into();
+        validate_official_tag_name(&name)?;
         self.inner
             .post(
                 "cgi-bin/tags/create",
                 Some(access_token.into()),
-                json!({ "tag": { "name": name.into() } }),
+                json!({ "tag": { "name": name } }),
             )
             .await
     }
@@ -3503,11 +3556,15 @@ impl OfficialAccount {
         tag_id: impl Into<String>,
         name: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let tag_id = tag_id.into();
+        let name = name.into();
+        validate_official_positive_identifier("tag id", &tag_id)?;
+        validate_official_tag_name(&name)?;
         self.inner
             .post(
                 "cgi-bin/tags/update",
                 Some(access_token.into()),
-                json!({ "tag": { "id": tag_id.into(), "name": name.into() } }),
+                json!({ "tag": { "id": tag_id, "name": name } }),
             )
             .await
     }
@@ -3517,11 +3574,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         tag_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let tag_id = tag_id.into();
+        validate_official_positive_identifier("tag id", &tag_id)?;
         self.inner
             .post(
                 "cgi-bin/tags/delete",
                 Some(access_token.into()),
-                json!({ "tag": { "id": tag_id.into() } }),
+                json!({ "tag": { "id": tag_id } }),
             )
             .await
     }
@@ -3531,11 +3590,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         openid: impl Into<String>,
     ) -> Result<OfficialUserTagIdsResponse> {
+        let openid = openid.into();
+        validate_official_required("user openid", &openid)?;
         self.inner
             .post(
                 "cgi-bin/tags/getidlist",
                 Some(access_token.into()),
-                json!({ "openid": openid.into() }),
+                json!({ "openid": openid }),
             )
             .await
     }
@@ -3546,11 +3607,15 @@ impl OfficialAccount {
         tag_id: impl Into<String>,
         next_openid: impl Into<String>,
     ) -> Result<OfficialUsersOfTagResponse> {
+        let tag_id = tag_id.into();
+        let next_openid = next_openid.into();
+        validate_official_positive_identifier("tag id", &tag_id)?;
+        validate_optional_official_identifier("next openid", &next_openid)?;
         self.inner
             .post(
                 "cgi-bin/user/tag/get",
                 Some(access_token.into()),
-                json!({ "tagid": tag_id.into(), "next_openid": next_openid.into() }),
+                json!({ "tagid": tag_id, "next_openid": next_openid }),
             )
             .await
     }
@@ -3561,6 +3626,12 @@ impl OfficialAccount {
         openid_list: Vec<String>,
         tag_id: i64,
     ) -> Result<OfficialTagUsersResponse> {
+        if tag_id <= 0 {
+            return Err(WechatError::Config(
+                "official account tag id must be positive".to_string(),
+            ));
+        }
+        validate_official_identifier_batch("tagging", &openid_list, 50)?;
         self.inner
             .post(
                 "cgi-bin/tags/members/batchtagging",
@@ -3576,6 +3647,12 @@ impl OfficialAccount {
         openid_list: Vec<String>,
         tag_id: i64,
     ) -> Result<OfficialTagUsersResponse> {
+        if tag_id <= 0 {
+            return Err(WechatError::Config(
+                "official account tag id must be positive".to_string(),
+            ));
+        }
+        validate_official_identifier_batch("untagging", &openid_list, 50)?;
         self.inner
             .post(
                 "cgi-bin/tags/members/batchuntagging",
@@ -3590,11 +3667,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         begin_openid: impl Into<String>,
     ) -> Result<OfficialBlacklistResponse> {
+        let begin_openid = begin_openid.into();
+        validate_optional_official_identifier("blacklist begin openid", &begin_openid)?;
         self.inner
             .post(
                 "cgi-bin/tags/members/getblacklist",
                 Some(access_token.into()),
-                json!({ "begin_openid": begin_openid.into() }),
+                json!({ "begin_openid": begin_openid }),
             )
             .await
     }
@@ -3604,6 +3683,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         openid_list: Vec<String>,
     ) -> Result<WechatStatusResponse> {
+        validate_official_identifier_batch("blacklist", &openid_list, 20)?;
         self.inner
             .post(
                 "cgi-bin/tags/members/batchblacklist",
@@ -3618,6 +3698,7 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         openid_list: Vec<String>,
     ) -> Result<WechatStatusResponse> {
+        validate_official_identifier_batch("blacklist removal", &openid_list, 20)?;
         self.inner
             .post(
                 "cgi-bin/tags/members/batchunblacklist",
@@ -5095,6 +5176,35 @@ pub struct CustomerServiceMessageRecordRequest {
     pub number: i64,
 }
 
+impl CustomerServiceMessageRecordRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.starttime <= 0 || self.endtime <= 0 {
+            return Err(WechatError::Config(
+                "official account customer service record timestamps must be positive".to_string(),
+            ));
+        }
+        if self.starttime > self.endtime {
+            return Err(WechatError::Config(
+                "official account customer service record start time must not exceed end time"
+                    .to_string(),
+            ));
+        }
+        if self.msgid < 0 {
+            return Err(WechatError::Config(
+                "official account customer service record message id must not be negative"
+                    .to_string(),
+            ));
+        }
+        if !(1..=10_000).contains(&self.number) {
+            return Err(WechatError::Config(
+                "official account customer service record page size must be between 1 and 10000"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerServiceMessageRecord {
     #[serde(default)]
@@ -6065,6 +6175,137 @@ impl CustomerServiceMessage {
             customservice: None,
         }
     }
+
+    pub fn media(
+        touser: impl Into<String>,
+        kind: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<Self> {
+        let kind = kind.into();
+        if !matches!(kind.as_str(), "image" | "voice" | "mpnews") {
+            return Err(WechatError::Config(
+                "official account customer service media type must be image, voice, or mpnews"
+                    .to_string(),
+            ));
+        }
+        let payload = json!({ "media_id": media_id.into() });
+        let mut message = Self {
+            touser: touser.into(),
+            msgtype: kind.clone(),
+            text: None,
+            image: None,
+            voice: None,
+            video: None,
+            music: None,
+            news: None,
+            mpnews: None,
+            wxcard: None,
+            miniprogrampage: None,
+            customservice: None,
+        };
+        match kind.as_str() {
+            "image" => message.image = Some(payload),
+            "voice" => message.voice = Some(payload),
+            "mpnews" => message.mpnews = Some(payload),
+            _ => unreachable!("customer service media type was checked"),
+        }
+        message.validate()?;
+        Ok(message)
+    }
+
+    pub fn with_customer_service_account(mut self, account: impl Into<String>) -> Result<Self> {
+        self.customservice = Some(json!({ "kf_account": account.into() }));
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_official_required("customer service recipient", &self.touser)?;
+        let payloads = [
+            ("text", &self.text),
+            ("image", &self.image),
+            ("voice", &self.voice),
+            ("video", &self.video),
+            ("music", &self.music),
+            ("news", &self.news),
+            ("mpnews", &self.mpnews),
+            ("wxcard", &self.wxcard),
+            ("miniprogrampage", &self.miniprogrampage),
+        ];
+        let Some((_, payload)) = payloads
+            .iter()
+            .find(|(kind, _)| *kind == self.msgtype.as_str())
+        else {
+            return Err(WechatError::Config(format!(
+                "unsupported official account customer service message type `{}`",
+                self.msgtype
+            )));
+        };
+        if payload.is_none() {
+            return Err(WechatError::Config(format!(
+                "official account customer service `{}` payload is required",
+                self.msgtype
+            )));
+        }
+        if payloads
+            .iter()
+            .filter(|(_, payload)| payload.is_some())
+            .count()
+            != 1
+        {
+            return Err(WechatError::Config(
+                "official account customer service message must contain exactly one payload"
+                    .to_string(),
+            ));
+        }
+        validate_customer_service_payload(&self.msgtype, payload.as_ref().expect("checked"))?;
+        if let Some(customservice) = &self.customservice {
+            let account = customservice
+                .as_object()
+                .and_then(|value| value.get("kf_account"))
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            validate_official_required("customer service sender account", account)?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_customer_service_payload(kind: &str, payload: &Value) -> Result<()> {
+    let Some(payload) = payload.as_object() else {
+        return Err(WechatError::Config(format!(
+            "official account customer service `{kind}` payload must be an object"
+        )));
+    };
+    if payload.is_empty() {
+        return Err(WechatError::Config(format!(
+            "official account customer service `{kind}` payload must not be empty"
+        )));
+    }
+    let required = match kind {
+        "text" => Some("content"),
+        "image" | "voice" | "video" | "mpnews" => Some("media_id"),
+        "wxcard" => Some("card_id"),
+        "miniprogrampage" => Some("pagepath"),
+        "music" => Some("musicurl"),
+        "news" => Some("articles"),
+        _ => None,
+    };
+    if let Some(field) = required {
+        let present = match payload.get(field) {
+            Some(Value::String(value)) => !value.trim().is_empty(),
+            Some(Value::Array(value)) => !value.is_empty(),
+            Some(Value::Object(value)) => !value.is_empty(),
+            Some(Value::Null) | None => false,
+            Some(_) => true,
+        };
+        if !present {
+            return Err(WechatError::Config(format!(
+                "official account customer service `{kind}` payload requires `{field}`"
+            )));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6854,6 +7095,28 @@ pub struct BatchGetUserInfoRequest {
     pub user_list: Vec<UserInfoQuery>,
 }
 
+impl BatchGetUserInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.user_list.is_empty() || self.user_list.len() > 100 {
+            return Err(WechatError::Config(
+                "official account batch user query must contain between 1 and 100 users"
+                    .to_string(),
+            ));
+        }
+        let mut openids = HashSet::with_capacity(self.user_list.len());
+        for user in &self.user_list {
+            validate_official_required("batch user openid", &user.openid)?;
+            validate_official_user_lang(&user.lang)?;
+            if !openids.insert(user.openid.trim()) {
+                return Err(WechatError::Config(
+                    "official account batch user query contains duplicate openids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfoQuery {
     pub openid: String,
@@ -6863,6 +7126,75 @@ pub struct UserInfoQuery {
 
 fn default_zh_cn() -> String {
     "zh_CN".to_string()
+}
+
+fn validate_official_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_optional_official_identifier(kind: &str, value: &str) -> Result<()> {
+    if !value.is_empty() && value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must not contain only whitespace"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_official_positive_identifier(kind: &str, value: &str) -> Result<()> {
+    validate_official_required(kind, value)?;
+    if !value.parse::<i64>().is_ok_and(|id| id > 0) {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must be a positive integer"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_official_user_lang(lang: &str) -> Result<()> {
+    if !matches!(lang, "zh_CN" | "zh_TW" | "en") {
+        return Err(WechatError::Config(
+            "official account user language must be zh_CN, zh_TW, or en".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_official_identifier_batch(
+    kind: &str,
+    identifiers: &[String],
+    maximum: usize,
+) -> Result<()> {
+    if identifiers.is_empty() || identifiers.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "official account {kind} batch must contain between 1 and {maximum} openids"
+        )));
+    }
+    let mut unique = HashSet::with_capacity(identifiers.len());
+    for identifier in identifiers {
+        validate_official_required(&format!("{kind} openid"), identifier)?;
+        if !unique.insert(identifier.trim()) {
+            return Err(WechatError::Config(format!(
+                "official account {kind} batch contains duplicate openids"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_official_tag_name(name: &str) -> Result<()> {
+    validate_official_required("tag name", name)?;
+    if name.chars().count() > 30 {
+        return Err(WechatError::Config(
+            "official account tag name must not exceed 30 characters".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -6942,13 +7274,14 @@ mod tests {
 
     #[test]
     fn serializes_batch_user_query() {
-        let value = serde_json::to_value(BatchGetUserInfoRequest {
+        let request = BatchGetUserInfoRequest {
             user_list: vec![UserInfoQuery {
                 openid: "openid".to_string(),
                 lang: "zh_CN".to_string(),
             }],
-        })
-        .unwrap();
+        };
+        assert!(request.validate().is_ok());
+        let value = serde_json::to_value(request).unwrap();
 
         assert_eq!(
             value,
@@ -6957,11 +7290,71 @@ mod tests {
     }
 
     #[test]
-    fn serializes_customer_service_text_message() {
-        let value = serde_json::to_value(CustomerServiceMessage::text("openid", "hello")).unwrap();
+    fn validates_official_user_and_tag_batches() {
+        let duplicate = BatchGetUserInfoRequest {
+            user_list: vec![
+                UserInfoQuery {
+                    openid: "openid".to_string(),
+                    lang: "zh_CN".to_string(),
+                },
+                UserInfoQuery {
+                    openid: "openid".to_string(),
+                    lang: "en".to_string(),
+                },
+            ],
+        };
+        assert!(duplicate.validate().is_err());
+
+        let invalid_lang = BatchGetUserInfoRequest {
+            user_list: vec![UserInfoQuery {
+                openid: "openid".to_string(),
+                lang: "fr".to_string(),
+            }],
+        };
+        assert!(invalid_lang.validate().is_err());
+        assert!(validate_official_identifier_batch(
+            "tagging",
+            &["one".to_string(), "two".to_string()],
+            50
+        )
+        .is_ok());
+        assert!(validate_official_identifier_batch(
+            "blacklist",
+            &["same".to_string(), "same".to_string()],
+            20
+        )
+        .is_err());
+        assert!(validate_official_tag_name(&"x".repeat(31)).is_err());
+        assert!(validate_official_positive_identifier("tag id", "0").is_err());
+    }
+
+    #[test]
+    fn validates_customer_service_messages() {
+        let message = CustomerServiceMessage::text("openid", "hello");
+        assert!(message.validate().is_ok());
+        let value = serde_json::to_value(message).unwrap();
         assert_eq!(value["touser"], "openid");
         assert_eq!(value["msgtype"], "text");
         assert_eq!(value["text"]["content"], "hello");
+
+        let media = CustomerServiceMessage::media("openid", "image", "media")
+            .expect("valid media message")
+            .with_customer_service_account("support@account")
+            .expect("valid sender account");
+        assert_eq!(media.image.as_ref().unwrap()["media_id"], "media");
+        assert!(media.validate().is_ok());
+
+        assert!(CustomerServiceMessage::text("", "hello")
+            .validate()
+            .is_err());
+        assert!(CustomerServiceMessage::text("openid", "")
+            .validate()
+            .is_err());
+        assert!(CustomerServiceMessage::media("openid", "video", "media").is_err());
+
+        let mut conflicting = CustomerServiceMessage::text("openid", "hello");
+        conflicting.image = Some(json!({ "media_id": "media" }));
+        assert!(conflicting.validate().is_err());
     }
 
     #[test]
@@ -7065,17 +7458,34 @@ mod tests {
         .unwrap();
         assert_eq!(session["kf_account"], "test@test");
 
-        let request = serde_json::to_value(CustomerServiceMessageRecordRequest {
+        let record_request = CustomerServiceMessageRecordRequest {
             starttime: 1,
             endtime: 2,
             msgid: 10,
             number: 20,
-        })
-        .unwrap();
+        };
+        assert!(record_request.validate().is_ok());
+        let request = serde_json::to_value(record_request).unwrap();
         assert_eq!(
             request,
             json!({ "starttime": 1, "endtime": 2, "msgid": 10, "number": 20 })
         );
+        assert!(CustomerServiceMessageRecordRequest {
+            starttime: 2,
+            endtime: 1,
+            msgid: 0,
+            number: 20,
+        }
+        .validate()
+        .is_err());
+        assert!(CustomerServiceMessageRecordRequest {
+            starttime: 1,
+            endtime: 2,
+            msgid: 0,
+            number: 10_001,
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]

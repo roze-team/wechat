@@ -1138,6 +1138,27 @@ Implemented on 2026-07-18 in Official Account draft, publish, and menu depth:
   lists, news metadata, flexible menu ids, and forward-compatible unknown
   fields; switch/menu-open helpers expose their 0/1 state as booleans.
 
+Implemented on 2026-07-18 in Official Account user, tag, and customer-service
+depth:
+
+- single and batch user lookups validate non-empty openids and supported
+  `zh_CN`/`zh_TW`/`en` languages, while batch requests enforce one-to-one
+  hundred unique users before network I/O;
+- openid migration enforces the one-to-one hundred boundary, user remarks and
+  tag names enforce their thirty-character boundary, and tag identifiers must
+  be positive integers;
+- tag assignment/removal rejects blank or duplicate openids and enforces the
+  fifty-user boundary, while blacklist add/remove enforces its twenty-user
+  boundary; optional pagination cursors may be empty but not whitespace-only;
+- customer-service account, worker, session, recipient, avatar filename, and
+  avatar bytes are validated before account or session operations;
+- customer-service transcript requests validate positive ordered timestamps,
+  non-negative cursors, and one-to-ten-thousand page sizes;
+- customer-service messages validate supported message types, exactly one
+  matching non-empty payload, type-specific required fields, and optional
+  sender accounts; text, media, and sender-account constructors provide common
+  production request paths without hand-building JSON.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
