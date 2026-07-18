@@ -721,8 +721,37 @@ impl Payment {
         &self,
         credentials: &PaymentCredentials,
         request: ProfitSharingBillRequest,
-    ) -> Result<ProfitSharingResponse> {
+    ) -> Result<BillResponse> {
         self.get_v3(credentials, "/v3/profitsharing/bills", request.into_query())
+            .await
+    }
+
+    pub async fn download_profit_sharing_bill_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ProfitSharingBillRequest,
+    ) -> Result<Bytes> {
+        let bill = self.profit_sharing_bill(credentials, request).await?;
+        self.download_bill_bytes(credentials, bill.into()).await
+    }
+
+    pub async fn download_profit_sharing_bill(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ProfitSharingBillRequest,
+    ) -> Result<PaymentDownloadedBill> {
+        let bill = self.profit_sharing_bill(credentials, request).await?;
+        self.download_bill(credentials, bill.into()).await
+    }
+
+    pub async fn download_profit_sharing_bill_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        request: ProfitSharingBillRequest,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let bill = self.profit_sharing_bill(credentials, request).await?;
+        self.download_bill_to_file(credentials, bill.into(), destination)
             .await
     }
 
@@ -1317,6 +1346,19 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: BillRequest,
     ) -> Result<BillResponse> {
+        self.get_v3(
+            credentials,
+            "/v3/bill/fundflowbill",
+            request.into_fund_flow_query(),
+        )
+        .await
+    }
+
+    pub async fn fund_flow_bill_with_request(
+        &self,
+        credentials: &PaymentCredentials,
+        request: FundFlowBillRequest,
+    ) -> Result<BillResponse> {
         self.get_v3(credentials, "/v3/bill/fundflowbill", request.into_query())
             .await
     }
@@ -1545,6 +1587,58 @@ impl Payment {
             destination,
         )
         .await
+    }
+
+    pub async fn download_transfer_bill_receipt_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        out_batch_no: impl AsRef<str>,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let receipt = self
+            .query_transfer_bill_receipt(credentials, out_batch_no)
+            .await?;
+        self.download_bill_to_file(credentials, receipt.try_into()?, destination)
+            .await
+    }
+
+    pub async fn download_transfer_detail_receipt_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        request: TransferDetailReceiptQuery,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let receipt = self
+            .query_transfer_detail_receipt(credentials, request)
+            .await?;
+        self.download_bill_to_file(credentials, receipt.try_into()?, destination)
+            .await
+    }
+
+    pub async fn download_fund_app_elec_sign_by_out_no_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        out_bill_no: impl AsRef<str>,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let receipt = self
+            .query_fund_app_elec_sign_by_out_no(credentials, out_bill_no)
+            .await?;
+        self.download_bill_to_file(credentials, receipt.into(), destination)
+            .await
+    }
+
+    pub async fn download_fund_app_elec_sign_by_transfer_bill_no_to_file(
+        &self,
+        credentials: &PaymentCredentials,
+        transfer_bill_no: impl AsRef<str>,
+        destination: impl AsRef<Path>,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let receipt = self
+            .query_fund_app_elec_sign_by_transfer_bill_no(credentials, transfer_bill_no)
+            .await?;
+        self.download_bill_to_file(credentials, receipt.into(), destination)
+            .await
     }
 
     async fn post_v3<R>(
@@ -3477,6 +3571,39 @@ impl BillRequest {
         }
         query
     }
+
+    fn into_fund_flow_query(self) -> Vec<(String, String)> {
+        let mut query = vec![("bill_date".to_string(), self.bill_date)];
+        if let Some(account_type) = self.bill_type {
+            query.push(("account_type".to_string(), account_type));
+        }
+        if let Some(tar_type) = self.tar_type {
+            query.push(("tar_type".to_string(), tar_type));
+        }
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FundFlowBillRequest {
+    pub bill_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tar_type: Option<String>,
+}
+
+impl FundFlowBillRequest {
+    fn into_query(self) -> Vec<(String, String)> {
+        let mut query = vec![("bill_date".to_string(), self.bill_date)];
+        if let Some(account_type) = self.account_type {
+            query.push(("account_type".to_string(), account_type));
+        }
+        if let Some(tar_type) = self.tar_type {
+            query.push(("tar_type".to_string(), tar_type));
+        }
+        query
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3495,6 +3622,75 @@ pub struct PaymentBillDownloadRequest {
     pub hash_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hash_value: Option<String>,
+}
+
+impl From<BillResponse> for PaymentBillDownloadRequest {
+    fn from(value: BillResponse) -> Self {
+        Self {
+            download_url: value.download_url,
+            hash_type: value.hash_type,
+            hash_value: value.hash_value,
+        }
+    }
+}
+
+impl TryFrom<TransferBillReceiptResponse> for PaymentBillDownloadRequest {
+    type Error = WechatError;
+
+    fn try_from(value: TransferBillReceiptResponse) -> Result<Self> {
+        payment_receipt_download_request(
+            "transfer bill receipt",
+            &value.signature_status,
+            value.download_url,
+            value.hash_type,
+            value.hash_value,
+        )
+    }
+}
+
+impl TryFrom<TransferDetailReceiptResponse> for PaymentBillDownloadRequest {
+    type Error = WechatError;
+
+    fn try_from(value: TransferDetailReceiptResponse) -> Result<Self> {
+        payment_receipt_download_request(
+            "transfer detail receipt",
+            &value.signature_status,
+            value.download_url,
+            value.hash_type,
+            value.hash_value,
+        )
+    }
+}
+
+impl From<FundAppElecSignResponse> for PaymentBillDownloadRequest {
+    fn from(value: FundAppElecSignResponse) -> Self {
+        Self {
+            download_url: value.download_url,
+            hash_type: Some(value.hash_type),
+            hash_value: Some(value.hash_value),
+        }
+    }
+}
+
+fn payment_receipt_download_request(
+    kind: &str,
+    status: &str,
+    download_url: Option<String>,
+    hash_type: Option<String>,
+    hash_value: Option<String>,
+) -> Result<PaymentBillDownloadRequest> {
+    let download_url = download_url
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            WechatError::Config(format!(
+                "payment {kind} is not ready for download (status: {status})"
+            ))
+        })?;
+    Ok(PaymentBillDownloadRequest {
+        download_url,
+        hash_type,
+        hash_value,
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -5501,7 +5697,7 @@ mod tests {
         ComplaintUserTag, CouponStockCreateRequest, CouponStockListRequest,
         CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
         FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
+        FundFlowBillRequest, H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
         LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
         MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
         MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
@@ -6684,6 +6880,38 @@ mod tests {
     }
 
     #[test]
+    fn builds_fund_flow_bill_queries_with_account_type() {
+        let compatibility_query = BillRequest {
+            bill_date: "2026-07-04".to_string(),
+            bill_type: Some("BASIC".to_string()),
+            tar_type: Some("GZIP".to_string()),
+        }
+        .into_fund_flow_query();
+        assert_eq!(
+            compatibility_query,
+            vec![
+                ("bill_date".to_string(), "2026-07-04".to_string()),
+                ("account_type".to_string(), "BASIC".to_string()),
+                ("tar_type".to_string(), "GZIP".to_string())
+            ]
+        );
+
+        let typed_query = FundFlowBillRequest {
+            bill_date: "2026-07-04".to_string(),
+            account_type: Some("OPERATION".to_string()),
+            tar_type: None,
+        }
+        .into_query();
+        assert_eq!(
+            typed_query,
+            vec![
+                ("bill_date".to_string(), "2026-07-04".to_string()),
+                ("account_type".to_string(), "OPERATION".to_string())
+            ]
+        );
+    }
+
+    #[test]
     fn deserializes_bill_response_with_download_hash() {
         let response: BillResponse = serde_json::from_value(json!({
             "download_url": "https://api.mch.weixin.qq.com/v3/billdownload/file?token=abc",
@@ -6704,6 +6932,50 @@ mod tests {
             hash_value: response.hash_value,
         };
         assert_eq!(request.hash_value.as_deref(), Some("hash"));
+    }
+
+    #[test]
+    fn converts_downloadable_payment_artifact_responses() {
+        let receipt = TransferBillReceiptResponse {
+            out_batch_no: "batch-1".to_string(),
+            signature_no: Some("signature-1".to_string()),
+            signature_status: "FINISHED".to_string(),
+            hash_type: Some("SHA256".to_string()),
+            hash_value: Some("hash".to_string()),
+            download_url: Some("https://example.com/receipt.pdf".to_string()),
+            create_time: "2026-07-18T00:00:00+08:00".to_string(),
+            update_time: "2026-07-18T00:01:00+08:00".to_string(),
+        };
+        let download: PaymentBillDownloadRequest = receipt.try_into().unwrap();
+        assert_eq!(download.hash_type.as_deref(), Some("SHA256"));
+        assert_eq!(download.download_url, "https://example.com/receipt.pdf");
+
+        let sign = FundAppElecSignResponse {
+            state: "FINISHED".to_string(),
+            create_time: "2026-07-18T00:00:00+08:00".to_string(),
+            update_time: "2026-07-18T00:01:00+08:00".to_string(),
+            hash_type: "SHA256".to_string(),
+            hash_value: "hash".to_string(),
+            download_url: "https://example.com/sign.pdf".to_string(),
+        };
+        let download: PaymentBillDownloadRequest = sign.into();
+        assert_eq!(download.hash_value.as_deref(), Some("hash"));
+    }
+
+    #[test]
+    fn rejects_payment_receipt_without_download_url() {
+        let receipt = TransferDetailReceiptResponse {
+            accept_type: "BATCH_TRANSFER".to_string(),
+            out_batch_no: "batch-1".to_string(),
+            out_detail_no: "detail-1".to_string(),
+            signature_no: None,
+            signature_status: "PROCESSING".to_string(),
+            hash_type: None,
+            hash_value: None,
+            download_url: None,
+        };
+        let error = PaymentBillDownloadRequest::try_from(receipt).unwrap_err();
+        assert!(error.to_string().contains("PROCESSING"));
     }
 
     #[test]

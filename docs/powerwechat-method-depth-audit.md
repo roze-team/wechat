@@ -1,6 +1,6 @@
 # PowerWeChat Method-Depth Audit
 
-Audit date: 2026-07-10.
+Audit date: 2026-07-18.
 
 The submodule-level coverage matrix is currently green. This means every
 PowerWeChat product submodule has an explicit Roze WeChat boundary and tested
@@ -15,7 +15,7 @@ but these areas should be expanded for stricter production parity.
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
 | Work | 363 | 370 | high |
-| Payment | 165 | 96 | high |
+| Payment | 165 | 110 | high |
 | Open Platform | 76 | 69 | medium |
 | Mini Program | 214 | 178 | medium |
 | Official Account | 283 | 244 | medium |
@@ -692,8 +692,23 @@ separate path scan rather than the generic `HttpPostJson` endpoint extractor.
 The approximate payment scan found 69 payment paths and 37 paths that still
 need review. Some are formatting false positives, but the real update areas are:
 
-- remaining payment stream-download helpers, statement helpers, and deeper
-  merchant-service response DTO normalization;
+- remaining payment notify/order/refund variants and deeper merchant-service
+  response DTO normalization;
+
+Implemented on 2026-07-18 in Roze WeChat payment download depth:
+
+- fund-flow bill compatibility requests now send PowerWeChat's required
+  `account_type` query key instead of the trade-bill-only `bill_type` key;
+- added a dedicated `FundFlowBillRequest` and typed fund-flow query entry point
+  while preserving the existing `BillRequest` entry point;
+- profit-sharing bill responses now use the shared typed download URL/hash DTO
+  and expose verified bytes, structured statement, and atomic file-download
+  convenience methods;
+- transfer batch receipts, transfer detail receipts, and FundApp electronic
+  signatures now expose direct atomic file-download helpers;
+- receipt downloads reject pending responses without a download URL before
+  starting I/O, then reuse the existing SHA-1/SHA-256 streaming verification,
+  no-clobber temporary file, flush/sync, and atomic commit path.
 
 Implemented on 2026-07-16 in Roze WeChat payment download and complaint depth:
 
@@ -820,7 +835,7 @@ Recommended implementation order:
 3. Mini Program DTO/method-depth review for `liveBroadcast`,
    `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
    `dataCube`, `operation`, and `wxa`.
-4. Payment remaining statement/download DTO normalization and helper variants.
+4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
 ## Documentation Update Needed
