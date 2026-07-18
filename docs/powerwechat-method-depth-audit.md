@@ -16,7 +16,7 @@ but these areas should be expanded for stricter production parity.
 | --- | ---: | ---: | --- |
 | Work | 363 | 370 | high |
 | Payment | 165 | 96 | high |
-| Open Platform | 76 | 61 | medium |
+| Open Platform | 76 | 69 | medium |
 | Mini Program | 214 | 178 | medium |
 | Official Account | 283 | 244 | medium |
 | Open Work | 57 | 43 | medium |
@@ -491,6 +491,9 @@ Implemented on 2026-07-16 in Roze WeChat Work external contact depth:
 
 Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 
+- Authorizer permanent-material support now covers generic and video upload,
+  news creation/update, typed and byte downloads, deletion, paginated listing,
+  and material counts. Shared material DTOs retain unknown upstream fields.
 - authorizer mini-program code release/audit wrappers: commit, QR code bytes,
   category/page list, submit/get/latest audit, release, withdraw, rollback,
   visit status, gray release/revert/plan, support version, quota, and speedup;

@@ -4,7 +4,13 @@ use serde_json::{json, Value};
 use crate::{
     config::Platform,
     error::Result,
-    modules::{DomainModule, PlatformClient},
+    modules::{
+        official_account::{
+            Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
+            MaterialMediaResponse, MaterialStatsResponse,
+        },
+        DomainModule, PlatformClient,
+    },
     Client,
 };
 
@@ -701,6 +707,146 @@ impl OpenPlatform {
                 "cgi-bin/material/get_material",
                 Some(authorizer_access_token.into()),
                 json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn upload_authorizer_material_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        kind: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<MaterialMediaResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "cgi-bin/material/add_material",
+                Some(authorizer_access_token.into()),
+                vec![("type".to_string(), kind.into())],
+                form,
+            )
+            .await
+    }
+
+    pub async fn upload_authorizer_video_material_from_bytes(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+        title: impl Into<String>,
+        introduction: impl Into<String>,
+    ) -> Result<MaterialMediaResponse> {
+        let description = json!({
+            "title": title.into(),
+            "introduction": introduction.into(),
+        })
+        .to_string();
+        let form = reqwest::multipart::Form::new()
+            .part(
+                "media",
+                reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            )
+            .text("description", description.clone())
+            .text("Description", description);
+        self.inner
+            .post_multipart(
+                "cgi-bin/material/add_material",
+                Some(authorizer_access_token.into()),
+                vec![("type".to_string(), "video".to_string())],
+                form,
+            )
+            .await
+    }
+
+    pub async fn add_authorizer_news_material(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        articles: Vec<Article>,
+    ) -> Result<MaterialMediaResponse> {
+        self.inner
+            .post(
+                "cgi-bin/material/add_news",
+                Some(authorizer_access_token.into()),
+                json!({ "articles": articles }),
+            )
+            .await
+    }
+
+    pub async fn update_authorizer_news_material(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        media_id: impl Into<String>,
+        index: i64,
+        article: Article,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/material/update_news",
+                Some(authorizer_access_token.into()),
+                json!({
+                    "media_id": media_id.into(),
+                    "index": index,
+                    "articles": article,
+                }),
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_material(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<MaterialGetResponse> {
+        self.inner
+            .post(
+                "cgi-bin/material/get_material",
+                Some(authorizer_access_token.into()),
+                json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn delete_authorizer_material(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        media_id: impl Into<String>,
+    ) -> Result<OpenPlatformStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/material/del_material",
+                Some(authorizer_access_token.into()),
+                json!({ "media_id": media_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn list_authorizer_materials(
+        &self,
+        authorizer_access_token: impl Into<String>,
+        request: MaterialListRequest,
+    ) -> Result<MaterialListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/material/batchget_material",
+                Some(authorizer_access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_authorizer_material_stats(
+        &self,
+        authorizer_access_token: impl Into<String>,
+    ) -> Result<MaterialStatsResponse> {
+        self.inner
+            .post(
+                "cgi-bin/material/get_materialcount",
+                Some(authorizer_access_token.into()),
+                json!({}),
             )
             .await
     }
@@ -2149,6 +2295,11 @@ pub struct OpenPlatformStatusResponse {
 mod tests {
     use serde_json::json;
 
+    use crate::modules::official_account::{
+        Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
+        MaterialMediaResponse, MaterialStatsResponse,
+    };
+
     use super::{
         AddTemplateFromDraftRequest, AuthorizerAccessTokenRequest, AuthorizerAccessTokenResponse,
         ComponentAccessTokenRequest, ComponentAccessTokenResponse, DeleteTemplateRequest,
@@ -2907,6 +3058,88 @@ mod tests {
         let open: OpenPlatformOpenAccountResponse =
             serde_json::from_value(json!({ "open_appid": "open-appid" })).unwrap();
         assert_eq!(open.open_appid.as_deref(), Some("open-appid"));
+    }
+
+    #[test]
+    fn serializes_authorizer_material_requests() {
+        let article = serde_json::to_value(Article {
+            title: "Release notes".to_string(),
+            thumb_media_id: "thumb-media".to_string(),
+            author: "Roze".to_string(),
+            digest: "Production update".to_string(),
+            show_cover_pic: 1,
+            content: "<p>Ready</p>".to_string(),
+            content_source_url: "https://example.com/releases/1".to_string(),
+            need_open_comment: Some(1),
+            only_fans_can_comment: Some(0),
+        })
+        .unwrap();
+        assert_eq!(article["thumb_media_id"], "thumb-media");
+        assert_eq!(article["show_cover_pic"], 1);
+        assert_eq!(article["need_open_comment"], 1);
+
+        let list = serde_json::to_value(MaterialListRequest {
+            kind: "news".to_string(),
+            offset: 0,
+            count: 20,
+        })
+        .unwrap();
+        assert_eq!(list["type"], "news");
+        assert_eq!(list["count"], 20);
+    }
+
+    #[test]
+    fn deserializes_authorizer_material_responses() {
+        let uploaded: MaterialMediaResponse = serde_json::from_value(json!({
+            "media_id": "media-1",
+            "url": "https://example.com/material/1",
+            "request_id": "upload-1"
+        }))
+        .unwrap();
+        assert_eq!(uploaded.media_id.as_deref(), Some("media-1"));
+        assert_eq!(uploaded.extra["request_id"], "upload-1");
+
+        let material: MaterialGetResponse = serde_json::from_value(json!({
+            "news_item": [{
+                "title": "Release notes",
+                "author": "Roze",
+                "thumb_media_id": "thumb-media"
+            }],
+            "request_id": "get-1"
+        }))
+        .unwrap();
+        assert_eq!(
+            material.news_item[0].title.as_deref(),
+            Some("Release notes")
+        );
+        assert_eq!(material.extra["request_id"], "get-1");
+
+        let materials: MaterialListResponse = serde_json::from_value(json!({
+            "total_count": 2,
+            "item_count": 1,
+            "item": [{
+                "media_id": "media-1",
+                "name": "release.png",
+                "item_revision": 3
+            }],
+            "next_offset": 1
+        }))
+        .unwrap();
+        assert_eq!(materials.total_count, Some(2));
+        assert_eq!(materials.item[0].media_id.as_deref(), Some("media-1"));
+        assert_eq!(materials.item[0].extra["item_revision"], 3);
+        assert_eq!(materials.extra["next_offset"], 1);
+
+        let stats: MaterialStatsResponse = serde_json::from_value(json!({
+            "voice_count": 1,
+            "video_count": 2,
+            "image_count": 3,
+            "news_count": 4,
+            "request_id": "count-1"
+        }))
+        .unwrap();
+        assert_eq!(stats.news_count, Some(4));
+        assert_eq!(stats.extra["request_id"], "count-1");
     }
 
     #[test]

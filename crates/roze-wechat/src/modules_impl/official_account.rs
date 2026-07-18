@@ -5770,6 +5770,8 @@ pub struct MaterialMediaResponse {
     pub media_id: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5812,6 +5814,8 @@ pub struct MaterialListItem {
     pub url: Option<String>,
     #[serde(default)]
     pub content: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5826,6 +5830,8 @@ pub struct MaterialListResponse {
     pub item_count: Option<i64>,
     #[serde(default)]
     pub item: Vec<MaterialListItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
