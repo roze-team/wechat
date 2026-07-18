@@ -1012,6 +1012,22 @@ Implemented on 2026-07-18 in Work media upload/download depth:
 - asynchronous URL upload validates its supported scene/type, absolute HTTP(S)
   source URL, filename, and 32-character hexadecimal MD5 before submission.
 
+Implemented on 2026-07-18 in Work application-message validation depth:
+
+- generic and convenience application-message sends now validate positive
+  agent ids, non-empty pipe-delimited recipients, 0/1 switches, and the
+  documented 1-to-10000-second duplicate-check interval before network I/O;
+- generic sends require exactly one typed payload whose field matches
+  `msgtype`; text/media/card/mini-program payloads enforce required fields and
+  news/mpnews enforce the eight-article boundary;
+- message recall rejects blank message ids, task-card updates enforce 1 to 1000
+  unique users plus task/button identity, and template-card updates validate
+  response codes, recipient uniqueness, at-all semantics, and the
+  1000-user/100-department/100-tag limits;
+- template-card updates require at least one button or replacement-card
+  payload and validate both when supplied, preserving PowerWeChat-compatible
+  update combinations.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

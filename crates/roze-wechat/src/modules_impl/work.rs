@@ -2801,6 +2801,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMessage,
     ) -> Result<MessageSendResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/message/send", Some(access_token.into()), request)
             .await
@@ -3040,6 +3041,8 @@ impl Work {
         payload_key: &str,
         payload: Value,
     ) -> Result<MessageSendResponse> {
+        audience.validate()?;
+        validate_work_message_payload(msg_type, &payload)?;
         let mut body = to_value(audience)?;
         if let Some(object) = body.as_object_mut() {
             object.insert("msgtype".to_string(), Value::String(msg_type.to_string()));
@@ -3055,11 +3058,13 @@ impl Work {
         access_token: impl Into<String>,
         msg_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let msg_id = msg_id.into();
+        validate_work_message_identifier("message id", &msg_id)?;
         self.inner
             .post(
                 "cgi-bin/message/recall",
                 Some(access_token.into()),
-                json!({ "msgid": msg_id.into() }),
+                json!({ "msgid": msg_id }),
             )
             .await
     }
@@ -3069,6 +3074,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkTemplateCardUpdateRequest,
     ) -> Result<MessageSendResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/message/update_template_card",
@@ -3083,6 +3089,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkTaskCardUpdateRequest,
     ) -> Result<WorkTaskCardUpdateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/message/update_taskcard",
@@ -6995,6 +7002,62 @@ impl WorkMessage {
     pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
         WorkMessageTypeKind::from_code(&self.msgtype)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        WorkMessageAudience {
+            touser: self.touser.clone(),
+            toparty: self.toparty.clone(),
+            totag: self.totag.clone(),
+            agentid: self.agentid,
+            safe: self.safe,
+            enable_id_trans: self.enable_id_trans,
+            enable_duplicate_check: self.enable_duplicate_check,
+            duplicate_check_interval: self.duplicate_check_interval,
+        }
+        .validate()?;
+
+        let payloads = [
+            ("text", self.text.as_ref().map(to_value)),
+            ("image", self.image.as_ref().map(to_value)),
+            ("voice", self.voice.as_ref().map(to_value)),
+            ("video", self.video.as_ref().map(to_value)),
+            ("file", self.file.as_ref().map(to_value)),
+            ("markdown", self.markdown.as_ref().map(to_value)),
+            ("textcard", self.textcard.as_ref().map(to_value)),
+            ("news", self.news.as_ref().map(to_value)),
+            ("mpnews", self.mpnews.as_ref().map(to_value)),
+            (
+                "miniprogram_notice",
+                self.miniprogram_notice.as_ref().map(to_value),
+            ),
+            ("taskcard", self.taskcard.as_ref().map(to_value)),
+            ("template_card", self.template_card.as_ref().map(to_value)),
+        ];
+        let populated = payloads
+            .into_iter()
+            .filter_map(|(kind, payload)| payload.map(|payload| (kind, payload)))
+            .collect::<Vec<_>>();
+        if populated.len() != 1 {
+            return Err(WechatError::Config(
+                "work messages require exactly one typed payload".to_string(),
+            ));
+        }
+        let (payload_kind, payload) = &populated[0];
+        let expected_kind = self.msgtype_kind().as_code();
+        if expected_kind == WorkMessageTypeKind::Other.as_code() || expected_kind != *payload_kind {
+            return Err(WechatError::Config(
+                "work message type must match its typed payload".to_string(),
+            ));
+        }
+        validate_work_message_payload(
+            expected_kind,
+            payload.as_ref().map_err(|error| {
+                WechatError::Config(format!(
+                    "work message payload cannot be serialized: {error}"
+                ))
+            })?,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7376,6 +7439,121 @@ impl WorkMessageAudience {
             duplicate_check_interval: None,
         }
     }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid <= 0 {
+            return Err(WechatError::Config(
+                "work message agent id must be positive".to_string(),
+            ));
+        }
+        let recipients = [
+            ("user recipients", self.touser.as_deref()),
+            ("department recipients", self.toparty.as_deref()),
+            ("tag recipients", self.totag.as_deref()),
+        ];
+        let mut has_recipient = false;
+        for (label, value) in recipients {
+            if let Some(value) = value {
+                has_recipient = true;
+                if value
+                    .split('|')
+                    .any(|identifier| identifier.trim().is_empty())
+                {
+                    return Err(WechatError::Config(format!(
+                        "work message {label} must contain non-empty pipe-delimited identifiers"
+                    )));
+                }
+            }
+        }
+        if !has_recipient {
+            return Err(WechatError::Config(
+                "work messages require at least one user, department, or tag recipient".to_string(),
+            ));
+        }
+        for (label, value) in [
+            ("safe", self.safe),
+            ("ID translation", self.enable_id_trans),
+            ("duplicate check", self.enable_duplicate_check),
+        ] {
+            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "work message {label} must be 0 or 1"
+                )));
+            }
+        }
+        if self
+            .duplicate_check_interval
+            .is_some_and(|interval| !(1..=10_000).contains(&interval))
+        {
+            return Err(WechatError::Config(
+                "work message duplicate-check interval must be between 1 and 10000 seconds"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_work_message_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work message {label} cannot be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn work_message_payload_string<'a>(payload: &'a Value, field: &str) -> Option<&'a str> {
+    payload
+        .as_object()?
+        .get(field)?
+        .as_str()
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn validate_work_message_payload(msg_type: &str, payload: &Value) -> Result<()> {
+    let kind = WorkMessageTypeKind::from_code(msg_type);
+    let valid = match kind {
+        WorkMessageTypeKind::Text | WorkMessageTypeKind::Markdown => {
+            work_message_payload_string(payload, "content").is_some()
+        }
+        WorkMessageTypeKind::Image | WorkMessageTypeKind::Voice | WorkMessageTypeKind::File => {
+            work_message_payload_string(payload, "media_id").is_some()
+        }
+        WorkMessageTypeKind::Video => work_message_payload_string(payload, "media_id").is_some(),
+        WorkMessageTypeKind::TextCard => ["title", "description", "url"]
+            .into_iter()
+            .all(|field| work_message_payload_string(payload, field).is_some()),
+        WorkMessageTypeKind::News | WorkMessageTypeKind::MpNews => payload
+            .as_object()
+            .and_then(|object| object.get("articles"))
+            .and_then(Value::as_array)
+            .is_some_and(|articles| (1..=8).contains(&articles.len())),
+        WorkMessageTypeKind::MiniProgramNotice => ["appid", "title"]
+            .into_iter()
+            .all(|field| work_message_payload_string(payload, field).is_some()),
+        WorkMessageTypeKind::TaskCard => {
+            ["title", "description", "task_id"]
+                .into_iter()
+                .all(|field| work_message_payload_string(payload, field).is_some())
+                && payload
+                    .as_object()
+                    .and_then(|object| object.get("btn"))
+                    .and_then(Value::as_array)
+                    .is_some_and(|buttons| !buttons.is_empty())
+        }
+        WorkMessageTypeKind::TemplateCard => work_message_payload_string(payload, "card_type")
+            .is_some_and(|card_type| {
+                WorkTemplateCardTypeKind::from_code(card_type) != WorkTemplateCardTypeKind::Other
+            }),
+        WorkMessageTypeKind::MarkdownV2 | WorkMessageTypeKind::Other => false,
+    };
+    if !valid {
+        return Err(WechatError::Config(format!(
+            "work message {msg_type} payload is missing required fields or exceeds its item limit"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7460,6 +7638,27 @@ pub struct WorkTaskCardUpdateRequest {
     pub extra: Value,
 }
 
+impl WorkTaskCardUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid <= 0 {
+            return Err(WechatError::Config(
+                "work task-card update agent id must be positive".to_string(),
+            ));
+        }
+        if self.userids.is_empty()
+            || self.userids.len() > 1000
+            || self.userids.iter().any(|userid| userid.trim().is_empty())
+            || has_duplicate_strings(&self.userids)
+        {
+            return Err(WechatError::Config(
+                "work task-card updates require 1 to 1000 unique non-empty user ids".to_string(),
+            ));
+        }
+        validate_work_message_identifier("task id", &self.task_id)?;
+        validate_work_message_identifier("clicked key", &self.clicked_key)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkTaskCardUpdateResponse {
     #[serde(default)]
@@ -7509,6 +7708,73 @@ impl WorkTemplateCardUpdateRequest {
         self.template_card
             .as_ref()
             .map(WorkTemplateCard::card_type_kind)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid <= 0 {
+            return Err(WechatError::Config(
+                "work template-card update agent id must be positive".to_string(),
+            ));
+        }
+        validate_work_message_identifier("template-card response code", &self.response_code)?;
+        for (label, identifiers) in [
+            ("user ids", &self.userids),
+            ("department ids", &self.partyids),
+            ("tag ids", &self.tagids),
+        ] {
+            if identifiers
+                .iter()
+                .any(|identifier| identifier.trim().is_empty())
+                || has_duplicate_strings(identifiers)
+            {
+                return Err(WechatError::Config(format!(
+                    "work template-card update {label} must be non-empty and unique"
+                )));
+            }
+        }
+        if self.userids.len() > 1000 || self.partyids.len() > 100 || self.tagids.len() > 100 {
+            return Err(WechatError::Config(
+                "work template-card updates support at most 1000 users, 100 departments, and 100 tags"
+                    .to_string(),
+            ));
+        }
+        if self.atall.is_some_and(|atall| !matches!(atall, 0 | 1)) {
+            return Err(WechatError::Config(
+                "work template-card update atall must be 0 or 1".to_string(),
+            ));
+        }
+        if self.userids.is_empty()
+            && self.partyids.is_empty()
+            && self.tagids.is_empty()
+            && self.atall != Some(1)
+        {
+            return Err(WechatError::Config(
+                "work template-card updates require recipients or atall=1".to_string(),
+            ));
+        }
+        if self.button.is_none() && self.template_card.is_none() {
+            return Err(WechatError::Config(
+                "work template-card updates require a button or template-card payload".to_string(),
+            ));
+        }
+        if self
+            .button
+            .as_ref()
+            .is_some_and(|button| button.replace_name.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work template-card replacement button name cannot be empty".to_string(),
+            ));
+        }
+        if let Some(template_card) = &self.template_card {
+            let payload = to_value(template_card).map_err(|error| {
+                WechatError::Config(format!(
+                    "work template-card update payload cannot be serialized: {error}"
+                ))
+            })?;
+            validate_work_message_payload(WorkMessageTypeKind::TemplateCard.as_code(), &payload)?;
+        }
+        Ok(())
     }
 }
 
@@ -21822,6 +22088,87 @@ mod tests {
         })
         .unwrap();
         assert_eq!(mpnews["mpnews"]["articles"][0]["thumb_media_id"], "thumb");
+    }
+
+    #[test]
+    fn validates_work_application_message_operations() {
+        let mut audience = WorkMessageAudience::to_user(100001, "user-a|user-b");
+        assert!(audience.validate().is_ok());
+        audience.touser = Some("user-a||user-b".to_string());
+        assert!(audience.validate().is_err());
+        audience.touser = Some("user-a".to_string());
+        audience.safe = Some(2);
+        assert!(audience.validate().is_err());
+        audience.safe = Some(0);
+        audience.duplicate_check_interval = Some(10_001);
+        assert!(audience.validate().is_err());
+
+        let mut message = WorkMessage {
+            touser: Some("user".to_string()),
+            toparty: None,
+            totag: None,
+            msgtype: "text".to_string(),
+            agentid: 100001,
+            text: Some(WorkTextMessage {
+                content: "hello".to_string(),
+            }),
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            markdown: None,
+            textcard: None,
+            news: None,
+            mpnews: None,
+            miniprogram_notice: None,
+            taskcard: None,
+            template_card: None,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: Some(1),
+            duplicate_check_interval: Some(1800),
+            extra: Value::Null,
+        };
+        assert!(message.validate().is_ok());
+        message.msgtype = "image".to_string();
+        assert!(message.validate().is_err());
+        message.msgtype = "text".to_string();
+        message.image = Some(WorkMediaMessage {
+            media_id: "media".to_string(),
+        });
+        assert!(message.validate().is_err());
+
+        let task_update = WorkTaskCardUpdateRequest {
+            userids: vec!["user-a".to_string(), "user-b".to_string()],
+            agentid: 100001,
+            task_id: "task".to_string(),
+            clicked_key: "approve".to_string(),
+            extra: Value::Null,
+        };
+        assert!(task_update.validate().is_ok());
+        let mut duplicate_task_update = task_update.clone();
+        duplicate_task_update.userids = vec!["user".to_string(), "user".to_string()];
+        assert!(duplicate_task_update.validate().is_err());
+
+        let mut template_update = WorkTemplateCardUpdateRequest {
+            userids: vec!["user".to_string()],
+            partyids: Vec::new(),
+            tagids: Vec::new(),
+            atall: None,
+            agentid: 100001,
+            response_code: "response".to_string(),
+            button: Some(WorkTemplateCardUpdateButton {
+                replace_name: "done".to_string(),
+                extra: Value::Null,
+            }),
+            template_card: None,
+            extra: Value::Null,
+        };
+        assert!(template_update.validate().is_ok());
+        template_update.button = None;
+        assert!(template_update.validate().is_err());
+        template_update.atall = Some(2);
+        assert!(template_update.validate().is_err());
     }
 
     #[test]
