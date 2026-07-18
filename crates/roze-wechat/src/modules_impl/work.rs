@@ -3364,6 +3364,20 @@ impl Work {
             .await
     }
 
+    pub async fn copy_approval_template(
+        &self,
+        access_token: impl Into<String>,
+        open_template_id: impl Into<String>,
+    ) -> Result<WorkApprovalCopyTemplateResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/approval/copytemplate",
+                Some(access_token.into()),
+                json!({ "open_template_id": open_template_id.into() }),
+            )
+            .await
+    }
+
     pub async fn add_calendar(
         &self,
         access_token: impl Into<String>,
@@ -3694,6 +3708,20 @@ impl Work {
             .await
     }
 
+    pub async fn get_oa_meeting_info(
+        &self,
+        access_token: impl Into<String>,
+        meeting_id: impl Into<String>,
+    ) -> Result<WorkMeetingGetInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meeting/get",
+                Some(access_token.into()),
+                json!({ "meetingid": meeting_id.into() }),
+            )
+            .await
+    }
+
     pub fn oa_meetingroom(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.oa.meetingroom")
     }
@@ -3782,6 +3810,34 @@ impl Work {
             .await
     }
 
+    pub async fn book_meeting_room_by_schedule(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomBookByScheduleRequest,
+    ) -> Result<WorkMeetingRoomLinkedBookResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/book_by_schedule",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn book_meeting_room_by_meeting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomBookByMeetingRequest,
+    ) -> Result<WorkMeetingRoomLinkedBookResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/book_by_meeting",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn cancel_meeting_room_book(
         &self,
         access_token: impl Into<String>,
@@ -3790,6 +3846,20 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/cancel_book",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_meeting_room_booking_by_id(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMeetingRoomBookingByIdRequest,
+    ) -> Result<WorkMeetingRoomBookingByIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/oa/meetingroom/bookinfo/get",
                 Some(access_token.into()),
                 request,
             )
@@ -3968,6 +4038,92 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/wedoc/document/get",
+                Some(access_token.into()),
+                json!({ "docid": docid.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_content_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocGetContentDataRequest,
+    ) -> Result<WorkWeDocContentDataResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/get_doc_data",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_wedoc_content(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocModifyContentRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/wedoc/mod_doc", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn upload_wedoc_image_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkWeDocImageUploadResponse> {
+        let form = reqwest::multipart::Form::new().part(
+            "media",
+            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+        );
+        self.inner
+            .post_multipart(
+                "cgi-bin/wedoc/upload_doc_image",
+                Some(access_token.into()),
+                Vec::new(),
+                form,
+            )
+            .await
+    }
+
+    pub async fn add_wedoc_admin(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocAdminRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/add_admin",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_wedoc_admin(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocAdminRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/del_admin",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_wedoc_admins(
+        &self,
+        access_token: impl Into<String>,
+        docid: impl Into<String>,
+    ) -> Result<WorkWeDocAdminListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/get_admin_list",
                 Some(access_token.into()),
                 json!({ "docid": docid.into() }),
             )
@@ -4262,6 +4418,34 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/content_priv/get_sheet_priv",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_wedoc_smartsheet_auth(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetAuthRequest,
+    ) -> Result<WorkWeDocSmartSheetAuthResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/get_sheet_auth",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_wedoc_smartsheet_auth(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDocSmartSheetModifyAuthRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedoc/smartsheet/mod_sheet_auth",
                 Some(access_token.into()),
                 request,
             )
@@ -14033,6 +14217,18 @@ pub struct WorkApprovalCreateTemplateResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkApprovalCopyTemplateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarAddRequest {
     pub calendar: WorkCalendarCreate,
     pub agentid: i64,
@@ -14664,10 +14860,30 @@ pub struct WorkMeetingRoomBookRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookByScheduleRequest {
+    pub meetingroom_id: i64,
+    pub schedule_id: String,
+    pub booker: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookByMeetingRequest {
+    pub meetingroom_id: i64,
+    pub meetingid: String,
+    pub booker: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomCancelBookRequest {
     pub meeting_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_schedule: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookingByIdRequest {
+    pub meetingroom_id: i64,
+    pub booking_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14760,6 +14976,54 @@ pub struct WorkMeetingRoomBookResponse {
     pub meeting_id: Option<i64>,
     #[serde(default)]
     pub schedule_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomLinkedBookResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub booking_id: Option<String>,
+    #[serde(default)]
+    pub schedule_id: Option<String>,
+    #[serde(default)]
+    pub conflict_date: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookingByIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub meetingroom_id: Option<i64>,
+    #[serde(default)]
+    pub schedule: Option<WorkMeetingRoomBookingByIdSchedule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingRoomBookingByIdSchedule {
+    #[serde(default)]
+    pub booking_id: Option<String>,
+    #[serde(default)]
+    pub schedule_id: Option<String>,
+    #[serde(default)]
+    pub start_time: Option<i64>,
+    #[serde(default)]
+    pub end_time: Option<i64>,
+    #[serde(default)]
+    pub booker: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -15031,6 +15295,115 @@ pub struct WorkWeDocDocumentDataResponse {
     pub version: Option<i64>,
     #[serde(default)]
     pub document: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocGetContentDataRequest {
+    pub docid: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocContentDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub docid: Option<String>,
+    #[serde(default)]
+    pub content: Option<Value>,
+    #[serde(default)]
+    pub doc_content: Option<Value>,
+    #[serde(default)]
+    pub has_more: Option<bool>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocContentDataResponse {
+    pub fn effective_content(&self) -> Option<&Value> {
+        self.content.as_ref().or(self.doc_content.as_ref())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocModifyContentRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requests: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocImageUploadResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub image_url: Option<String>,
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default)]
+    pub imageid: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub md5: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocImageUploadResponse {
+    pub fn effective_url(&self) -> Option<&str> {
+        self.image_url.as_deref().or(self.url.as_deref())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocAdminRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open_userid: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub account_type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocAdminListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub docid: Option<String>,
+    #[serde(default)]
+    pub admin_list: Vec<WorkWeDocAdmin>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocAdmin {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+    #[serde(default, rename = "type")]
+    pub account_type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -15628,6 +16001,55 @@ pub struct WorkWeDocSmartSheetGetPrivilegesResponse {
     pub rule_list: Vec<WorkWeDocSmartSheetPrivilegeRule>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAuthRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sheet_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetModifyAuthRequest {
+    pub docid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sheet_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_info: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAuthResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub docid: Option<String>,
+    #[serde(default)]
+    pub sheet_id: Option<String>,
+    #[serde(default)]
+    pub auth_info: Option<Value>,
+    #[serde(default)]
+    pub field_auth: Option<Value>,
+    #[serde(default)]
+    pub record_auth: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetAuthResponse {
+    pub fn effective_auth_info(&self) -> Option<&Value> {
+        self.auth_info
+            .as_ref()
+            .or(self.field_auth.as_ref())
+            .or(self.record_auth.as_ref())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22751,6 +23173,157 @@ mod tests {
         assert_eq!(quota.lists[0].real_assignduration, Some(604800));
         assert_eq!(quota.lists[0].extra["quota_version"], 2);
         assert_eq!(quota.extra["quota_trace"], "vacation-quota");
+    }
+
+    #[test]
+    fn serializes_work_oa_linked_meetingroom_and_wedoc_content_requests() {
+        let schedule = serde_json::to_value(WorkMeetingRoomBookByScheduleRequest {
+            meetingroom_id: 7,
+            schedule_id: "schedule-1".to_string(),
+            booker: "user".to_string(),
+        })
+        .unwrap();
+        assert_eq!(schedule["meetingroom_id"], 7);
+        assert_eq!(schedule["schedule_id"], "schedule-1");
+
+        let meeting = serde_json::to_value(WorkMeetingRoomBookByMeetingRequest {
+            meetingroom_id: 7,
+            meetingid: "meeting-1".to_string(),
+            booker: "user".to_string(),
+        })
+        .unwrap();
+        assert_eq!(meeting["meetingid"], "meeting-1");
+
+        let booking = serde_json::to_value(WorkMeetingRoomBookingByIdRequest {
+            meetingroom_id: 7,
+            booking_id: "booking-1".to_string(),
+        })
+        .unwrap();
+        assert_eq!(booking["booking_id"], "booking-1");
+
+        let content = serde_json::to_value(WorkWeDocGetContentDataRequest {
+            docid: "doc-1".to_string(),
+            extra: json!({ "cursor": "next" }),
+        })
+        .unwrap();
+        assert_eq!(content["docid"], "doc-1");
+        assert_eq!(content["cursor"], "next");
+
+        let modify = serde_json::to_value(WorkWeDocModifyContentRequest {
+            docid: "doc-1".to_string(),
+            requests: Some(json!([{ "insert_text": { "text": "hello" } }])),
+            extra: Value::Null,
+        })
+        .unwrap();
+        assert_eq!(modify["requests"][0]["insert_text"]["text"], "hello");
+
+        let admin = serde_json::to_value(WorkWeDocAdminRequest {
+            docid: "doc-1".to_string(),
+            userid: Some("user".to_string()),
+            open_userid: None,
+            account_type: Some(1),
+            extra: json!({ "source": "sdk" }),
+        })
+        .unwrap();
+        assert_eq!(admin["userid"], "user");
+        assert_eq!(admin["type"], 1);
+        assert_eq!(admin["source"], "sdk");
+
+        let auth = serde_json::to_value(WorkWeDocSmartSheetModifyAuthRequest {
+            docid: "doc-1".to_string(),
+            sheet_id: Some("sheet-1".to_string()),
+            auth_info: Some(json!({ "field_auth": [] })),
+            extra: Value::Null,
+        })
+        .unwrap();
+        assert_eq!(auth["sheet_id"], "sheet-1");
+        assert!(auth["auth_info"]["field_auth"].is_array());
+    }
+
+    #[test]
+    fn deserializes_work_oa_linked_meetingroom_and_wedoc_content_responses() {
+        let linked: WorkMeetingRoomLinkedBookResponse = serde_json::from_value(json!({
+            "booking_id": "booking-1",
+            "schedule_id": "schedule-1",
+            "conflict_date": [1_800_000_000],
+            "approval_status": "pending"
+        }))
+        .unwrap();
+        assert_eq!(linked.booking_id.as_deref(), Some("booking-1"));
+        assert_eq!(linked.conflict_date, vec![1_800_000_000]);
+        assert_eq!(linked.extra["approval_status"], "pending");
+
+        let booking: WorkMeetingRoomBookingByIdResponse = serde_json::from_value(json!({
+            "meetingroom_id": 7,
+            "schedule": {
+                "booking_id": "booking-1",
+                "schedule_id": "schedule-1",
+                "start_time": 1_800_000_000,
+                "end_time": 1_800_003_600,
+                "booker": "user",
+                "status": 0,
+                "subject": "Weekly"
+            },
+            "request_id": "booking-query"
+        }))
+        .unwrap();
+        let schedule = booking.schedule.expect("booking schedule");
+        assert_eq!(schedule.booker.as_deref(), Some("user"));
+        assert_eq!(schedule.extra["subject"], "Weekly");
+        assert_eq!(booking.extra["request_id"], "booking-query");
+
+        let content: WorkWeDocContentDataResponse = serde_json::from_value(json!({
+            "docid": "doc-1",
+            "doc_content": { "blocks": [{ "text": "hello" }] },
+            "has_more": true,
+            "next_cursor": "next",
+            "version": 2
+        }))
+        .unwrap();
+        assert_eq!(
+            content.effective_content().expect("document content")["blocks"][0]["text"],
+            "hello"
+        );
+        assert_eq!(content.extra["version"], 2);
+
+        let image: WorkWeDocImageUploadResponse = serde_json::from_value(json!({
+            "url": "https://example.test/image.png",
+            "media_id": "media-1",
+            "size": 1024
+        }))
+        .unwrap();
+        assert_eq!(
+            image.effective_url(),
+            Some("https://example.test/image.png")
+        );
+        assert_eq!(image.extra["size"], 1024);
+
+        let admins: WorkWeDocAdminListResponse = serde_json::from_value(json!({
+            "docid": "doc-1",
+            "admin_list": [{
+                "userid": "user",
+                "type": 1,
+                "expires_at": 1_900_000_000_i64
+            }],
+            "total": 1
+        }))
+        .unwrap();
+        assert_eq!(admins.admin_list[0].account_type, Some(1));
+        assert_eq!(admins.admin_list[0].extra["expires_at"], 1_900_000_000_i64);
+        assert_eq!(admins.extra["total"], 1);
+
+        let auth: WorkWeDocSmartSheetAuthResponse = serde_json::from_value(json!({
+            "docid": "doc-1",
+            "sheet_id": "sheet-1",
+            "field_auth": [{ "field_id": "field-1" }],
+            "policy_version": 3
+        }))
+        .unwrap();
+        assert_eq!(
+            auth.effective_auth_info().expect("sheet auth")[0]["field_id"],
+            "field-1"
+        );
+        assert_eq!(auth.extra["policy_version"], 3);
     }
 
     #[test]

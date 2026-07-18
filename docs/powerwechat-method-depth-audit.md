@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 354 | high |
+| Work | 363 | 367 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,19 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-18 in Roze WeChat Work OA exact endpoint depth:
+
+- Approval template copying and the OA-prefixed meeting-detail route are now
+  covered with typed responses.
+- Meeting-room booking through schedules or meetings and booking-ID detail
+  lookup expose typed conflict and schedule data.
+- WeDoc content reads/edits, document-image multipart upload, and advanced
+  account add/delete/list operations are now covered.
+- WeDoc smart-sheet content-permission get/update operations preserve
+  compatibility aliases and expose semantic effective-value helpers.
+- The current WxJava Work OA exact-path comparison is green after excluding its
+  duplicated-slash `book_by_meeting` constant typo.
 
 Implemented on 2026-07-18 in Roze WeChat Work external-contact operations:
 
