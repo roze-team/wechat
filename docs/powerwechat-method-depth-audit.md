@@ -892,6 +892,20 @@ Recommended implementation order:
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
+Implemented on 2026-07-18 in Work OA WeDoc smart-sheet field depth:
+
+- smart-sheet field add/update requests now use typed field mutation and
+  property DTOs instead of `Vec<Value>`;
+- add/update paths apply distinct local validation for document/sheet
+  identity, required add metadata, update field identity, non-empty changes,
+  select options, and auto-number/decimal property basics;
+- all 24 currently documented smart-sheet field types expose semantic kind
+  mapping and typed request constructors while unknown response types remain
+  forward compatible;
+- number, select, date/time, user, checkbox, attachment, URL, location,
+  work-group, currency, auto-number, formula, reference, and related property
+  keys share one extensible typed response/request model.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

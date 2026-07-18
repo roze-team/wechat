@@ -4351,6 +4351,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetFieldsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetFieldsResponse> {
+        request.validate_for_add()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_fields",
@@ -4379,6 +4380,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetFieldsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetFieldsResponse> {
+        request.validate_for_update()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_fields",
@@ -16773,7 +16775,435 @@ pub struct WorkWeDocSmartSheetDeleteViewsRequest {
 pub struct WorkWeDocSmartSheetFieldsMutationRequest {
     pub docid: String,
     pub sheet_id: String,
-    pub fields: Vec<Value>,
+    pub fields: Vec<WorkWeDocSmartSheetFieldMutation>,
+}
+
+impl WorkWeDocSmartSheetFieldsMutationRequest {
+    pub fn new(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        fields: impl IntoIterator<Item = WorkWeDocSmartSheetFieldMutation>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            fields: fields.into_iter().collect(),
+        }
+    }
+
+    pub fn validate_for_add(&self) -> Result<()> {
+        self.validate_common()?;
+        for field in &self.fields {
+            field.validate_for_add()?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_update(&self) -> Result<()> {
+        self.validate_common()?;
+        for field in &self.fields {
+            field.validate_for_update()?;
+        }
+        Ok(())
+    }
+
+    fn validate_common(&self) -> Result<()> {
+        if self.docid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field mutation docid cannot be empty".to_string(),
+            ));
+        }
+        if self.sheet_id.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field mutation sheet id cannot be empty".to_string(),
+            ));
+        }
+        if self.fields.is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field mutation requires at least one field".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetFieldMutation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub property: Option<WorkWeDocSmartSheetFieldProperty>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetFieldMutation {
+    pub fn add(
+        field_title: impl Into<String>,
+        field_type: WorkWeDocSmartSheetFieldTypeKind,
+    ) -> Self {
+        Self {
+            field_title: Some(field_title.into()),
+            field_type: field_type.as_code().map(str::to_string),
+            ..Self::default()
+        }
+    }
+
+    pub fn update(field_id: impl Into<String>) -> Self {
+        Self {
+            field_id: Some(field_id.into()),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_title(mut self, field_title: impl Into<String>) -> Self {
+        self.field_title = Some(field_title.into());
+        self
+    }
+
+    pub fn with_type(mut self, field_type: WorkWeDocSmartSheetFieldTypeKind) -> Self {
+        self.field_type = field_type.as_code().map(str::to_string);
+        self
+    }
+
+    pub fn with_property(mut self, property: WorkWeDocSmartSheetFieldProperty) -> Self {
+        self.property = Some(property);
+        self
+    }
+
+    pub fn field_type_kind(&self) -> Option<WorkWeDocSmartSheetFieldTypeKind> {
+        self.field_type
+            .as_deref()
+            .map(WorkWeDocSmartSheetFieldTypeKind::from_code)
+    }
+
+    fn validate_for_add(&self) -> Result<()> {
+        if self
+            .field_title
+            .as_deref()
+            .is_none_or(|title| title.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "added WeDoc smart-sheet field title cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .field_type
+            .as_deref()
+            .is_none_or(|field_type| field_type.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "added WeDoc smart-sheet field type cannot be empty".to_string(),
+            ));
+        }
+        self.validate_property()
+    }
+
+    fn validate_for_update(&self) -> Result<()> {
+        if self
+            .field_id
+            .as_deref()
+            .is_none_or(|field_id| field_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet field id cannot be empty".to_string(),
+            ));
+        }
+        if self.field_title.is_none()
+            && self.field_type.is_none()
+            && self.property.is_none()
+            && self.extra.as_object().is_none_or(serde_json::Map::is_empty)
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet field requires at least one change".to_string(),
+            ));
+        }
+        if self
+            .field_title
+            .as_deref()
+            .is_some_and(|title| title.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet field title cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .field_type
+            .as_deref()
+            .is_some_and(|field_type| field_type.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet field type cannot be empty".to_string(),
+            ));
+        }
+        self.validate_property()
+    }
+
+    fn validate_property(&self) -> Result<()> {
+        if let Some(property) = &self.property {
+            property.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetFieldTypeKind {
+    Text,
+    Number,
+    Checkbox,
+    DateTime,
+    Image,
+    Attachment,
+    User,
+    Url,
+    Select,
+    CreatedUser,
+    ModifiedUser,
+    CreatedTime,
+    ModifiedTime,
+    Progress,
+    PhoneNumber,
+    Email,
+    SingleSelect,
+    Reference,
+    Location,
+    Currency,
+    WorkGroup,
+    AutoNumber,
+    Percentage,
+    Formula,
+    Other,
+}
+
+impl WorkWeDocSmartSheetFieldTypeKind {
+    pub const fn as_code(self) -> Option<&'static str> {
+        Some(match self {
+            Self::Text => "FIELD_TYPE_TEXT",
+            Self::Number => "FIELD_TYPE_NUMBER",
+            Self::Checkbox => "FIELD_TYPE_CHECKBOX",
+            Self::DateTime => "FIELD_TYPE_DATE_TIME",
+            Self::Image => "FIELD_TYPE_IMAGE",
+            Self::Attachment => "FIELD_TYPE_ATTACHMENT",
+            Self::User => "FIELD_TYPE_USER",
+            Self::Url => "FIELD_TYPE_URL",
+            Self::Select => "FIELD_TYPE_SELECT",
+            Self::CreatedUser => "FIELD_TYPE_CREATED_USER",
+            Self::ModifiedUser => "FIELD_TYPE_MODIFIED_USER",
+            Self::CreatedTime => "FIELD_TYPE_CREATED_TIME",
+            Self::ModifiedTime => "FIELD_TYPE_MODIFIED_TIME",
+            Self::Progress => "FIELD_TYPE_PROGRESS",
+            Self::PhoneNumber => "FIELD_TYPE_PHONE_NUMBER",
+            Self::Email => "FIELD_TYPE_EMAIL",
+            Self::SingleSelect => "FIELD_TYPE_SINGLE_SELECT",
+            Self::Reference => "FIELD_TYPE_REFERENCE",
+            Self::Location => "FIELD_TYPE_LOCATION",
+            Self::Currency => "FIELD_TYPE_CURRENCY",
+            Self::WorkGroup => "FIELD_TYPE_WWGROUP",
+            Self::AutoNumber => "FIELD_TYPE_AUTONUMBER",
+            Self::Percentage => "FIELD_TYPE_PERCENTAGE",
+            Self::Formula => "FIELD_TYPE_FORMULA",
+            Self::Other => return None,
+        })
+    }
+
+    pub fn from_code(value: &str) -> Self {
+        match value {
+            "FIELD_TYPE_TEXT" => Self::Text,
+            "FIELD_TYPE_NUMBER" => Self::Number,
+            "FIELD_TYPE_CHECKBOX" => Self::Checkbox,
+            "FIELD_TYPE_DATE_TIME" => Self::DateTime,
+            "FIELD_TYPE_IMAGE" => Self::Image,
+            "FIELD_TYPE_ATTACHMENT" => Self::Attachment,
+            "FIELD_TYPE_USER" => Self::User,
+            "FIELD_TYPE_URL" => Self::Url,
+            "FIELD_TYPE_SELECT" => Self::Select,
+            "FIELD_TYPE_CREATED_USER" => Self::CreatedUser,
+            "FIELD_TYPE_MODIFIED_USER" => Self::ModifiedUser,
+            "FIELD_TYPE_CREATED_TIME" => Self::CreatedTime,
+            "FIELD_TYPE_MODIFIED_TIME" => Self::ModifiedTime,
+            "FIELD_TYPE_PROGRESS" => Self::Progress,
+            "FIELD_TYPE_PHONE_NUMBER" => Self::PhoneNumber,
+            "FIELD_TYPE_EMAIL" => Self::Email,
+            "FIELD_TYPE_SINGLE_SELECT" => Self::SingleSelect,
+            "FIELD_TYPE_REFERENCE" => Self::Reference,
+            "FIELD_TYPE_LOCATION" => Self::Location,
+            "FIELD_TYPE_CURRENCY" => Self::Currency,
+            "FIELD_TYPE_WWGROUP" => Self::WorkGroup,
+            "FIELD_TYPE_AUTONUMBER" => Self::AutoNumber,
+            "FIELD_TYPE_PERCENTAGE" => Self::Percentage,
+            "FIELD_TYPE_FORMULA" => Self::Formula,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetFieldProperty {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decimal_places: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_separate: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_quick_add: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<WorkWeDocSmartSheetSelectOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_fill: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_multiple: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_notified: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checked: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_mode: Option<String>,
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    pub property_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_multiple: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<WorkWeDocSmartSheetAutoNumberRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reformat_existing_record: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub formula_model: Vec<WorkWeDocSmartSheetFormulaModel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_id: Option<String>,
+    #[serde(default, alias = "filed_id", skip_serializing_if = "Option::is_none")]
+    pub field_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetFieldProperty {
+    pub fn number(decimal_places: i64, use_separate: bool) -> Self {
+        Self {
+            decimal_places: Some(decimal_places),
+            use_separate: Some(use_separate),
+            ..Self::default()
+        }
+    }
+
+    pub fn select(
+        is_quick_add: bool,
+        options: impl IntoIterator<Item = WorkWeDocSmartSheetSelectOption>,
+    ) -> Self {
+        Self {
+            is_quick_add: Some(is_quick_add),
+            options: options.into_iter().collect(),
+            ..Self::default()
+        }
+    }
+
+    pub fn user(is_multiple: bool, is_notified: bool) -> Self {
+        Self {
+            is_multiple: Some(is_multiple),
+            is_notified: Some(is_notified),
+            ..Self::default()
+        }
+    }
+
+    pub fn date_time(format: impl Into<String>, auto_fill: bool) -> Self {
+        Self {
+            format: Some(format.into()),
+            auto_fill: Some(auto_fill),
+            ..Self::default()
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .decimal_places
+            .is_some_and(|decimal_places| decimal_places < 0)
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet decimal places cannot be negative".to_string(),
+            ));
+        }
+        for option in &self.options {
+            option.validate()?;
+        }
+        for rule in &self.rules {
+            if rule.rule_type.trim().is_empty() {
+                return Err(WechatError::Config(
+                    "WeDoc smart-sheet auto-number rule type cannot be empty".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetSelectOption {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetSelectOption {
+    pub fn by_id(id: impl Into<String>) -> Self {
+        Self {
+            id: Some(id.into()),
+            ..Self::default()
+        }
+    }
+
+    pub fn by_text(text: impl Into<String>) -> Self {
+        Self {
+            text: Some(text.into()),
+            ..Self::default()
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        let has_id = self.id.as_deref().is_some_and(|id| !id.trim().is_empty());
+        let has_text = self
+            .text
+            .as_deref()
+            .is_some_and(|text| !text.trim().is_empty());
+        if !has_id && !has_text {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet select option requires an id or text".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetAutoNumberRule {
+    #[serde(rename = "type")]
+    pub rule_type: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetFormulaModel {
+    #[serde(rename = "type")]
+    pub formula_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16827,9 +17257,17 @@ pub struct WorkWeDocSmartSheetField {
     #[serde(default)]
     pub field_type: Option<String>,
     #[serde(default)]
-    pub property: Option<Value>,
+    pub property: Option<WorkWeDocSmartSheetFieldProperty>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetField {
+    pub fn field_type_kind(&self) -> Option<WorkWeDocSmartSheetFieldTypeKind> {
+        self.field_type
+            .as_deref()
+            .map(WorkWeDocSmartSheetFieldTypeKind::from_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27391,16 +27829,20 @@ mod tests {
         assert!(view.get("property_gantt").is_none());
         assert_eq!(view["property_calendar"]["date_field_id"], "field-date");
 
-        let fields = serde_json::to_value(WorkWeDocSmartSheetFieldsMutationRequest {
-            docid: "doc".to_string(),
-            sheet_id: "sheet".to_string(),
-            fields: vec![json!({
-                "field_title": "Owner",
-                "field_type": "FIELD_TYPE_USER"
-            })],
-        })
-        .unwrap();
+        let fields_request = WorkWeDocSmartSheetFieldsMutationRequest::new(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetFieldMutation::add(
+                "Owner",
+                WorkWeDocSmartSheetFieldTypeKind::User,
+            )
+            .with_property(WorkWeDocSmartSheetFieldProperty::user(true, false))],
+        );
+        fields_request.validate_for_add().unwrap();
+        let fields = serde_json::to_value(fields_request).unwrap();
         assert_eq!(fields["fields"][0]["field_title"], "Owner");
+        assert_eq!(fields["fields"][0]["field_type"], "FIELD_TYPE_USER");
+        assert_eq!(fields["fields"][0]["property"]["is_multiple"], true);
 
         let records = serde_json::to_value(WorkWeDocSmartSheetGetRecordsRequest {
             docid: "doc".to_string(),
@@ -27429,6 +27871,70 @@ mod tests {
         })
         .unwrap();
         assert_eq!(deletes["record_ids"][1], "record-2");
+    }
+
+    #[test]
+    fn validates_work_wedoc_smartsheet_field_mutations() {
+        let update = WorkWeDocSmartSheetFieldsMutationRequest::new(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetFieldMutation::update("field-status")
+                .with_title("Delivery status")
+                .with_type(WorkWeDocSmartSheetFieldTypeKind::SingleSelect)
+                .with_property(WorkWeDocSmartSheetFieldProperty::select(
+                    false,
+                    [
+                        WorkWeDocSmartSheetSelectOption::by_id("option-existing"),
+                        WorkWeDocSmartSheetSelectOption::by_text("Delivered"),
+                    ],
+                ))],
+        );
+        update.validate_for_update().unwrap();
+        let value = serde_json::to_value(update).unwrap();
+        assert_eq!(value["fields"][0]["field_id"], "field-status");
+        assert_eq!(
+            value["fields"][0]["property"]["options"][1]["text"],
+            "Delivered"
+        );
+
+        let missing_id = WorkWeDocSmartSheetFieldsMutationRequest::new(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetFieldMutation::default().with_title("Status")],
+        );
+        assert!(missing_id.validate_for_update().is_err());
+
+        let empty_add = WorkWeDocSmartSheetFieldsMutationRequest::new("doc", "sheet", Vec::new());
+        assert!(empty_add.validate_for_add().is_err());
+
+        let invalid_option = WorkWeDocSmartSheetFieldsMutationRequest::new(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetFieldMutation::add(
+                "Status",
+                WorkWeDocSmartSheetFieldTypeKind::Select,
+            )
+            .with_property(WorkWeDocSmartSheetFieldProperty::select(
+                false,
+                [WorkWeDocSmartSheetSelectOption::default()],
+            ))],
+        );
+        assert!(invalid_option.validate_for_add().is_err());
+
+        let field: WorkWeDocSmartSheetField = serde_json::from_value(json!({
+            "field_id": "field-future",
+            "field_title": "Future",
+            "field_type": "FIELD_TYPE_FUTURE",
+            "property": {
+                "future_setting": "preserved"
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            field.field_type_kind(),
+            Some(WorkWeDocSmartSheetFieldTypeKind::Other)
+        );
+        assert_eq!(field.property.unwrap().extra["future_setting"], "preserved");
     }
 
     #[test]
@@ -27474,15 +27980,15 @@ mod tests {
                 "field_id": "field-owner",
                 "field_title": "Owner",
                 "field_type": "FIELD_TYPE_USER",
-                "property": {"multiple": true},
+                "property": {"is_multiple": true},
                 "is_primary": false
             }]
         }))
         .unwrap();
         assert_eq!(fields.fields[0].field_title.as_deref(), Some("Owner"));
         assert_eq!(
-            fields.fields[0].property.as_ref().unwrap()["multiple"],
-            true
+            fields.fields[0].property.as_ref().unwrap().is_multiple,
+            Some(true)
         );
         assert_eq!(fields.fields[0].extra["is_primary"], false);
 
