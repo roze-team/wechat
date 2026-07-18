@@ -1616,6 +1616,60 @@ impl Work {
             .await
     }
 
+    pub async fn get_customer_acquisition_quota(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<CustomerAcquisitionQuotaResponse> {
+        self.inner
+            .get(
+                "cgi-bin/externalcontact/customer_acquisition_quota",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn list_customer_acquisition_customers(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerAcquisitionCustomerListRequest,
+    ) -> Result<CustomerAcquisitionCustomerListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/customer",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_customer_acquisition_statistic(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerAcquisitionStatisticRequest,
+    ) -> Result<CustomerAcquisitionStatisticResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/statistic",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_customer_acquisition_chat_info(
+        &self,
+        access_token: impl Into<String>,
+        request: CustomerAcquisitionChatInfoRequest,
+    ) -> Result<CustomerAcquisitionChatInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/customer_acquisition/get_chat_info",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn add_external_contact_message_template(
         &self,
         access_token: impl Into<String>,
@@ -9019,6 +9073,159 @@ pub struct CustomerAcquisitionLink {
     pub create_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionQuotaResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub balance: Option<i64>,
+    #[serde(default)]
+    pub quota_list: Vec<CustomerAcquisitionQuota>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl CustomerAcquisitionQuotaResponse {
+    pub fn is_exhausted(&self) -> bool {
+        self.balance == Some(0)
+    }
+
+    pub fn next_expiring_quota(&self) -> Option<&CustomerAcquisitionQuota> {
+        self.quota_list
+            .iter()
+            .filter(|quota| quota.expire_date.is_some())
+            .min_by_key(|quota| quota.expire_date)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionQuota {
+    #[serde(default)]
+    pub expire_date: Option<i64>,
+    #[serde(default)]
+    pub balance: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionCustomerListRequest {
+    pub link_id: String,
+    pub limit: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionCustomerListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub customer_list: Vec<CustomerAcquisitionCustomer>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionCustomer {
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub chat_status: Option<i64>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl CustomerAcquisitionCustomer {
+    pub fn chat_status_kind(&self) -> Option<CustomerAcquisitionChatStatusKind> {
+        self.chat_status
+            .map(CustomerAcquisitionChatStatusKind::from)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CustomerAcquisitionChatStatusKind {
+    NotMessaged,
+    Messaged,
+    Other(i64),
+}
+
+impl From<i64> for CustomerAcquisitionChatStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::NotMessaged,
+            1 => Self::Messaged,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionStatisticRequest {
+    pub link_id: String,
+    pub start_time: i64,
+    pub end_time: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionStatisticResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub click_link_customer_cnt: Option<i64>,
+    #[serde(default)]
+    pub new_customer_cnt: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionChatInfoRequest {
+    pub chat_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionChatInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub chat_info: Option<CustomerAcquisitionChatInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerAcquisitionChatInfo {
+    #[serde(default)]
+    pub recv_msg_cnt: Option<i64>,
+    #[serde(default)]
+    pub link_id: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -17900,6 +18107,127 @@ mod tests {
             got.link.and_then(|link| link.url).as_deref(),
             Some("https://example.com")
         );
+    }
+
+    #[test]
+    fn serializes_customer_acquisition_monitoring_requests_and_responses() {
+        let customers = serde_json::to_value(CustomerAcquisitionCustomerListRequest {
+            link_id: "link".to_string(),
+            limit: 1000,
+            cursor: None,
+        })
+        .unwrap();
+        assert_eq!(customers["link_id"], "link");
+        assert_eq!(customers["limit"], 1000);
+        assert!(customers.get("cursor").is_none());
+
+        let statistic = serde_json::to_value(CustomerAcquisitionStatisticRequest {
+            link_id: "link".to_string(),
+            start_time: 1_720_000_000,
+            end_time: 1_720_086_400,
+        })
+        .unwrap();
+        assert_eq!(statistic["link_id"], "link");
+        assert_eq!(statistic["start_time"], 1_720_000_000_i64);
+        assert_eq!(statistic["end_time"], 1_720_086_400_i64);
+
+        let chat_request = serde_json::to_value(CustomerAcquisitionChatInfoRequest {
+            chat_key: "single-use-chat-key".to_string(),
+        })
+        .unwrap();
+        assert_eq!(chat_request, json!({ "chat_key": "single-use-chat-key" }));
+
+        let quota: CustomerAcquisitionQuotaResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total": 1000,
+            "balance": 500,
+            "quota_list": [
+                {
+                    "expire_date": 1_730_000_000,
+                    "balance": 300,
+                    "batch_id": "later"
+                },
+                {
+                    "expire_date": 1_720_000_000,
+                    "balance": 200,
+                    "batch_id": "next"
+                }
+            ],
+            "quota_policy": "purchased"
+        }))
+        .unwrap();
+        assert_eq!(quota.total, Some(1000));
+        assert_eq!(quota.balance, Some(500));
+        assert!(!quota.is_exhausted());
+        let next_quota = quota.next_expiring_quota().expect("next quota");
+        assert_eq!(next_quota.expire_date, Some(1_720_000_000));
+        assert_eq!(next_quota.balance, Some(200));
+        assert_eq!(next_quota.extra["batch_id"], "next");
+        assert_eq!(quota.extra["quota_policy"], "purchased");
+
+        let exhausted: CustomerAcquisitionQuotaResponse =
+            serde_json::from_value(json!({ "balance": 0 })).unwrap();
+        assert!(exhausted.is_exhausted());
+        assert!(exhausted.next_expiring_quota().is_none());
+
+        let customer_list: CustomerAcquisitionCustomerListResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "customer_list": [{
+                    "external_userid": "external",
+                    "userid": "user",
+                    "chat_status": 1,
+                    "state": "campaign-a",
+                    "acquired_at": 1_720_000_000
+                }],
+                "next_cursor": "cursor",
+                "link_id": "link"
+            }))
+            .unwrap();
+        let customer = &customer_list.customer_list[0];
+        assert_eq!(customer.external_userid.as_deref(), Some("external"));
+        assert_eq!(
+            customer.chat_status_kind(),
+            Some(CustomerAcquisitionChatStatusKind::Messaged)
+        );
+        assert_eq!(customer.extra["acquired_at"], 1_720_000_000_i64);
+        assert_eq!(customer_list.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(customer_list.extra["link_id"], "link");
+        assert_eq!(
+            CustomerAcquisitionChatStatusKind::from(9),
+            CustomerAcquisitionChatStatusKind::Other(9)
+        );
+
+        let statistic: CustomerAcquisitionStatisticResponse = serde_json::from_value(json!({
+            "click_link_customer_cnt": 80,
+            "new_customer_cnt": 25,
+            "stat_date": "2026-07-18"
+        }))
+        .unwrap();
+        assert_eq!(statistic.click_link_customer_cnt, Some(80));
+        assert_eq!(statistic.new_customer_cnt, Some(25));
+        assert_eq!(statistic.extra["stat_date"], "2026-07-18");
+
+        let chat: CustomerAcquisitionChatInfoResponse = serde_json::from_value(json!({
+            "userid": "user",
+            "external_userid": "external",
+            "chat_info": {
+                "recv_msg_cnt": 4,
+                "link_id": "link",
+                "state": "campaign-a",
+                "latest_msg_time": 1_720_000_000
+            },
+            "request_id": "chat-info"
+        }))
+        .unwrap();
+        assert_eq!(chat.userid.as_deref(), Some("user"));
+        assert_eq!(chat.external_userid.as_deref(), Some("external"));
+        let chat_info = chat.chat_info.expect("chat info");
+        assert_eq!(chat_info.recv_msg_cnt, Some(4));
+        assert_eq!(chat_info.link_id.as_deref(), Some("link"));
+        assert_eq!(chat_info.state.as_deref(), Some("campaign-a"));
+        assert_eq!(chat_info.extra["latest_msg_time"], 1_720_000_000_i64);
+        assert_eq!(chat.extra["request_id"], "chat-info");
     }
 
     #[test]

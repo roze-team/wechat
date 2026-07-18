@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 329 | high |
+| Work | 363 | 333 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,16 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-18 in Roze WeChat Work external-contact depth:
+
+- Customer acquisition now covers quota monitoring, customer attribution
+  pagination, link usage statistics, and repeated-message chat details through
+  four typed wrappers. Quota batches, attributed customers, chat status,
+  conversion counters, and chat details are typed while preserving unknown
+  upstream fields.
+- Quota responses expose exhausted and next-expiring-batch helpers, and
+  attributed customers expose semantic chat-status classification.
 
 Implemented on 2026-07-18 in Roze WeChat Work user depth:
 
