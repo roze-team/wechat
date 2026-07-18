@@ -1164,6 +1164,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ContactWayRequest,
     ) -> Result<ContactWayAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_contact_way",
@@ -1178,11 +1179,13 @@ impl Work {
         access_token: impl Into<String>,
         config_id: impl Into<String>,
     ) -> Result<ContactWayGetResponse> {
+        let config_id = config_id.into();
+        validate_contact_way_config_id(&config_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_contact_way",
                 Some(access_token.into()),
-                json!({ "config_id": config_id.into() }),
+                json!({ "config_id": config_id }),
             )
             .await
     }
@@ -1192,6 +1195,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ContactWayListRequest,
     ) -> Result<ContactWayListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/list_contact_way",
@@ -1206,6 +1210,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ContactWayUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/update_contact_way",
@@ -1220,11 +1225,13 @@ impl Work {
         access_token: impl Into<String>,
         config_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let config_id = config_id.into();
+        validate_contact_way_config_id(&config_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/del_contact_way",
                 Some(access_token.into()),
-                json!({ "config_id": config_id.into() }),
+                json!({ "config_id": config_id }),
             )
             .await
     }
@@ -8932,8 +8939,8 @@ pub struct ExternalContactFollowTag {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactWayRequest {
     #[serde(rename = "type")]
-    pub kind: i64,
-    pub scene: i64,
+    pub kind: ContactWayKind,
+    pub scene: ContactWayScene,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -8947,13 +8954,202 @@ pub struct ContactWayRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub party: Option<Vec<i64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_temp: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_in: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_expires_in: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unionid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_exclusive: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub conclusions: Option<ContactWayConclusions>,
+}
+
+impl ContactWayRequest {
+    pub fn single(scene: ContactWayScene, userid: impl Into<String>) -> Self {
+        Self {
+            kind: ContactWayKind::Single,
+            scene,
+            style: None,
+            remark: None,
+            skip_verify: None,
+            state: None,
+            user: Some(vec![userid.into()]),
+            party: None,
+            is_temp: None,
+            expires_in: None,
+            chat_expires_in: None,
+            unionid: None,
+            is_exclusive: None,
+            conclusions: None,
+        }
+    }
+
+    pub fn multi(
+        scene: ContactWayScene,
+        users: impl IntoIterator<Item = impl Into<String>>,
+        parties: impl IntoIterator<Item = i64>,
+    ) -> Self {
+        Self {
+            kind: ContactWayKind::Multi,
+            scene,
+            style: None,
+            remark: None,
+            skip_verify: None,
+            state: None,
+            user: Some(users.into_iter().map(Into::into).collect()),
+            party: Some(parties.into_iter().collect()),
+            is_temp: None,
+            expires_in: None,
+            chat_expires_in: None,
+            unionid: None,
+            is_exclusive: None,
+            conclusions: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_contact_way_text_fields(self.remark.as_deref(), self.state.as_deref())?;
+        validate_contact_way_recipients(self.kind, self.user.as_deref(), self.party.as_deref())?;
+        match self.scene {
+            ContactWayScene::MiniProgram => {}
+            ContactWayScene::QrCode if self.style.is_some() => {
+                return Err(WechatError::Config(
+                    "contact-way style is only valid for the mini-program scene".to_string(),
+                ));
+            }
+            ContactWayScene::QrCode => {}
+            ContactWayScene::Other(code) => {
+                return Err(WechatError::Config(format!(
+                    "unsupported contact-way scene {code}"
+                )));
+            }
+        }
+        if let Some(style) = self.style {
+            let maximum = match self.kind {
+                ContactWayKind::Single => 3,
+                ContactWayKind::Multi => 2,
+                ContactWayKind::Other(code) => {
+                    return Err(WechatError::Config(format!(
+                        "unsupported contact-way type {code}"
+                    )));
+                }
+            };
+            if !(1..=maximum).contains(&style) {
+                return Err(WechatError::Config(format!(
+                    "contact-way style must be between 1 and {maximum} for this type"
+                )));
+            }
+        }
+        let has_temp_fields = self.expires_in.is_some()
+            || self.chat_expires_in.is_some()
+            || self.unionid.is_some()
+            || self.conclusions.is_some();
+        if has_temp_fields && self.is_temp != Some(true) {
+            return Err(WechatError::Config(
+                "temporary contact-way fields require is_temp=true".to_string(),
+            ));
+        }
+        if self.is_temp == Some(true) && self.scene != ContactWayScene::QrCode {
+            return Err(WechatError::Config(
+                "temporary contact ways require the QR-code scene".to_string(),
+            ));
+        }
+        validate_contact_way_temporary_fields(
+            self.expires_in,
+            self.chat_expires_in,
+            self.unionid.as_deref(),
+            self.conclusions.as_ref(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContactWayKind {
+    Single,
+    Multi,
+    Other(i64),
+}
+
+impl ContactWayKind {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::Single => 1,
+            Self::Multi => 2,
+            Self::Other(code) => code,
+        }
+    }
+
+    pub const fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::Single,
+            2 => Self::Multi,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl Serialize for ContactWayKind {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_code())
+    }
+}
+
+impl<'de> Deserialize<'de> for ContactWayKind {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_code(i64::deserialize(deserializer)?))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContactWayScene {
+    MiniProgram,
+    QrCode,
+    Other(i64),
+}
+
+impl ContactWayScene {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::MiniProgram => 1,
+            Self::QrCode => 2,
+            Self::Other(code) => code,
+        }
+    }
+
+    pub const fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::MiniProgram,
+            2 => Self::QrCode,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl Serialize for ContactWayScene {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_code())
+    }
+}
+
+impl<'de> Deserialize<'de> for ContactWayScene {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_code(i64::deserialize(deserializer)?))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8995,9 +9191,9 @@ pub struct ContactWayDetail {
     #[serde(default)]
     pub config_id: Option<String>,
     #[serde(default, rename = "type")]
-    pub kind: Option<i64>,
+    pub kind: Option<ContactWayKind>,
     #[serde(default)]
-    pub scene: Option<i64>,
+    pub scene: Option<ContactWayScene>,
     #[serde(default)]
     pub style: Option<i64>,
     #[serde(default)]
@@ -9014,6 +9210,8 @@ pub struct ContactWayDetail {
     pub party: Vec<i64>,
     #[serde(default)]
     pub is_temp: Option<bool>,
+    #[serde(default)]
+    pub is_exclusive: Option<bool>,
     #[serde(default)]
     pub expires_in: Option<i64>,
     #[serde(default)]
@@ -9045,7 +9243,10 @@ pub struct ContactWayConclusionText {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactWayConclusionImage {
-    pub pic_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pic_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9073,6 +9274,31 @@ pub struct ContactWayListRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub limit: i64,
+}
+
+impl ContactWayListRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.start_time < 0 || self.end_time < self.start_time {
+            return Err(WechatError::Config(
+                "contact-way list requires a valid ascending time range".to_string(),
+            ));
+        }
+        if !(1..=100).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "contact-way list limit must be between 1 and 100".to_string(),
+            ));
+        }
+        if self
+            .cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "contact-way list cursor cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9111,7 +9337,215 @@ pub struct ContactWayUpdateRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unionid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_exclusive: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conclusions: Option<ContactWayConclusions>,
+}
+
+impl ContactWayUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_contact_way_config_id(&self.config_id)?;
+        validate_contact_way_text_fields(self.remark.as_deref(), self.state.as_deref())?;
+        if self.style.is_some_and(|style| !(1..=3).contains(&style)) {
+            return Err(WechatError::Config(
+                "contact-way update style must be between 1 and 3".to_string(),
+            ));
+        }
+        if let Some(users) = &self.user {
+            validate_contact_way_user_ids(users)?;
+        }
+        if let Some(parties) = &self.party {
+            validate_contact_way_party_ids(parties)?;
+        }
+        validate_contact_way_temporary_fields(
+            self.expires_in,
+            self.chat_expires_in,
+            self.unionid.as_deref(),
+            self.conclusions.as_ref(),
+        )?;
+        let has_change = self.remark.is_some()
+            || self.skip_verify.is_some()
+            || self.style.is_some()
+            || self.state.is_some()
+            || self.user.is_some()
+            || self.party.is_some()
+            || self.expires_in.is_some()
+            || self.chat_expires_in.is_some()
+            || self.unionid.is_some()
+            || self.is_exclusive.is_some()
+            || self.conclusions.is_some();
+        if !has_change {
+            return Err(WechatError::Config(
+                "contact-way update requires at least one changed field".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_contact_way_config_id(config_id: &str) -> Result<()> {
+    if config_id.trim().is_empty() {
+        return Err(WechatError::Config(
+            "contact-way config id cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_contact_way_text_fields(remark: Option<&str>, state: Option<&str>) -> Result<()> {
+    if remark.is_some_and(|remark| remark.chars().count() > 30) {
+        return Err(WechatError::Config(
+            "contact-way remark cannot exceed 30 characters".to_string(),
+        ));
+    }
+    if state.is_some_and(|state| state.chars().count() > 30) {
+        return Err(WechatError::Config(
+            "contact-way state cannot exceed 30 characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_contact_way_recipients(
+    kind: ContactWayKind,
+    users: Option<&[String]>,
+    parties: Option<&[i64]>,
+) -> Result<()> {
+    match kind {
+        ContactWayKind::Single => {
+            if users.map_or(0, <[String]>::len) != 1
+                || parties.is_some_and(|parties| !parties.is_empty())
+            {
+                return Err(WechatError::Config(
+                    "single-user contact ways require exactly one user and no departments"
+                        .to_string(),
+                ));
+            }
+        }
+        ContactWayKind::Multi => {
+            if users.is_none_or(<[String]>::is_empty) && parties.is_none_or(<[i64]>::is_empty) {
+                return Err(WechatError::Config(
+                    "multi-user contact ways require at least one user or department".to_string(),
+                ));
+            }
+        }
+        ContactWayKind::Other(code) => {
+            return Err(WechatError::Config(format!(
+                "unsupported contact-way type {code}"
+            )));
+        }
+    }
+    if let Some(users) = users {
+        validate_contact_way_user_ids(users)?;
+    }
+    if let Some(parties) = parties {
+        validate_contact_way_party_ids(parties)?;
+    }
+    Ok(())
+}
+
+fn validate_contact_way_user_ids(users: &[String]) -> Result<()> {
+    if users.iter().any(|userid| userid.trim().is_empty()) || has_duplicate_strings(users) {
+        return Err(WechatError::Config(
+            "contact-way user ids must be non-empty and unique".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_contact_way_party_ids(parties: &[i64]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(parties.len());
+    if parties
+        .iter()
+        .any(|party| *party <= 0 || !seen.insert(*party))
+    {
+        return Err(WechatError::Config(
+            "contact-way department ids must be positive and unique".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_contact_way_temporary_fields(
+    expires_in: Option<i64>,
+    chat_expires_in: Option<i64>,
+    unionid: Option<&str>,
+    conclusions: Option<&ContactWayConclusions>,
+) -> Result<()> {
+    if expires_in.is_some_and(|value| value <= 0) || chat_expires_in.is_some_and(|value| value <= 0)
+    {
+        return Err(WechatError::Config(
+            "contact-way temporary durations must be positive".to_string(),
+        ));
+    }
+    if unionid.is_some_and(|unionid| unionid.trim().is_empty()) {
+        return Err(WechatError::Config(
+            "contact-way temporary unionid cannot be empty".to_string(),
+        ));
+    }
+    if let Some(conclusions) = conclusions {
+        conclusions.validate()?;
+    }
+    Ok(())
+}
+
+impl ContactWayConclusions {
+    pub fn validate(&self) -> Result<()> {
+        if self.text.is_none()
+            && self.image.is_none()
+            && self.link.is_none()
+            && self.miniprogram.is_none()
+        {
+            return Err(WechatError::Config(
+                "contact-way conclusions require at least one message".to_string(),
+            ));
+        }
+        if self
+            .text
+            .as_ref()
+            .is_some_and(|text| text.content.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "contact-way conclusion text cannot be empty".to_string(),
+            ));
+        }
+        if let Some(image) = &self.image {
+            let media_id = image
+                .media_id
+                .as_deref()
+                .filter(|value| !value.trim().is_empty());
+            let pic_url = image
+                .pic_url
+                .as_deref()
+                .filter(|value| !value.trim().is_empty());
+            if media_id.is_none() && pic_url.is_none() {
+                return Err(WechatError::Config(
+                    "contact-way conclusion image requires media_id or pic_url".to_string(),
+                ));
+            }
+        }
+        if self
+            .link
+            .as_ref()
+            .is_some_and(|link| link.title.trim().is_empty() || link.url.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "contact-way conclusion links require title and url".to_string(),
+            ));
+        }
+        if self.miniprogram.as_ref().is_some_and(|mini_program| {
+            mini_program.title.trim().is_empty()
+                || mini_program.pic_media_id.trim().is_empty()
+                || mini_program.appid.trim().is_empty()
+                || mini_program.page.trim().is_empty()
+        }) {
+            return Err(WechatError::Config(
+                "contact-way conclusion mini programs require title, media, appid, and page"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21987,17 +22421,19 @@ mod tests {
     #[test]
     fn serializes_contact_way_type_field() {
         let value = serde_json::to_value(ContactWayRequest {
-            kind: 1,
-            scene: 2,
+            kind: ContactWayKind::Single,
+            scene: ContactWayScene::QrCode,
             style: None,
             remark: Some("remark".to_string()),
             skip_verify: Some(true),
             state: None,
             user: Some(vec!["user".to_string()]),
             party: None,
+            is_temp: Some(true),
             expires_in: None,
             chat_expires_in: None,
             unionid: None,
+            is_exclusive: Some(true),
             conclusions: Some(ContactWayConclusions {
                 text: Some(ContactWayConclusionText {
                     content: "hello".to_string(),
@@ -22037,6 +22473,7 @@ mod tests {
             expires_in: None,
             chat_expires_in: Some(3600),
             unionid: None,
+            is_exclusive: Some(false),
             conclusions: Some(ContactWayConclusions {
                 text: Some(ContactWayConclusionText {
                     content: "hello".to_string(),
@@ -22101,12 +22538,85 @@ mod tests {
         .unwrap();
         assert_eq!(detail.extra["request_id"], "contact-way-get");
         let contact_way = detail.contact_way.unwrap();
-        assert_eq!(contact_way.kind, Some(1));
+        assert_eq!(contact_way.kind, Some(ContactWayKind::Single));
+        assert_eq!(contact_way.scene, Some(ContactWayScene::QrCode));
         assert_eq!(contact_way.user[0], "user");
         assert_eq!(contact_way.extra["channel"], "qrcode");
         assert_eq!(
             contact_way.conclusions.unwrap().link.unwrap().url,
             "https://example.com"
+        );
+    }
+
+    #[test]
+    fn validates_external_contact_way_lifecycle() {
+        let standard = ContactWayRequest::single(ContactWayScene::QrCode, "user");
+        assert!(standard.validate().is_ok());
+
+        let mut temporary = ContactWayRequest::single(ContactWayScene::QrCode, "user");
+        temporary.is_temp = Some(true);
+        temporary.expires_in = Some(86_400);
+        temporary.chat_expires_in = Some(3_600);
+        temporary.conclusions = Some(ContactWayConclusions {
+            text: Some(ContactWayConclusionText {
+                content: "session closed".to_string(),
+            }),
+            image: Some(ContactWayConclusionImage {
+                media_id: Some("media".to_string()),
+                pic_url: None,
+            }),
+            link: None,
+            miniprogram: None,
+        });
+        assert!(temporary.validate().is_ok());
+        let temporary_json = serde_json::to_value(&temporary).unwrap();
+        assert_eq!(temporary_json["is_temp"], true);
+        assert_eq!(temporary_json["conclusions"]["image"]["media_id"], "media");
+
+        let mut invalid_single = ContactWayRequest::single(ContactWayScene::QrCode, "user");
+        invalid_single.user = Some(vec!["first".to_string(), "second".to_string()]);
+        assert!(invalid_single.validate().is_err());
+
+        let mut invalid_style =
+            ContactWayRequest::multi(ContactWayScene::MiniProgram, ["user"], []);
+        invalid_style.style = Some(3);
+        assert!(invalid_style.validate().is_err());
+
+        let mut invalid_temp = ContactWayRequest::single(ContactWayScene::QrCode, "user");
+        invalid_temp.expires_in = Some(60);
+        assert!(invalid_temp.validate().is_err());
+
+        let bad_list = ContactWayListRequest {
+            start_time: 20,
+            end_time: 10,
+            cursor: None,
+            limit: 101,
+        };
+        assert!(bad_list.validate().is_err());
+
+        let empty_update = ContactWayUpdateRequest {
+            config_id: "config".to_string(),
+            remark: None,
+            skip_verify: None,
+            style: None,
+            state: None,
+            user: None,
+            party: None,
+            expires_in: None,
+            chat_expires_in: None,
+            unionid: None,
+            is_exclusive: None,
+            conclusions: None,
+        };
+        assert!(empty_update.validate().is_err());
+
+        assert_eq!(
+            serde_json::from_value::<ContactWayKind>(json!(99)).unwrap(),
+            ContactWayKind::Other(99)
+        );
+        assert_eq!(
+            serde_json::from_value::<ContactWayScene>(json!(99)).unwrap(),
+            ContactWayScene::Other(99)
         );
     }
 

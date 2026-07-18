@@ -970,6 +970,19 @@ Implemented on 2026-07-18 in Work OA WeDoc smart-sheet authorization depth:
   response fallback across `auth_info`, `field_auth`, and `record_auth` remains
   available through a typed helper.
 
+Implemented on 2026-07-18 in Work external-contact contact-way depth:
+
+- contact-way type and scene now use semantic numeric enums for single/multi
+  recipients and mini-program/QR-code scenes, retaining unknown response codes;
+- add requests now expose the previously missing `is_temp` and current
+  `is_exclusive` fields, with `is_exclusive` also represented in detail/update
+  contracts;
+- add/list/update/get/delete paths validate identifiers, time ranges, page
+  sizes, recipient cardinality, unique users/departments, scene-specific styles,
+  temporary-session dependencies, positive durations, and non-empty patches;
+- conclusion DTOs validate text/link/mini-program requirements and support both
+  `media_id` and `pic_url` image forms used by upstream contracts.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
