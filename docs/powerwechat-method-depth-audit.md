@@ -998,6 +998,20 @@ Implemented on 2026-07-18 in Work external-contact customer-operation depth:
   and removing the same tag, while follow-tag response types expose corporate,
   personal, rule-group, and forward-compatible unknown semantics.
 
+Implemented on 2026-07-18 in Work media upload/download depth:
+
+- temporary-media upload now exposes PowerWeChat-compatible image, voice,
+  video, and file helpers, and attachment upload exposes dedicated image and
+  video helpers while retaining the generic byte-upload methods;
+- media download, JSSDK download, image upload, temporary upload, attachment
+  upload, URL-job lookup, and group-robot file upload reject blank identifiers,
+  names, keys, attachment types, and empty byte payloads before network I/O;
+- temporary upload accepts only image/voice/video/file and attachment upload
+  accepts only image/video, with semantic media kinds providing stable wire
+  codes;
+- asynchronous URL upload validates its supported scene/type, absolute HTTP(S)
+  source URL, filename, and 32-character hexadecimal MD5 before submission.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

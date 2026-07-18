@@ -2534,11 +2534,13 @@ impl Work {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
+        let media_id = media_id.into();
+        validate_work_media_identifier("media id", &media_id)?;
         self.inner
             .get_bytes(
                 "cgi-bin/media/get",
                 Some(access_token.into()),
-                vec![("media_id".to_string(), media_id.into())],
+                vec![("media_id".to_string(), media_id)],
             )
             .await
     }
@@ -2548,12 +2550,14 @@ impl Work {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<WorkMediaDownload> {
+        let media_id = media_id.into();
+        validate_work_media_identifier("media id", &media_id)?;
         let response = self
             .inner
             .get_bytes_response(
                 "cgi-bin/media/get",
                 Some(access_token.into()),
-                vec![("media_id".to_string(), media_id.into())],
+                vec![("media_id".to_string(), media_id)],
                 Vec::new(),
             )
             .await?;
@@ -2567,13 +2571,15 @@ impl Work {
         start: u64,
         end_inclusive: Option<u64>,
     ) -> Result<WorkMediaDownload> {
+        let media_id = media_id.into();
+        validate_work_media_identifier("media id", &media_id)?;
         let range = work_media_range_header(start, end_inclusive)?;
         let response = self
             .inner
             .get_bytes_response(
                 "cgi-bin/media/get",
                 Some(access_token.into()),
-                vec![("media_id".to_string(), media_id.into())],
+                vec![("media_id".to_string(), media_id)],
                 vec![("range".to_string(), range)],
             )
             .await?;
@@ -2585,11 +2591,13 @@ impl Work {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
+        let media_id = media_id.into();
+        validate_work_media_identifier("JSSDK media id", &media_id)?;
         self.inner
             .get_bytes(
                 "cgi-bin/media/get/jssdk",
                 Some(access_token.into()),
-                vec![("media_id".to_string(), media_id.into())],
+                vec![("media_id".to_string(), media_id)],
             )
             .await
     }
@@ -2599,12 +2607,14 @@ impl Work {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<WorkMediaDownload> {
+        let media_id = media_id.into();
+        validate_work_media_identifier("JSSDK media id", &media_id)?;
         let response = self
             .inner
             .get_bytes_response(
                 "cgi-bin/media/get/jssdk",
                 Some(access_token.into()),
-                vec![("media_id".to_string(), media_id.into())],
+                vec![("media_id".to_string(), media_id)],
                 Vec::new(),
             )
             .await?;
@@ -2617,9 +2627,11 @@ impl Work {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<WorkUploadImageResponse> {
+        let file_name = file_name.into();
+        validate_work_media_file(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
@@ -2638,17 +2650,61 @@ impl Work {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<WorkUploadMediaResponse> {
+        let media_type = media_type.into();
+        let file_name = file_name.into();
+        validate_work_media_type(&media_type, true)?;
+        validate_work_media_file(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
                 "cgi-bin/media/upload",
                 Some(access_token.into()),
-                vec![("type".to_string(), media_type.into())],
+                vec![("type".to_string(), media_type)],
                 form,
             )
+            .await
+    }
+
+    pub async fn upload_temp_image_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_bytes(access_token, "image", file_name, data)
+            .await
+    }
+
+    pub async fn upload_temp_voice_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_bytes(access_token, "voice", file_name, data)
+            .await
+    }
+
+    pub async fn upload_temp_video_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_bytes(access_token, "video", file_name, data)
+            .await
+    }
+
+    pub async fn upload_temp_file_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_bytes(access_token, "file", file_name, data)
             .await
     }
 
@@ -2657,6 +2713,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMediaUploadByUrlRequest,
     ) -> Result<WorkMediaUploadByUrlResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/media/upload_by_url",
@@ -2671,13 +2728,13 @@ impl Work {
         access_token: impl Into<String>,
         job_id: impl Into<String>,
     ) -> Result<WorkMediaUploadByUrlResultResponse> {
+        let request = WorkMediaUploadByUrlResultRequest::new(job_id);
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/media/get_upload_by_url_result",
                 Some(access_token.into()),
-                WorkMediaUploadByUrlResultRequest {
-                    jobid: job_id.into(),
-                },
+                request,
             )
             .await
     }
@@ -2690,20 +2747,48 @@ impl Work {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<WorkUploadMediaResponse> {
+        let media_type = media_type.into();
+        let attachment_type = attachment_type.into();
+        let file_name = file_name.into();
+        validate_work_media_type(&media_type, false)?;
+        validate_work_media_identifier("attachment type", &attachment_type)?;
+        validate_work_media_file(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
                 "cgi-bin/media/upload_attachment",
                 Some(access_token.into()),
                 vec![
-                    ("media_type".to_string(), media_type.into()),
-                    ("attachment_type".to_string(), attachment_type.into()),
+                    ("media_type".to_string(), media_type),
+                    ("attachment_type".to_string(), attachment_type),
                 ],
                 form,
             )
+            .await
+    }
+
+    pub async fn upload_attachment_image_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        attachment_type: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_attachment_from_bytes(access_token, "image", attachment_type, file_name, data)
+            .await
+    }
+
+    pub async fn upload_attachment_video_from_bytes(
+        &self,
+        access_token: impl Into<String>,
+        attachment_type: impl Into<String>,
+        file_name: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_attachment_from_bytes(access_token, "video", attachment_type, file_name, data)
             .await
     }
 
@@ -5644,16 +5729,20 @@ impl Work {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<WorkUploadMediaResponse> {
+        let key = key.into();
+        let file_name = file_name.into();
+        validate_work_media_identifier("group robot key", &key)?;
+        validate_work_media_file(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
         self.inner
             .post_multipart(
                 "cgi-bin/webhook/upload_media",
                 None,
                 vec![
-                    ("key".to_string(), key.into()),
+                    ("key".to_string(), key),
                     ("type".to_string(), "file".to_string()),
                 ],
                 form,
@@ -12366,6 +12455,45 @@ fn work_media_range_header(start: u64, end_inclusive: Option<u64>) -> Result<Str
     })
 }
 
+fn validate_work_media_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work media {label} cannot be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_media_file(file_name: &str, data: &[u8]) -> Result<()> {
+    validate_work_media_identifier("file name", file_name)?;
+    if data.is_empty() {
+        return Err(WechatError::Config(
+            "work media file data cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_media_type(media_type: &str, allow_all_types: bool) -> Result<()> {
+    let kind = WorkMediaTypeKind::from_code(media_type);
+    let supported = if allow_all_types {
+        kind.is_binary_file()
+    } else {
+        matches!(kind, WorkMediaTypeKind::Image | WorkMediaTypeKind::Video)
+    };
+    if !supported {
+        let supported_types = if allow_all_types {
+            "image, voice, video, or file"
+        } else {
+            "image or video"
+        };
+        return Err(WechatError::Config(format!(
+            "work media type must be {supported_types}"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WorkMediaContentRange {
     pub start: u64,
@@ -12505,6 +12633,16 @@ impl WorkMediaTypeKind {
     pub fn is_binary_file(self) -> bool {
         matches!(self, Self::Image | Self::Voice | Self::Video | Self::File)
     }
+
+    pub const fn as_code(self) -> Option<&'static str> {
+        match self {
+            Self::Image => Some("image"),
+            Self::Voice => Some("voice"),
+            Self::Video => Some("video"),
+            Self::File => Some("file"),
+            Self::Other => None,
+        }
+    }
 }
 
 impl WorkUploadMediaResponse {
@@ -12592,6 +12730,39 @@ impl WorkMediaUploadByUrlRequest {
             None
         }
     }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.scene_kind().is_none() {
+            return Err(WechatError::Config(
+                "work media URL upload scene is unsupported".to_string(),
+            ));
+        }
+        if self.media_type_kind().is_none() {
+            return Err(WechatError::Config(
+                "work media URL upload type must be video or file".to_string(),
+            ));
+        }
+        validate_work_media_identifier("URL upload file name", &self.filename)?;
+        let url = url::Url::parse(&self.url).map_err(|error| {
+            WechatError::Config(format!("work media URL upload URL is invalid: {error}"))
+        })?;
+        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+            return Err(WechatError::Config(
+                "work media URL upload URL must be an absolute HTTP(S) URL".to_string(),
+            ));
+        }
+        if self.md5.len() != 32
+            || !self
+                .md5
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+        {
+            return Err(WechatError::Config(
+                "work media URL upload MD5 must contain 32 hexadecimal characters".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12609,6 +12780,18 @@ pub struct WorkMediaUploadByUrlResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMediaUploadByUrlResultRequest {
     pub jobid: String,
+}
+
+impl WorkMediaUploadByUrlResultRequest {
+    pub fn new(job_id: impl Into<String>) -> Self {
+        Self {
+            jobid: job_id.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_media_identifier("URL upload job id", &self.jobid)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25788,11 +25971,23 @@ mod tests {
             WorkMediaTypeKind::from_code("file"),
             WorkMediaTypeKind::File
         );
+        assert_eq!(WorkMediaTypeKind::Image.as_code(), Some("image"));
+        assert_eq!(WorkMediaTypeKind::Voice.as_code(), Some("voice"));
+        assert_eq!(WorkMediaTypeKind::Video.as_code(), Some("video"));
+        assert_eq!(WorkMediaTypeKind::File.as_code(), Some("file"));
         assert_eq!(
             WorkMediaTypeKind::from_code("link"),
             WorkMediaTypeKind::Other
         );
+        assert_eq!(WorkMediaTypeKind::Other.as_code(), None);
         assert!(!WorkMediaTypeKind::Other.is_binary_file());
+        assert!(validate_work_media_type("image", true).is_ok());
+        assert!(validate_work_media_type("voice", true).is_ok());
+        assert!(validate_work_media_type("file", false).is_err());
+        assert!(validate_work_media_type("link", true).is_err());
+        assert!(validate_work_media_file("image.png", b"image").is_ok());
+        assert!(validate_work_media_file("", b"image").is_err());
+        assert!(validate_work_media_file("image.png", b"").is_err());
         assert_eq!(response.created_at.as_deref(), Some("1800000000"));
         assert_eq!(response.extra["file_size"], 1024);
 
@@ -25868,8 +26063,9 @@ mod tests {
             request.media_type_kind(),
             Some(WorkMediaUploadByUrlTypeKind::Video)
         );
+        assert!(request.validate().is_ok());
 
-        let value = serde_json::to_value(request).unwrap();
+        let value = serde_json::to_value(&request).unwrap();
         assert_eq!(value["scene"], 1);
         assert_eq!(value["type"], "video");
         assert_eq!(value["filename"], "video.mp4");
@@ -25877,11 +26073,27 @@ mod tests {
         assert_eq!(value["md5"], "198918f40ecc7cab0fc4231adaf67c96");
         assert!(value.get("media_type").is_none());
 
-        let result_request = serde_json::to_value(WorkMediaUploadByUrlResultRequest {
-            jobid: "job-id".to_string(),
-        })
-        .unwrap();
+        let mut invalid_request = request.clone();
+        invalid_request.scene = 99;
+        assert!(invalid_request.validate().is_err());
+        invalid_request.scene =
+            WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome.as_code();
+        invalid_request.media_type = "image".to_string();
+        assert!(invalid_request.validate().is_err());
+        invalid_request.media_type = WorkMediaUploadByUrlTypeKind::File.as_code().to_string();
+        invalid_request.url = "file:///tmp/media".to_string();
+        assert!(invalid_request.validate().is_err());
+        invalid_request.url = "https://cdn.example.com/file".to_string();
+        invalid_request.md5 = "not-md5".to_string();
+        assert!(invalid_request.validate().is_err());
+
+        let result_request = WorkMediaUploadByUrlResultRequest::new("job-id");
+        assert!(result_request.validate().is_ok());
+        let result_request = serde_json::to_value(result_request).unwrap();
         assert_eq!(result_request, json!({ "jobid": "job-id" }));
+        assert!(WorkMediaUploadByUrlResultRequest::new(" ")
+            .validate()
+            .is_err());
     }
 
     #[test]
