@@ -934,6 +934,18 @@ Implemented on 2026-07-18 in Work OA WeDoc smart-sheet view depth:
   changes, pagination, date-property compatibility, and nested property
   contracts locally.
 
+Implemented on 2026-07-18 in Work OA WeDoc smart-sheet lifecycle depth:
+
+- smart-sheet add/update requests now use typed sub-sheet properties instead
+  of raw JSON, separating smart-sheet `title/index` from ordinary spreadsheet
+  row/column properties;
+- title-only, index-only, title-at-index, and rename constructors emit only
+  fields accepted by the corresponding upstream endpoint;
+- add/get/update/delete paths validate document and sheet identity, nonnegative
+  insertion index, rename title, and the update endpoint's title-only contract;
+- sub-sheet responses now expose typed visibility and semantic smart-sheet,
+  dashboard, external, or unknown sheet kinds while preserving extensions.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

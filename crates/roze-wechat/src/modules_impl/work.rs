@@ -4239,6 +4239,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetAddRequest,
     ) -> Result<WorkWeDocSmartSheetAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_sheet",
@@ -4253,6 +4254,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetGetRequest,
     ) -> Result<WorkWeDocSmartSheetGetResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_sheet",
@@ -4267,6 +4269,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_sheet",
@@ -4281,6 +4284,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetDeleteRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_sheet",
@@ -16627,7 +16631,39 @@ pub struct WorkWeDocSpreadsheetDeleteDimensionResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetAddRequest {
     pub docid: String,
-    pub properties: Value,
+    pub properties: WorkWeDocSmartSheetProperties,
+}
+
+impl WorkWeDocSmartSheetAddRequest {
+    pub fn titled(docid: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            docid: docid.into(),
+            properties: WorkWeDocSmartSheetProperties::titled(title),
+        }
+    }
+
+    pub fn at_index(docid: impl Into<String>, index: i64) -> Self {
+        Self {
+            docid: docid.into(),
+            properties: WorkWeDocSmartSheetProperties::at_index(index),
+        }
+    }
+
+    pub fn titled_at(docid: impl Into<String>, title: impl Into<String>, index: i64) -> Self {
+        Self {
+            docid: docid.into(),
+            properties: WorkWeDocSmartSheetProperties::titled(title).with_index(index),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.docid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet document id cannot be empty".to_string(),
+            ));
+        }
+        self.properties.validate_for_add()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16651,6 +16687,26 @@ pub struct WorkWeDocSmartSheetGetRequest {
     pub need_all_type_sheet: Option<bool>,
 }
 
+impl WorkWeDocSmartSheetGetRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.docid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet query document id cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .sheet_id
+            .as_deref()
+            .is_some_and(|sheet_id| sheet_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet query sheet id cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetGetResponse {
     #[serde(default)]
@@ -16665,28 +16721,193 @@ pub struct WorkWeDocSmartSheetGetResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetProperties {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sheet_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index: Option<i64>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "type",
+        alias = "sheet_type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sheet_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_visible: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl Default for WorkWeDocSmartSheetProperties {
+    fn default() -> Self {
+        Self {
+            sheet_id: None,
+            title: None,
+            index: None,
+            sheet_type: None,
+            is_visible: None,
+            extra: Value::Null,
+        }
+    }
+}
+
+impl WorkWeDocSmartSheetProperties {
+    pub fn titled(title: impl Into<String>) -> Self {
+        Self {
+            title: Some(title.into()),
+            ..Self::default()
+        }
+    }
+
+    pub fn at_index(index: i64) -> Self {
+        Self {
+            index: Some(index),
+            ..Self::default()
+        }
+    }
+
+    pub fn for_update(sheet_id: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            sheet_id: Some(sheet_id.into()),
+            title: Some(title.into()),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_index(mut self, index: i64) -> Self {
+        self.index = Some(index);
+        self
+    }
+
+    pub fn sheet_type_kind(&self) -> Option<WorkWeDocSmartSheetTypeKind> {
+        self.sheet_type
+            .as_deref()
+            .map(WorkWeDocSmartSheetTypeKind::from_code)
+    }
+
+    fn validate_for_add(&self) -> Result<()> {
+        if self
+            .title
+            .as_deref()
+            .is_some_and(|title| title.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "added WeDoc smart-sheet title cannot be empty".to_string(),
+            ));
+        }
+        if self.index.is_some_and(|index| index < 0) {
+            return Err(WechatError::Config(
+                "added WeDoc smart-sheet index cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_for_update(&self) -> Result<()> {
+        if self
+            .sheet_id
+            .as_deref()
+            .is_none_or(|sheet_id| sheet_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet id cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .title
+            .as_deref()
+            .is_none_or(|title| title.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet title cannot be empty".to_string(),
+            ));
+        }
+        if self.index.is_some()
+            || self.sheet_type.is_some()
+            || self.is_visible.is_some()
+            || self
+                .extra
+                .as_object()
+                .is_some_and(|extra| !extra.is_empty())
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet update only supports sheet id and title".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetTypeKind {
+    SmartSheet,
+    Dashboard,
+    External,
+    Other,
+}
+
+impl WorkWeDocSmartSheetTypeKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("smartsheet")
+            || value.eq_ignore_ascii_case("smart_sheet")
+            || value.eq_ignore_ascii_case("SMART_SHEET")
+        {
+            Self::SmartSheet
+        } else if value.eq_ignore_ascii_case("dashboard") {
+            Self::Dashboard
+        } else if value.eq_ignore_ascii_case("external") {
+            Self::External
+        } else {
+            Self::Other
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetUpdateRequest {
     pub docid: String,
-    pub properties: Value,
+    pub properties: WorkWeDocSmartSheetProperties,
+}
+
+impl WorkWeDocSmartSheetUpdateRequest {
+    pub fn rename(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        title: impl Into<String>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            properties: WorkWeDocSmartSheetProperties::for_update(sheet_id, title),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.docid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet document id cannot be empty".to_string(),
+            ));
+        }
+        self.properties.validate_for_update()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetDeleteRequest {
     pub docid: String,
     pub sheet_id: String,
+}
+
+impl WorkWeDocSmartSheetDeleteRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.docid.trim().is_empty() || self.sheet_id.trim().is_empty() {
+            return Err(WechatError::Config(
+                "deleted WeDoc smart-sheet document and sheet ids cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28974,15 +29195,12 @@ mod tests {
 
     #[test]
     fn serializes_work_wedoc_smartsheet_requests() {
-        let add = serde_json::to_value(WorkWeDocSmartSheetAddRequest {
-            docid: "doc".to_string(),
-            properties: json!({
-                "title": "Tasks",
-                "row_count": 100
-            }),
-        })
-        .unwrap();
+        let add_request = WorkWeDocSmartSheetAddRequest::titled_at("doc", "Tasks", 2);
+        add_request.validate().unwrap();
+        let add = serde_json::to_value(add_request).unwrap();
         assert_eq!(add["properties"]["title"], "Tasks");
+        assert_eq!(add["properties"]["index"], 2);
+        assert!(add["properties"].get("sheet_id").is_none());
 
         let get = serde_json::to_value(WorkWeDocSmartSheetGetRequest {
             docid: "doc".to_string(),
@@ -29048,6 +29266,39 @@ mod tests {
         })
         .unwrap();
         assert_eq!(deletes["record_ids"][1], "record-2");
+    }
+
+    #[test]
+    fn validates_work_wedoc_smartsheet_lifecycle_requests() {
+        let rename =
+            WorkWeDocSmartSheetUpdateRequest::rename("doc", "sheet-tasks", "Production tasks");
+        rename.validate().unwrap();
+        let value = serde_json::to_value(rename).unwrap();
+        assert_eq!(value["properties"]["sheet_id"], "sheet-tasks");
+        assert_eq!(value["properties"]["title"], "Production tasks");
+        assert!(value["properties"].get("index").is_none());
+
+        let invalid_add = WorkWeDocSmartSheetAddRequest::at_index("doc", -1);
+        assert!(invalid_add.validate().is_err());
+
+        let invalid_update = WorkWeDocSmartSheetUpdateRequest {
+            docid: "doc".to_string(),
+            properties: WorkWeDocSmartSheetProperties::for_update("sheet", "Tasks").with_index(2),
+        };
+        assert!(invalid_update.validate().is_err());
+
+        let invalid_get = WorkWeDocSmartSheetGetRequest {
+            docid: "doc".to_string(),
+            sheet_id: Some(" ".to_string()),
+            need_all_type_sheet: None,
+        };
+        assert!(invalid_get.validate().is_err());
+
+        let invalid_delete = WorkWeDocSmartSheetDeleteRequest {
+            docid: "doc".to_string(),
+            sheet_id: String::new(),
+        };
+        assert!(invalid_delete.validate().is_err());
     }
 
     #[test]
@@ -29307,13 +29558,19 @@ mod tests {
                 "sheet_id": "sheet",
                 "title": "Tasks",
                 "index": 2,
-                "sheet_type": "SMART_SHEET",
+                "type": "smartsheet",
+                "is_visible": true,
                 "frozen_row_count": 1
             }],
             "request_id": "sheet-request"
         }))
         .unwrap();
         assert_eq!(sheets.sheet_list[0].sheet_id.as_deref(), Some("sheet"));
+        assert_eq!(
+            sheets.sheet_list[0].sheet_type_kind(),
+            Some(WorkWeDocSmartSheetTypeKind::SmartSheet)
+        );
+        assert_eq!(sheets.sheet_list[0].is_visible, Some(true));
         assert_eq!(sheets.sheet_list[0].extra["frozen_row_count"], 1);
         assert_eq!(sheets.extra["request_id"], "sheet-request");
 
