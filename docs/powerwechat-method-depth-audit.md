@@ -959,6 +959,17 @@ Implemented on 2026-07-18 in Work OA WeDoc smart-sheet field-group and privilege
 - mixed string/integer response rule identifiers and field-type semantics are
   typed while upstream extension fields remain forward compatible.
 
+Implemented on 2026-07-18 in Work OA WeDoc smart-sheet authorization depth:
+
+- document/sub-sheet authorization reads and modifications now validate scope
+  and required modification payloads before network I/O;
+- authorization payloads use an object-or-list structural type instead of
+  unconstrained JSON, rejecting invalid scalar payloads while preserving
+  undocumented and future policy keys;
+- document and sub-sheet constructors make omission of `sheet_id` explicit, and
+  response fallback across `auth_info`, `field_auth`, and `record_auth` remains
+  available through a typed helper.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

@@ -4492,6 +4492,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetAuthRequest,
     ) -> Result<WorkWeDocSmartSheetAuthResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_sheet_auth",
@@ -4506,6 +4507,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetModifyAuthRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/mod_sheet_auth",
@@ -18290,15 +18292,107 @@ pub struct WorkWeDocSmartSheetAuthRequest {
     pub extra: Value,
 }
 
+impl WorkWeDocSmartSheetAuthRequest {
+    pub fn document(docid: impl Into<String>) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: None,
+            extra: Value::Null,
+        }
+    }
+
+    pub fn sheet(docid: impl Into<String>, sheet_id: impl Into<String>) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: Some(sheet_id.into()),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_auth_scope(&self.docid, self.sheet_id.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetModifyAuthRequest {
     pub docid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sheet_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub auth_info: Option<Value>,
+    pub auth_info: Option<WorkWeDocSmartSheetAuthPayload>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetModifyAuthRequest {
+    pub fn document(docid: impl Into<String>, auth_info: WorkWeDocSmartSheetAuthPayload) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: None,
+            auth_info: Some(auth_info),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn sheet(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        auth_info: WorkWeDocSmartSheetAuthPayload,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: Some(sheet_id.into()),
+            auth_info: Some(auth_info),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_auth_scope(&self.docid, self.sheet_id.as_deref())?;
+        if self.auth_info.is_none() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet auth modification requires auth_info".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WorkWeDocSmartSheetAuthPayload {
+    Object(Map<String, Value>),
+    List(Vec<Value>),
+}
+
+impl WorkWeDocSmartSheetAuthPayload {
+    pub fn object(entries: impl IntoIterator<Item = (impl Into<String>, Value)>) -> Self {
+        Self::Object(
+            entries
+                .into_iter()
+                .map(|(key, value)| (key.into(), value))
+                .collect(),
+        )
+    }
+
+    pub fn list(entries: impl IntoIterator<Item = Value>) -> Self {
+        Self::List(entries.into_iter().collect())
+    }
+
+    pub fn as_object(&self) -> Option<&Map<String, Value>> {
+        match self {
+            Self::Object(value) => Some(value),
+            Self::List(_) => None,
+        }
+    }
+
+    pub fn as_list(&self) -> Option<&[Value]> {
+        match self {
+            Self::Object(_) => None,
+            Self::List(value) => Some(value),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18312,22 +18406,36 @@ pub struct WorkWeDocSmartSheetAuthResponse {
     #[serde(default)]
     pub sheet_id: Option<String>,
     #[serde(default)]
-    pub auth_info: Option<Value>,
+    pub auth_info: Option<WorkWeDocSmartSheetAuthPayload>,
     #[serde(default)]
-    pub field_auth: Option<Value>,
+    pub field_auth: Option<WorkWeDocSmartSheetAuthPayload>,
     #[serde(default)]
-    pub record_auth: Option<Value>,
+    pub record_auth: Option<WorkWeDocSmartSheetAuthPayload>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 impl WorkWeDocSmartSheetAuthResponse {
-    pub fn effective_auth_info(&self) -> Option<&Value> {
+    pub fn effective_auth_info(&self) -> Option<&WorkWeDocSmartSheetAuthPayload> {
         self.auth_info
             .as_ref()
             .or(self.field_auth.as_ref())
             .or(self.record_auth.as_ref())
     }
+}
+
+fn validate_wedoc_smartsheet_auth_scope(docid: &str, sheet_id: Option<&str>) -> Result<()> {
+    if docid.trim().is_empty() {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet auth document id cannot be empty".to_string(),
+        ));
+    }
+    if sheet_id.is_some_and(|sheet_id| sheet_id.trim().is_empty()) {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet auth sheet id cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26469,7 +26577,10 @@ mod tests {
         let auth = serde_json::to_value(WorkWeDocSmartSheetModifyAuthRequest {
             docid: "doc-1".to_string(),
             sheet_id: Some("sheet-1".to_string()),
-            auth_info: Some(json!({ "field_auth": [] })),
+            auth_info: Some(WorkWeDocSmartSheetAuthPayload::object([(
+                "field_auth",
+                json!([]),
+            )])),
             extra: Value::Null,
         })
         .unwrap();
@@ -26557,7 +26668,10 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(
-            auth.effective_auth_info().expect("sheet auth")[0]["field_id"],
+            auth.effective_auth_info()
+                .expect("sheet auth")
+                .as_list()
+                .expect("field auth list")[0]["field_id"],
             "field-1"
         );
         assert_eq!(auth.extra["policy_version"], 3);
@@ -30147,5 +30261,48 @@ mod tests {
         let missing_rules =
             WorkWeDocSmartSheetGetPrivilegesRequest::additional("doc", Vec::<String>::new());
         assert!(missing_rules.validate().is_err());
+    }
+
+    #[test]
+    fn validates_work_wedoc_smartsheet_auth_payloads() {
+        let query = WorkWeDocSmartSheetAuthRequest::sheet("doc", "sheet");
+        assert!(query.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(query).unwrap(),
+            json!({ "docid": "doc", "sheet_id": "sheet" })
+        );
+
+        let modify = WorkWeDocSmartSheetModifyAuthRequest::sheet(
+            "doc",
+            "sheet",
+            WorkWeDocSmartSheetAuthPayload::object([
+                ("mode", json!("custom")),
+                ("field_auth", json!([])),
+            ]),
+        );
+        assert!(modify.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(modify).unwrap()["auth_info"]["mode"],
+            "custom"
+        );
+
+        let missing_payload = WorkWeDocSmartSheetModifyAuthRequest {
+            docid: "doc".to_string(),
+            sheet_id: Some("sheet".to_string()),
+            auth_info: None,
+            extra: Value::Null,
+        };
+        assert!(missing_payload.validate().is_err());
+
+        let scalar = serde_json::from_value::<WorkWeDocSmartSheetAuthPayload>(json!("invalid"));
+        assert!(scalar.is_err());
+        let unknown_object = serde_json::from_value::<WorkWeDocSmartSheetAuthPayload>(json!({
+            "future_policy": { "enabled": true }
+        }))
+        .unwrap();
+        assert_eq!(
+            unknown_object.as_object().unwrap()["future_policy"]["enabled"],
+            true
+        );
     }
 }
