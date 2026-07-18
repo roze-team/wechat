@@ -16,6 +16,7 @@ cipher.workspace = true
 hex.workspace = true
 hmac.workspace = true
 md5.workspace = true
+percent-encoding.workspace = true
 rand.workspace = true
 quick-xml.workspace = true
 reqwest.workspace = true

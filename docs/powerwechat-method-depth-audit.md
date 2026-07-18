@@ -1003,6 +1003,12 @@ Implemented on 2026-07-18 in Work media upload/download depth:
 - temporary-media upload now exposes PowerWeChat-compatible image, voice,
   video, and file helpers, and attachment upload exposes dedicated image and
   video helpers while retaining the generic byte-upload methods;
+- image upload and temporary-media upload now enforce the upstream byte
+  boundaries before network I/O: image upload accepts 5 bytes through 2 MiB,
+  while temporary image/voice/video/file uploads require more than 5 bytes and
+  cap payloads at 2/2/10/20 MiB respectively; upload filenames also reject
+  control characters, and multipart parts carry explicit JPG/PNG, AMR, MP4, or
+  binary content types after validating the media filename format;
 - media download, JSSDK download, image upload, temporary upload, attachment
   upload, URL-job lookup, and group-robot file upload reject blank identifiers,
   names, keys, attachment types, and empty byte payloads before network I/O;
@@ -1011,6 +1017,12 @@ Implemented on 2026-07-18 in Work media upload/download depth:
   codes;
 - asynchronous URL upload validates its supported scene/type, absolute HTTP(S)
   source URL, filename, and 32-character hexadecimal MD5 before submission.
+- media downloads now decode RFC 5987 UTF-8 filenames, reject malformed
+  content ranges semantically, and expose expected body length, complete-body,
+  successful-response, consistent-range, and resumable-download helpers;
+- asynchronous URL-upload results classify invalid URL, download failure,
+  oversized-file, MD5-mismatch, and forward-compatible unknown detail errors,
+  with terminal and retryable-failure helpers for polling workers.
 
 Implemented on 2026-07-18 in Work application-message validation depth:
 

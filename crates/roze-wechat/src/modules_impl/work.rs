@@ -2738,10 +2738,11 @@ impl Work {
         data: Vec<u8>,
     ) -> Result<WorkUploadImageResponse> {
         let file_name = file_name.into();
-        validate_work_media_file(&file_name, &data)?;
+        validate_work_upload_image_file(&file_name, &data)?;
+        let content_type = work_media_content_type(WorkMediaTypeKind::Image, &file_name)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name),
+            work_media_multipart_part(file_name, data, content_type)?,
         );
         self.inner
             .post_multipart(
@@ -2763,10 +2764,12 @@ impl Work {
         let media_type = media_type.into();
         let file_name = file_name.into();
         validate_work_media_type(&media_type, true)?;
-        validate_work_media_file(&file_name, &data)?;
+        validate_work_temp_media_file(&media_type, &file_name, &data)?;
+        let content_type =
+            work_media_content_type(WorkMediaTypeKind::from_code(&media_type), &file_name)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name),
+            work_media_multipart_part(file_name, data, content_type)?,
         );
         self.inner
             .post_multipart(
@@ -2863,9 +2866,11 @@ impl Work {
         validate_work_media_type(&media_type, false)?;
         validate_work_media_identifier("attachment type", &attachment_type)?;
         validate_work_media_file(&file_name, &data)?;
+        let content_type =
+            work_media_content_type(WorkMediaTypeKind::from_code(&media_type), &file_name)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name),
+            work_media_multipart_part(file_name, data, content_type)?,
         );
         self.inner
             .post_multipart(
@@ -5863,7 +5868,7 @@ impl Work {
         validate_work_media_file(&file_name, &data)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name),
+            work_media_multipart_part(file_name, data, "application/octet-stream")?,
         );
         self.inner
             .post_multipart(
@@ -14767,13 +14772,112 @@ fn validate_work_media_identifier(label: &str, value: &str) -> Result<()> {
 }
 
 fn validate_work_media_file(file_name: &str, data: &[u8]) -> Result<()> {
-    validate_work_media_identifier("file name", file_name)?;
+    validate_work_media_file_name(file_name)?;
     if data.is_empty() {
         return Err(WechatError::Config(
             "work media file data cannot be empty".to_string(),
         ));
     }
     Ok(())
+}
+
+fn validate_work_media_file_name(file_name: &str) -> Result<()> {
+    validate_work_media_identifier("file name", file_name)?;
+    if file_name.chars().any(char::is_control) {
+        return Err(WechatError::Config(
+            "work media file name cannot contain control characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+const WORK_MEDIA_MIN_BYTES: usize = 6;
+const WORK_IMAGE_UPLOAD_MIN_BYTES: usize = 5;
+const WORK_IMAGE_MAX_BYTES: usize = 2 * 1024 * 1024;
+const WORK_VOICE_MAX_BYTES: usize = 2 * 1024 * 1024;
+const WORK_VIDEO_MAX_BYTES: usize = 10 * 1024 * 1024;
+const WORK_FILE_MAX_BYTES: usize = 20 * 1024 * 1024;
+
+fn validate_work_upload_image_file(file_name: &str, data: &[u8]) -> Result<()> {
+    validate_work_media_file(file_name, data)?;
+    work_media_content_type(WorkMediaTypeKind::Image, file_name)?;
+    validate_work_media_size(
+        "image upload",
+        data.len(),
+        WORK_IMAGE_UPLOAD_MIN_BYTES,
+        WORK_IMAGE_MAX_BYTES,
+    )
+}
+
+fn validate_work_temp_media_file(media_type: &str, file_name: &str, data: &[u8]) -> Result<()> {
+    validate_work_media_file(file_name, data)?;
+    let kind = WorkMediaTypeKind::from_code(media_type);
+    let max_bytes = kind.temporary_upload_max_bytes().ok_or_else(|| {
+        WechatError::Config("work media type must be image, voice, video, or file".to_string())
+    })?;
+    work_media_content_type(kind, file_name)?;
+    validate_work_media_size(
+        kind.as_code().unwrap_or("temporary media"),
+        data.len(),
+        WORK_MEDIA_MIN_BYTES,
+        max_bytes,
+    )
+}
+
+fn validate_work_media_size(
+    label: &str,
+    actual_bytes: usize,
+    min_bytes: usize,
+    max_bytes: usize,
+) -> Result<()> {
+    if actual_bytes < min_bytes {
+        return Err(WechatError::Config(format!(
+            "work media {label} must contain at least {min_bytes} bytes"
+        )));
+    }
+    if actual_bytes > max_bytes {
+        return Err(WechatError::Config(format!(
+            "work media {label} cannot exceed {max_bytes} bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn work_media_content_type(kind: WorkMediaTypeKind, file_name: &str) -> Result<&'static str> {
+    let extension = std::path::Path::new(file_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    match kind {
+        WorkMediaTypeKind::Image if extension.eq_ignore_ascii_case("jpg") => Ok("image/jpeg"),
+        WorkMediaTypeKind::Image if extension.eq_ignore_ascii_case("jpeg") => Ok("image/jpeg"),
+        WorkMediaTypeKind::Image if extension.eq_ignore_ascii_case("png") => Ok("image/png"),
+        WorkMediaTypeKind::Voice if extension.eq_ignore_ascii_case("amr") => Ok("audio/amr"),
+        WorkMediaTypeKind::Video if extension.eq_ignore_ascii_case("mp4") => Ok("video/mp4"),
+        WorkMediaTypeKind::File => Ok("application/octet-stream"),
+        WorkMediaTypeKind::Image => Err(WechatError::Config(
+            "work media image file must use a JPG, JPEG, or PNG extension".to_string(),
+        )),
+        WorkMediaTypeKind::Voice => Err(WechatError::Config(
+            "work media voice file must use an AMR extension".to_string(),
+        )),
+        WorkMediaTypeKind::Video => Err(WechatError::Config(
+            "work media video file must use an MP4 extension".to_string(),
+        )),
+        WorkMediaTypeKind::Other => Err(WechatError::Config(
+            "work media type must be image, voice, video, or file".to_string(),
+        )),
+    }
+}
+
+fn work_media_multipart_part(
+    file_name: String,
+    data: Vec<u8>,
+    content_type: &str,
+) -> Result<reqwest::multipart::Part> {
+    Ok(reqwest::multipart::Part::bytes(data)
+        .file_name(file_name)
+        .mime_str(content_type)?)
 }
 
 fn validate_work_media_type(media_type: &str, allow_all_types: bool) -> Result<()> {
@@ -14837,8 +14941,29 @@ impl WorkMediaDownload {
                     .then(|| value.trim().trim_matches('"'))
             })
         })?;
-        let name = name.rsplit(['/', '\\']).next()?.trim();
-        (!name.is_empty() && name != "." && name != "..").then_some(name)
+        sanitize_work_media_file_name(name)
+    }
+
+    pub fn decoded_file_name(&self) -> Option<String> {
+        self.content_disposition()
+            .and_then(|value| {
+                value.split(';').find_map(|part| {
+                    let (name, value) = part.trim().split_once('=')?;
+                    name.eq_ignore_ascii_case("filename*")
+                        .then(|| value.trim().trim_matches('"'))
+                })
+            })
+            .and_then(|encoded| {
+                let encoded = encoded
+                    .split_once("''")
+                    .map(|(_, value)| value)
+                    .unwrap_or(encoded);
+                percent_encoding::percent_decode_str(encoded)
+                    .decode_utf8()
+                    .ok()
+                    .and_then(|decoded| sanitize_work_media_file_name(&decoded).map(str::to_string))
+            })
+            .or_else(|| self.file_name().map(str::to_string))
     }
 
     pub fn content_length(&self) -> Option<u64> {
@@ -14852,17 +14977,26 @@ impl WorkMediaDownload {
 
     pub fn content_range(&self) -> Option<WorkMediaContentRange> {
         let value = self.header("content-range")?.trim();
-        let value = value.strip_prefix("bytes ")?;
+        let (unit, value) = value.split_once(' ')?;
+        if !unit.eq_ignore_ascii_case("bytes") {
+            return None;
+        }
         let (range, total) = value.split_once('/')?;
         let (start, end) = range.split_once('-')?;
+        let start = start.parse().ok()?;
+        let end_inclusive = end.parse().ok()?;
+        let total = if total == "*" {
+            None
+        } else {
+            Some(total.parse().ok()?)
+        };
+        if end_inclusive < start || total.is_some_and(|total| end_inclusive >= total) {
+            return None;
+        }
         Some(WorkMediaContentRange {
-            start: start.parse().ok()?,
-            end_inclusive: end.parse().ok()?,
-            total: if total == "*" {
-                None
-            } else {
-                total.parse().ok()
-            },
+            start,
+            end_inclusive,
+            total,
         })
     }
 
@@ -14888,6 +15022,47 @@ impl WorkMediaDownload {
             _ => Some(next),
         }
     }
+
+    pub fn expected_body_length(&self) -> Option<u64> {
+        self.content_range()
+            .and_then(|range| range.end_inclusive.checked_sub(range.start)?.checked_add(1))
+            .or_else(|| self.content_length())
+    }
+
+    pub fn has_complete_body(&self) -> bool {
+        self.expected_body_length()
+            .is_none_or(|length| length == self.body.len() as u64)
+    }
+
+    pub fn has_consistent_range(&self) -> bool {
+        if self.is_partial() {
+            self.content_range().is_some()
+                && self
+                    .content_length()
+                    .zip(self.expected_body_length())
+                    .is_none_or(|(content_length, expected)| content_length == expected)
+        } else {
+            self.content_range().is_none()
+        }
+    }
+
+    pub fn is_successful(&self) -> bool {
+        (200..300).contains(&self.status)
+    }
+
+    pub fn is_resumable(&self) -> bool {
+        self.is_successful()
+            && self.has_consistent_range()
+            && self.has_complete_body()
+            && (self.accepts_byte_ranges() || self.is_partial())
+            && self.next_range_start().is_some()
+    }
+}
+
+fn sanitize_work_media_file_name(value: &str) -> Option<&str> {
+    let name = value.rsplit(['/', '\\']).next()?.trim();
+    (!name.is_empty() && name != "." && name != ".." && !name.chars().any(char::is_control))
+        .then_some(name)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14945,6 +15120,16 @@ impl WorkMediaTypeKind {
             Self::Other => None,
         }
     }
+
+    pub const fn temporary_upload_max_bytes(self) -> Option<usize> {
+        match self {
+            Self::Image => Some(WORK_IMAGE_MAX_BYTES),
+            Self::Voice => Some(WORK_VOICE_MAX_BYTES),
+            Self::Video => Some(WORK_VIDEO_MAX_BYTES),
+            Self::File => Some(WORK_FILE_MAX_BYTES),
+            Self::Other => None,
+        }
+    }
 }
 
 impl WorkUploadMediaResponse {
@@ -14954,6 +15139,10 @@ impl WorkUploadMediaResponse {
 
     pub fn is_image(&self) -> bool {
         self.media_type_kind() == Some(WorkMediaTypeKind::Image)
+    }
+
+    pub fn created_at_timestamp(&self) -> Option<i64> {
+        self.created_at.as_deref()?.parse().ok()
     }
 }
 
@@ -15044,7 +15233,7 @@ impl WorkMediaUploadByUrlRequest {
                 "work media URL upload type must be video or file".to_string(),
             ));
         }
-        validate_work_media_identifier("URL upload file name", &self.filename)?;
+        validate_work_media_file_name(&self.filename)?;
         let url = url::Url::parse(&self.url).map_err(|error| {
             WechatError::Config(format!("work media URL upload URL is invalid: {error}"))
         })?;
@@ -15132,6 +15321,33 @@ pub enum WorkMediaUploadByUrlStatusKind {
     Other(i64),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMediaUploadByUrlDetailErrorKind {
+    InvalidUrl,
+    DownloadFailed,
+    FileTooLarge,
+    Md5Mismatch,
+    Other(i64),
+}
+
+impl From<i64> for WorkMediaUploadByUrlDetailErrorKind {
+    fn from(value: i64) -> Self {
+        match value {
+            830001 => Self::InvalidUrl,
+            830003 => Self::DownloadFailed,
+            45001 => Self::FileTooLarge,
+            301019 => Self::Md5Mismatch,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkMediaUploadByUrlDetailErrorKind {
+    pub fn is_retryable(self) -> bool {
+        matches!(self, Self::DownloadFailed)
+    }
+}
+
 impl From<i64> for WorkMediaUploadByUrlStatusKind {
     fn from(value: i64) -> Self {
         match value {
@@ -15156,6 +15372,23 @@ impl WorkMediaUploadByUrlResultResponse {
 
     pub fn is_completed(&self) -> bool {
         self.status_kind() == Some(WorkMediaUploadByUrlStatusKind::Completed)
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkMediaUploadByUrlStatusKind::is_terminal)
+    }
+
+    pub fn detail_error_kind(&self) -> Option<WorkMediaUploadByUrlDetailErrorKind> {
+        let error_code = self.detail.as_ref()?.errcode?;
+        (error_code != 0).then(|| WorkMediaUploadByUrlDetailErrorKind::from(error_code))
+    }
+
+    pub fn is_retryable_failure(&self) -> bool {
+        self.status_kind() == Some(WorkMediaUploadByUrlStatusKind::Failed)
+            && self
+                .detail_error_kind()
+                .is_some_and(WorkMediaUploadByUrlDetailErrorKind::is_retryable)
     }
 
     pub fn is_successful(&self) -> bool {
@@ -29336,7 +29569,64 @@ mod tests {
         assert!(validate_work_media_file("image.png", b"image").is_ok());
         assert!(validate_work_media_file("", b"image").is_err());
         assert!(validate_work_media_file("image.png", b"").is_err());
+        assert!(validate_work_media_file("bad\r\nname.png", b"image").is_err());
+        assert!(validate_work_upload_image_file("image.png", b"image").is_ok());
+        assert!(validate_work_upload_image_file("image.png", b"tiny").is_err());
+        assert!(validate_work_upload_image_file("image.gif", b"image").is_err());
+        assert!(validate_work_temp_media_file("image", "image.png", b"image!").is_ok());
+        assert!(validate_work_temp_media_file("image", "image.png", b"image").is_err());
+        assert!(validate_work_temp_media_file("voice", "voice.amr", b"voice!").is_ok());
+        assert!(validate_work_temp_media_file("voice", "voice.mp3", b"voice!").is_err());
+        assert!(validate_work_temp_media_file("video", "video.MP4", b"video!").is_ok());
+        assert!(validate_work_temp_media_file("file", "archive.bin", b"file!!").is_ok());
+        assert_eq!(
+            work_media_content_type(WorkMediaTypeKind::Image, "photo.JPG").unwrap(),
+            "image/jpeg"
+        );
+        assert_eq!(
+            work_media_content_type(WorkMediaTypeKind::Image, "photo.png").unwrap(),
+            "image/png"
+        );
+        assert_eq!(
+            work_media_content_type(WorkMediaTypeKind::Voice, "voice.amr").unwrap(),
+            "audio/amr"
+        );
+        assert_eq!(
+            work_media_content_type(WorkMediaTypeKind::Video, "video.mp4").unwrap(),
+            "video/mp4"
+        );
+        assert!(validate_work_media_size(
+            "image",
+            WORK_IMAGE_MAX_BYTES,
+            WORK_MEDIA_MIN_BYTES,
+            WORK_IMAGE_MAX_BYTES
+        )
+        .is_ok());
+        assert!(validate_work_media_size(
+            "image",
+            WORK_IMAGE_MAX_BYTES + 1,
+            WORK_MEDIA_MIN_BYTES,
+            WORK_IMAGE_MAX_BYTES
+        )
+        .is_err());
+        assert_eq!(
+            WorkMediaTypeKind::Image.temporary_upload_max_bytes(),
+            Some(WORK_IMAGE_MAX_BYTES)
+        );
+        assert_eq!(
+            WorkMediaTypeKind::Voice.temporary_upload_max_bytes(),
+            Some(WORK_VOICE_MAX_BYTES)
+        );
+        assert_eq!(
+            WorkMediaTypeKind::Video.temporary_upload_max_bytes(),
+            Some(WORK_VIDEO_MAX_BYTES)
+        );
+        assert_eq!(
+            WorkMediaTypeKind::File.temporary_upload_max_bytes(),
+            Some(WORK_FILE_MAX_BYTES)
+        );
         assert_eq!(response.created_at.as_deref(), Some("1800000000"));
+        assert_eq!(response.created_at_timestamp(), Some(1_800_000_000));
         assert_eq!(response.extra["file_size"], 1024);
 
         let full = WorkMediaDownload {
@@ -29358,11 +29648,30 @@ mod tests {
         assert_eq!(full.total_length(), Some(10));
         assert!(full.accepts_byte_ranges());
         assert!(!full.is_partial());
+        assert!(full.is_successful());
+        assert!(full.has_consistent_range());
+        assert!(full.has_complete_body());
+        assert!(!full.is_resumable());
         assert_eq!(full.body.len(), 10);
+
+        let encoded_name = WorkMediaDownload {
+            status: 200,
+            headers: vec![(
+                "content-disposition".to_string(),
+                "attachment; filename=\"fallback.txt\"; filename*=UTF-8''%E6%8A%A5%E5%91%8A.txt"
+                    .to_string(),
+            )],
+            body: bytes::Bytes::new(),
+        };
+        assert_eq!(
+            encoded_name.decoded_file_name().as_deref(),
+            Some("报告.txt")
+        );
 
         let partial = WorkMediaDownload {
             status: 206,
             headers: vec![
+                ("Accept-Ranges".to_string(), "bytes".to_string()),
                 ("Content-Range".to_string(), "bytes 10-19/25".to_string()),
                 ("Content-Length".to_string(), "10".to_string()),
             ],
@@ -29379,6 +29688,10 @@ mod tests {
         assert!(partial.is_partial());
         assert_eq!(partial.total_length(), Some(25));
         assert_eq!(partial.next_range_start(), Some(20));
+        assert_eq!(partial.expected_body_length(), Some(10));
+        assert!(partial.has_consistent_range());
+        assert!(partial.has_complete_body());
+        assert!(partial.is_resumable());
 
         let final_chunk = WorkMediaDownload {
             status: 206,
@@ -29386,6 +29699,24 @@ mod tests {
             body: bytes::Bytes::from_static(b"01234"),
         };
         assert_eq!(final_chunk.next_range_start(), None);
+        assert!(!final_chunk.is_resumable());
+        let malformed_range = WorkMediaDownload {
+            status: 206,
+            headers: vec![("content-range".to_string(), "bytes 20-25/25".to_string())],
+            body: bytes::Bytes::from_static(b"012345"),
+        };
+        assert_eq!(malformed_range.content_range(), None);
+        assert!(!malformed_range.has_consistent_range());
+        let truncated = WorkMediaDownload {
+            status: 206,
+            headers: vec![
+                ("content-range".to_string(), "bytes 0-9/20".to_string()),
+                ("content-length".to_string(), "10".to_string()),
+            ],
+            body: bytes::Bytes::from_static(b"short"),
+        };
+        assert!(!truncated.has_complete_body());
+        assert!(!truncated.is_resumable());
         assert_eq!(
             work_media_range_header(0, Some(1023)).unwrap(),
             "bytes=0-1023"
@@ -29434,6 +29765,9 @@ mod tests {
         invalid_request.url = "https://cdn.example.com/file".to_string();
         invalid_request.md5 = "not-md5".to_string();
         assert!(invalid_request.validate().is_err());
+        invalid_request.md5 = "198918f40ecc7cab0fc4231adaf67c96".to_string();
+        invalid_request.filename = "bad\r\nname.mp4".to_string();
+        assert!(invalid_request.validate().is_err());
 
         let result_request = WorkMediaUploadByUrlResultRequest::new("job-id");
         assert!(result_request.validate().is_ok());
@@ -29475,6 +29809,7 @@ mod tests {
             Some(WorkMediaUploadByUrlStatusKind::Completed)
         );
         assert!(completed.is_completed());
+        assert!(completed.is_terminal());
         assert!(completed.is_successful());
         assert!(completed.status_kind().expect("status").is_terminal());
         assert_eq!(
@@ -29505,8 +29840,30 @@ mod tests {
             failed.status_kind(),
             Some(WorkMediaUploadByUrlStatusKind::Failed)
         );
+        assert!(failed.is_terminal());
         assert!(!failed.is_successful());
+        assert_eq!(
+            failed.detail_error_kind(),
+            Some(WorkMediaUploadByUrlDetailErrorKind::Md5Mismatch)
+        );
+        assert!(!failed.is_retryable_failure());
         assert!(failed.status_kind().expect("status").is_terminal());
+
+        let retryable: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "status": 3,
+            "detail": {
+                "errcode": 830003,
+                "errmsg": "download failed"
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            retryable.detail_error_kind(),
+            Some(WorkMediaUploadByUrlDetailErrorKind::DownloadFailed)
+        );
+        assert!(retryable.is_retryable_failure());
+        assert!(WorkMediaUploadByUrlDetailErrorKind::DownloadFailed.is_retryable());
+        assert!(!WorkMediaUploadByUrlDetailErrorKind::InvalidUrl.is_retryable());
 
         assert_eq!(
             WorkMediaUploadByUrlStatusKind::from(1),

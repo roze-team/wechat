@@ -2098,6 +2098,7 @@ dependencies = [
  "hex",
  "hmac",
  "md5",
+ "percent-encoding",
  "quick-xml",
  "rand 0.8.6",
  "reqwest",
