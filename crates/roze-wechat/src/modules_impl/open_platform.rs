@@ -1212,7 +1212,9 @@ pub struct QueryAuthResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub authorization_info: Option<Value>,
+    pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1240,6 +1242,8 @@ pub struct AuthorizerAccessTokenResponse {
 pub struct OpenPlatformFuncScopeCategory {
     #[serde(default)]
     pub id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1250,6 +1254,8 @@ pub struct OpenPlatformConfirmInfo {
     pub already_confirm: Option<i64>,
     #[serde(default)]
     pub can_confirm: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1258,6 +1264,8 @@ pub struct OpenPlatformFuncInfo {
     pub funcscope_category: Option<OpenPlatformFuncScopeCategory>,
     #[serde(default)]
     pub confirm_info: Option<OpenPlatformConfirmInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1272,6 +1280,8 @@ pub struct OpenPlatformAuthorizationInfo {
     pub authorizer_refresh_token: Option<String>,
     #[serde(default)]
     pub func_info: Vec<OpenPlatformFuncInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1282,18 +1292,24 @@ pub struct OpenPlatformHandleAuthorizeResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformServiceTypeInfo {
     #[serde(default)]
     pub id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformVerifyTypeInfo {
     #[serde(default)]
     pub id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1308,6 +1324,8 @@ pub struct OpenPlatformBusinessInfo {
     pub open_card: Option<i64>,
     #[serde(default)]
     pub open_shake: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1316,6 +1334,68 @@ pub struct OpenPlatformBasicConfig {
     pub is_phone_configured: Option<bool>,
     #[serde(default)]
     pub is_email_configured: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformMiniProgramNetwork {
+    #[serde(default, rename = "RequestDomain")]
+    pub request_domain: Vec<String>,
+    #[serde(default, rename = "WsRequestDomain")]
+    pub ws_request_domain: Vec<String>,
+    #[serde(default, rename = "UploadDomain")]
+    pub upload_domain: Vec<String>,
+    #[serde(default, rename = "DownloadDomain")]
+    pub download_domain: Vec<String>,
+    #[serde(default, rename = "BizDomain")]
+    pub biz_domain: Vec<String>,
+    #[serde(default, rename = "UDPDomain")]
+    pub udp_domain: Vec<String>,
+    #[serde(default, rename = "TCPDomain")]
+    pub tcp_domain: Vec<String>,
+    #[serde(default, rename = "PrefetchDNSDomain")]
+    pub prefetch_dns_domain: Vec<String>,
+    #[serde(default, rename = "NewRequestDomain")]
+    pub new_request_domain: Vec<String>,
+    #[serde(default, rename = "NewWsRequestDomain")]
+    pub new_ws_request_domain: Vec<String>,
+    #[serde(default, rename = "NewUploadDomain")]
+    pub new_upload_domain: Vec<String>,
+    #[serde(default, rename = "NewDownloadDomain")]
+    pub new_download_domain: Vec<String>,
+    #[serde(default, rename = "NewBizDomain")]
+    pub new_biz_domain: Vec<String>,
+    #[serde(default, rename = "NewUDPDomain")]
+    pub new_udp_domain: Vec<String>,
+    #[serde(default, rename = "NewTCPDomain")]
+    pub new_tcp_domain: Vec<String>,
+    #[serde(default, rename = "NewPrefetchDNSDomain")]
+    pub new_prefetch_dns_domain: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerMiniProgramCategory {
+    #[serde(default)]
+    pub first: Option<String>,
+    #[serde(default)]
+    pub second: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerMiniProgramInfo {
+    #[serde(default)]
+    pub network: Option<OpenPlatformMiniProgramNetwork>,
+    #[serde(default)]
+    pub categories: Vec<OpenPlatformAuthorizerMiniProgramCategory>,
+    #[serde(default)]
+    pub visit_status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1344,12 +1424,14 @@ pub struct OpenPlatformAuthorizerInfo {
     pub idc: Option<i64>,
     #[serde(default)]
     pub signature: Option<String>,
-    #[serde(default, rename = "MiniProgramInfo")]
-    pub mini_program_info: Option<Value>,
+    #[serde(default, rename = "MiniProgramInfo", alias = "mini_program_info")]
+    pub mini_program_info: Option<OpenPlatformAuthorizerMiniProgramInfo>,
     #[serde(default)]
     pub register_type: Option<i64>,
     #[serde(default)]
     pub basic_config: Option<OpenPlatformBasicConfig>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1362,6 +1444,8 @@ pub struct OpenPlatformAuthorizerInfoResponse {
     pub authorizer_info: Option<OpenPlatformAuthorizerInfo>,
     #[serde(default)]
     pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1372,6 +1456,8 @@ pub struct OpenPlatformAuthorizationSummary {
     pub refresh_token: Option<String>,
     #[serde(default)]
     pub auth_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1384,6 +1470,8 @@ pub struct OpenPlatformAuthorizersResponse {
     pub total_count: Option<i64>,
     #[serde(default)]
     pub list: Vec<OpenPlatformAuthorizationSummary>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1398,6 +1486,8 @@ pub struct OpenPlatformAuthorizerOptionResponse {
     pub option_name: Option<String>,
     #[serde(default)]
     pub option_value: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2362,8 +2452,17 @@ mod tests {
                 .unwrap();
         let query_auth: QueryAuthResponse = serde_json::from_value(json!({
             "authorization_info": {
-                "authorizer_appid": "wx-authorizer"
-            }
+                "authorizer_appid": "wx-authorizer",
+                "func_info": [{
+                    "funcscope_category": {
+                        "id": 18,
+                        "scope_name": "customer-service"
+                    },
+                    "scope_revision": 2
+                }],
+                "authorization_revision": 3
+            },
+            "request_id": "query-auth-1"
         }))
         .unwrap();
 
@@ -2373,10 +2472,30 @@ mod tests {
         );
         assert_eq!(token.expires_in, Some(7200));
         assert_eq!(preauth.pre_auth_code.as_deref(), Some("preauth"));
+        let query_authorization = query_auth.authorization_info.expect("authorization_info");
         assert_eq!(
-            query_auth.authorization_info.expect("authorization_info")["authorizer_appid"],
-            "wx-authorizer"
+            query_authorization.authorizer_appid.as_deref(),
+            Some("wx-authorizer")
         );
+        assert_eq!(
+            query_authorization.func_info[0]
+                .funcscope_category
+                .as_ref()
+                .unwrap()
+                .id,
+            Some(18)
+        );
+        assert_eq!(
+            query_authorization.func_info[0]
+                .funcscope_category
+                .as_ref()
+                .unwrap()
+                .extra["scope_name"],
+            "customer-service"
+        );
+        assert_eq!(query_authorization.func_info[0].extra["scope_revision"], 2);
+        assert_eq!(query_authorization.extra["authorization_revision"], 3);
+        assert_eq!(query_auth.extra["request_id"], "query-auth-1");
     }
 
     #[test]
@@ -2456,43 +2575,74 @@ mod tests {
                 "qrcode_url": "https://example.com/qrcode",
                 "account_status": 0,
                 "MiniProgramInfo": {
-                    "network": { "RequestDomain": ["https://api.example.com"] },
-                    "visit_status": 0
+                    "network": {
+                        "RequestDomain": ["https://api.example.com"],
+                        "WsRequestDomain": ["wss://api.example.com"],
+                        "UploadDomain": ["https://upload.example.com"],
+                        "DownloadDomain": ["https://download.example.com"],
+                        "BizDomain": ["https://web.example.com"],
+                        "NewRequestDomain": ["https://new-api.example.com"],
+                        "network_revision": 2
+                    },
+                    "categories": [{
+                        "first": "Tools",
+                        "second": "Efficiency",
+                        "category_id": 100
+                    }],
+                    "visit_status": 0,
+                    "mini_program_revision": 3
                 },
                 "basic_config": {
                     "is_phone_configured": true,
-                    "is_email_configured": false
-                }
+                    "is_email_configured": false,
+                    "config_revision": 4
+                },
+                "authorizer_revision": 5
             },
             "authorization_info": {
                 "authorizer_appid": "wx-authorizer",
                 "func_info": []
-            }
+            },
+            "request_id": "authorizer-info-1"
         }))
         .unwrap();
         let authorizer_info = authorizer.authorizer_info.expect("authorizer_info");
         assert_eq!(authorizer_info.nick_name.as_deref(), Some("demo"));
         assert_eq!(authorizer_info.service_type_info.unwrap().id, Some(2));
+        let basic_config = authorizer_info.basic_config.as_ref().unwrap();
+        assert_eq!(basic_config.is_phone_configured, Some(true));
+        assert_eq!(basic_config.extra["config_revision"], 4);
+        let mini_program_info = authorizer_info.mini_program_info.as_ref().unwrap();
+        let network = mini_program_info.network.as_ref().unwrap();
+        assert_eq!(network.request_domain[0], "https://api.example.com");
+        assert_eq!(network.ws_request_domain[0], "wss://api.example.com");
+        assert_eq!(network.new_request_domain[0], "https://new-api.example.com");
+        assert_eq!(network.extra["network_revision"], 2);
         assert_eq!(
-            authorizer_info.basic_config.unwrap().is_phone_configured,
-            Some(true)
+            mini_program_info.categories[0].first.as_deref(),
+            Some("Tools")
         );
-        assert_eq!(
-            authorizer_info.mini_program_info.unwrap()["network"]["RequestDomain"][0],
-            "https://api.example.com"
-        );
+        assert_eq!(mini_program_info.categories[0].extra["category_id"], 100);
+        assert_eq!(mini_program_info.visit_status, Some(0));
+        assert_eq!(mini_program_info.extra["mini_program_revision"], 3);
+        assert_eq!(authorizer_info.extra["authorizer_revision"], 5);
+        assert_eq!(authorizer.extra["request_id"], "authorizer-info-1");
 
         let list: OpenPlatformAuthorizersResponse = serde_json::from_value(json!({
             "total_count": 1,
             "list": [{
                 "authorizer_appid": "wx-authorizer",
                 "refresh_token": "refresh-token",
-                "auth_time": 1800000000
-            }]
+                "auth_time": 1800000000,
+                "authorization_revision": 2
+            }],
+            "next_offset": 1
         }))
         .unwrap();
         assert_eq!(list.total_count, Some(1));
         assert_eq!(list.list[0].refresh_token.as_deref(), Some("refresh-token"));
+        assert_eq!(list.list[0].extra["authorization_revision"], 2);
+        assert_eq!(list.extra["next_offset"], 1);
 
         let option: OpenPlatformAuthorizerOptionResponse = serde_json::from_value(json!({
             "authorizer_appid": "wx-authorizer",

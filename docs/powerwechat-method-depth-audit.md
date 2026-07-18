@@ -494,6 +494,9 @@ Implemented on 2026-07-16 in Roze WeChat Open Platform authorizer depth:
 - Authorizer permanent-material support now covers generic and video upload,
   news creation/update, typed and byte downloads, deletion, paginated listing,
   and material counts. Shared material DTOs retain unknown upstream fields.
+- Component query-auth and authorizer aggregate responses now expose typed
+  authorization scopes, mini-program network domains, categories, visit
+  status, and extension fields throughout nested response structures.
 - authorizer mini-program code release/audit wrappers: commit, QR code bytes,
   category/page list, submit/get/latest audit, release, withdraw, rollback,
   visit status, gray release/revert/plan, support version, quota, and speedup;
