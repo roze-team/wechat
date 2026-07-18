@@ -72,6 +72,14 @@ Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 - Order/account pagination and application license-check status expose
   production-oriented semantic helpers.
 
+Implemented on 2026-07-18 in Roze WeChat Open Work server depth:
+
+- Server callback parsing now recognizes contact user/department/tag changes,
+  shared-agent and shared-chain changes, organization authorization, special
+  authorization approval/cancellation, and application-admin changes.
+- Enterprise WeChat `AuthCode` and `TimeStamp` XML names are accepted alongside
+  existing aliases, and typed callback fields retain event-specific payloads.
+
 ## Endpoint Audit
 
 The following exact endpoint comparison was generated from the latest

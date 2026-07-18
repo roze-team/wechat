@@ -73,7 +73,7 @@ pub struct CallbackMessage {
     pub to_user_name: Option<String>,
     #[serde(default, rename = "FromUserName")]
     pub from_user_name: Option<String>,
-    #[serde(default, rename = "CreateTime")]
+    #[serde(default, rename = "CreateTime", alias = "TimeStamp")]
     pub create_time: Option<i64>,
     #[serde(default, rename = "MsgType")]
     pub msg_type: Option<String>,
@@ -123,7 +123,7 @@ pub struct CallbackMessage {
     pub component_verify_ticket: Option<String>,
     #[serde(default, rename = "AuthorizerAppid")]
     pub authorizer_appid: Option<String>,
-    #[serde(default, rename = "AuthorizationCode")]
+    #[serde(default, rename = "AuthorizationCode", alias = "AuthCode")]
     pub authorization_code: Option<String>,
     #[serde(default, rename = "JobId")]
     pub job_id: Option<String>,
@@ -133,6 +133,60 @@ pub struct CallbackMessage {
     pub suite_ticket: Option<String>,
     #[serde(default, rename = "AuthCorpId")]
     pub auth_corp_id: Option<String>,
+    #[serde(default, rename = "State")]
+    pub state: Option<String>,
+    #[serde(default, rename = "ChangeType")]
+    pub change_type: Option<String>,
+    #[serde(default, rename = "UserID")]
+    pub user_id: Option<String>,
+    #[serde(default, rename = "OpenUserID")]
+    pub open_user_id: Option<String>,
+    #[serde(default, rename = "Name")]
+    pub name: Option<String>,
+    #[serde(default, rename = "Department")]
+    pub department: Option<String>,
+    #[serde(default, rename = "MainDepartment")]
+    pub main_department: Option<i64>,
+    #[serde(default, rename = "IsLeaderInDept")]
+    pub is_leader_in_dept: Option<String>,
+    #[serde(default, rename = "DirectLeader")]
+    pub direct_leader: Option<String>,
+    #[serde(default, rename = "Mobile")]
+    pub mobile: Option<String>,
+    #[serde(default, rename = "Position")]
+    pub position: Option<String>,
+    #[serde(default, rename = "Gender")]
+    pub gender: Option<String>,
+    #[serde(default, rename = "Email")]
+    pub email: Option<String>,
+    #[serde(default, rename = "BizMail")]
+    pub biz_mail: Option<String>,
+    #[serde(default, rename = "Avatar")]
+    pub avatar: Option<String>,
+    #[serde(default, rename = "Alias")]
+    pub alias: Option<String>,
+    #[serde(default, rename = "Telephone")]
+    pub telephone: Option<String>,
+    #[serde(default, rename = "Id")]
+    pub id: Option<i64>,
+    #[serde(default, rename = "ParentId")]
+    pub parent_id: Option<i64>,
+    #[serde(default, rename = "OrderId")]
+    pub order_id: Option<i64>,
+    #[serde(default, rename = "TagId")]
+    pub tag_id: Option<i64>,
+    #[serde(default, rename = "AddUserItems")]
+    pub add_user_items: Option<String>,
+    #[serde(default, rename = "DelUserItems")]
+    pub del_user_items: Option<String>,
+    #[serde(default, rename = "AddPartyItems")]
+    pub add_party_items: Option<String>,
+    #[serde(default, rename = "DelPartyItems")]
+    pub del_party_items: Option<String>,
+    #[serde(default, rename = "CorpId")]
+    pub corp_id: Option<String>,
+    #[serde(default, rename = "AuthType")]
+    pub auth_type: Option<String>,
     #[serde(default, rename = "appid")]
     pub appid: Option<String>,
     #[serde(default, rename = "trace_id")]

@@ -819,11 +819,13 @@ pub enum OpenWorkServerEvent {
     CreateAuth {
         suite_id: Option<String>,
         auth_code: Option<String>,
+        state: Option<String>,
         create_time: Option<i64>,
     },
     ChangeAuth {
         suite_id: Option<String>,
         auth_corp_id: Option<String>,
+        state: Option<String>,
         create_time: Option<i64>,
     },
     CancelAuth {
@@ -834,7 +836,35 @@ pub enum OpenWorkServerEvent {
     ResetPermanentCode {
         suite_id: Option<String>,
         auth_corp_id: Option<String>,
+        auth_code: Option<String>,
         create_time: Option<i64>,
+    },
+    ChangeContactUser {
+        message: Box<CallbackMessage>,
+    },
+    ChangeContactParty {
+        message: Box<CallbackMessage>,
+    },
+    ChangeContactTag {
+        message: Box<CallbackMessage>,
+    },
+    ShareAgentChange {
+        message: Box<CallbackMessage>,
+    },
+    ShareChainChange {
+        message: Box<CallbackMessage>,
+    },
+    CorpArchAuth {
+        message: Box<CallbackMessage>,
+    },
+    ApproveSpecialAuth {
+        message: Box<CallbackMessage>,
+    },
+    CancelSpecialAuth {
+        message: Box<CallbackMessage>,
+    },
+    ChangeAppAdmin {
+        message: Box<CallbackMessage>,
     },
     Unknown {
         info_type: Option<String>,
@@ -849,6 +879,15 @@ pub enum OpenWorkServerEventKind {
     ChangeAuth,
     CancelAuth,
     ResetPermanentCode,
+    ChangeContactUser,
+    ChangeContactParty,
+    ChangeContactTag,
+    ShareAgentChange,
+    ShareChainChange,
+    CorpArchAuth,
+    ApproveSpecialAuth,
+    CancelSpecialAuth,
+    ChangeAppAdmin,
     Unknown,
 }
 
@@ -860,6 +899,15 @@ impl OpenWorkServerEventKind {
             Self::ChangeAuth => Some("change_auth"),
             Self::CancelAuth => Some("cancel_auth"),
             Self::ResetPermanentCode => Some("reset_permanent_code"),
+            Self::ChangeContactUser | Self::ChangeContactParty | Self::ChangeContactTag => {
+                Some("change_contact")
+            }
+            Self::ShareAgentChange => Some("share_agent_change"),
+            Self::ShareChainChange => Some("share_chain_change"),
+            Self::CorpArchAuth => Some("corp_arch_auth"),
+            Self::ApproveSpecialAuth => Some("approve_special_auth"),
+            Self::CancelSpecialAuth => Some("cancel_special_auth"),
+            Self::ChangeAppAdmin => Some("change_app_admin"),
             Self::Unknown => None,
         }
     }
@@ -870,6 +918,17 @@ impl OpenWorkServerEventKind {
 
     pub fn is_ticket_refresh(self) -> bool {
         matches!(self, Self::SuiteTicket | Self::ResetPermanentCode)
+    }
+
+    pub fn is_contact_change(self) -> bool {
+        matches!(
+            self,
+            Self::ChangeContactUser | Self::ChangeContactParty | Self::ChangeContactTag
+        )
+    }
+
+    pub fn is_share_change(self) -> bool {
+        matches!(self, Self::ShareAgentChange | Self::ShareChainChange)
     }
 }
 
@@ -884,11 +943,13 @@ impl OpenWorkServerEvent {
             Some("create_auth") => Self::CreateAuth {
                 suite_id: message.suite_id.clone(),
                 auth_code: message.authorization_code.clone(),
+                state: message.state.clone(),
                 create_time: message.create_time,
             },
             Some("change_auth") => Self::ChangeAuth {
                 suite_id: message.suite_id.clone(),
                 auth_corp_id: message.auth_corp_id.clone(),
+                state: message.state.clone(),
                 create_time: message.create_time,
             },
             Some("cancel_auth") => Self::CancelAuth {
@@ -899,7 +960,43 @@ impl OpenWorkServerEvent {
             Some("reset_permanent_code") => Self::ResetPermanentCode {
                 suite_id: message.suite_id.clone(),
                 auth_corp_id: message.auth_corp_id.clone(),
+                auth_code: message.authorization_code.clone(),
                 create_time: message.create_time,
+            },
+            Some("change_contact") => match message.change_type.as_deref() {
+                Some("create_user" | "update_user" | "delete_user") => Self::ChangeContactUser {
+                    message: Box::new(message),
+                },
+                Some("create_party" | "update_party" | "delete_party") => {
+                    Self::ChangeContactParty {
+                        message: Box::new(message),
+                    }
+                }
+                Some("update_tag") => Self::ChangeContactTag {
+                    message: Box::new(message),
+                },
+                _ => Self::Unknown {
+                    info_type: message.info_type.clone(),
+                    message: Box::new(message),
+                },
+            },
+            Some("share_agent_change") => Self::ShareAgentChange {
+                message: Box::new(message),
+            },
+            Some("share_chain_change") => Self::ShareChainChange {
+                message: Box::new(message),
+            },
+            Some("corp_arch_auth") => Self::CorpArchAuth {
+                message: Box::new(message),
+            },
+            Some("approve_special_auth") => Self::ApproveSpecialAuth {
+                message: Box::new(message),
+            },
+            Some("cancel_special_auth") => Self::CancelSpecialAuth {
+                message: Box::new(message),
+            },
+            None if message.event.as_deref() == Some("change_app_admin") => Self::ChangeAppAdmin {
+                message: Box::new(message),
             },
             _ => Self::Unknown {
                 info_type: message.info_type.clone(),
@@ -915,6 +1012,15 @@ impl OpenWorkServerEvent {
             Self::ChangeAuth { .. } => OpenWorkServerEventKind::ChangeAuth,
             Self::CancelAuth { .. } => OpenWorkServerEventKind::CancelAuth,
             Self::ResetPermanentCode { .. } => OpenWorkServerEventKind::ResetPermanentCode,
+            Self::ChangeContactUser { .. } => OpenWorkServerEventKind::ChangeContactUser,
+            Self::ChangeContactParty { .. } => OpenWorkServerEventKind::ChangeContactParty,
+            Self::ChangeContactTag { .. } => OpenWorkServerEventKind::ChangeContactTag,
+            Self::ShareAgentChange { .. } => OpenWorkServerEventKind::ShareAgentChange,
+            Self::ShareChainChange { .. } => OpenWorkServerEventKind::ShareChainChange,
+            Self::CorpArchAuth { .. } => OpenWorkServerEventKind::CorpArchAuth,
+            Self::ApproveSpecialAuth { .. } => OpenWorkServerEventKind::ApproveSpecialAuth,
+            Self::CancelSpecialAuth { .. } => OpenWorkServerEventKind::CancelSpecialAuth,
+            Self::ChangeAppAdmin { .. } => OpenWorkServerEventKind::ChangeAppAdmin,
             Self::Unknown { .. } => OpenWorkServerEventKind::Unknown,
         }
     }
@@ -926,6 +1032,15 @@ impl OpenWorkServerEvent {
             Self::ChangeAuth { .. } => Some("change_auth"),
             Self::CancelAuth { .. } => Some("cancel_auth"),
             Self::ResetPermanentCode { .. } => Some("reset_permanent_code"),
+            Self::ChangeContactUser { .. }
+            | Self::ChangeContactParty { .. }
+            | Self::ChangeContactTag { .. } => Some("change_contact"),
+            Self::ShareAgentChange { .. } => Some("share_agent_change"),
+            Self::ShareChainChange { .. } => Some("share_chain_change"),
+            Self::CorpArchAuth { .. } => Some("corp_arch_auth"),
+            Self::ApproveSpecialAuth { .. } => Some("approve_special_auth"),
+            Self::CancelSpecialAuth { .. } => Some("cancel_special_auth"),
+            Self::ChangeAppAdmin { .. } => Some("change_app_admin"),
             Self::Unknown { info_type, .. } => info_type.as_deref(),
         }
     }
@@ -936,6 +1051,14 @@ impl OpenWorkServerEvent {
 
     pub fn is_ticket_refresh(&self) -> bool {
         self.kind().is_ticket_refresh()
+    }
+
+    pub fn is_contact_change(&self) -> bool {
+        self.kind().is_contact_change()
+    }
+
+    pub fn is_share_change(&self) -> bool {
+        self.kind().is_share_change()
     }
 }
 
@@ -1955,8 +2078,9 @@ mod tests {
             r#"<xml>
                 <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[create_auth]]></InfoType>
-                <CreateTime>1800000001</CreateTime>
-                <AuthorizationCode><![CDATA[auth-code]]></AuthorizationCode>
+                <TimeStamp>1800000001</TimeStamp>
+                <AuthCode><![CDATA[auth-code]]></AuthCode>
+                <State><![CDATA[install-state]]></State>
             </xml>"#,
         )
         .unwrap();
@@ -1971,10 +2095,12 @@ mod tests {
             OpenWorkServerEvent::CreateAuth {
                 suite_id,
                 auth_code,
+                state,
                 create_time,
             } => {
                 assert_eq!(suite_id.as_deref(), Some("suite-id"));
                 assert_eq!(auth_code.as_deref(), Some("auth-code"));
+                assert_eq!(state.as_deref(), Some("install-state"));
                 assert_eq!(create_time, Some(1_800_000_001));
             }
             other => panic!("unexpected event: {other:?}"),
@@ -1995,6 +2121,184 @@ mod tests {
             OpenWorkServerEvent::Unknown { info_type, message } => {
                 assert_eq!(info_type.as_deref(), Some("new_event"));
                 assert_eq!(message.suite_id.as_deref(), Some("suite-id"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_open_work_contact_and_share_events() {
+        let user = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[change_contact]]></InfoType>
+                <TimeStamp>1800000100</TimeStamp>
+                <ChangeType><![CDATA[update_user]]></ChangeType>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+                <UserID><![CDATA[user-id]]></UserID>
+                <OpenUserID><![CDATA[open-user-id]]></OpenUserID>
+                <Name><![CDATA[User Name]]></Name>
+                <Department><![CDATA[1,2]]></Department>
+                <MainDepartment>2</MainDepartment>
+                <Mobile><![CDATA[13800000000]]></Mobile>
+                <BizMail><![CDATA[user@example.com]]></BizMail>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(user.kind(), OpenWorkServerEventKind::ChangeContactUser);
+        assert!(user.is_contact_change());
+        assert_eq!(user.info_type(), Some("change_contact"));
+        match user {
+            OpenWorkServerEvent::ChangeContactUser { message } => {
+                assert_eq!(message.change_type.as_deref(), Some("update_user"));
+                assert_eq!(message.auth_corp_id.as_deref(), Some("corp-id"));
+                assert_eq!(message.user_id.as_deref(), Some("user-id"));
+                assert_eq!(message.open_user_id.as_deref(), Some("open-user-id"));
+                assert_eq!(message.name.as_deref(), Some("User Name"));
+                assert_eq!(message.department.as_deref(), Some("1,2"));
+                assert_eq!(message.main_department, Some(2));
+                assert_eq!(message.mobile.as_deref(), Some("13800000000"));
+                assert_eq!(message.biz_mail.as_deref(), Some("user@example.com"));
+                assert_eq!(message.create_time, Some(1_800_000_100));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let party = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[change_contact]]></InfoType>
+                <ChangeType><![CDATA[create_party]]></ChangeType>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+                <Id>10</Id>
+                <Name><![CDATA[Engineering]]></Name>
+                <ParentId>1</ParentId>
+                <OrderId>20</OrderId>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(party.kind(), OpenWorkServerEventKind::ChangeContactParty);
+        match party {
+            OpenWorkServerEvent::ChangeContactParty { message } => {
+                assert_eq!(message.id, Some(10));
+                assert_eq!(message.parent_id, Some(1));
+                assert_eq!(message.order_id, Some(20));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let tag = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[change_contact]]></InfoType>
+                <ChangeType><![CDATA[update_tag]]></ChangeType>
+                <TagId>30</TagId>
+                <AddUserItems><![CDATA[user-a,user-b]]></AddUserItems>
+                <DelPartyItems><![CDATA[4,5]]></DelPartyItems>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(tag.kind(), OpenWorkServerEventKind::ChangeContactTag);
+        match tag {
+            OpenWorkServerEvent::ChangeContactTag { message } => {
+                assert_eq!(message.tag_id, Some(30));
+                assert_eq!(message.add_user_items.as_deref(), Some("user-a,user-b"));
+                assert_eq!(message.del_party_items.as_deref(), Some("4,5"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let share_agent = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[share_agent_change]]></InfoType>
+                <AppId><![CDATA[100001]]></AppId>
+                <CorpId><![CDATA[downstream-corp]]></CorpId>
+                <AgentID>200001</AgentID>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(
+            share_agent.kind(),
+            OpenWorkServerEventKind::ShareAgentChange
+        );
+        assert!(share_agent.is_share_change());
+        match share_agent {
+            OpenWorkServerEvent::ShareAgentChange { message } => {
+                assert_eq!(message.app_id.as_deref(), Some("100001"));
+                assert_eq!(message.corp_id.as_deref(), Some("downstream-corp"));
+                assert_eq!(message.agent_id, Some(200001));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let share_chain = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <InfoType><![CDATA[share_chain_change]]></InfoType>
+                <CorpId><![CDATA[downstream-corp]]></CorpId>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(
+            share_chain.kind(),
+            OpenWorkServerEventKind::ShareChainChange
+        );
+        assert!(OpenWorkServerEventKind::ShareChainChange.is_share_change());
+    }
+
+    #[test]
+    fn parses_open_work_arch_special_and_admin_events() {
+        let corp_arch = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
+                <InfoType><![CDATA[corp_arch_auth]]></InfoType>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(corp_arch.kind(), OpenWorkServerEventKind::CorpArchAuth);
+
+        let approved = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <InfoType><![CDATA[approve_special_auth]]></InfoType>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+                <AuthType><![CDATA[customer_contact]]></AuthType>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(approved.kind(), OpenWorkServerEventKind::ApproveSpecialAuth);
+        match approved {
+            OpenWorkServerEvent::ApproveSpecialAuth { message } => {
+                assert_eq!(message.auth_corp_id.as_deref(), Some("corp-id"));
+                assert_eq!(message.auth_type.as_deref(), Some("customer_contact"));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let canceled = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <InfoType><![CDATA[cancel_special_auth]]></InfoType>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+                <AuthType><![CDATA[customer_contact]]></AuthType>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(canceled.kind(), OpenWorkServerEventKind::CancelSpecialAuth);
+
+        let admin = OpenWork::parse_server_event_xml(
+            r#"<xml>
+                <Event><![CDATA[change_app_admin]]></Event>
+                <AgentID>100001</AgentID>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+            </xml>"#,
+        )
+        .unwrap();
+        assert_eq!(admin.kind(), OpenWorkServerEventKind::ChangeAppAdmin);
+        assert_eq!(admin.info_type(), Some("change_app_admin"));
+        match admin {
+            OpenWorkServerEvent::ChangeAppAdmin { message } => {
+                assert_eq!(message.agent_id, Some(100001));
+                assert_eq!(message.auth_corp_id.as_deref(), Some("corp-id"));
             }
             other => panic!("unexpected event: {other:?}"),
         }
