@@ -2241,6 +2241,36 @@ impl Work {
             .await
     }
 
+    pub async fn upload_temp_media_by_url(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkMediaUploadByUrlRequest,
+    ) -> Result<WorkMediaUploadByUrlResponse> {
+        self.inner
+            .post(
+                "cgi-bin/media/upload_by_url",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_temp_media_upload_by_url_result(
+        &self,
+        access_token: impl Into<String>,
+        job_id: impl Into<String>,
+    ) -> Result<WorkMediaUploadByUrlResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/media/get_upload_by_url_result",
+                Some(access_token.into()),
+                WorkMediaUploadByUrlResultRequest {
+                    jobid: job_id.into(),
+                },
+            )
+            .await
+    }
+
     pub async fn upload_attachment_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -10191,6 +10221,172 @@ impl WorkUploadMediaResponse {
 
     pub fn is_image(&self) -> bool {
         self.media_type_kind() == Some(WorkMediaTypeKind::Image)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMediaUploadByUrlSceneKind {
+    ExternalContactGroupWelcome,
+}
+
+impl WorkMediaUploadByUrlSceneKind {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::ExternalContactGroupWelcome => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMediaUploadByUrlTypeKind {
+    Video,
+    File,
+}
+
+impl WorkMediaUploadByUrlTypeKind {
+    pub const fn as_code(self) -> &'static str {
+        match self {
+            Self::Video => "video",
+            Self::File => "file",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMediaUploadByUrlRequest {
+    pub scene: i64,
+    #[serde(rename = "type")]
+    pub media_type: String,
+    pub filename: String,
+    pub url: String,
+    pub md5: String,
+}
+
+impl WorkMediaUploadByUrlRequest {
+    pub fn new(
+        scene: WorkMediaUploadByUrlSceneKind,
+        media_type: WorkMediaUploadByUrlTypeKind,
+        filename: impl Into<String>,
+        url: impl Into<String>,
+        md5: impl Into<String>,
+    ) -> Self {
+        Self {
+            scene: scene.as_code(),
+            media_type: media_type.as_code().to_string(),
+            filename: filename.into(),
+            url: url.into(),
+            md5: md5.into(),
+        }
+    }
+
+    pub fn scene_kind(&self) -> Option<WorkMediaUploadByUrlSceneKind> {
+        (self.scene == WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome.as_code())
+            .then_some(WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome)
+    }
+
+    pub fn media_type_kind(&self) -> Option<WorkMediaUploadByUrlTypeKind> {
+        if self
+            .media_type
+            .eq_ignore_ascii_case(WorkMediaUploadByUrlTypeKind::Video.as_code())
+        {
+            Some(WorkMediaUploadByUrlTypeKind::Video)
+        } else if self
+            .media_type
+            .eq_ignore_ascii_case(WorkMediaUploadByUrlTypeKind::File.as_code())
+        {
+            Some(WorkMediaUploadByUrlTypeKind::File)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMediaUploadByUrlResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub jobid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMediaUploadByUrlResultRequest {
+    pub jobid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMediaUploadByUrlResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub detail: Option<WorkMediaUploadByUrlResultDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMediaUploadByUrlResultDetail {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub media_id: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMediaUploadByUrlStatusKind {
+    Processing,
+    Completed,
+    Failed,
+    Other(i64),
+}
+
+impl From<i64> for WorkMediaUploadByUrlStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Processing,
+            2 => Self::Completed,
+            3 => Self::Failed,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkMediaUploadByUrlStatusKind {
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Failed)
+    }
+}
+
+impl WorkMediaUploadByUrlResultResponse {
+    pub fn status_kind(&self) -> Option<WorkMediaUploadByUrlStatusKind> {
+        self.status.map(WorkMediaUploadByUrlStatusKind::from)
+    }
+
+    pub fn is_completed(&self) -> bool {
+        self.status_kind() == Some(WorkMediaUploadByUrlStatusKind::Completed)
+    }
+
+    pub fn is_successful(&self) -> bool {
+        self.is_completed()
+            && self
+                .detail
+                .as_ref()
+                .and_then(|detail| detail.errcode)
+                .is_some_and(|errcode| errcode == 0)
     }
 }
 
@@ -19494,6 +19690,114 @@ mod tests {
         );
         assert_eq!(work_media_range_header(1024, None).unwrap(), "bytes=1024-");
         assert!(work_media_range_header(10, Some(9)).is_err());
+    }
+
+    #[test]
+    fn serializes_work_media_upload_by_url_requests() {
+        let request = WorkMediaUploadByUrlRequest::new(
+            WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome,
+            WorkMediaUploadByUrlTypeKind::Video,
+            "video.mp4",
+            "https://cdn.example.com/video.mp4",
+            "198918f40ecc7cab0fc4231adaf67c96",
+        );
+        assert_eq!(
+            request.scene_kind(),
+            Some(WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome)
+        );
+        assert_eq!(
+            request.media_type_kind(),
+            Some(WorkMediaUploadByUrlTypeKind::Video)
+        );
+
+        let value = serde_json::to_value(request).unwrap();
+        assert_eq!(value["scene"], 1);
+        assert_eq!(value["type"], "video");
+        assert_eq!(value["filename"], "video.mp4");
+        assert_eq!(value["url"], "https://cdn.example.com/video.mp4");
+        assert_eq!(value["md5"], "198918f40ecc7cab0fc4231adaf67c96");
+        assert!(value.get("media_type").is_none());
+
+        let result_request = serde_json::to_value(WorkMediaUploadByUrlResultRequest {
+            jobid: "job-id".to_string(),
+        })
+        .unwrap();
+        assert_eq!(result_request, json!({ "jobid": "job-id" }));
+    }
+
+    #[test]
+    fn deserializes_work_media_upload_by_url_responses() {
+        let created: WorkMediaUploadByUrlResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "jobid": "job-id",
+            "expires_in": 3600
+        }))
+        .unwrap();
+        assert_eq!(created.jobid.as_deref(), Some("job-id"));
+        assert_eq!(created.extra["expires_in"], 3600);
+
+        let completed: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "status": 2,
+            "detail": {
+                "errcode": 0,
+                "errmsg": "ok",
+                "media_id": "media-id",
+                "created_at": "1380000000",
+                "file_size": 2048
+            },
+            "trace_id": "trace-id"
+        }))
+        .unwrap();
+        assert_eq!(
+            completed.status_kind(),
+            Some(WorkMediaUploadByUrlStatusKind::Completed)
+        );
+        assert!(completed.is_completed());
+        assert!(completed.is_successful());
+        assert!(completed.status_kind().expect("status").is_terminal());
+        assert_eq!(
+            completed
+                .detail
+                .as_ref()
+                .and_then(|detail| detail.media_id.as_deref()),
+            Some("media-id")
+        );
+        assert_eq!(
+            completed
+                .detail
+                .as_ref()
+                .map(|detail| &detail.extra["file_size"]),
+            Some(&json!(2048))
+        );
+        assert_eq!(completed.extra["trace_id"], "trace-id");
+
+        let failed: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "status": 3,
+            "detail": {
+                "errcode": 301019,
+                "errmsg": "md5 mismatch"
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            failed.status_kind(),
+            Some(WorkMediaUploadByUrlStatusKind::Failed)
+        );
+        assert!(!failed.is_successful());
+        assert!(failed.status_kind().expect("status").is_terminal());
+
+        assert_eq!(
+            WorkMediaUploadByUrlStatusKind::from(1),
+            WorkMediaUploadByUrlStatusKind::Processing
+        );
+        assert_eq!(
+            WorkMediaUploadByUrlStatusKind::from(99),
+            WorkMediaUploadByUrlStatusKind::Other(99)
+        );
+        assert!(!WorkMediaUploadByUrlStatusKind::Processing.is_terminal());
     }
 
     #[test]

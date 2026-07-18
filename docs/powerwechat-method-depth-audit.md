@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 325 | high |
+| Work | 363 | 327 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,15 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-18 in Roze WeChat Work media depth:
+
+- Work media now covers the current asynchronous CDN upload lifecycle:
+  `media/upload_by_url`, `media/get_upload_by_url_result`, and
+  `upload_media_job_finish` callback job IDs. Scene and supported media types,
+  task status, result details, media IDs, timestamps, and upstream extension
+  fields are typed; terminal and successful-result helpers avoid raw status
+  checks in application code.
 
 Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
 

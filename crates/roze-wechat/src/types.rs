@@ -125,6 +125,8 @@ pub struct CallbackMessage {
     pub authorizer_appid: Option<String>,
     #[serde(default, rename = "AuthorizationCode")]
     pub authorization_code: Option<String>,
+    #[serde(default, rename = "JobId")]
+    pub job_id: Option<String>,
     #[serde(default, rename = "SuiteId")]
     pub suite_id: Option<String>,
     #[serde(default, rename = "SuiteTicket")]
@@ -255,6 +257,25 @@ mod tests {
         assert_eq!(message.event.as_deref(), Some("CLICK"));
         assert_eq!(message.event_key.as_deref(), Some("MENU_KEY"));
         assert!(message.is_encrypted());
+    }
+
+    #[test]
+    fn parses_work_media_upload_job_finish_callback_xml() {
+        let message = CallbackMessage::parse_xml(
+            r#"<xml>
+                <ToUserName><![CDATA[corp-id]]></ToUserName>
+                <FromUserName><![CDATA[sys]]></FromUserName>
+                <CreateTime>1710000000</CreateTime>
+                <MsgType><![CDATA[event]]></MsgType>
+                <Event><![CDATA[upload_media_job_finish]]></Event>
+                <JobId><![CDATA[job-id]]></JobId>
+            </xml>"#,
+        )
+        .unwrap();
+
+        assert_eq!(message.from_user_name.as_deref(), Some("sys"));
+        assert_eq!(message.event.as_deref(), Some("upload_media_job_finish"));
+        assert_eq!(message.job_id.as_deref(), Some("job-id"));
     }
 
     #[test]
