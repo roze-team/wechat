@@ -90,6 +90,14 @@ Implemented on 2026-07-18 in Roze WeChat suite authorization depth:
 - Privilege levels and application edition states provide semantic write,
   active-entitlement, payment, and shared-install helpers.
 
+Implemented on 2026-07-18 in Roze WeChat component/base depth:
+
+- Component query-auth and authorizer-info responses now reuse the shared,
+  verified authorization and authorizer aggregate contracts exposed by Open
+  Platform, with Open Work-specific public type aliases.
+- Authorization scopes, confirmation state, account metadata, mini-program
+  domains/categories, and nested extension fields are no longer raw JSON.
+
 ## Endpoint Audit
 
 The following exact endpoint comparison was generated from the latest

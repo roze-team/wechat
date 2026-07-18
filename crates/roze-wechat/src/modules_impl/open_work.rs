@@ -741,6 +741,11 @@ pub struct OpenWorkComponentPreauthCodeResponse {
     pub extra: Value,
 }
 
+pub type OpenWorkComponentAuthorizationInfo =
+    crate::modules::open_platform::OpenPlatformAuthorizationInfo;
+pub type OpenWorkComponentAuthorizerInfo =
+    crate::modules::open_platform::OpenPlatformAuthorizerInfo;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkComponentQueryAuthResponse {
     #[serde(default)]
@@ -748,7 +753,7 @@ pub struct OpenWorkComponentQueryAuthResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub authorization_info: Option<Value>,
+    pub authorization_info: Option<OpenWorkComponentAuthorizationInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -760,9 +765,9 @@ pub struct OpenWorkComponentAuthorizerInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub authorizer_info: Option<Value>,
+    pub authorizer_info: Option<OpenWorkComponentAuthorizerInfo>,
     #[serde(default)]
-    pub authorization_info: Option<Value>,
+    pub authorization_info: Option<OpenWorkComponentAuthorizationInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -2514,27 +2519,102 @@ mod tests {
         let query: OpenWorkComponentQueryAuthResponse = serde_json::from_value(json!({
             "authorization_info": {
                 "authorizer_appid": "wx-authorizer",
-                "authorizer_access_token": "token"
+                "authorizer_access_token": "token",
+                "func_info": [{
+                    "funcscope_category": {
+                        "id": 18,
+                        "scope_name": "customer-service"
+                    },
+                    "confirm_info": {
+                        "need_confirm": 1,
+                        "already_confirm": 0,
+                        "can_confirm": 1
+                    },
+                    "scope_revision": 2
+                }],
+                "authorization_revision": 3
             },
             "request_id": "component-query"
         }))
         .unwrap();
+        let query_authorization = query
+            .authorization_info
+            .as_ref()
+            .expect("authorization info");
         assert_eq!(
-            query.authorization_info.as_ref().unwrap()["authorizer_appid"],
-            "wx-authorizer"
+            query_authorization.authorizer_appid.as_deref(),
+            Some("wx-authorizer")
         );
+        assert_eq!(
+            query_authorization.func_info[0]
+                .funcscope_category
+                .as_ref()
+                .and_then(|scope| scope.id),
+            Some(18)
+        );
+        assert_eq!(
+            query_authorization.func_info[0]
+                .confirm_info
+                .as_ref()
+                .and_then(|confirm| confirm.can_confirm),
+            Some(1)
+        );
+        assert_eq!(query_authorization.func_info[0].extra["scope_revision"], 2);
+        assert_eq!(query_authorization.extra["authorization_revision"], 3);
         assert_eq!(query.extra["request_id"], "component-query");
 
         let info: OpenWorkComponentAuthorizerInfoResponse = serde_json::from_value(json!({
-            "authorizer_info": { "nick_name": "Corp App" },
-            "authorization_info": { "authorizer_appid": "wx-authorizer" },
+            "authorizer_info": {
+                "nick_name": "Corp App",
+                "service_type_info": {
+                    "id": 2,
+                    "service_revision": 1
+                },
+                "MiniProgramInfo": {
+                    "network": {
+                        "RequestDomain": ["https://api.example.com"],
+                        "network_revision": 2
+                    },
+                    "categories": [{
+                        "first": "Tools",
+                        "second": "Efficiency"
+                    }],
+                    "visit_status": 0
+                },
+                "authorizer_revision": 3
+            },
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "func_info": []
+            },
             "request_id": "component-info"
         }))
         .unwrap();
+        let authorizer_info = info.authorizer_info.as_ref().expect("authorizer info");
+        assert_eq!(authorizer_info.nick_name.as_deref(), Some("Corp App"));
         assert_eq!(
-            info.authorizer_info.as_ref().unwrap()["nick_name"],
-            "Corp App"
+            authorizer_info
+                .service_type_info
+                .as_ref()
+                .and_then(|service| service.id),
+            Some(2)
         );
+        assert_eq!(
+            authorizer_info.service_type_info.as_ref().unwrap().extra["service_revision"],
+            1
+        );
+        let mini_program = authorizer_info
+            .mini_program_info
+            .as_ref()
+            .expect("mini program info");
+        let network = mini_program.network.as_ref().expect("network");
+        assert_eq!(network.request_domain[0], "https://api.example.com");
+        assert_eq!(network.extra["network_revision"], 2);
+        assert_eq!(
+            mini_program.categories[0].second.as_deref(),
+            Some("Efficiency")
+        );
+        assert_eq!(authorizer_info.extra["authorizer_revision"], 3);
         assert_eq!(info.extra["request_id"], "component-info");
 
         let list: OpenWorkComponentAuthorizersResponse = serde_json::from_value(json!({
