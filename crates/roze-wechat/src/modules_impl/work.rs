@@ -5108,6 +5108,30 @@ impl Work {
             .await
     }
 
+    pub async fn get_user_tfa_info(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserTfaInfoRequest,
+    ) -> Result<WorkUserTfaInfoResponse> {
+        self.inner
+            .post(
+                "cgi-bin/auth/get_tfa_info",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn submit_user_tfa_success(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkUserTfaSuccessRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post("cgi-bin/user/tfa_succ", Some(access_token.into()), request)
+            .await
+    }
+
     pub fn server(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.server")
     }
@@ -16198,6 +16222,31 @@ pub struct WorkOauthUserDetailResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserTfaInfoRequest {
+    pub code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserTfaInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub tfa_code: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserTfaSuccessRequest {
+    pub userid: String,
+    pub tfa_code: String,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -24037,6 +24086,41 @@ mod tests {
         assert_eq!(detail.name.as_deref(), Some("User"));
         assert_eq!(detail.mobile.as_deref(), Some("13800000000"));
         assert_eq!(detail.extra["department"][0], 1);
+    }
+
+    #[test]
+    fn serializes_work_user_tfa_requests_and_response() {
+        let info_request = serde_json::to_value(WorkUserTfaInfoRequest {
+            code: "single-use-code".to_string(),
+        })
+        .unwrap();
+        assert_eq!(info_request, json!({ "code": "single-use-code" }));
+
+        let info: WorkUserTfaInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "userid": "zhangsan",
+            "tfa_code": "single-use-tfa-code",
+            "expires_in": 300
+        }))
+        .unwrap();
+        assert_eq!(info.errcode, Some(0));
+        assert_eq!(info.userid.as_deref(), Some("zhangsan"));
+        assert_eq!(info.tfa_code.as_deref(), Some("single-use-tfa-code"));
+        assert_eq!(info.extra["expires_in"], 300);
+
+        let success_request = serde_json::to_value(WorkUserTfaSuccessRequest {
+            userid: "zhangsan".to_string(),
+            tfa_code: "single-use-tfa-code".to_string(),
+        })
+        .unwrap();
+        assert_eq!(
+            success_request,
+            json!({
+                "userid": "zhangsan",
+                "tfa_code": "single-use-tfa-code"
+            })
+        );
     }
 
     #[test]

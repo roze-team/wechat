@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 327 | high |
+| Work | 363 | 329 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,14 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-18 in Roze WeChat Work user depth:
+
+- Work member authentication now covers the current two-factor verification
+  lifecycle: `auth/get_tfa_info` exchanges the single-use authorization code
+  for a member ID and `tfa_code`, while `user/tfa_succ` submits the verified
+  result. Both requests and the information response use typed DTOs, and the
+  response preserves unknown upstream fields.
 
 Implemented on 2026-07-18 in Roze WeChat Work message depth:
 
