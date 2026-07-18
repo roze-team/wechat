@@ -1616,6 +1616,144 @@ impl Work {
             .await
     }
 
+    pub async fn add_external_contact_intercept_rule(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactInterceptRuleAddRequest,
+    ) -> Result<ExternalContactInterceptRuleAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/add_intercept_rule",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_external_contact_intercept_rule(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactInterceptRuleUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/update_intercept_rule",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_external_contact_intercept_rule(
+        &self,
+        access_token: impl Into<String>,
+        rule_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/del_intercept_rule",
+                Some(access_token.into()),
+                json!({ "rule_id": rule_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn list_external_contact_intercept_rules(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<ExternalContactInterceptRuleListResponse> {
+        self.inner
+            .get(
+                "cgi-bin/externalcontact/get_intercept_rule_list",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_intercept_rule(
+        &self,
+        access_token: impl Into<String>,
+        rule_id: impl Into<String>,
+    ) -> Result<ExternalContactInterceptRuleResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_intercept_rule",
+                Some(access_token.into()),
+                json!({ "rule_id": rule_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn add_external_contact_product_album(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactProductAlbumAddRequest,
+    ) -> Result<ExternalContactProductAlbumAddResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/add_product_album",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_external_contact_product_album(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactProductAlbumUpdateRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/update_product_album",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_external_contact_product_album(
+        &self,
+        access_token: impl Into<String>,
+        product_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/delete_product_album",
+                Some(access_token.into()),
+                json!({ "product_id": product_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn list_external_contact_product_albums(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactProductAlbumListRequest,
+    ) -> Result<ExternalContactProductAlbumListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_product_album_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_external_contact_product_album(
+        &self,
+        access_token: impl Into<String>,
+        product_id: impl Into<String>,
+    ) -> Result<ExternalContactProductAlbumResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_product_album",
+                Some(access_token.into()),
+                json!({ "product_id": product_id.into() }),
+            )
+            .await
+    }
+
     pub async fn get_customer_acquisition_quota(
         &self,
         access_token: impl Into<String>,
@@ -9073,6 +9211,285 @@ pub struct CustomerAcquisitionLink {
     pub create_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleRange {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub department_list: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleAddRequest {
+    pub rule_name: String,
+    pub word_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub semantics_list: Vec<i64>,
+    pub intercept_type: i64,
+    pub applicable_range: ExternalContactInterceptRuleRange,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleExtraRule {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub semantics_list: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleUpdateRequest {
+    pub rule_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub word_list: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_rule: Option<ExternalContactInterceptRuleExtraRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intercept_type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub add_applicable_range: Option<ExternalContactInterceptRuleRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remove_applicable_range: Option<ExternalContactInterceptRuleRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub rule_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub rule_list: Vec<ExternalContactInterceptRuleSummary>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleSummary {
+    #[serde(default)]
+    pub rule_id: Option<String>,
+    #[serde(default)]
+    pub rule_name: Option<String>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRuleResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub rule: Option<ExternalContactInterceptRule>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactInterceptRule {
+    #[serde(default)]
+    pub rule_id: Option<String>,
+    #[serde(default)]
+    pub rule_name: Option<String>,
+    #[serde(default)]
+    pub word_list: Vec<String>,
+    #[serde(default)]
+    pub semantics_list: Vec<i64>,
+    #[serde(default)]
+    pub intercept_type: Option<i64>,
+    #[serde(default)]
+    pub applicable_range: Option<ExternalContactInterceptRuleRange>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl ExternalContactInterceptRule {
+    pub fn intercept_type_kind(&self) -> Option<ExternalContactInterceptTypeKind> {
+        self.intercept_type
+            .map(ExternalContactInterceptTypeKind::from)
+    }
+
+    pub fn semantic_kinds(
+        &self,
+    ) -> impl ExactSizeIterator<Item = ExternalContactInterceptSemanticKind> + '_ {
+        self.semantics_list
+            .iter()
+            .copied()
+            .map(ExternalContactInterceptSemanticKind::from)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactInterceptTypeKind {
+    WarnAndBlock,
+    WarnOnly,
+    Other(i64),
+}
+
+impl From<i64> for ExternalContactInterceptTypeKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::WarnAndBlock,
+            2 => Self::WarnOnly,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactInterceptSemanticKind {
+    Mobile,
+    Email,
+    RedPacket,
+    Other(i64),
+}
+
+impl From<i64> for ExternalContactInterceptSemanticKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Mobile,
+            2 => Self::Email,
+            3 => Self::RedPacket,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbumAddRequest {
+    pub description: String,
+    pub price: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product_sn: Option<String>,
+    pub attachments: Vec<ExternalContactProductAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbumUpdateRequest {
+    pub product_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub price: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product_sn: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<ExternalContactProductAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAttachment {
+    #[serde(rename = "type")]
+    pub attachment_type: String,
+    pub image: ExternalContactProductImage,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl ExternalContactProductAttachment {
+    pub fn image(media_id: impl Into<String>) -> Self {
+        Self {
+            attachment_type: "image".to_string(),
+            image: ExternalContactProductImage {
+                media_id: media_id.into(),
+                extra: Value::Null,
+            },
+            extra: Value::Null,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductImage {
+    pub media_id: String,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbumAddResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub product_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbumListRequest {
+    pub limit: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbumListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub product_list: Vec<ExternalContactProductAlbum>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbumResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub product: Option<ExternalContactProductAlbum>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactProductAlbum {
+    #[serde(default)]
+    pub product_id: Option<String>,
+    #[serde(default)]
+    pub product_sn: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub price: Option<i64>,
+    #[serde(default)]
+    pub create_time: Option<i64>,
+    #[serde(default)]
+    pub attachments: Vec<ExternalContactProductAttachment>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -18228,6 +18645,215 @@ mod tests {
         assert_eq!(chat_info.state.as_deref(), Some("campaign-a"));
         assert_eq!(chat_info.extra["latest_msg_time"], 1_720_000_000_i64);
         assert_eq!(chat.extra["request_id"], "chat-info");
+    }
+
+    #[test]
+    fn serializes_external_contact_intercept_rule_lifecycle() {
+        let add = serde_json::to_value(ExternalContactInterceptRuleAddRequest {
+            rule_name: "No private contact".to_string(),
+            word_list: vec!["private-account".to_string()],
+            semantics_list: vec![1, 2],
+            intercept_type: 1,
+            applicable_range: ExternalContactInterceptRuleRange {
+                user_list: vec!["user".to_string()],
+                department_list: vec![2],
+                extra: Value::Null,
+            },
+        })
+        .unwrap();
+        assert_eq!(add["rule_name"], "No private contact");
+        assert_eq!(add["word_list"][0], "private-account");
+        assert_eq!(add["semantics_list"][1], 2);
+        assert_eq!(add["applicable_range"]["user_list"][0], "user");
+        assert_eq!(add["applicable_range"]["department_list"][0], 2);
+
+        let update = serde_json::to_value(ExternalContactInterceptRuleUpdateRequest {
+            rule_id: "rule".to_string(),
+            rule_name: None,
+            word_list: vec!["new-word".to_string()],
+            extra_rule: Some(ExternalContactInterceptRuleExtraRule {
+                semantics_list: vec![3],
+                extra: Value::Null,
+            }),
+            intercept_type: Some(2),
+            add_applicable_range: Some(ExternalContactInterceptRuleRange {
+                user_list: vec!["new-user".to_string()],
+                department_list: Vec::new(),
+                extra: Value::Null,
+            }),
+            remove_applicable_range: Some(ExternalContactInterceptRuleRange {
+                user_list: Vec::new(),
+                department_list: vec![2],
+                extra: Value::Null,
+            }),
+        })
+        .unwrap();
+        assert_eq!(update["rule_id"], "rule");
+        assert!(update.get("rule_name").is_none());
+        assert_eq!(update["extra_rule"]["semantics_list"][0], 3);
+        assert_eq!(update["add_applicable_range"]["user_list"][0], "new-user");
+        assert_eq!(update["remove_applicable_range"]["department_list"][0], 2);
+
+        let added: ExternalContactInterceptRuleAddResponse = serde_json::from_value(json!({
+            "rule_id": "rule",
+            "request_id": "rule-add"
+        }))
+        .unwrap();
+        assert_eq!(added.rule_id.as_deref(), Some("rule"));
+        assert_eq!(added.extra["request_id"], "rule-add");
+
+        let list: ExternalContactInterceptRuleListResponse = serde_json::from_value(json!({
+            "rule_list": [{
+                "rule_id": "rule",
+                "rule_name": "No private contact",
+                "create_time": 1_720_000_000,
+                "owner": "admin"
+            }],
+            "rule_total": 1
+        }))
+        .unwrap();
+        assert_eq!(list.rule_list[0].rule_id.as_deref(), Some("rule"));
+        assert_eq!(
+            list.rule_list[0].rule_name.as_deref(),
+            Some("No private contact")
+        );
+        assert_eq!(list.rule_list[0].extra["owner"], "admin");
+        assert_eq!(list.extra["rule_total"], 1);
+
+        let detail: ExternalContactInterceptRuleResponse = serde_json::from_value(json!({
+            "rule": {
+                "rule_id": "rule",
+                "rule_name": "No private contact",
+                "word_list": ["private-account"],
+                "semantics_list": [1, 2, 3, 9],
+                "intercept_type": 1,
+                "applicable_range": {
+                    "user_list": ["user"],
+                    "department_list": [2],
+                    "range_version": 2
+                },
+                "create_time": 1_720_000_000,
+                "updated_by": "admin"
+            },
+            "request_id": "rule-detail"
+        }))
+        .unwrap();
+        assert_eq!(detail.extra["request_id"], "rule-detail");
+        let rule = detail.rule.expect("rule");
+        assert_eq!(
+            rule.intercept_type_kind(),
+            Some(ExternalContactInterceptTypeKind::WarnAndBlock)
+        );
+        assert_eq!(
+            rule.semantic_kinds().collect::<Vec<_>>(),
+            vec![
+                ExternalContactInterceptSemanticKind::Mobile,
+                ExternalContactInterceptSemanticKind::Email,
+                ExternalContactInterceptSemanticKind::RedPacket,
+                ExternalContactInterceptSemanticKind::Other(9)
+            ]
+        );
+        assert_eq!(
+            rule.applicable_range.as_ref().unwrap().extra["range_version"],
+            2
+        );
+        assert_eq!(rule.extra["updated_by"], "admin");
+        assert_eq!(
+            ExternalContactInterceptTypeKind::from(9),
+            ExternalContactInterceptTypeKind::Other(9)
+        );
+    }
+
+    #[test]
+    fn serializes_external_contact_product_album_lifecycle() {
+        let add = serde_json::to_value(ExternalContactProductAlbumAddRequest {
+            description: "Roze subscription".to_string(),
+            price: 19900,
+            product_sn: Some("ROZE-001".to_string()),
+            attachments: vec![ExternalContactProductAttachment::image("media")],
+        })
+        .unwrap();
+        assert_eq!(add["description"], "Roze subscription");
+        assert_eq!(add["price"], 19900);
+        assert_eq!(add["product_sn"], "ROZE-001");
+        assert_eq!(add["attachments"][0]["type"], "image");
+        assert_eq!(add["attachments"][0]["image"]["media_id"], "media");
+
+        let update = serde_json::to_value(ExternalContactProductAlbumUpdateRequest {
+            product_id: "product".to_string(),
+            description: Some("Roze annual subscription".to_string()),
+            price: Some(29900),
+            product_sn: None,
+            attachments: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(update["product_id"], "product");
+        assert_eq!(update["price"], 29900);
+        assert!(update.get("product_sn").is_none());
+        assert!(update.get("attachments").is_none());
+
+        let list_request = serde_json::to_value(ExternalContactProductAlbumListRequest {
+            limit: 50,
+            cursor: None,
+        })
+        .unwrap();
+        assert_eq!(list_request["limit"], 50);
+        assert!(list_request.get("cursor").is_none());
+
+        let added: ExternalContactProductAlbumAddResponse = serde_json::from_value(json!({
+            "product_id": "product",
+            "request_id": "product-add"
+        }))
+        .unwrap();
+        assert_eq!(added.product_id.as_deref(), Some("product"));
+        assert_eq!(added.extra["request_id"], "product-add");
+
+        let list: ExternalContactProductAlbumListResponse = serde_json::from_value(json!({
+            "product_list": [{
+                "product_id": "product",
+                "product_sn": "ROZE-001",
+                "description": "Roze subscription",
+                "price": 19900,
+                "catalog": "software"
+            }],
+            "next_cursor": "cursor",
+            "product_total": 1
+        }))
+        .unwrap();
+        assert_eq!(list.product_list[0].product_id.as_deref(), Some("product"));
+        assert_eq!(list.product_list[0].price, Some(19900));
+        assert_eq!(list.product_list[0].extra["catalog"], "software");
+        assert_eq!(list.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(list.extra["product_total"], 1);
+
+        let detail: ExternalContactProductAlbumResponse = serde_json::from_value(json!({
+            "product": {
+                "product_id": "product",
+                "product_sn": "ROZE-001",
+                "description": "Roze subscription",
+                "price": 19900,
+                "create_time": 1_720_000_000,
+                "attachments": [{
+                    "type": "image",
+                    "image": {
+                        "media_id": "media",
+                        "image_hash": "sha256"
+                    },
+                    "attachment_version": 2
+                }],
+                "updated_at": 1_720_000_001
+            },
+            "request_id": "product-detail"
+        }))
+        .unwrap();
+        assert_eq!(detail.extra["request_id"], "product-detail");
+        let product = detail.product.expect("product");
+        assert_eq!(product.create_time, Some(1_720_000_000));
+        assert_eq!(product.attachments[0].attachment_type, "image");
+        assert_eq!(product.attachments[0].image.media_id, "media");
+        assert_eq!(product.attachments[0].image.extra["image_hash"], "sha256");
+        assert_eq!(product.attachments[0].extra["attachment_version"], 2);
+        assert_eq!(product.extra["updated_at"], 1_720_000_001_i64);
     }
 
     #[test]

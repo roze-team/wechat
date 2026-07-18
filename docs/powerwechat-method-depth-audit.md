@@ -14,7 +14,7 @@ but these areas should be expanded for stricter production parity.
 
 | Family | PowerWeChat public methods | Roze public async wrappers | Update need |
 | --- | ---: | ---: | --- |
-| Work | 363 | 333 | high |
+| Work | 363 | 343 | high |
 | Payment | 165 | 96 | high |
 | Open Platform | 76 | 61 | medium |
 | Mini Program | 214 | 178 | medium |
@@ -77,6 +77,16 @@ uses Rust `format!` placeholders.
 | Basic Service | 14 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Open Work | 38 | 0 | exact endpoint scan green; continue method/DTO depth review |
 | Channels | 2 | 0 | none from exact endpoint scan |
+
+Implemented on 2026-07-18 in Roze WeChat Work external-contact management:
+
+- External-contact sensitive-word interception now covers add, update, delete,
+  list, and detail operations. Applicable ranges, semantic interception rules,
+  summaries, details, and interception behavior are typed with semantic enums.
+- External-contact product albums now cover add, update, delete, list, and
+  detail operations. Product prices, codes, timestamps, image attachments, and
+  pagination are typed, with an image-attachment constructor and forward-
+  compatible extension fields.
 
 Implemented on 2026-07-18 in Roze WeChat Work external-contact depth:
 
