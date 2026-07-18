@@ -983,6 +983,21 @@ Implemented on 2026-07-18 in Work external-contact contact-way depth:
 - conclusion DTOs validate text/link/mini-program requirements and support both
   `media_id` and `pic_url` image forms used by upstream contracts.
 
+Implemented on 2026-07-18 in Work external-contact customer-operation depth:
+
+- customer list, detail, external-user conversion, temporary-chat close, batch
+  detail, served-customer list, remark, and tag-mark paths now validate member
+  and external-user identities before network I/O;
+- batch detail enforces 1 to 100 unique member users and a 100-row page limit,
+  while served-customer pagination accepts the upstream 1000-row boundary and
+  rejects empty cursors or invalid limits;
+- remark updates require an actual patch, enforce the documented 20-character
+  remark/company and 150-character description limits, preserve empty strings
+  for explicit clearing, and reject empty media ids or duplicate mobiles;
+- tag marking requires a non-empty mutation with unique ids and rejects adding
+  and removing the same tag, while follow-tag response types expose corporate,
+  personal, rule-group, and forward-compatible unknown semantics.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

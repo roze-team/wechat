@@ -1011,11 +1011,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<ExternalContactListResponse> {
+        let user_id = user_id.into();
+        validate_external_contact_identifier("member userid", &user_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/externalcontact/list",
                 Some(access_token.into()),
-                vec![("userid".to_string(), user_id.into())],
+                vec![("userid".to_string(), user_id)],
             )
             .await
     }
@@ -1025,6 +1027,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactServedListRequest,
     ) -> Result<ExternalContactServedListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/contact_list",
@@ -1039,11 +1042,13 @@ impl Work {
         access_token: impl Into<String>,
         external_user_id: impl Into<String>,
     ) -> Result<UserIdToOpenIdResponse> {
+        let external_user_id = external_user_id.into();
+        validate_external_contact_identifier("external userid", &external_user_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/convert_to_openid",
                 Some(access_token.into()),
-                json!({ "external_userid": external_user_id.into() }),
+                json!({ "external_userid": external_user_id }),
             )
             .await
     }
@@ -1092,7 +1097,17 @@ impl Work {
         external_userid: impl Into<String>,
         cursor: Option<String>,
     ) -> Result<ExternalContactDetailResponse> {
-        let mut query = vec![("external_userid".to_string(), external_userid.into())];
+        let external_userid = external_userid.into();
+        validate_external_contact_identifier("external userid", &external_userid)?;
+        if cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-contact cursor cannot be empty".to_string(),
+            ));
+        }
+        let mut query = vec![("external_userid".to_string(), external_userid)];
         if let Some(cursor) = cursor {
             query.push(("cursor".to_string(), cursor));
         }
@@ -1122,11 +1137,13 @@ impl Work {
         access_token: impl Into<String>,
         external_userid: impl Into<String>,
     ) -> Result<WorkExternalUserIdConvertResponse> {
+        let external_userid = external_userid.into();
+        validate_external_contact_identifier("external userid", &external_userid)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_new_external_userid",
                 Some(access_token.into()),
-                json!({ "external_userid": external_userid.into() }),
+                json!({ "external_userid": external_userid }),
             )
             .await
     }
@@ -1150,6 +1167,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactBatchGetRequest,
     ) -> Result<ExternalContactBatchGetResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/batch/get_by_user",
@@ -1242,11 +1260,15 @@ impl Work {
         user_id: impl Into<String>,
         external_userid: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let user_id = user_id.into();
+        let external_userid = external_userid.into();
+        validate_external_contact_identifier("member userid", &user_id)?;
+        validate_external_contact_identifier("external userid", &external_userid)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/close_temp_chat",
                 Some(access_token.into()),
-                json!({ "userid": user_id.into(), "external_userid": external_userid.into() }),
+                json!({ "userid": user_id, "external_userid": external_userid }),
             )
             .await
     }
@@ -1256,6 +1278,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactRemarkRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/remark",
@@ -1326,6 +1349,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactMarkTagRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/mark_tag",
@@ -8582,6 +8606,37 @@ pub struct ExternalContactBatchGetRequest {
     pub limit: Option<i64>,
 }
 
+impl ExternalContactBatchGetRequest {
+    pub fn new(userids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            userid_list: userids.into_iter().map(Into::into).collect(),
+            cursor: None,
+            limit: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.userid_list.is_empty()
+            || self.userid_list.len() > 100
+            || self
+                .userid_list
+                .iter()
+                .any(|userid| userid.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-contact batch queries require 1 to 100 non-empty member userids"
+                    .to_string(),
+            ));
+        }
+        if has_duplicate_strings(&self.userid_list) {
+            return Err(WechatError::Config(
+                "external-contact batch member userids cannot contain duplicates".to_string(),
+            ));
+        }
+        validate_external_contact_page(self.cursor.as_deref(), self.limit, 100)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactListResponse {
     #[serde(default)]
@@ -8600,6 +8655,46 @@ pub struct ExternalContactServedListRequest {
     pub cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<i64>,
+}
+
+impl ExternalContactServedListRequest {
+    pub fn first_page(limit: i64) -> Self {
+        Self {
+            cursor: None,
+            limit: Some(limit),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_page(self.cursor.as_deref(), self.limit, 1000)
+    }
+}
+
+fn validate_external_contact_page(
+    cursor: Option<&str>,
+    limit: Option<i64>,
+    maximum_limit: i64,
+) -> Result<()> {
+    if cursor.is_some_and(|cursor| cursor.trim().is_empty()) {
+        return Err(WechatError::Config(
+            "external-contact pagination cursor cannot be empty".to_string(),
+        ));
+    }
+    if limit.is_some_and(|limit| !(1..=maximum_limit).contains(&limit)) {
+        return Err(WechatError::Config(format!(
+            "external-contact page limit must be between 1 and {maximum_limit}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "external-contact {label} cannot be empty"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8934,6 +9029,31 @@ pub struct ExternalContactFollowTag {
     pub r#type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactFollowTag {
+    pub fn tag_kind(&self) -> Option<ExternalContactFollowTagKind> {
+        self.r#type.map(ExternalContactFollowTagKind::from_code)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactFollowTagKind {
+    Corporate,
+    Personal,
+    RuleGroup,
+    Other(i64),
+}
+
+impl ExternalContactFollowTagKind {
+    pub const fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::Corporate,
+            2 => Self::Personal,
+            3 => Self::RuleGroup,
+            other => Self::Other(other),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9564,6 +9684,81 @@ pub struct ExternalContactRemarkRequest {
     pub remark_pic_mediaid: Option<String>,
 }
 
+impl ExternalContactRemarkRequest {
+    pub fn new(userid: impl Into<String>, external_userid: impl Into<String>) -> Self {
+        Self {
+            userid: userid.into(),
+            external_userid: external_userid.into(),
+            remark: None,
+            description: None,
+            remark_company: None,
+            remark_mobiles: None,
+            remark_pic_mediaid: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_identifier("member userid", &self.userid)?;
+        validate_external_contact_identifier("external userid", &self.external_userid)?;
+        if self
+            .remark
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 20)
+        {
+            return Err(WechatError::Config(
+                "external-contact remark cannot exceed 20 characters".to_string(),
+            ));
+        }
+        if self
+            .description
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 150)
+        {
+            return Err(WechatError::Config(
+                "external-contact description cannot exceed 150 characters".to_string(),
+            ));
+        }
+        if self
+            .remark_company
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 20)
+        {
+            return Err(WechatError::Config(
+                "external-contact remark company cannot exceed 20 characters".to_string(),
+            ));
+        }
+        if let Some(mobiles) = &self.remark_mobiles {
+            if mobiles.iter().any(|mobile| mobile.trim().is_empty())
+                || has_duplicate_strings(mobiles)
+            {
+                return Err(WechatError::Config(
+                    "external-contact remark mobiles must be non-empty and unique".to_string(),
+                ));
+            }
+        }
+        if self
+            .remark_pic_mediaid
+            .as_deref()
+            .is_some_and(|media_id| media_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-contact remark picture media id cannot be empty".to_string(),
+            ));
+        }
+        if self.remark.is_none()
+            && self.description.is_none()
+            && self.remark_company.is_none()
+            && self.remark_mobiles.is_none()
+            && self.remark_pic_mediaid.is_none()
+        {
+            return Err(WechatError::Config(
+                "external-contact remark update requires at least one changed field".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorpTagListRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -9679,6 +9874,43 @@ pub struct ExternalContactMarkTagRequest {
     pub add_tag: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub remove_tag: Vec<String>,
+}
+
+impl ExternalContactMarkTagRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_identifier("member userid", &self.userid)?;
+        validate_external_contact_identifier("external userid", &self.external_userid)?;
+        if self.add_tag.is_empty() && self.remove_tag.is_empty() {
+            return Err(WechatError::Config(
+                "external-contact tag updates require at least one added or removed tag"
+                    .to_string(),
+            ));
+        }
+        if self.add_tag.iter().any(|tag| tag.trim().is_empty())
+            || self.remove_tag.iter().any(|tag| tag.trim().is_empty())
+            || has_duplicate_strings(&self.add_tag)
+            || has_duplicate_strings(&self.remove_tag)
+        {
+            return Err(WechatError::Config(
+                "external-contact tag ids must be non-empty and unique".to_string(),
+            ));
+        }
+        let added = self
+            .add_tag
+            .iter()
+            .map(String::as_str)
+            .collect::<std::collections::HashSet<_>>();
+        if self
+            .remove_tag
+            .iter()
+            .any(|tag| added.contains(tag.as_str()))
+        {
+            return Err(WechatError::Config(
+                "external-contact tags cannot be added and removed in the same request".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22617,6 +22849,88 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<ContactWayScene>(json!(99)).unwrap(),
             ContactWayScene::Other(99)
+        );
+    }
+
+    #[test]
+    fn validates_external_contact_customer_operations() {
+        let batch = ExternalContactBatchGetRequest::new(["user-a", "user-b"]);
+        assert!(batch.validate().is_ok());
+        assert!(ExternalContactBatchGetRequest::new(Vec::<String>::new())
+            .validate()
+            .is_err());
+        assert!(
+            ExternalContactBatchGetRequest::new((0..101).map(|index| format!("user-{index}")))
+                .validate()
+                .is_err()
+        );
+        let mut duplicate_batch = ExternalContactBatchGetRequest::new(["user-a", "user-a"]);
+        assert!(duplicate_batch.validate().is_err());
+        duplicate_batch.userid_list = vec!["user-a".to_string()];
+        duplicate_batch.limit = Some(101);
+        assert!(duplicate_batch.validate().is_err());
+        duplicate_batch.limit = Some(100);
+        duplicate_batch.cursor = Some(String::new());
+        assert!(duplicate_batch.validate().is_err());
+
+        assert!(ExternalContactServedListRequest::first_page(1000)
+            .validate()
+            .is_ok());
+        assert!(ExternalContactServedListRequest::first_page(1001)
+            .validate()
+            .is_err());
+        assert!(ExternalContactServedListRequest {
+            cursor: Some(" ".to_string()),
+            limit: Some(1000),
+        }
+        .validate()
+        .is_err());
+
+        let mut remark = ExternalContactRemarkRequest::new("user", "external");
+        assert!(remark.validate().is_err());
+        remark.remark = Some(String::new());
+        assert!(remark.validate().is_ok());
+        remark.remark = Some("x".repeat(21));
+        assert!(remark.validate().is_err());
+        remark.remark = None;
+        remark.remark_mobiles = Some(vec!["13800138000".to_string(), "13800138000".to_string()]);
+        assert!(remark.validate().is_err());
+
+        let valid_mark = ExternalContactMarkTagRequest {
+            userid: "user".to_string(),
+            external_userid: "external".to_string(),
+            add_tag: vec!["tag-add".to_string()],
+            remove_tag: vec!["tag-remove".to_string()],
+        };
+        assert!(valid_mark.validate().is_ok());
+        assert!(ExternalContactMarkTagRequest {
+            userid: "user".to_string(),
+            external_userid: "external".to_string(),
+            add_tag: Vec::new(),
+            remove_tag: Vec::new(),
+        }
+        .validate()
+        .is_err());
+        assert!(ExternalContactMarkTagRequest {
+            userid: "user".to_string(),
+            external_userid: "external".to_string(),
+            add_tag: vec!["tag".to_string()],
+            remove_tag: vec!["tag".to_string()],
+        }
+        .validate()
+        .is_err());
+
+        let corporate_tag: ExternalContactFollowTag =
+            serde_json::from_value(json!({ "type": 1 })).unwrap();
+        assert_eq!(
+            corporate_tag.tag_kind(),
+            Some(ExternalContactFollowTagKind::Corporate)
+        );
+        let future_tag: ExternalContactFollowTag =
+            serde_json::from_value(json!({ "type": 99 })).unwrap();
+        assert_eq!(
+            future_tag.tag_kind(),
+            Some(ExternalContactFollowTagKind::Other(99))
         );
     }
 
