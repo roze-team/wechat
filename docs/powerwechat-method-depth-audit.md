@@ -1218,6 +1218,33 @@ transfer depth:
   takeover users, one-to-one-hundred unique customers, optional message length,
   unassigned-customer pagination, and transfer-result cursors.
 
+Implemented on 2026-07-18 in Work external-contact moment and statistics
+depth:
+
+- moment listing validates positive ascending timestamps, the official
+  one-month query window, 0/1/2 enterprise/member/all filters, non-blank
+  creators and cursors, and the one-to-one-hundred page boundary;
+- moment task, selected-customer, and delivered-customer pagination use typed
+  request DTOs with their respective one-thousand, one-thousand, and
+  five-thousand limits, while comment, cancellation, and asynchronous-result
+  lookups validate identifiers before network I/O;
+- moment summaries type the official image, video, link, and location response
+  shapes and expose enterprise/member creation plus partial/public visibility
+  semantics instead of leaving these fields in generic JSON;
+- task creation validates text-or-attachment content, image/video/link payload
+  consistency, media identifiers, and user/department/tag visible ranges;
+  visible-range builders now include the previously missing department path;
+- asynchronous task results restore nested invalid user/department and tag
+  records, retain result-level errors, and expose shared async-job completion
+  and success helpers;
+- contact behavior statistics enforce a non-empty unique user/department
+  selection, the one-hundred target boundary, positive departments, and the
+  official thirty-day window;
+- group-chat statistics validate owner filters, time order, sort fields,
+  direction, offsets, and the one-to-one-thousand page boundary; daily records
+  expose `stat_time`, migration counts are typed, and offset responses expose
+  a pagination helper.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
