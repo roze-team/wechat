@@ -1257,6 +1257,31 @@ depth:
   expose `stat_time`, migration counts are typed, and offset responses expose
   a pagination helper.
 
+Implemented on 2026-07-18 in Work OA meeting and meeting-room depth:
+
+- meeting create/update requests now model the current `admin_userid`,
+  `location`, `settings`, `cal_id`, and `reminders` contract; attendee lists
+  serialize with the official `userid` key while accepting the historical
+  `userids` key during deserialization;
+- meeting settings type waiting-room, host-entry, mute, external-user,
+  watermark, host, ring-user, and password controls, while reminder DTOs cover
+  repeat cadence and advance notifications;
+- create, update, cancel, list, and detail paths validate identifiers,
+  timestamps, durations, agent ids, unique attendees, binary switches,
+  passwords, repeat consistency, 30-day query windows, and 1-to-100 page
+  limits before network I/O;
+- create/update responses retain excess attendees and expose partial-success
+  helpers; create meeting ids now use the current string representation, and
+  meeting details type current administrator, location, agent, settings,
+  calendar, and reminder fields while preserving older response fields;
+- meeting-room add/edit/list/query/delete/book/link/cancel/detail paths validate
+  positive room ids and capacities, the 30-character room-name boundary,
+  all-or-none city/building/floor locations, unique equipment, finite bounded
+  coordinates, ordered time ranges, unique attendees, non-empty linkage ids,
+  and 30-minute booking boundaries;
+- linked meeting-room booking responses expose conflict detection while all
+  response DTOs continue preserving unknown upstream fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

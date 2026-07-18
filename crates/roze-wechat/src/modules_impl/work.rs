@@ -3947,6 +3947,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingCreateRequest,
     ) -> Result<WorkMeetingCreateResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/meeting/create", Some(access_token.into()), request)
             .await
@@ -3956,7 +3957,8 @@ impl Work {
         &self,
         access_token: impl Into<String>,
         request: WorkMeetingUpdateRequest,
-    ) -> Result<WorkStatusResponse> {
+    ) -> Result<WorkMeetingUpdateResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/meeting/update", Some(access_token.into()), request)
             .await
@@ -3967,11 +3969,13 @@ impl Work {
         access_token: impl Into<String>,
         meeting_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let meeting_id = meeting_id.into();
+        validate_work_oa_identifier("meeting id", &meeting_id)?;
         self.inner
             .post(
                 "cgi-bin/meeting/cancel",
                 Some(access_token.into()),
-                json!({ "meetingid": meeting_id.into() }),
+                json!({ "meetingid": meeting_id }),
             )
             .await
     }
@@ -3981,6 +3985,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingGetUserMeetingIdRequest,
     ) -> Result<WorkMeetingGetUserMeetingIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/meeting/get_user_meetingid",
@@ -3995,11 +4000,13 @@ impl Work {
         access_token: impl Into<String>,
         meeting_id: impl Into<String>,
     ) -> Result<WorkMeetingGetInfoResponse> {
+        let meeting_id = meeting_id.into();
+        validate_work_oa_identifier("meeting id", &meeting_id)?;
         self.inner
             .post(
                 "cgi-bin/meeting/get_info",
                 Some(access_token.into()),
-                json!({ "meetingid": meeting_id.into() }),
+                json!({ "meetingid": meeting_id }),
             )
             .await
     }
@@ -4009,11 +4016,13 @@ impl Work {
         access_token: impl Into<String>,
         meeting_id: impl Into<String>,
     ) -> Result<WorkMeetingGetInfoResponse> {
+        let meeting_id = meeting_id.into();
+        validate_work_oa_identifier("meeting id", &meeting_id)?;
         self.inner
             .post(
                 "cgi-bin/oa/meeting/get",
                 Some(access_token.into()),
-                json!({ "meetingid": meeting_id.into() }),
+                json!({ "meetingid": meeting_id }),
             )
             .await
     }
@@ -4027,6 +4036,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomAddRequest,
     ) -> Result<WorkMeetingRoomAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/add",
@@ -4041,6 +4051,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomListRequest,
     ) -> Result<WorkMeetingRoomListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/list",
@@ -4055,6 +4066,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomEditRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/edit",
@@ -4069,6 +4081,7 @@ impl Work {
         access_token: impl Into<String>,
         meetingroom_id: i64,
     ) -> Result<WorkStatusResponse> {
+        validate_work_meetingroom_id(meetingroom_id)?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/del",
@@ -4083,6 +4096,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomGetBookingInfoRequest,
     ) -> Result<WorkMeetingRoomGetBookingInfoResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/get_booking_info",
@@ -4097,6 +4111,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomBookRequest,
     ) -> Result<WorkMeetingRoomBookResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/book",
@@ -4111,6 +4126,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomBookByScheduleRequest,
     ) -> Result<WorkMeetingRoomLinkedBookResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/book_by_schedule",
@@ -4125,6 +4141,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomBookByMeetingRequest,
     ) -> Result<WorkMeetingRoomLinkedBookResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/book_by_meeting",
@@ -4139,6 +4156,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomCancelBookRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/cancel_book",
@@ -4153,6 +4171,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMeetingRoomBookingByIdRequest,
     ) -> Result<WorkMeetingRoomBookingByIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/meetingroom/bookinfo/get",
@@ -18274,6 +18293,79 @@ fn validate_work_oa_id_batch(label: &str, ids: &[String], maximum: usize) -> Res
     Ok(())
 }
 
+fn validate_work_positive_number(label: &str, value: i64) -> Result<()> {
+    if value <= 0 {
+        return Err(WechatError::Config(format!(
+            "work OA {label} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_positive_timestamp(label: &str, value: i64) -> Result<()> {
+    validate_work_positive_number(label, value)
+}
+
+fn validate_work_time_range(label: &str, start_time: i64, end_time: i64) -> Result<()> {
+    if start_time <= 0 || end_time <= start_time {
+        return Err(WechatError::Config(format!(
+            "work OA {label} requires positive ordered start and end times"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_optional_non_empty(label: &str, value: Option<&str>) -> Result<()> {
+    if value.is_some_and(|value| value.trim().is_empty()) {
+        return Err(WechatError::Config(format!(
+            "work OA {label} cannot be empty when supplied"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_binary_option(label: &str, value: Option<i64>) -> Result<()> {
+    if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+        return Err(WechatError::Config(format!(
+            "work meeting {label} must be 0 or 1"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_meetingroom_id(meetingroom_id: i64) -> Result<()> {
+    validate_work_positive_number("meetingroom id", meetingroom_id)
+}
+
+fn validate_work_meetingroom_location(
+    city: Option<&str>,
+    building: Option<&str>,
+    floor: Option<&str>,
+) -> Result<()> {
+    let present = [city, building, floor]
+        .iter()
+        .filter(|value| value.is_some())
+        .count();
+    if present != 0 && present != 3 {
+        return Err(WechatError::Config(
+            "work meetingroom city, building, and floor must be supplied together".to_string(),
+        ));
+    }
+    for (label, value) in [("city", city), ("building", building), ("floor", floor)] {
+        validate_work_optional_non_empty(label, value)?;
+    }
+    Ok(())
+}
+
+fn validate_work_meetingroom_equipment(equipment: &[i64]) -> Result<()> {
+    if equipment.iter().any(|value| *value <= 0) || has_duplicate_i64(equipment) {
+        return Err(WechatError::Config(
+            "work meetingroom equipment values must be unique and positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarAddResponse {
     #[serde(default)]
@@ -18634,37 +18726,283 @@ pub struct WorkPstnccGetStatesResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingCreateRequest {
-    pub creator_userid: String,
+    pub admin_userid: String,
     pub title: String,
     pub meeting_start: i64,
     pub meeting_duration: i64,
-    pub description: String,
-    #[serde(rename = "type")]
-    pub meeting_type: i64,
-    pub remind_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
     pub agentid: i64,
+    #[serde(default, skip_serializing_if = "WorkMeetingAttendeesRequest::is_empty")]
     pub attendees: WorkMeetingAttendeesRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<WorkMeetingSettingsRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cal_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reminders: Option<WorkMeetingRemindersRequest>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingUpdateRequest {
     pub meetingid: String,
-    pub title: String,
-    pub meeting_start: i64,
-    pub meeting_duration: i64,
-    pub description: String,
-    #[serde(rename = "type")]
-    pub meeting_type: i64,
-    pub remind_time: i64,
-    pub attendees: WorkMeetingAttendeesRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admin_userid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting_start: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting_duration: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agentid: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attendees: Option<WorkMeetingAttendeesRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<WorkMeetingSettingsRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cal_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reminders: Option<WorkMeetingRemindersRequest>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkMeetingAttendeesRequest {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        rename = "userid",
+        alias = "userids",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub userids: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMeetingAttendeesRequest {
+    pub fn is_empty(&self) -> bool {
+        self.userids.is_empty()
+            && (self.extra.is_null()
+                || self
+                    .extra
+                    .as_object()
+                    .is_some_and(serde_json::Map::is_empty))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.userids.iter().any(|userid| userid.trim().is_empty())
+            || has_duplicate_strings(&self.userids)
+        {
+            return Err(WechatError::Config(
+                "work meeting attendees must contain unique non-empty user ids".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkMeetingSettingsRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remind_scope: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_waiting_room: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_enter_before_host: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_enter_mute: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_external_user: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_screen_watermark: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hosts: Option<WorkMeetingAttendeesRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ring_users: Option<WorkMeetingAttendeesRequest>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkMeetingSettingsRequest {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("remind_scope", self.remind_scope),
+            ("enable_waiting_room", self.enable_waiting_room),
+            ("allow_enter_before_host", self.allow_enter_before_host),
+            ("allow_external_user", self.allow_external_user),
+            ("enable_screen_watermark", self.enable_screen_watermark),
+        ] {
+            validate_work_binary_option(label, value)?;
+        }
+        if self
+            .enable_enter_mute
+            .is_some_and(|value| !matches!(value, 0..=2))
+        {
+            return Err(WechatError::Config(
+                "work meeting enable_enter_mute must be 0, 1, or 2".to_string(),
+            ));
+        }
+        if self.password.as_ref().is_some_and(|password| {
+            !(4..=6).contains(&password.len())
+                || !password.bytes().all(|byte| byte.is_ascii_digit())
+        }) {
+            return Err(WechatError::Config(
+                "work meeting password must contain 4 to 6 digits".to_string(),
+            ));
+        }
+        if let Some(hosts) = &self.hosts {
+            hosts.validate()?;
+        }
+        if let Some(ring_users) = &self.ring_users {
+            ring_users.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkMeetingRemindersRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_repeat: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_until: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repeat_interval: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remind_before: Vec<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkMeetingRemindersRequest {
+    pub fn validate(&self, meeting_start: Option<i64>) -> Result<()> {
+        validate_work_binary_option("is_repeat", self.is_repeat)?;
+        if self
+            .repeat_type
+            .is_some_and(|value| !matches!(value, 0..=2))
+        {
+            return Err(WechatError::Config(
+                "work meeting repeat_type must be 0, 1, or 2".to_string(),
+            ));
+        }
+        if self.repeat_interval.is_some_and(|value| value <= 0) {
+            return Err(WechatError::Config(
+                "work meeting repeat_interval must be positive".to_string(),
+            ));
+        }
+        if self.repeat_until.is_some_and(|value| value <= 0)
+            || meeting_start
+                .zip(self.repeat_until)
+                .is_some_and(|(start, until)| until < start)
+        {
+            return Err(WechatError::Config(
+                "work meeting repeat_until must not precede meeting_start".to_string(),
+            ));
+        }
+        if self.remind_before.iter().any(|value| *value < 0)
+            || has_duplicate_i64(&self.remind_before)
+        {
+            return Err(WechatError::Config(
+                "work meeting remind_before values must be unique and non-negative".to_string(),
+            ));
+        }
+        if self.is_repeat == Some(0)
+            && (self.repeat_type.is_some()
+                || self.repeat_until.is_some()
+                || self.repeat_interval.is_some())
+        {
+            return Err(WechatError::Config(
+                "work meeting non-repeating reminders cannot include repeat settings".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkMeetingCreateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("meeting admin user id", &self.admin_userid)?;
+        validate_work_oa_identifier("meeting title", &self.title)?;
+        validate_work_positive_timestamp("meeting_start", self.meeting_start)?;
+        validate_work_positive_number("meeting_duration", self.meeting_duration)?;
+        validate_work_positive_number("meeting agentid", self.agentid)?;
+        validate_work_optional_non_empty("meeting description", self.description.as_deref())?;
+        validate_work_optional_non_empty("meeting location", self.location.as_deref())?;
+        validate_work_optional_non_empty("meeting calendar id", self.cal_id.as_deref())?;
+        self.attendees.validate()?;
+        if let Some(settings) = &self.settings {
+            settings.validate()?;
+        }
+        if let Some(reminders) = &self.reminders {
+            reminders.validate(Some(self.meeting_start))?;
+        }
+        Ok(())
+    }
+}
+
+impl WorkMeetingUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("meeting id", &self.meetingid)?;
+        if self.admin_userid.is_none()
+            && self.title.is_none()
+            && self.meeting_start.is_none()
+            && self.meeting_duration.is_none()
+            && self.description.is_none()
+            && self.location.is_none()
+            && self.agentid.is_none()
+            && self.attendees.is_none()
+            && self.settings.is_none()
+            && self.cal_id.is_none()
+            && self.reminders.is_none()
+            && (self.extra.is_null()
+                || self
+                    .extra
+                    .as_object()
+                    .is_some_and(serde_json::Map::is_empty))
+        {
+            return Err(WechatError::Config(
+                "work meeting update requires at least one field".to_string(),
+            ));
+        }
+        validate_work_optional_non_empty("meeting admin user id", self.admin_userid.as_deref())?;
+        validate_work_optional_non_empty("meeting title", self.title.as_deref())?;
+        validate_work_optional_non_empty("meeting description", self.description.as_deref())?;
+        validate_work_optional_non_empty("meeting location", self.location.as_deref())?;
+        validate_work_optional_non_empty("meeting calendar id", self.cal_id.as_deref())?;
+        if let Some(start) = self.meeting_start {
+            validate_work_positive_timestamp("meeting_start", start)?;
+        }
+        if let Some(duration) = self.meeting_duration {
+            validate_work_positive_number("meeting_duration", duration)?;
+        }
+        if let Some(agentid) = self.agentid {
+            validate_work_positive_number("meeting agentid", agentid)?;
+        }
+        if let Some(attendees) = &self.attendees {
+            attendees.validate()?;
+        }
+        if let Some(settings) = &self.settings {
+            settings.validate()?;
+        }
+        if let Some(reminders) = &self.reminders {
+            reminders.validate(self.meeting_start)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18676,6 +19014,39 @@ pub struct WorkMeetingGetUserMeetingIdRequest {
     pub limit: i64,
 }
 
+impl WorkMeetingGetUserMeetingIdRequest {
+    pub fn first_page(
+        userid: impl Into<String>,
+        begin_time: i64,
+        end_time: i64,
+        limit: i64,
+    ) -> Self {
+        Self {
+            userid: userid.into(),
+            cursor: String::new(),
+            begin_time,
+            end_time,
+            limit,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("meeting user id", &self.userid)?;
+        validate_work_time_range("meeting query", self.begin_time, self.end_time)?;
+        if self.end_time - self.begin_time > 30 * 24 * 60 * 60 {
+            return Err(WechatError::Config(
+                "work meeting query range cannot exceed 30 days".to_string(),
+            ));
+        }
+        if !(1..=100).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "work meeting query limit must be between 1 and 100".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingCreateResponse {
     #[serde(default)]
@@ -18683,9 +19054,35 @@ pub struct WorkMeetingCreateResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub meetingid: Option<i64>,
+    pub meetingid: Option<String>,
+    #[serde(default)]
+    pub excess_users: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMeetingCreateResponse {
+    pub fn has_excess_users(&self) -> bool {
+        !self.excess_users.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMeetingUpdateResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub excess_users: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkMeetingUpdateResponse {
+    pub fn has_excess_users(&self) -> bool {
+        !self.excess_users.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18711,6 +19108,8 @@ pub struct WorkMeetingGetInfoResponse {
     #[serde(default)]
     pub creator_userid: Option<String>,
     #[serde(default)]
+    pub admin_userid: Option<String>,
+    #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
     pub reserve_meeting_start: Option<i64>,
@@ -18723,6 +19122,10 @@ pub struct WorkMeetingGetInfoResponse {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
+    pub location: Option<String>,
+    #[serde(default)]
+    pub agentid: Option<i64>,
+    #[serde(default)]
     pub main_department: Option<i64>,
     #[serde(default, rename = "type")]
     pub meeting_type: Option<i64>,
@@ -18732,6 +19135,12 @@ pub struct WorkMeetingGetInfoResponse {
     pub remind_time: Option<i64>,
     #[serde(default)]
     pub attendees: Option<WorkMeetingAttendees>,
+    #[serde(default)]
+    pub settings: Option<WorkMeetingSettingsRequest>,
+    #[serde(default)]
+    pub cal_id: Option<String>,
+    #[serde(default)]
+    pub reminders: Option<WorkMeetingRemindersRequest>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -18886,6 +19295,173 @@ pub struct WorkMeetingRoomBookingByIdRequest {
     pub booking_id: String,
 }
 
+impl WorkMeetingRoomCoordinate {
+    pub fn validate(&self) -> Result<()> {
+        let latitude = self.latitude.parse::<f64>().map_err(|_| {
+            WechatError::Config("work meetingroom latitude must be numeric".to_string())
+        })?;
+        let longitude = self.longitude.parse::<f64>().map_err(|_| {
+            WechatError::Config("work meetingroom longitude must be numeric".to_string())
+        })?;
+        if !latitude.is_finite()
+            || !longitude.is_finite()
+            || !(-90.0..=90.0).contains(&latitude)
+            || !(-180.0..=180.0).contains(&longitude)
+        {
+            return Err(WechatError::Config(
+                "work meetingroom coordinates are outside valid latitude/longitude bounds"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_work_meetingroom_profile(
+    name: &str,
+    capacity: i64,
+    city: Option<&str>,
+    building: Option<&str>,
+    floor: Option<&str>,
+    equipment: &[i64],
+    coordinate: Option<&WorkMeetingRoomCoordinate>,
+) -> Result<()> {
+    let name_length = name.chars().count();
+    if name.trim().is_empty() || name_length > 30 {
+        return Err(WechatError::Config(
+            "work meetingroom name must contain 1 to 30 characters".to_string(),
+        ));
+    }
+    validate_work_positive_number("meetingroom capacity", capacity)?;
+    validate_work_meetingroom_location(city, building, floor)?;
+    validate_work_meetingroom_equipment(equipment)?;
+    if let Some(coordinate) = coordinate {
+        coordinate.validate()?;
+    }
+    Ok(())
+}
+
+impl WorkMeetingRoomAddRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_profile(
+            &self.name,
+            self.capacity,
+            self.city.as_deref(),
+            self.building.as_deref(),
+            self.floor.as_deref(),
+            &self.equipment,
+            self.coordinate.as_ref(),
+        )
+    }
+}
+
+impl WorkMeetingRoomEditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_id(self.meetingroom_id)?;
+        validate_work_meetingroom_profile(
+            &self.name,
+            self.capacity,
+            self.city.as_deref(),
+            self.building.as_deref(),
+            self.floor.as_deref(),
+            &self.equipment,
+            self.coordinate.as_ref(),
+        )
+    }
+}
+
+impl WorkMeetingRoomListRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_location(
+            self.city.as_deref(),
+            self.building.as_deref(),
+            self.floor.as_deref(),
+        )?;
+        validate_work_meetingroom_equipment(&self.equipment)
+    }
+}
+
+impl WorkMeetingRoomGetBookingInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(meetingroom_id) = self.meetingroom_id {
+            validate_work_meetingroom_id(meetingroom_id)?;
+        }
+        match (self.start_time, self.end_time) {
+            (Some(start_time), Some(end_time)) => {
+                validate_work_time_range("meetingroom booking query", start_time, end_time)?;
+            }
+            (None, None) => {}
+            _ => {
+                return Err(WechatError::Config(
+                    "work meetingroom booking query start_time and end_time must be supplied together"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_work_meetingroom_location(
+            self.city.as_deref(),
+            self.building.as_deref(),
+            self.floor.as_deref(),
+        )
+    }
+}
+
+impl WorkMeetingRoomBookRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_id(self.meetingroom_id)?;
+        validate_work_time_range("meetingroom booking", self.start_time, self.end_time)?;
+        if self.end_time - self.start_time < 30 * 60
+            || self.start_time % (30 * 60) != 0
+            || self.end_time % (30 * 60) != 0
+        {
+            return Err(WechatError::Config(
+                "work meetingroom bookings must use 30-minute boundaries and last at least 30 minutes"
+                    .to_string(),
+            ));
+        }
+        validate_work_oa_identifier("meetingroom booker", &self.booker)?;
+        validate_work_optional_non_empty("meetingroom subject", self.subject.as_deref())?;
+        if self.attendees.iter().any(|userid| userid.trim().is_empty())
+            || has_duplicate_strings(&self.attendees)
+        {
+            return Err(WechatError::Config(
+                "work meetingroom attendees must contain unique non-empty user ids".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkMeetingRoomBookByScheduleRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_id(self.meetingroom_id)?;
+        validate_work_oa_identifier("meetingroom schedule id", &self.schedule_id)?;
+        validate_work_oa_identifier("meetingroom booker", &self.booker)
+    }
+}
+
+impl WorkMeetingRoomBookByMeetingRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_id(self.meetingroom_id)?;
+        validate_work_oa_identifier("meetingroom meeting id", &self.meetingid)?;
+        validate_work_oa_identifier("meetingroom booker", &self.booker)
+    }
+}
+
+impl WorkMeetingRoomCancelBookRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_oa_identifier("meetingroom meeting id", &self.meeting_id)?;
+        validate_work_binary_option("keep_schedule", self.keep_schedule)
+    }
+}
+
+impl WorkMeetingRoomBookingByIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_meetingroom_id(self.meetingroom_id)?;
+        validate_work_oa_identifier("meetingroom booking id", &self.booking_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMeetingRoomAddResponse {
     #[serde(default)]
@@ -18994,6 +19570,12 @@ pub struct WorkMeetingRoomLinkedBookResponse {
     pub conflict_date: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMeetingRoomLinkedBookResponse {
+    pub fn has_conflicts(&self) -> bool {
+        !self.conflict_date.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31468,36 +32050,57 @@ mod tests {
     #[test]
     fn serializes_work_oa_meeting_meetingroom_and_wedoc_requests() {
         let meeting = serde_json::to_value(WorkMeetingCreateRequest {
-            creator_userid: "creator".to_string(),
+            admin_userid: "creator".to_string(),
             title: "Weekly".to_string(),
             meeting_start: 1_800_000_000,
             meeting_duration: 60,
-            description: "sync".to_string(),
-            meeting_type: 1,
-            remind_time: 15,
+            description: Some("sync".to_string()),
+            location: Some("Room A".to_string()),
             agentid: 100001,
             attendees: WorkMeetingAttendeesRequest {
                 userids: vec!["user".to_string()],
                 extra: Value::Null,
             },
+            settings: Some(WorkMeetingSettingsRequest {
+                remind_scope: Some(1),
+                enable_waiting_room: Some(1),
+                hosts: Some(WorkMeetingAttendeesRequest {
+                    userids: vec!["creator".to_string()],
+                    extra: Value::Null,
+                }),
+                ..Default::default()
+            }),
+            cal_id: Some("calendar-1".to_string()),
+            reminders: Some(WorkMeetingRemindersRequest {
+                is_repeat: Some(0),
+                remind_before: vec![15],
+                ..Default::default()
+            }),
+            extra: Value::Null,
         })
         .unwrap();
-        assert_eq!(meeting["creator_userid"], "creator");
-        assert_eq!(meeting["type"], 1);
-        assert_eq!(meeting["attendees"]["userids"][0], "user");
+        assert_eq!(meeting["admin_userid"], "creator");
+        assert_eq!(meeting["settings"]["enable_waiting_room"], 1);
+        assert_eq!(meeting["attendees"]["userid"][0], "user");
+        assert!(meeting["attendees"].get("userids").is_none());
 
         let update = serde_json::to_value(WorkMeetingUpdateRequest {
             meetingid: "123".to_string(),
-            title: "Weekly updated".to_string(),
-            meeting_start: 1_800_000_300,
-            meeting_duration: 30,
-            description: "sync".to_string(),
-            meeting_type: 1,
-            remind_time: 10,
-            attendees: WorkMeetingAttendeesRequest {
+            admin_userid: None,
+            title: Some("Weekly updated".to_string()),
+            meeting_start: Some(1_800_000_300),
+            meeting_duration: Some(30),
+            description: Some("sync".to_string()),
+            location: None,
+            agentid: None,
+            attendees: Some(WorkMeetingAttendeesRequest {
                 userids: vec!["user".to_string()],
                 extra: Value::Null,
-            },
+            }),
+            settings: None,
+            cal_id: None,
+            reminders: None,
+            extra: Value::Null,
         })
         .unwrap();
         assert_eq!(update["meetingid"], "123");
@@ -31612,13 +32215,100 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_meeting_and_meetingroom_lifecycle() {
+        let create: WorkMeetingCreateRequest = serde_json::from_value(json!({
+            "admin_userid": "admin",
+            "title": "Production review",
+            "meeting_start": 1_800_000_000_i64,
+            "meeting_duration": 3600,
+            "agentid": 100001,
+            "attendees": { "userid": ["admin", "operator"] },
+            "settings": {
+                "password": "123456",
+                "enable_waiting_room": 1,
+                "enable_enter_mute": 2,
+                "hosts": { "userid": ["admin"] }
+            },
+            "reminders": {
+                "is_repeat": 1,
+                "repeat_type": 1,
+                "repeat_until": 1_800_604_800_i64,
+                "repeat_interval": 1,
+                "remind_before": [15, 30]
+            }
+        }))
+        .unwrap();
+        create.validate().unwrap();
+
+        let legacy_attendees: WorkMeetingAttendeesRequest =
+            serde_json::from_value(json!({ "userids": ["legacy-user"] })).unwrap();
+        assert_eq!(legacy_attendees.userids, ["legacy-user"]);
+        assert_eq!(
+            serde_json::to_value(legacy_attendees).unwrap()["userid"][0],
+            "legacy-user"
+        );
+
+        let duplicate_attendees: WorkMeetingCreateRequest = serde_json::from_value(json!({
+            "admin_userid": "admin",
+            "title": "Review",
+            "meeting_start": 1_800_000_000_i64,
+            "meeting_duration": 3600,
+            "agentid": 100001,
+            "attendees": { "userid": ["admin", "admin"] }
+        }))
+        .unwrap();
+        assert!(duplicate_attendees.validate().is_err());
+
+        let empty_update: WorkMeetingUpdateRequest =
+            serde_json::from_value(json!({ "meetingid": "meeting-1" })).unwrap();
+        assert!(empty_update.validate().is_err());
+
+        let first_page = WorkMeetingGetUserMeetingIdRequest::first_page("admin", 1, 2_592_002, 100);
+        assert!(first_page.validate().is_err());
+
+        let incomplete_location = WorkMeetingRoomListRequest {
+            city: Some("Shanghai".to_string()),
+            building: None,
+            floor: None,
+            equipment: Vec::new(),
+        };
+        assert!(incomplete_location.validate().is_err());
+
+        let invalid_coordinate = WorkMeetingRoomCoordinate {
+            latitude: "91".to_string(),
+            longitude: "121.5".to_string(),
+            extra: Value::Null,
+        };
+        assert!(invalid_coordinate.validate().is_err());
+
+        let invalid_booking = WorkMeetingRoomBookRequest {
+            meetingroom_id: 7,
+            subject: Some("Review".to_string()),
+            start_time: 1_800_000_001,
+            end_time: 1_800_003_600,
+            booker: "admin".to_string(),
+            attendees: vec!["operator".to_string()],
+        };
+        assert!(invalid_booking.validate().is_err());
+
+        let linked: WorkMeetingRoomLinkedBookResponse = serde_json::from_value(json!({
+            "booking_id": "booking-1",
+            "conflict_date": [1_800_000_000_i64]
+        }))
+        .unwrap();
+        assert!(linked.has_conflicts());
+    }
+
+    #[test]
     fn deserializes_work_oa_meeting_meetingroom_and_wedoc_responses() {
         let meeting_create: WorkMeetingCreateResponse = serde_json::from_value(json!({
-            "meetingid": 123,
+            "meetingid": "123",
+            "excess_users": ["overflow-user"],
             "request_id": "meeting-create"
         }))
         .unwrap();
-        assert_eq!(meeting_create.meetingid, Some(123));
+        assert_eq!(meeting_create.meetingid.as_deref(), Some("123"));
+        assert!(meeting_create.has_excess_users());
         assert_eq!(meeting_create.extra["request_id"], "meeting-create");
 
         let meeting_ids: WorkMeetingGetUserMeetingIdResponse = serde_json::from_value(json!({
@@ -31633,16 +32323,28 @@ mod tests {
 
         let meeting_info: WorkMeetingGetInfoResponse = serde_json::from_value(json!({
             "creator_userid": "creator",
+            "admin_userid": "admin",
             "title": "Weekly",
             "reserve_meeting_start": 1_800_000_000,
             "reserve_meeting_duration": 60,
             "meeting_start": 1_800_000_000,
             "meeting_duration": 60,
             "description": "sync",
+            "location": "Room A",
+            "agentid": 100001,
             "main_department": 1,
             "type": 1,
             "status": 2,
             "remind_time": 15,
+            "settings": {
+                "enable_waiting_room": 1,
+                "hosts": { "userid": ["admin"] }
+            },
+            "cal_id": "calendar-1",
+            "reminders": {
+                "is_repeat": 0,
+                "remind_before": [15]
+            },
             "attendees": {
                 "member": [{
                     "userid": "user",
@@ -31663,6 +32365,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(meeting_info.creator_userid.as_deref(), Some("creator"));
+        assert_eq!(meeting_info.admin_userid.as_deref(), Some("admin"));
+        assert_eq!(meeting_info.location.as_deref(), Some("Room A"));
         assert_eq!(meeting_info.meeting_type, Some(1));
         let attendees = meeting_info.attendees.expect("meeting attendees");
         assert_eq!(attendees.member[0].userid.as_deref(), Some("user"));
