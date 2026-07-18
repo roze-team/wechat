@@ -3106,13 +3106,14 @@ impl Work {
     pub async fn msg_audit_check_single_agree(
         &self,
         access_token: impl Into<String>,
-        info: Vec<Value>,
+        request: WorkMsgAuditCheckSingleAgreeRequest,
     ) -> Result<WorkMsgAuditAgreeResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/msgaudit/check_single_agree",
                 Some(access_token.into()),
-                json!({ "info": info }),
+                request,
             )
             .await
     }
@@ -12007,6 +12008,58 @@ pub struct MsgAuditChatDataRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditCheckSingleAgreeRequest {
+    pub info: Vec<WorkMsgAuditConversationPair>,
+}
+
+impl WorkMsgAuditCheckSingleAgreeRequest {
+    pub fn new(info: impl IntoIterator<Item = WorkMsgAuditConversationPair>) -> Self {
+        Self {
+            info: info.into_iter().collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.info.is_empty() {
+            return Err(WechatError::Config(
+                "message-audit agreement query requires at least one conversation pair".to_string(),
+            ));
+        }
+        if self.info.iter().any(|item| item.userid.trim().is_empty()) {
+            return Err(WechatError::Config(
+                "message-audit agreement query userid cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .info
+            .iter()
+            .any(|item| item.external_openid.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "message-audit agreement query external OpenID cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkMsgAuditConversationPair {
+    pub userid: String,
+    #[serde(rename = "exteranalopenid")]
+    pub external_openid: String,
+}
+
+impl WorkMsgAuditConversationPair {
+    pub fn new(userid: impl Into<String>, external_openid: impl Into<String>) -> Self {
+        Self {
+            userid: userid.into(),
+            external_openid: external_openid.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMsgAuditPermitUsersResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -12092,12 +12145,71 @@ pub struct WorkMsgAuditAgreeResponse {
 pub struct WorkMsgAuditAgreeInfo {
     #[serde(default)]
     pub userid: Option<String>,
-    #[serde(default)]
-    pub exteranalopenid: Option<String>,
+    #[serde(default, rename = "exteranalopenid")]
+    pub external_openid: Option<String>,
     #[serde(default)]
     pub agree_status: Option<String>,
+    #[serde(default)]
+    pub status_change_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMsgAuditAgreeStatusKind {
+    Agree,
+    Disagree,
+    Other,
+}
+
+impl WorkMsgAuditAgreeStatusKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("Agree") {
+            Self::Agree
+        } else if value.eq_ignore_ascii_case("Disagree") {
+            Self::Disagree
+        } else {
+            Self::Other
+        }
+    }
+
+    pub fn is_agreed(self) -> bool {
+        matches!(self, Self::Agree)
+    }
+
+    pub fn is_disagreed(self) -> bool {
+        matches!(self, Self::Disagree)
+    }
+}
+
+impl WorkMsgAuditAgreeInfo {
+    pub fn status_kind(&self) -> Option<WorkMsgAuditAgreeStatusKind> {
+        self.agree_status
+            .as_deref()
+            .map(WorkMsgAuditAgreeStatusKind::from_code)
+    }
+
+    pub fn is_agreed(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkMsgAuditAgreeStatusKind::is_agreed)
+    }
+
+    pub fn is_disagreed(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkMsgAuditAgreeStatusKind::is_disagreed)
+    }
+}
+
+impl WorkMsgAuditAgreeResponse {
+    pub fn all_agreed(&self) -> bool {
+        !self.agreeinfo.is_empty() && self.agreeinfo.iter().all(WorkMsgAuditAgreeInfo::is_agreed)
+    }
+
+    pub fn has_disagreement(&self) -> bool {
+        self.agreeinfo
+            .iter()
+            .any(WorkMsgAuditAgreeInfo::is_disagreed)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26338,7 +26450,7 @@ mod tests {
     }
 
     #[test]
-    fn serializes_msg_audit_chat_data_request() {
+    fn serializes_msg_audit_requests_and_responses() {
         let value = serde_json::to_value(MsgAuditChatDataRequest {
             seq: 1,
             limit: 100,
@@ -26353,10 +26465,33 @@ mod tests {
         assert_eq!(value["timeout"], 10);
         assert!(value.get("proxy").is_none());
 
-        let single_agree = json!({
-            "info": [{ "userid": "user", "exteranalopenid": "openid" }]
-        });
+        let request =
+            WorkMsgAuditCheckSingleAgreeRequest::new([WorkMsgAuditConversationPair::new(
+                "user", "openid",
+            )]);
+        request.validate().unwrap();
+        let single_agree = serde_json::to_value(request).unwrap();
         assert_eq!(single_agree["info"][0]["userid"], "user");
+        assert_eq!(single_agree["info"][0]["exteranalopenid"], "openid");
+        assert!(single_agree["info"][0].get("external_openid").is_none());
+
+        assert!(WorkMsgAuditCheckSingleAgreeRequest::new([])
+            .validate()
+            .is_err());
+        assert!(
+            WorkMsgAuditCheckSingleAgreeRequest::new([WorkMsgAuditConversationPair::new(
+                " ", "openid"
+            )])
+            .validate()
+            .is_err()
+        );
+        assert!(
+            WorkMsgAuditCheckSingleAgreeRequest::new([WorkMsgAuditConversationPair::new(
+                "user", ""
+            )])
+            .validate()
+            .is_err()
+        );
 
         let room_agree = json!({ "roomid": "room" });
         assert_eq!(room_agree["roomid"], "room");
@@ -26411,19 +26546,50 @@ mod tests {
                 "userid": "user",
                 "exteranalopenid": "openid",
                 "agree_status": "Agree",
-                "agree_time": 1_720_000_003
+                "status_change_time": 1_720_000_003,
+                "source": "single"
             }],
             "agree_total": 1
         }))
         .unwrap();
+        assert!(agree.all_agreed());
+        assert!(!agree.has_disagreement());
         assert_eq!(agree.agreeinfo[0].userid.as_deref(), Some("user"));
         assert_eq!(
-            agree.agreeinfo[0].exteranalopenid.as_deref(),
+            agree.agreeinfo[0].external_openid.as_deref(),
             Some("openid")
         );
-        assert_eq!(agree.agreeinfo[0].agree_status.as_deref(), Some("Agree"));
-        assert_eq!(agree.agreeinfo[0].extra["agree_time"], 1_720_000_003);
+        assert_eq!(
+            agree.agreeinfo[0].status_kind(),
+            Some(WorkMsgAuditAgreeStatusKind::Agree)
+        );
+        assert_eq!(agree.agreeinfo[0].status_change_time, Some(1_720_000_003));
+        assert_eq!(agree.agreeinfo[0].extra["source"], "single");
         assert_eq!(agree.extra["agree_total"], 1);
+
+        let room_agree: WorkMsgAuditAgreeResponse = serde_json::from_value(json!({
+            "agreeinfo": [{
+                "exteranalopenid": "external",
+                "agree_status": "Disagree",
+                "status_change_time": 1_720_000_004
+            }, {
+                "exteranalopenid": "future",
+                "agree_status": "Pending"
+            }]
+        }))
+        .unwrap();
+        assert!(room_agree.agreeinfo[0].userid.is_none());
+        assert!(room_agree.has_disagreement());
+        assert!(!room_agree.all_agreed());
+        assert_eq!(
+            room_agree.agreeinfo[1].status_kind(),
+            Some(WorkMsgAuditAgreeStatusKind::Other)
+        );
+
+        let empty_agree: WorkMsgAuditAgreeResponse =
+            serde_json::from_value(json!({ "agreeinfo": [] })).unwrap();
+        assert!(!empty_agree.all_agreed());
+        assert!(!empty_agree.has_disagreement());
 
         let robot: WorkMsgAuditRobotInfoResponse = serde_json::from_value(json!({
             "errcode": 0,

@@ -214,6 +214,18 @@ Implemented on 2026-07-18 in Roze WeChat Work media depth:
   fields are typed; terminal and successful-result helpers avoid raw status
   checks in application code.
 
+Implemented on 2026-07-18 in Roze WeChat Work message-audit depth:
+
+- Single-chat agreement queries now use typed internal-member/external-contact
+  conversation pairs and reject empty query sets or blank identifiers before
+  sending a request.
+- Agreement responses now retain the upstream `status_change_time`, expose
+  semantic agree/disagree/unknown status classification, and provide
+  all-agreed and any-disagreement helpers for compliance decisions.
+- The historical upstream `exteranalopenid` spelling remains the wire contract,
+  while Rust callers use the correctly named `external_openid` field; group
+  agreement responses remain valid without a member `userid`.
+
 Implemented on 2026-07-17 in Roze WeChat Work WeDoc depth:
 
 - OA WeDoc now covers document create/rename/delete/base-info/share and
