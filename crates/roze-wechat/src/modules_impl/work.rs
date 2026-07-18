@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, to_value, Value};
+use serde_json::{json, to_value, Map, Value};
 
 use crate::{
     config::Platform,
@@ -4507,6 +4507,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetRecordsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetRecordsResponse> {
+        request.validate_for_add()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_records",
@@ -4521,6 +4522,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetGetRecordsRequest,
     ) -> Result<WorkWeDocSmartSheetGetRecordsResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_records",
@@ -4535,6 +4537,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetRecordsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetRecordsResponse> {
+        request.validate_for_update()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_records",
@@ -4549,6 +4552,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetDeleteRecordsRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_records",
@@ -17508,7 +17512,295 @@ pub struct WorkWeDocSmartSheetRecordsMutationRequest {
     pub sheet_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_type: Option<String>,
-    pub records: Vec<Value>,
+    pub records: Vec<WorkWeDocSmartSheetRecordMutation>,
+}
+
+impl WorkWeDocSmartSheetRecordsMutationRequest {
+    pub fn by_field_id(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        records: impl IntoIterator<Item = WorkWeDocSmartSheetRecordMutation>,
+    ) -> Self {
+        Self::new(
+            docid,
+            sheet_id,
+            WorkWeDocSmartSheetCellKeyTypeKind::FieldId,
+            records,
+        )
+    }
+
+    pub fn by_field_title(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        records: impl IntoIterator<Item = WorkWeDocSmartSheetRecordMutation>,
+    ) -> Self {
+        Self::new(
+            docid,
+            sheet_id,
+            WorkWeDocSmartSheetCellKeyTypeKind::FieldTitle,
+            records,
+        )
+    }
+
+    fn new(
+        docid: impl Into<String>,
+        sheet_id: impl Into<String>,
+        key_type: WorkWeDocSmartSheetCellKeyTypeKind,
+        records: impl IntoIterator<Item = WorkWeDocSmartSheetRecordMutation>,
+    ) -> Self {
+        Self {
+            docid: docid.into(),
+            sheet_id: sheet_id.into(),
+            key_type: key_type.as_code().map(str::to_string),
+            records: records.into_iter().collect(),
+        }
+    }
+
+    pub fn key_type_kind(&self) -> Option<WorkWeDocSmartSheetCellKeyTypeKind> {
+        self.key_type
+            .as_deref()
+            .map(WorkWeDocSmartSheetCellKeyTypeKind::from_code)
+    }
+
+    pub fn validate_for_add(&self) -> Result<()> {
+        self.validate_common()?;
+        for record in &self.records {
+            record.validate_for_add()?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_update(&self) -> Result<()> {
+        self.validate_common()?;
+        for record in &self.records {
+            record.validate_for_update()?;
+        }
+        Ok(())
+    }
+
+    fn validate_common(&self) -> Result<()> {
+        validate_wedoc_smartsheet_record_scope(&self.docid, &self.sheet_id)?;
+        if self.records.is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record mutation requires at least one record".to_string(),
+            ));
+        }
+        if self.records.len() > 500 {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record mutation supports at most 500 records".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetCellKeyTypeKind {
+    FieldTitle,
+    FieldId,
+    Other,
+}
+
+impl WorkWeDocSmartSheetCellKeyTypeKind {
+    pub const fn as_code(self) -> Option<&'static str> {
+        match self {
+            Self::FieldTitle => Some("CELL_VALUE_KEY_TYPE_FIELD_TITLE"),
+            Self::FieldId => Some("CELL_VALUE_KEY_TYPE_FIELD_ID"),
+            Self::Other => None,
+        }
+    }
+
+    pub fn from_code(value: &str) -> Self {
+        match value {
+            "CELL_VALUE_KEY_TYPE_FIELD_TITLE" => Self::FieldTitle,
+            "CELL_VALUE_KEY_TYPE_FIELD_ID" => Self::FieldId,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetRecordMutation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub record_id: Option<String>,
+    pub values: Map<String, Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetRecordMutation {
+    pub fn add() -> Self {
+        Self::default()
+    }
+
+    pub fn update(record_id: impl Into<String>) -> Self {
+        Self {
+            record_id: Some(record_id.into()),
+            ..Self::default()
+        }
+    }
+
+    pub fn raw(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.values.insert(key.into(), value);
+        self
+    }
+
+    pub fn text(
+        self,
+        key: impl Into<String>,
+        texts: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        let values = texts
+            .into_iter()
+            .map(|text| json!({"type": "text", "text": text.into()}))
+            .collect();
+        self.raw(key, Value::Array(values))
+    }
+
+    pub fn number(self, key: impl Into<String>, number: f64) -> Self {
+        self.raw(key, json!(number))
+    }
+
+    pub fn checkbox(self, key: impl Into<String>, checked: bool) -> Self {
+        self.raw(key, Value::Bool(checked))
+    }
+
+    pub fn date_time_millis(self, key: impl Into<String>, timestamp_millis: i64) -> Self {
+        self.raw(key, Value::String(timestamp_millis.to_string()))
+    }
+
+    pub fn users(
+        self,
+        key: impl Into<String>,
+        userids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        let values = userids
+            .into_iter()
+            .map(|userid| json!({"user_id": userid.into()}))
+            .collect();
+        self.raw(key, Value::Array(values))
+    }
+
+    pub fn url(
+        self,
+        key: impl Into<String>,
+        text: impl Into<String>,
+        link: impl Into<String>,
+    ) -> Self {
+        self.raw(
+            key,
+            json!([{"type": "url", "text": text.into(), "link": link.into()}]),
+        )
+    }
+
+    pub fn options(
+        self,
+        key: impl Into<String>,
+        options: impl IntoIterator<Item = WorkWeDocSmartSheetSelectOption>,
+    ) -> Self {
+        self.raw(
+            key,
+            to_value(options.into_iter().collect::<Vec<_>>()).unwrap(),
+        )
+    }
+
+    pub fn images(
+        self,
+        key: impl Into<String>,
+        images: impl IntoIterator<Item = WorkWeDocSmartSheetCellImage>,
+    ) -> Self {
+        self.raw(
+            key,
+            to_value(images.into_iter().collect::<Vec<_>>()).unwrap(),
+        )
+    }
+
+    pub fn attachments(
+        self,
+        key: impl Into<String>,
+        attachments: impl IntoIterator<Item = WorkWeDocSmartSheetCellAttachment>,
+    ) -> Self {
+        self.raw(
+            key,
+            to_value(attachments.into_iter().collect::<Vec<_>>()).unwrap(),
+        )
+    }
+
+    pub fn location(
+        self,
+        key: impl Into<String>,
+        location: WorkWeDocSmartSheetCellLocation,
+    ) -> Self {
+        self.raw(key, json!([location]))
+    }
+
+    fn validate_for_add(&self) -> Result<()> {
+        if self.values.is_empty() {
+            return Err(WechatError::Config(
+                "added WeDoc smart-sheet record values cannot be empty".to_string(),
+            ));
+        }
+        validate_wedoc_smartsheet_record_keys(&self.values)
+    }
+
+    fn validate_for_update(&self) -> Result<()> {
+        if self
+            .record_id
+            .as_deref()
+            .is_none_or(|record_id| record_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "updated WeDoc smart-sheet record id cannot be empty".to_string(),
+            ));
+        }
+        self.validate_for_add()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetCellImage {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetCellAttachment {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_ext: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc_type: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetCellLocation {
+    pub id: String,
+    pub latitude: String,
+    pub longitude: String,
+    pub title: String,
+    #[serde(default = "default_wedoc_location_source_type")]
+    pub source_type: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17526,7 +17818,7 @@ pub struct WorkWeDocSmartSheetGetRecordsRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub field_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sort: Vec<Value>,
+    pub sort: Vec<WorkWeDocSmartSheetRecordSort>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub offset: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -17534,7 +17826,403 @@ pub struct WorkWeDocSmartSheetGetRecordsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ver: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub filter_spec: Option<Value>,
+    pub filter_spec: Option<WorkWeDocSmartSheetRecordFilter>,
+}
+
+impl WorkWeDocSmartSheetGetRecordsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_record_scope(&self.docid, &self.sheet_id)?;
+        if self.offset.is_some_and(|offset| offset < 0) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record query offset cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .limit
+            .is_some_and(|limit| !(1..=1_000).contains(&limit))
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record query limit must be between 1 and 1000".to_string(),
+            ));
+        }
+        if !self.sort.is_empty() && self.filter_spec.is_some() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record query cannot combine sort and filter".to_string(),
+            ));
+        }
+        for sort in &self.sort {
+            sort.validate()?;
+        }
+        if let Some(filter) = &self.filter_spec {
+            filter.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetRecordSort {
+    pub field_id: String,
+    pub desc: bool,
+}
+
+impl WorkWeDocSmartSheetRecordSort {
+    pub fn asc(field_id: impl Into<String>) -> Self {
+        Self {
+            field_id: field_id.into(),
+            desc: false,
+        }
+    }
+
+    pub fn desc(field_id: impl Into<String>) -> Self {
+        Self {
+            field_id: field_id.into(),
+            desc: true,
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.field_id.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record sort field id cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetRecordFilter {
+    pub conjunction: String,
+    pub conditions: Vec<WorkWeDocSmartSheetRecordFilterCondition>,
+}
+
+impl WorkWeDocSmartSheetRecordFilter {
+    pub fn and(
+        conditions: impl IntoIterator<Item = WorkWeDocSmartSheetRecordFilterCondition>,
+    ) -> Self {
+        Self {
+            conjunction: "CONJUNCTION_AND".to_string(),
+            conditions: conditions.into_iter().collect(),
+        }
+    }
+
+    pub fn or(
+        conditions: impl IntoIterator<Item = WorkWeDocSmartSheetRecordFilterCondition>,
+    ) -> Self {
+        Self {
+            conjunction: "CONJUNCTION_OR".to_string(),
+            conditions: conditions.into_iter().collect(),
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.conditions.is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record filter requires at least one condition".to_string(),
+            ));
+        }
+        for condition in &self.conditions {
+            condition.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkWeDocSmartSheetRecordFilterCondition {
+    pub field_id: String,
+    pub operator: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub string_value: Option<WorkWeDocSmartSheetStringFilterValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number_value: Option<WorkWeDocSmartSheetNumberFilterValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bool_value: Option<WorkWeDocSmartSheetBoolFilterValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_time_value: Option<WorkWeDocSmartSheetDateTimeFilterValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_value: Option<WorkWeDocSmartSheetStringFilterValue>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDocSmartSheetRecordFilterCondition {
+    pub fn string(
+        field_id: impl Into<String>,
+        operator: WorkWeDocSmartSheetFilterOperatorKind,
+        values: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            field_id: field_id.into(),
+            operator: operator.as_code().unwrap_or_default().to_string(),
+            string_value: Some(WorkWeDocSmartSheetStringFilterValue {
+                value: values.into_iter().map(Into::into).collect(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn number(
+        field_id: impl Into<String>,
+        operator: WorkWeDocSmartSheetFilterOperatorKind,
+        values: impl IntoIterator<Item = f64>,
+    ) -> Self {
+        Self {
+            field_id: field_id.into(),
+            operator: operator.as_code().unwrap_or_default().to_string(),
+            number_value: Some(WorkWeDocSmartSheetNumberFilterValue {
+                value: values.into_iter().collect(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn boolean(
+        field_id: impl Into<String>,
+        operator: WorkWeDocSmartSheetFilterOperatorKind,
+        value: bool,
+    ) -> Self {
+        Self {
+            field_id: field_id.into(),
+            operator: operator.as_code().unwrap_or_default().to_string(),
+            bool_value: Some(WorkWeDocSmartSheetBoolFilterValue { value }),
+            ..Self::default()
+        }
+    }
+
+    pub fn users(
+        field_id: impl Into<String>,
+        operator: WorkWeDocSmartSheetFilterOperatorKind,
+        values: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            field_id: field_id.into(),
+            operator: operator.as_code().unwrap_or_default().to_string(),
+            user_value: Some(WorkWeDocSmartSheetStringFilterValue {
+                value: values.into_iter().map(Into::into).collect(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn date_time(
+        field_id: impl Into<String>,
+        operator: WorkWeDocSmartSheetFilterOperatorKind,
+        date_time_type: WorkWeDocSmartSheetFilterDateTimeTypeKind,
+        values: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            field_id: field_id.into(),
+            operator: operator.as_code().unwrap_or_default().to_string(),
+            date_time_value: Some(WorkWeDocSmartSheetDateTimeFilterValue {
+                date_time_type: date_time_type.as_code().unwrap_or_default().to_string(),
+                value: values.into_iter().map(Into::into).collect(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    pub fn empty(
+        field_id: impl Into<String>,
+        operator: WorkWeDocSmartSheetFilterOperatorKind,
+    ) -> Self {
+        Self {
+            field_id: field_id.into(),
+            operator: operator.as_code().unwrap_or_default().to_string(),
+            ..Self::default()
+        }
+    }
+
+    pub fn operator_kind(&self) -> WorkWeDocSmartSheetFilterOperatorKind {
+        WorkWeDocSmartSheetFilterOperatorKind::from_code(&self.operator)
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.field_id.trim().is_empty() || self.operator.trim().is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet filter field id and operator cannot be empty".to_string(),
+            ));
+        }
+        let value_count = [
+            self.string_value.is_some(),
+            self.number_value.is_some(),
+            self.bool_value.is_some(),
+            self.date_time_value.is_some(),
+            self.user_value.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        if value_count > 1 {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet filter condition supports one value kind".to_string(),
+            ));
+        }
+        let operator = self.operator_kind();
+        if value_count == 0
+            && !matches!(
+                operator,
+                WorkWeDocSmartSheetFilterOperatorKind::IsEmpty
+                    | WorkWeDocSmartSheetFilterOperatorKind::IsNotEmpty
+            )
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet filter operator requires a typed value".to_string(),
+            ));
+        }
+        if value_count != 0
+            && matches!(
+                operator,
+                WorkWeDocSmartSheetFilterOperatorKind::IsEmpty
+                    | WorkWeDocSmartSheetFilterOperatorKind::IsNotEmpty
+            )
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet empty filter operator cannot include a value".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetFilterOperatorKind {
+    Unknown,
+    Is,
+    IsNot,
+    Contains,
+    DoesNotContain,
+    IsGreater,
+    IsGreaterOrEqual,
+    IsLess,
+    IsLessOrEqual,
+    IsEmpty,
+    IsNotEmpty,
+    Other,
+}
+
+impl WorkWeDocSmartSheetFilterOperatorKind {
+    pub const fn as_code(self) -> Option<&'static str> {
+        Some(match self {
+            Self::Unknown => "OPERATOR_UNKNOWN",
+            Self::Is => "OPERATOR_IS",
+            Self::IsNot => "OPERATOR_IS_NOT",
+            Self::Contains => "OPERATOR_CONTAINS",
+            Self::DoesNotContain => "OPERATOR_DOES_NOT_CONTAIN",
+            Self::IsGreater => "OPERATOR_IS_GREATER",
+            Self::IsGreaterOrEqual => "OPERATOR_IS_GREATER_OR_EQUAL",
+            Self::IsLess => "OPERATOR_IS_LESS",
+            Self::IsLessOrEqual => "OPERATOR_IS_LESS_OR_EQUAL",
+            Self::IsEmpty => "OPERATOR_IS_EMPTY",
+            Self::IsNotEmpty => "OPERATOR_IS_NOT_EMPTY",
+            Self::Other => return None,
+        })
+    }
+
+    pub fn from_code(value: &str) -> Self {
+        match value {
+            "OPERATOR_UNKNOWN" => Self::Unknown,
+            "OPERATOR_IS" => Self::Is,
+            "OPERATOR_IS_NOT" => Self::IsNot,
+            "OPERATOR_CONTAINS" => Self::Contains,
+            "OPERATOR_DOES_NOT_CONTAIN" => Self::DoesNotContain,
+            "OPERATOR_IS_GREATER" => Self::IsGreater,
+            "OPERATOR_IS_GREATER_OR_EQUAL" => Self::IsGreaterOrEqual,
+            "OPERATOR_IS_LESS" => Self::IsLess,
+            "OPERATOR_IS_LESS_OR_EQUAL" => Self::IsLessOrEqual,
+            "OPERATOR_IS_EMPTY" => Self::IsEmpty,
+            "OPERATOR_IS_NOT_EMPTY" => Self::IsNotEmpty,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDocSmartSheetFilterDateTimeTypeKind {
+    DetailDate,
+    DetailDateRange,
+    Today,
+    Tomorrow,
+    Yesterday,
+    CurrentWeek,
+    LastWeek,
+    CurrentMonth,
+    PastSevenDays,
+    NextSevenDays,
+    LastMonth,
+    PastThirtyDays,
+    NextThirtyDays,
+    Other,
+}
+
+impl WorkWeDocSmartSheetFilterDateTimeTypeKind {
+    pub const fn as_code(self) -> Option<&'static str> {
+        Some(match self {
+            Self::DetailDate => "DATE_TIME_TYPE_DETAIL_DATE",
+            Self::DetailDateRange => "DATE_TIME_TYPE_DETAIL_DATE_RANGE",
+            Self::Today => "DATE_TIME_TYPE_TODAY",
+            Self::Tomorrow => "DATE_TIME_TYPE_TOMORROW",
+            Self::Yesterday => "DATE_TIME_TYPE_YESTERDAY",
+            Self::CurrentWeek => "DATE_TIME_TYPE_CURRENT_WEEK",
+            Self::LastWeek => "DATE_TIME_TYPE_LAST_WEEK",
+            Self::CurrentMonth => "DATE_TIME_TYPE_CURRENT_MONTH",
+            Self::PastSevenDays => "DATE_TIME_TYPE_THE_PAST_7_DAYS",
+            Self::NextSevenDays => "DATE_TIME_TYPE_THE_NEXT_7_DAYS",
+            Self::LastMonth => "DATE_TIME_TYPE_LAST_MONTH",
+            Self::PastThirtyDays => "DATE_TIME_TYPE_THE_PAST_30_DAYS",
+            Self::NextThirtyDays => "DATE_TIME_TYPE_THE_NEXT_30_DAYS",
+            Self::Other => return None,
+        })
+    }
+
+    pub fn from_code(value: &str) -> Self {
+        match value {
+            "DATE_TIME_TYPE_DETAIL_DATE" => Self::DetailDate,
+            "DATE_TIME_TYPE_DETAIL_DATE_RANGE" => Self::DetailDateRange,
+            "DATE_TIME_TYPE_TODAY" => Self::Today,
+            "DATE_TIME_TYPE_TOMORROW" => Self::Tomorrow,
+            "DATE_TIME_TYPE_YESTERDAY" => Self::Yesterday,
+            "DATE_TIME_TYPE_CURRENT_WEEK" => Self::CurrentWeek,
+            "DATE_TIME_TYPE_LAST_WEEK" => Self::LastWeek,
+            "DATE_TIME_TYPE_CURRENT_MONTH" => Self::CurrentMonth,
+            "DATE_TIME_TYPE_THE_PAST_7_DAYS" => Self::PastSevenDays,
+            "DATE_TIME_TYPE_THE_NEXT_7_DAYS" => Self::NextSevenDays,
+            "DATE_TIME_TYPE_LAST_MONTH" => Self::LastMonth,
+            "DATE_TIME_TYPE_THE_PAST_30_DAYS" => Self::PastThirtyDays,
+            "DATE_TIME_TYPE_THE_NEXT_30_DAYS" => Self::NextThirtyDays,
+            _ => Self::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetStringFilterValue {
+    pub value: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetNumberFilterValue {
+    pub value: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetBoolFilterValue {
+    pub value: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDocSmartSheetDateTimeFilterValue {
+    #[serde(rename = "type")]
+    pub date_time_type: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub value: Vec<String>,
+}
+
+impl WorkWeDocSmartSheetDateTimeFilterValue {
+    pub fn date_time_type_kind(&self) -> WorkWeDocSmartSheetFilterDateTimeTypeKind {
+        WorkWeDocSmartSheetFilterDateTimeTypeKind::from_code(&self.date_time_type)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17574,7 +18262,7 @@ pub struct WorkWeDocSmartSheetRecord {
     #[serde(default)]
     pub record_id: Option<String>,
     #[serde(default)]
-    pub values: Option<Value>,
+    pub values: Option<Map<String, Value>>,
     #[serde(default)]
     pub create_time: Option<i64>,
     #[serde(default)]
@@ -17588,6 +18276,50 @@ pub struct WorkWeDocSmartSheetDeleteRecordsRequest {
     pub docid: String,
     pub sheet_id: String,
     pub record_ids: Vec<String>,
+}
+
+impl WorkWeDocSmartSheetDeleteRecordsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_record_scope(&self.docid, &self.sheet_id)?;
+        if self.record_ids.is_empty() {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record deletion requires at least one record id".to_string(),
+            ));
+        }
+        if self.record_ids.len() > 500 {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record deletion supports at most 500 record ids".to_string(),
+            ));
+        }
+        if self.record_ids.iter().any(|id| id.trim().is_empty()) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record id cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_smartsheet_record_scope(docid: &str, sheet_id: &str) -> Result<()> {
+    if docid.trim().is_empty() || sheet_id.trim().is_empty() {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet record docid and sheet id cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_smartsheet_record_keys(values: &Map<String, Value>) -> Result<()> {
+    if values.keys().any(|key| key.trim().is_empty()) {
+        return Err(WechatError::Config(
+            "WeDoc smart-sheet record cell key cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+const fn default_wedoc_location_source_type() -> i64 {
+    1
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27852,17 +28584,16 @@ mod tests {
             key_type: Some("CELL_VALUE_KEY_TYPE_FIELD_ID".to_string()),
             field_titles: Vec::new(),
             field_ids: vec!["field-owner".to_string()],
-            sort: vec![json!({ "field_id": "field-owner", "desc": true })],
+            sort: vec![WorkWeDocSmartSheetRecordSort::desc("field-owner")],
             offset: Some(10),
             limit: Some(100),
             ver: Some(7),
-            filter_spec: Some(json!({ "condition": "AND" })),
+            filter_spec: None,
         })
         .unwrap();
         assert!(records.get("field_titles").is_none());
         assert_eq!(records["record_ids"][0], "record");
         assert_eq!(records["sort"][0]["desc"], true);
-        assert_eq!(records["filter_spec"]["condition"], "AND");
 
         let deletes = serde_json::to_value(WorkWeDocSmartSheetDeleteRecordsRequest {
             docid: "doc".to_string(),
@@ -27871,6 +28602,122 @@ mod tests {
         })
         .unwrap();
         assert_eq!(deletes["record_ids"][1], "record-2");
+    }
+
+    #[test]
+    fn serializes_and_validates_work_wedoc_smartsheet_record_mutations() {
+        let add = WorkWeDocSmartSheetRecordsMutationRequest::by_field_id(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetRecordMutation::add()
+                .text("field-title", ["Ship order"])
+                .number("field-score", 98.5)
+                .checkbox("field-done", true)
+                .users("field-owner", ["zhangsan"])
+                .url("field-link", "Order", "https://example.com/orders/1")
+                .options(
+                    "field-status",
+                    [WorkWeDocSmartSheetSelectOption::by_text("Ready")],
+                )],
+        );
+        add.validate_for_add().unwrap();
+        assert_eq!(
+            add.key_type_kind(),
+            Some(WorkWeDocSmartSheetCellKeyTypeKind::FieldId)
+        );
+        let value = serde_json::to_value(add).unwrap();
+        assert_eq!(
+            value["records"][0]["values"]["field-title"][0]["type"],
+            "text"
+        );
+        assert_eq!(
+            value["records"][0]["values"]["field-owner"][0]["user_id"],
+            "zhangsan"
+        );
+
+        let update = WorkWeDocSmartSheetRecordsMutationRequest::by_field_title(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetRecordMutation::update("record-1")
+                .date_time_millis("Due", 1_720_000_000_000)],
+        );
+        update.validate_for_update().unwrap();
+        let value = serde_json::to_value(update).unwrap();
+        assert_eq!(value["records"][0]["record_id"], "record-1");
+        assert_eq!(value["records"][0]["values"]["Due"], "1720000000000");
+
+        let missing_record_id = WorkWeDocSmartSheetRecordsMutationRequest::by_field_id(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetRecordMutation::add().number("field-score", 1.0)],
+        );
+        assert!(missing_record_id.validate_for_update().is_err());
+
+        let empty_values = WorkWeDocSmartSheetRecordsMutationRequest::by_field_id(
+            "doc",
+            "sheet",
+            [WorkWeDocSmartSheetRecordMutation::add()],
+        );
+        assert!(empty_values.validate_for_add().is_err());
+    }
+
+    #[test]
+    fn validates_work_wedoc_smartsheet_record_queries() {
+        let filter = WorkWeDocSmartSheetRecordFilter::and([
+            WorkWeDocSmartSheetRecordFilterCondition::string(
+                "field-status",
+                WorkWeDocSmartSheetFilterOperatorKind::Is,
+                ["Ready"],
+            ),
+            WorkWeDocSmartSheetRecordFilterCondition::boolean(
+                "field-done",
+                WorkWeDocSmartSheetFilterOperatorKind::Is,
+                true,
+            ),
+        ]);
+        let query = WorkWeDocSmartSheetGetRecordsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            view_id: None,
+            record_ids: Vec::new(),
+            key_type: Some("CELL_VALUE_KEY_TYPE_FIELD_ID".to_string()),
+            field_titles: Vec::new(),
+            field_ids: vec!["field-status".to_string()],
+            sort: Vec::new(),
+            offset: Some(0),
+            limit: Some(1_000),
+            ver: None,
+            filter_spec: Some(filter),
+        };
+        query.validate().unwrap();
+        let value = serde_json::to_value(query).unwrap();
+        assert_eq!(value["filter_spec"]["conjunction"], "CONJUNCTION_AND");
+        assert_eq!(
+            value["filter_spec"]["conditions"][0]["string_value"]["value"][0],
+            "Ready"
+        );
+
+        let invalid_query = WorkWeDocSmartSheetGetRecordsRequest {
+            docid: "doc".to_string(),
+            sheet_id: "sheet".to_string(),
+            view_id: None,
+            record_ids: Vec::new(),
+            key_type: None,
+            field_titles: Vec::new(),
+            field_ids: Vec::new(),
+            sort: vec![WorkWeDocSmartSheetRecordSort::asc("field-score")],
+            offset: None,
+            limit: Some(1_001),
+            ver: None,
+            filter_spec: Some(WorkWeDocSmartSheetRecordFilter::or([
+                WorkWeDocSmartSheetRecordFilterCondition::number(
+                    "field-score",
+                    WorkWeDocSmartSheetFilterOperatorKind::IsGreater,
+                    [60.0],
+                ),
+            ])),
+        };
+        assert!(invalid_query.validate().is_err());
     }
 
     #[test]

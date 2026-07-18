@@ -906,6 +906,20 @@ Implemented on 2026-07-18 in Work OA WeDoc smart-sheet field depth:
   work-group, currency, auto-number, formula, reference, and related property
   keys share one extensible typed response/request model.
 
+Implemented on 2026-07-18 in Work OA WeDoc smart-sheet record depth:
+
+- record add/update requests now use typed record mutations and field-value
+  maps instead of `Vec<Value>`, with builders for text, number, checkbox,
+  date/time, users, URL, select options, images, attachments, and locations;
+- record query sort and filter specifications now use typed DTOs, including
+  string, number, boolean, user, and date/time filter value shapes;
+- add/update/delete enforce the documented 500-record operational boundary,
+  update requires record ids, and all record operations validate document,
+  sheet, record, and cell identities before transport;
+- record queries enforce the 1000-row page limit and reject the unsupported
+  sort-plus-filter combination; response values retain heterogeneous,
+  forward-compatible JSON cells behind a typed field map.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
