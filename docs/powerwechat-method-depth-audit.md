@@ -1028,6 +1028,21 @@ Implemented on 2026-07-18 in Work application-message validation depth:
   payload and validate both when supplied, preserving PowerWeChat-compatible
   update combinations.
 
+Implemented on 2026-07-18 in Work user mutation and batch-job depth:
+
+- member create/update/get/delete paths validate user identity locally; create
+  requires name and department while update requires an actual patch;
+- member mutation validation enforces the 64-character identity/name limits,
+  up to 20 unique positive departments, aligned order/leader arrays, main
+  department membership, gender semantics, and 0/1 enable flags;
+- batch deletion enforces 1 to 200 unique users, invitation enforces a
+  non-empty target with the 1000-user/100-department/100-tag limits, and member
+  ID pagination enforces the 10000-row maximum;
+- import/replace tasks validate media and optional callback credentials,
+  callback URLs must be absolute HTTP(S), export jobs validate positive block
+  sizes and 43-character base64 AES keys, and result lookups reject blank or
+  over-64-character job ids.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

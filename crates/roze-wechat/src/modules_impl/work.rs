@@ -245,11 +245,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<WorkUserDetailResponse> {
+        let user_id = user_id.into();
+        validate_work_user_identifier("user id", &user_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/get",
                 Some(access_token.into()),
-                vec![("userid".to_string(), user_id.into())],
+                vec![("userid".to_string(), user_id)],
             )
             .await
     }
@@ -259,6 +261,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate_for_create()?;
         self.inner
             .post("cgi-bin/user/create", Some(access_token.into()), request)
             .await
@@ -269,6 +272,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate_for_update()?;
         self.inner
             .post("cgi-bin/user/update", Some(access_token.into()), request)
             .await
@@ -279,11 +283,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let user_id = user_id.into();
+        validate_work_user_identifier("user id", &user_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/delete",
                 Some(access_token.into()),
-                vec![("userid".to_string(), user_id.into())],
+                vec![("userid".to_string(), user_id)],
             )
             .await
     }
@@ -293,13 +299,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id_list: Vec<String>,
     ) -> Result<WorkStatusResponse> {
+        let request = WorkUserBatchDeleteRequest::new(user_id_list);
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/user/batchdelete",
                 Some(access_token.into()),
-                WorkUserBatchDeleteRequest {
-                    useridlist: user_id_list,
-                },
+                request,
             )
             .await
     }
@@ -352,11 +358,17 @@ impl Work {
         cursor: impl Into<String>,
         limit: i64,
     ) -> Result<WorkUserListIdResponse> {
+        let cursor = cursor.into();
+        if limit <= 0 || limit > 10_000 {
+            return Err(WechatError::Config(
+                "work user-id page limit must be between 1 and 10000".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "cgi-bin/user/list_id",
                 Some(access_token.into()),
-                json!({ "cursor": cursor.into(), "limit": limit }),
+                json!({ "cursor": cursor, "limit": limit }),
             )
             .await
     }
@@ -366,6 +378,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserBatchJobRequest,
     ) -> Result<WorkUserBatchJobResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/batch/syncuser", Some(access_token.into()), request)
             .await
@@ -376,6 +389,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserBatchJobRequest,
     ) -> Result<WorkUserBatchJobResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/batch/replaceuser",
@@ -390,6 +404,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserBatchJobRequest,
     ) -> Result<WorkUserBatchJobResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/batch/replaceparty",
@@ -404,11 +419,13 @@ impl Work {
         access_token: impl Into<String>,
         job_id: impl Into<String>,
     ) -> Result<WorkUserBatchJobResultResponse> {
+        let job_id = job_id.into();
+        validate_work_user_job_id(&job_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/batch/getresult",
                 Some(access_token.into()),
-                vec![("jobid".to_string(), job_id.into())],
+                vec![("jobid".to_string(), job_id)],
             )
             .await
     }
@@ -418,6 +435,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserExportJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/export/simple_user",
@@ -432,6 +450,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserExportJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/export/user", Some(access_token.into()), request)
             .await
@@ -442,6 +461,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserExportJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/export/department",
@@ -456,6 +476,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserExportTagUserJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/export/taguser", Some(access_token.into()), request)
             .await
@@ -466,11 +487,13 @@ impl Work {
         access_token: impl Into<String>,
         job_id: impl Into<String>,
     ) -> Result<WorkUserExportJobResultResponse> {
+        let job_id = job_id.into();
+        validate_work_user_job_id(&job_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/export/get_result",
                 Some(access_token.into()),
-                vec![("jobid".to_string(), job_id.into())],
+                vec![("jobid".to_string(), job_id)],
             )
             .await
     }
@@ -523,6 +546,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserInviteRequest,
     ) -> Result<WorkUserInviteResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/batch/invite", Some(access_token.into()), request)
             .await
@@ -8189,9 +8213,174 @@ pub struct WorkUserRequest {
     pub extattr: Option<WorkUserExtAttr>,
 }
 
+impl WorkUserRequest {
+    pub fn validate_for_create(&self) -> Result<()> {
+        self.validate_common()?;
+        if self
+            .name
+            .as_deref()
+            .is_none_or(|name| name.trim().is_empty())
+            || self.department.is_empty()
+        {
+            return Err(WechatError::Config(
+                "work user creation requires a non-empty name and at least one department"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_update(&self) -> Result<()> {
+        self.validate_common()?;
+        let has_patch = self.name.is_some()
+            || !self.department.is_empty()
+            || !self.order.is_empty()
+            || self.position.is_some()
+            || self.mobile.is_some()
+            || self.gender.is_some()
+            || self.email.is_some()
+            || self.biz_mail.is_some()
+            || !self.is_leader_in_dept.is_empty()
+            || !self.direct_leader.is_empty()
+            || self.telephone.is_some()
+            || self.alias.is_some()
+            || self.address.is_some()
+            || self.main_department.is_some()
+            || self.to_invite.is_some()
+            || self.enable.is_some()
+            || self.avatar_mediaid.is_some()
+            || self.external_position.is_some()
+            || self.external_profile.is_some()
+            || self.extattr.is_some();
+        if !has_patch {
+            return Err(WechatError::Config(
+                "work user updates require at least one changed field".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_common(&self) -> Result<()> {
+        validate_work_user_identifier("user id", &self.userid)?;
+        if self.userid.chars().count() > 64 {
+            return Err(WechatError::Config(
+                "work user id cannot exceed 64 characters".to_string(),
+            ));
+        }
+        if self
+            .name
+            .as_ref()
+            .is_some_and(|name| name.chars().count() > 64)
+        {
+            return Err(WechatError::Config(
+                "work user name cannot exceed 64 characters".to_string(),
+            ));
+        }
+        if self.department.len() > 20
+            || self.department.iter().any(|department| *department <= 0)
+            || has_duplicate_i64(&self.department)
+        {
+            return Err(WechatError::Config(
+                "work users support at most 20 unique positive departments".to_string(),
+            ));
+        }
+        for (label, values) in [
+            ("department order", &self.order),
+            ("department leader flags", &self.is_leader_in_dept),
+        ] {
+            if !values.is_empty() && values.len() != self.department.len() {
+                return Err(WechatError::Config(format!(
+                    "work user {label} must align with the department list"
+                )));
+            }
+        }
+        if self
+            .is_leader_in_dept
+            .iter()
+            .any(|flag| !matches!(flag, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "work user department leader flags must be 0 or 1".to_string(),
+            ));
+        }
+        if self
+            .main_department
+            .is_some_and(|main| !self.department.is_empty() && !self.department.contains(&main))
+        {
+            return Err(WechatError::Config(
+                "work user main department must appear in the department list".to_string(),
+            ));
+        }
+        if self
+            .gender
+            .as_deref()
+            .is_some_and(|gender| !matches!(gender, "1" | "2"))
+        {
+            return Err(WechatError::Config(
+                "work user gender must be 1 or 2".to_string(),
+            ));
+        }
+        if self.enable.is_some_and(|enable| !matches!(enable, 0 | 1)) {
+            return Err(WechatError::Config(
+                "work user enable must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserBatchDeleteRequest {
     pub useridlist: Vec<String>,
+}
+
+impl WorkUserBatchDeleteRequest {
+    pub fn new(userids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            useridlist: userids.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_string_batch("batch deletion", &self.useridlist, 200)
+    }
+}
+
+fn validate_work_user_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work user {label} cannot be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_user_job_id(job_id: &str) -> Result<()> {
+    validate_work_user_identifier("job id", job_id)?;
+    if job_id.chars().count() > 64 {
+        return Err(WechatError::Config(
+            "work user job id cannot exceed 64 characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_user_string_batch(label: &str, values: &[String], maximum: usize) -> Result<()> {
+    if values.is_empty()
+        || values.len() > maximum
+        || values.iter().any(|value| value.trim().is_empty())
+        || has_duplicate_strings(values)
+    {
+        return Err(WechatError::Config(format!(
+            "work user {label} requires 1 to {maximum} unique non-empty identifiers"
+        )));
+    }
+    Ok(())
+}
+
+fn has_duplicate_i64(values: &[i64]) -> bool {
+    let mut seen = std::collections::HashSet::new();
+    values.iter().any(|value| !seen.insert(*value))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -8432,6 +8621,32 @@ pub struct WorkUserInviteRequest {
     pub tag: Vec<i64>,
 }
 
+impl WorkUserInviteRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.user.is_empty() && self.party.is_empty() && self.tag.is_empty() {
+            return Err(WechatError::Config(
+                "work user invitations require users, departments, or tags".to_string(),
+            ));
+        }
+        if self.user.len() > 1000
+            || self.user.iter().any(|user| user.trim().is_empty())
+            || has_duplicate_strings(&self.user)
+            || self.party.len() > 100
+            || self.party.iter().any(|party| *party <= 0)
+            || has_duplicate_i64(&self.party)
+            || self.tag.len() > 100
+            || self.tag.iter().any(|tag| *tag <= 0)
+            || has_duplicate_i64(&self.tag)
+        {
+            return Err(WechatError::Config(
+                "work user invitations support unique non-empty 1000 users, 100 departments, and 100 tags"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserInviteResponse {
     #[serde(default)]
@@ -8576,11 +8791,36 @@ pub struct WorkUserBatchJobRequest {
     pub callbacks: Option<WorkUserBatchJobCallback>,
 }
 
+impl WorkUserBatchJobRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_identifier("batch media id", &self.media_id)?;
+        if let Some(callback) = &self.callbacks {
+            callback.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserBatchJobCallback {
     pub url: String,
     pub token: String,
     pub encodingaeskey: String,
+}
+
+impl WorkUserBatchJobCallback {
+    pub fn validate(&self) -> Result<()> {
+        let url = url::Url::parse(&self.url).map_err(|error| {
+            WechatError::Config(format!("work user batch callback URL is invalid: {error}"))
+        })?;
+        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+            return Err(WechatError::Config(
+                "work user batch callback URL must be absolute HTTP(S)".to_string(),
+            ));
+        }
+        validate_work_user_identifier("batch callback token", &self.token)?;
+        validate_work_user_encoding_aes_key(&self.encodingaeskey)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8742,11 +8982,51 @@ pub struct WorkUserExportJobRequest {
     pub block_size: i64,
 }
 
+impl WorkUserExportJobRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_export_parameters(&self.encoding_aeskey, self.block_size)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExportTagUserJobRequest {
     pub tagid: i64,
     pub encoding_aeskey: String,
     pub block_size: i64,
+}
+
+impl WorkUserExportTagUserJobRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.tagid <= 0 {
+            return Err(WechatError::Config(
+                "work user export tag id must be positive".to_string(),
+            ));
+        }
+        validate_work_user_export_parameters(&self.encoding_aeskey, self.block_size)
+    }
+}
+
+fn validate_work_user_export_parameters(encoding_aes_key: &str, block_size: i64) -> Result<()> {
+    validate_work_user_encoding_aes_key(encoding_aes_key)?;
+    if block_size <= 0 {
+        return Err(WechatError::Config(
+            "work user export block size must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_user_encoding_aes_key(encoding_aes_key: &str) -> Result<()> {
+    if encoding_aes_key.len() != 43
+        || !encoding_aes_key
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '+' | '/'))
+    {
+        return Err(WechatError::Config(
+            "work user encoding AES key must contain 43 base64 characters".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25530,6 +25810,92 @@ mod tests {
         assert_eq!(to_openid.extra["convert_source"], "userid");
         assert_eq!(to_userid.userid.as_deref(), Some("user"));
         assert_eq!(to_userid.extra["convert_source"], "openid");
+    }
+
+    #[test]
+    fn validates_work_user_mutations_and_jobs() {
+        let mut user = WorkUserRequest {
+            userid: "user".to_string(),
+            name: Some("User".to_string()),
+            department: vec![1, 2],
+            order: vec![10, 20],
+            position: None,
+            mobile: None,
+            gender: Some("1".to_string()),
+            email: None,
+            biz_mail: None,
+            is_leader_in_dept: vec![1, 0],
+            direct_leader: Vec::new(),
+            telephone: None,
+            alias: None,
+            address: None,
+            main_department: Some(1),
+            to_invite: Some(true),
+            enable: Some(1),
+            avatar_mediaid: None,
+            external_position: None,
+            external_profile: None,
+            extattr: None,
+        };
+        assert!(user.validate_for_create().is_ok());
+        assert!(user.validate_for_update().is_ok());
+        user.main_department = Some(3);
+        assert!(user.validate_for_create().is_err());
+        user.main_department = Some(1);
+        user.order = vec![10];
+        assert!(user.validate_for_create().is_err());
+
+        assert!(WorkUserBatchDeleteRequest::new(["user-a", "user-b"])
+            .validate()
+            .is_ok());
+        assert!(WorkUserBatchDeleteRequest::new(Vec::<String>::new())
+            .validate()
+            .is_err());
+        assert!(
+            WorkUserBatchDeleteRequest::new((0..201).map(|index| format!("user-{index}")))
+                .validate()
+                .is_err()
+        );
+
+        let invitation = WorkUserInviteRequest {
+            user: vec!["user".to_string()],
+            party: vec![1],
+            tag: vec![2],
+        };
+        assert!(invitation.validate().is_ok());
+        assert!(WorkUserInviteRequest {
+            user: Vec::new(),
+            party: Vec::new(),
+            tag: Vec::new(),
+        }
+        .validate()
+        .is_err());
+
+        let key = "A".repeat(43);
+        let batch = WorkUserBatchJobRequest {
+            media_id: "media".to_string(),
+            to_invite: true,
+            callbacks: Some(WorkUserBatchJobCallback {
+                url: "https://example.com/callback".to_string(),
+                token: "token".to_string(),
+                encodingaeskey: key.clone(),
+            }),
+        };
+        assert!(batch.validate().is_ok());
+        let export = WorkUserExportJobRequest {
+            encoding_aeskey: key.clone(),
+            block_size: 1_000_000,
+        };
+        assert!(export.validate().is_ok());
+        assert!(WorkUserExportTagUserJobRequest {
+            tagid: 0,
+            encoding_aeskey: key,
+            block_size: 1_000_000,
+        }
+        .validate()
+        .is_err());
+        assert!(validate_work_user_job_id("job").is_ok());
+        assert!(validate_work_user_job_id(&"x".repeat(65)).is_err());
     }
 
     #[test]
