@@ -839,6 +839,34 @@ impl Work {
             .await
     }
 
+    pub async fn to_service_external_user_id(
+        &self,
+        access_token: impl Into<String>,
+        external_user_id: impl Into<String>,
+    ) -> Result<WorkToServiceExternalUserIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/to_service_external_userid",
+                Some(access_token.into()),
+                json!({ "external_userid": external_user_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn finish_external_user_id_migration(
+        &self,
+        provider_access_token: impl Into<String>,
+        corp_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/finish_external_userid_migration",
+                Some(provider_access_token.into()),
+                json!({ "corpid": corp_id.into() }),
+            )
+            .await
+    }
+
     pub fn invoice(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.invoice")
     }
@@ -988,6 +1016,72 @@ impl Work {
                 "cgi-bin/externalcontact/list",
                 Some(access_token.into()),
                 vec![("userid".to_string(), user_id.into())],
+            )
+            .await
+    }
+
+    pub async fn list_served_external_contacts(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactServedListRequest,
+    ) -> Result<ExternalContactServedListResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/contact_list",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn external_contact_to_openid(
+        &self,
+        access_token: impl Into<String>,
+        external_user_id: impl Into<String>,
+    ) -> Result<UserIdToOpenIdResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/convert_to_openid",
+                Some(access_token.into()),
+                json!({ "external_userid": external_user_id.into() }),
+            )
+            .await
+    }
+
+    pub async fn get_school_notification_subscribe_qr_code(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkSchoolSubscribeQrCodeResponse> {
+        self.inner
+            .get(
+                "cgi-bin/externalcontact/get_subscribe_qr_code",
+                Some(access_token.into()),
+            )
+            .await
+    }
+
+    pub async fn set_school_notification_subscribe_mode(
+        &self,
+        access_token: impl Into<String>,
+        subscribe_mode: i64,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/set_subscribe_mode",
+                Some(access_token.into()),
+                json!({ "subscribe_mode": subscribe_mode }),
+            )
+            .await
+    }
+
+    pub async fn get_school_notification_subscribe_mode(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkSchoolSubscribeModeResponse> {
+        self.inner
+            .get(
+                "cgi-bin/externalcontact/get_subscribe_mode",
+                Some(access_token.into()),
             )
             .await
     }
@@ -1272,6 +1366,21 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/externalcontact/groupchat/transfer",
+                Some(access_token.into()),
+                json!({ "chat_id_list": chat_id_list, "new_owner": new_owner.into() }),
+            )
+            .await
+    }
+
+    pub async fn transfer_onjob_external_group_chat(
+        &self,
+        access_token: impl Into<String>,
+        chat_id_list: Vec<String>,
+        new_owner: impl Into<String>,
+    ) -> Result<ExternalGroupChatTransferResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/groupchat/onjob_transfer",
                 Some(access_token.into()),
                 json!({ "chat_id_list": chat_id_list, "new_owner": new_owner.into() }),
             )
@@ -1869,6 +1978,20 @@ impl Work {
             .await
     }
 
+    pub async fn get_external_contact_group_message_result(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactGroupMessageResultRequest,
+    ) -> Result<ExternalContactGroupMessageResultResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/get_group_msg_result",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn send_external_contact_welcome_message(
         &self,
         access_token: impl Into<String>,
@@ -1919,6 +2042,20 @@ impl Work {
         self.inner
             .post(
                 "cgi-bin/externalcontact/transfer_customer",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn transfer_unassigned_external_contact(
+        &self,
+        access_token: impl Into<String>,
+        request: ExternalContactUnassignedTransferRequest,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/transfer",
                 Some(access_token.into()),
                 request,
             )
@@ -2070,6 +2207,20 @@ impl Work {
                 "cgi-bin/externalcontact/add_moment_task",
                 Some(access_token.into()),
                 request,
+            )
+            .await
+    }
+
+    pub async fn cancel_external_contact_moment_task(
+        &self,
+        access_token: impl Into<String>,
+        moment_id: impl Into<String>,
+    ) -> Result<WorkStatusResponse> {
+        self.inner
+            .post(
+                "cgi-bin/externalcontact/cancel_moment_task",
+                Some(access_token.into()),
+                json!({ "moment_id": moment_id.into() }),
             )
             .await
     }
@@ -5955,6 +6106,18 @@ pub struct WorkFromServiceExternalUserIdResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkToServiceExternalUserIdResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkInvoiceCardRequest {
     pub card_id: String,
     pub encrypt_code: String,
@@ -8037,6 +8200,101 @@ pub struct ExternalContactListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactServedListRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactServedListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub info_list: Vec<ExternalContactServedInfo>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactServedInfo {
+    #[serde(default)]
+    pub is_customer: Option<bool>,
+    #[serde(default)]
+    pub tmp_openid: Option<String>,
+    #[serde(default)]
+    pub external_userid: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub follow_userid: Option<String>,
+    #[serde(default)]
+    pub chat_id: Option<String>,
+    #[serde(default)]
+    pub chat_name: Option<String>,
+    #[serde(default)]
+    pub add_time: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkSchoolSubscribeQrCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub qrcode_big: Option<String>,
+    #[serde(default)]
+    pub qrcode_middle: Option<String>,
+    #[serde(default)]
+    pub qrcode_thumb: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkSchoolSubscribeModeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub subscribe_mode: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkSchoolSubscribeModeResponse {
+    pub fn mode_kind(&self) -> Option<WorkSchoolSubscribeModeKind> {
+        self.subscribe_mode.map(WorkSchoolSubscribeModeKind::from)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkSchoolSubscribeModeKind {
+    AllowQrCodeRegistration,
+    ForbidQrCodeRegistration,
+    Other(i64),
+}
+
+impl From<i64> for WorkSchoolSubscribeModeKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::AllowQrCodeRegistration,
+            2 => Self::ForbidQrCodeRegistration,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactFollowUserListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -10030,6 +10288,28 @@ impl ExternalContactGroupMessageSendResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageResultRequest {
+    pub msgid: String,
+    pub limit: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactGroupMessageResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub detail_list: Vec<ExternalContactGroupMessageSendResult>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactWelcomeMessageRequest {
     pub welcome_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -10045,6 +10325,13 @@ pub struct ExternalCustomerTransferRequest {
     pub external_userid: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transfer_success_msg: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactUnassignedTransferRequest {
+    pub external_userid: String,
+    pub handover_userid: String,
+    pub takeover_userid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17640,6 +17927,158 @@ mod tests {
         );
         assert_eq!(batch.next_cursor.as_deref(), Some("next"));
         assert_eq!(batch.extra["batch_extra"], "batch-extra");
+    }
+
+    #[test]
+    fn serializes_external_contact_operational_compatibility_contracts() {
+        let to_service: WorkToServiceExternalUserIdResponse = serde_json::from_value(json!({
+            "external_userid": "service-external",
+            "migration_version": 2
+        }))
+        .unwrap();
+        assert_eq!(
+            to_service.external_userid.as_deref(),
+            Some("service-external")
+        );
+        assert_eq!(to_service.extra["migration_version"], 2);
+
+        let served_request = serde_json::to_value(ExternalContactServedListRequest {
+            cursor: None,
+            limit: Some(1000),
+        })
+        .unwrap();
+        assert!(served_request.get("cursor").is_none());
+        assert_eq!(served_request["limit"], 1000);
+
+        let served: ExternalContactServedListResponse = serde_json::from_value(json!({
+            "info_list": [
+                {
+                    "is_customer": true,
+                    "tmp_openid": "tmp-customer",
+                    "external_userid": "external",
+                    "follow_userid": "user",
+                    "add_time": 1_720_000_000,
+                    "source": "direct"
+                },
+                {
+                    "is_customer": false,
+                    "tmp_openid": "tmp-contact",
+                    "name": "External contact",
+                    "chat_id": "chat",
+                    "chat_name": "Community",
+                    "follow_userid": "owner",
+                    "add_time": 1_720_000_001
+                }
+            ],
+            "next_cursor": "cursor",
+            "snapshot_id": "served-list"
+        }))
+        .unwrap();
+        assert_eq!(served.info_list[0].is_customer, Some(true));
+        assert_eq!(
+            served.info_list[0].external_userid.as_deref(),
+            Some("external")
+        );
+        assert_eq!(served.info_list[0].extra["source"], "direct");
+        assert_eq!(served.info_list[1].is_customer, Some(false));
+        assert_eq!(served.info_list[1].chat_id.as_deref(), Some("chat"));
+        assert_eq!(
+            served.info_list[1].name.as_deref(),
+            Some("External contact")
+        );
+        assert_eq!(served.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(served.extra["snapshot_id"], "served-list");
+
+        let result_request = serde_json::to_value(ExternalContactGroupMessageResultRequest {
+            msgid: "message".to_string(),
+            limit: 500,
+            cursor: None,
+        })
+        .unwrap();
+        assert_eq!(result_request["msgid"], "message");
+        assert_eq!(result_request["limit"], 500);
+        assert!(result_request.get("cursor").is_none());
+
+        let result: ExternalContactGroupMessageResultResponse = serde_json::from_value(json!({
+            "detail_list": [{
+                "external_userid": "external",
+                "userid": "user",
+                "status": 1,
+                "send_time": 1_720_000_000,
+                "delivery_trace": "trace"
+            }, {
+                "chat_id": "chat",
+                "userid": "user",
+                "status": 3
+            }],
+            "next_cursor": "next",
+            "result_version": 1
+        }))
+        .unwrap();
+        assert!(result.detail_list[0].is_sent());
+        assert!(!result.detail_list[0].is_failed());
+        assert_eq!(result.detail_list[0].extra["delivery_trace"], "trace");
+        assert_eq!(
+            result.detail_list[1].status_kind(),
+            Some(ExternalContactGroupMessageSendStatusKind::DuplicateDelivery)
+        );
+        assert!(result.detail_list[1].is_failed());
+        assert_eq!(result.next_cursor.as_deref(), Some("next"));
+        assert_eq!(result.extra["result_version"], 1);
+
+        let transfer = serde_json::to_value(ExternalContactUnassignedTransferRequest {
+            external_userid: "external".to_string(),
+            handover_userid: "former".to_string(),
+            takeover_userid: "successor".to_string(),
+        })
+        .unwrap();
+        assert_eq!(transfer["external_userid"], "external");
+        assert_eq!(transfer["handover_userid"], "former");
+        assert_eq!(transfer["takeover_userid"], "successor");
+
+        let openid: UserIdToOpenIdResponse = serde_json::from_value(json!({
+            "openid": "school-parent-openid",
+            "conversion_scope": "external"
+        }))
+        .unwrap();
+        assert_eq!(openid.openid.as_deref(), Some("school-parent-openid"));
+        assert_eq!(openid.extra["conversion_scope"], "external");
+
+        let qr_code: WorkSchoolSubscribeQrCodeResponse = serde_json::from_value(json!({
+            "qrcode_big": "https://example.com/qr/big",
+            "qrcode_middle": "https://example.com/qr/middle",
+            "qrcode_thumb": "https://example.com/qr/thumb",
+            "expires_in": 86400
+        }))
+        .unwrap();
+        assert_eq!(
+            qr_code.qrcode_big.as_deref(),
+            Some("https://example.com/qr/big")
+        );
+        assert_eq!(
+            qr_code.qrcode_middle.as_deref(),
+            Some("https://example.com/qr/middle")
+        );
+        assert_eq!(
+            qr_code.qrcode_thumb.as_deref(),
+            Some("https://example.com/qr/thumb")
+        );
+        assert_eq!(qr_code.extra["expires_in"], 86400);
+
+        let subscribe_mode: WorkSchoolSubscribeModeResponse = serde_json::from_value(json!({
+            "subscribe_mode": 2,
+            "policy_version": 3
+        }))
+        .unwrap();
+        assert_eq!(
+            subscribe_mode.mode_kind(),
+            Some(WorkSchoolSubscribeModeKind::ForbidQrCodeRegistration)
+        );
+        assert_eq!(subscribe_mode.extra["policy_version"], 3);
+        assert_eq!(
+            WorkSchoolSubscribeModeKind::from(9),
+            WorkSchoolSubscribeModeKind::Other(9)
+        );
     }
 
     #[test]
