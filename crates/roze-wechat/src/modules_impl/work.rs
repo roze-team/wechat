@@ -4537,9 +4537,12 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkVacationConfigResponse> {
-        self.inner
+        let response: WorkVacationConfigResponse = self
+            .inner
             .get("cgi-bin/oa/vacation/getcorpconf", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_user_vacation_quota(
@@ -4549,13 +4552,16 @@ impl Work {
     ) -> Result<WorkVacationQuotaResponse> {
         let user_id = user_id.into();
         validate_work_vacation_identifier("user id", &user_id)?;
-        self.inner
+        let response: WorkVacationQuotaResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/vacation/getuservacationquota",
                 Some(access_token.into()),
                 json!({ "userid": user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_one_user_vacation_quota(
@@ -4564,13 +4570,16 @@ impl Work {
         request: WorkVacationQuotaUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/vacation/setoneuserquota",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work vacation set one user quota")?;
+        Ok(response)
     }
 
     pub fn oa_schedule(&self) -> DomainModule {
@@ -29481,6 +29490,60 @@ impl WorkLegacyApprovalField {
     }
 }
 
+fn validate_work_vacation_non_negative(label: &str, value: i64) -> Result<()> {
+    if value < 0 {
+        return Err(WechatError::Config(format!(
+            "work vacation {label} cannot be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_vacation_optional_non_negative(label: &str, value: Option<i64>) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_vacation_non_negative(label, value)?;
+    }
+    Ok(())
+}
+
+fn validate_work_vacation_optional_binary(label: &str, value: Option<i64>) -> Result<()> {
+    if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+        return Err(WechatError::Config(format!(
+            "work vacation {label} must be zero or one"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_vacation_month_day(
+    label: &str,
+    value: &WorkVacationMonthDay,
+    allow_zero: bool,
+) -> Result<()> {
+    if allow_zero && value.month == 0 && value.day == 0 {
+        return Ok(());
+    }
+    if !(1..=12).contains(&value.month)
+        || !(1..=work_checkin_days_in_month(2000, value.month)).contains(&value.day)
+    {
+        return Err(WechatError::Config(format!(
+            "work vacation {label} requires a valid month and day"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_vacation_reset_month_day(value: i64) -> Result<()> {
+    if value == 0 || (1..=31).contains(&value) {
+        return Ok(());
+    }
+    let month_day = WorkVacationMonthDay {
+        month: value / 100,
+        day: value % 100,
+    };
+    validate_work_vacation_month_day("automatic reset date", &month_day, false)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationConfigResponse {
     #[serde(default)]
@@ -29494,10 +29557,41 @@ pub struct WorkVacationConfigResponse {
 }
 
 impl WorkVacationConfigResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work vacation corporation configuration",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut vacation_ids = std::collections::HashSet::with_capacity(self.lists.len());
+        for vacation in &self.lists {
+            vacation.validate()?;
+            if !vacation_ids.insert(vacation.id) {
+                return Err(WechatError::Config(
+                    "work vacation configuration cannot contain duplicate ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn find_by_id(&self, vacation_id: i64) -> Option<&WorkVacationConfig> {
         self.lists
             .iter()
             .find(|vacation| vacation.id == vacation_id)
+    }
+
+    pub fn require_by_id(&self, vacation_id: i64) -> Result<&WorkVacationConfig> {
+        if vacation_id <= 0 {
+            return Err(WechatError::Config(
+                "work vacation lookup id must be positive".to_string(),
+            ));
+        }
+        self.find_by_id(vacation_id).ok_or_else(|| {
+            WechatError::Config(format!(
+                "work vacation configuration does not contain id {vacation_id}"
+            ))
+        })
     }
 }
 
@@ -29532,6 +29626,10 @@ impl WorkVacationTimeUnitKind {
             Self::Other => None,
         }
     }
+
+    pub fn is_known(self) -> bool {
+        !matches!(self, Self::Other)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29555,6 +29653,30 @@ pub struct WorkVacationConfig {
 }
 
 impl WorkVacationConfig {
+    pub fn validate(&self) -> Result<()> {
+        if self.id <= 0 {
+            return Err(WechatError::Config(
+                "work vacation configuration id must be positive".to_string(),
+            ));
+        }
+        validate_work_vacation_identifier("configuration name", &self.name)?;
+        validate_work_vacation_non_negative("time unit code", self.time_attr)?;
+        validate_work_vacation_non_negative("duration type", self.duration_type)?;
+        if let Some(policy) = &self.quota_attr {
+            policy.validate()?;
+        }
+        validate_work_vacation_optional_non_negative("per-day duration", self.perday_duration)?;
+        validate_work_vacation_optional_binary("new overtime flag", self.is_newovertime)?;
+        validate_work_vacation_optional_non_negative(
+            "entry compensation time limit",
+            self.enter_comp_time_limit,
+        )?;
+        if let Some(expire_rule) = &self.expire_rule {
+            expire_rule.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn time_unit_kind(&self) -> WorkVacationTimeUnitKind {
         WorkVacationTimeUnitKind::from_code(self.time_attr)
     }
@@ -29584,6 +29706,25 @@ pub struct WorkVacationQuotaPolicy {
     pub extra: Value,
 }
 
+impl WorkVacationQuotaPolicy {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_vacation_non_negative("quota policy type", self.policy_type)?;
+        validate_work_vacation_optional_non_negative("automatic reset time", self.autoreset_time)?;
+        validate_work_vacation_optional_non_negative(
+            "automatic reset duration",
+            self.autoreset_duration,
+        )?;
+        validate_work_vacation_optional_non_negative("quota rule type", self.quota_rule_type)?;
+        if let Some(rules) = &self.quota_rules {
+            rules.validate()?;
+        }
+        if let Some(month_day) = self.auto_reset_month_day {
+            validate_work_vacation_reset_month_day(month_day)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationQuotaRules {
     #[serde(default)]
@@ -29594,6 +29735,36 @@ pub struct WorkVacationQuotaRules {
     pub extra: Value,
 }
 
+impl WorkVacationQuotaRules {
+    pub fn validate(&self) -> Result<()> {
+        if self.list.is_empty() {
+            return Err(WechatError::Config(
+                "work vacation quota rules cannot be empty".to_string(),
+            ));
+        }
+        let mut ranges = std::collections::HashSet::with_capacity(self.list.len());
+        let mut open_ended = false;
+        for rule in &self.list {
+            rule.validate()?;
+            if !ranges.insert((rule.begin, rule.end)) {
+                return Err(WechatError::Config(
+                    "work vacation quota rules cannot contain duplicate ranges".to_string(),
+                ));
+            }
+            if rule.end == 0 {
+                if open_ended {
+                    return Err(WechatError::Config(
+                        "work vacation quota rules cannot contain multiple open-ended ranges"
+                            .to_string(),
+                    ));
+                }
+                open_ended = true;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationQuotaRule {
     pub quota: i64,
@@ -29601,6 +29772,21 @@ pub struct WorkVacationQuotaRule {
     pub end: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkVacationQuotaRule {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_vacation_non_negative("quota rule duration", self.quota)?;
+        validate_work_vacation_non_negative("quota rule range begin", self.begin)?;
+        validate_work_vacation_non_negative("quota rule range end", self.end)?;
+        if self.end != 0 && self.end <= self.begin {
+            return Err(WechatError::Config(
+                "work vacation quota rule end must exceed begin or be zero for no upper bound"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29619,10 +29805,39 @@ pub struct WorkVacationExpireRule {
     pub extra: Value,
 }
 
+impl WorkVacationExpireRule {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_vacation_non_negative("expiration rule type", self.rule_type)?;
+        validate_work_vacation_optional_non_negative("expiration duration", self.duration)?;
+        if let Some(date) = &self.date {
+            validate_work_vacation_month_day("expiration date", date, true)?;
+        }
+        if let Some(duration) = &self.extern_duration {
+            validate_work_vacation_month_day("extended expiration date", duration, true)?;
+        }
+        if self.extern_duration_enable == Some(true) && self.extern_duration.is_none() {
+            return Err(WechatError::Config(
+                "work vacation enabled extended expiration requires extern_duration".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationMonthDay {
     pub month: i64,
     pub day: i64,
+}
+
+impl WorkVacationMonthDay {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_vacation_month_day("month/day", self, false)
+    }
+
+    pub fn is_unset(&self) -> bool {
+        self.month == 0 && self.day == 0
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29638,10 +29853,62 @@ pub struct WorkVacationQuotaResponse {
 }
 
 impl WorkVacationQuotaResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work vacation user quota",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut vacation_ids = std::collections::HashSet::with_capacity(self.lists.len());
+        for vacation in &self.lists {
+            vacation.validate()?;
+            if !vacation_ids.insert(vacation.id) {
+                return Err(WechatError::Config(
+                    "work vacation quota response cannot contain duplicate ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn find_by_id(&self, vacation_id: i64) -> Option<&WorkVacationQuota> {
         self.lists
             .iter()
             .find(|vacation| vacation.id == vacation_id)
+    }
+
+    pub fn require_by_id(&self, vacation_id: i64) -> Result<&WorkVacationQuota> {
+        if vacation_id <= 0 {
+            return Err(WechatError::Config(
+                "work vacation quota lookup id must be positive".to_string(),
+            ));
+        }
+        self.find_by_id(vacation_id).ok_or_else(|| {
+            WechatError::Config(format!(
+                "work vacation quota response does not contain id {vacation_id}"
+            ))
+        })
+    }
+
+    pub fn total_assigned_duration(&self) -> Result<i64> {
+        sum_work_vacation_durations(
+            "assigned duration",
+            self.lists.iter().map(|quota| quota.assignduration),
+        )
+    }
+
+    pub fn total_used_duration(&self) -> Result<i64> {
+        sum_work_vacation_durations(
+            "used duration",
+            self.lists.iter().map(|quota| quota.usedduration),
+        )
+    }
+
+    pub fn total_remaining_duration(&self) -> Result<i64> {
+        sum_work_vacation_durations(
+            "remaining duration",
+            self.lists.iter().map(|quota| quota.leftduration),
+        )
     }
 }
 
@@ -29659,6 +29926,26 @@ pub struct WorkVacationQuota {
 }
 
 impl WorkVacationQuota {
+    pub fn validate(&self) -> Result<()> {
+        if self.id <= 0 {
+            return Err(WechatError::Config(
+                "work vacation quota id must be positive".to_string(),
+            ));
+        }
+        validate_work_vacation_identifier("quota name", &self.vacationname)?;
+        validate_work_vacation_non_negative("assigned duration", self.assignduration)?;
+        validate_work_vacation_non_negative("used duration", self.usedduration)?;
+        validate_work_vacation_non_negative("remaining duration", self.leftduration)?;
+        validate_work_vacation_optional_non_negative(
+            "real assigned duration",
+            self.real_assignduration,
+        )
+    }
+
+    pub fn is_depleted(&self) -> bool {
+        self.leftduration == 0
+    }
+
     pub fn assigned_units(&self, unit: WorkVacationTimeUnitKind) -> Option<f64> {
         work_vacation_seconds_to_units(self.assignduration, unit)
     }
@@ -29678,8 +29965,23 @@ impl WorkVacationQuota {
 }
 
 fn work_vacation_seconds_to_units(seconds: i64, unit: WorkVacationTimeUnitKind) -> Option<f64> {
+    if seconds < 0 {
+        return None;
+    }
     unit.seconds_per_unit()
         .map(|seconds_per_unit| seconds as f64 / seconds_per_unit as f64)
+}
+
+fn sum_work_vacation_durations(
+    label: &str,
+    mut durations: impl Iterator<Item = i64>,
+) -> Result<i64> {
+    durations.try_fold(0_i64, |total, duration| {
+        validate_work_vacation_non_negative(label, duration)?;
+        total
+            .checked_add(duration)
+            .ok_or_else(|| WechatError::Config(format!("work vacation total {label} overflowed")))
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48995,6 +49297,182 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_vacation_response_contracts() {
+        let config_payload = json!({
+            "errcode": 0,
+            "lists": [{
+                "id": 1,
+                "name": "Annual Leave",
+                "time_attr": 0,
+                "duration_type": 0,
+                "quota_attr": {
+                    "type": 1,
+                    "autoreset_time": 1_641_010_352,
+                    "autoreset_duration": 432_000,
+                    "quota_rule_type": 1,
+                    "quota_rules": {
+                        "list": [
+                            { "quota": 432_000, "begin": 0, "end": 1 },
+                            { "quota": 518_400, "begin": 1, "end": 2 },
+                            { "quota": 604_800, "begin": 2, "end": 0 }
+                        ],
+                        "based_on_actual_work_time": true
+                    },
+                    "at_entry_date": true,
+                    "auto_reset_month_day": 101
+                },
+                "perday_duration": 86_400,
+                "is_newovertime": 0,
+                "enter_comp_time_limit": 0,
+                "expire_rule": {
+                    "type": 2,
+                    "duration": 2,
+                    "date": { "month": 12, "day": 31 },
+                    "extern_duration_enable": true,
+                    "extern_duration": { "month": 2, "day": 29 }
+                }
+            }, {
+                "id": 2,
+                "name": "Future Unit",
+                "time_attr": 2,
+                "duration_type": 3,
+                "quota_attr": {
+                    "type": 0,
+                    "auto_reset_month_day": 0
+                },
+                "expire_rule": {
+                    "type": 0,
+                    "date": { "month": 0, "day": 0 },
+                    "extern_duration_enable": false,
+                    "extern_duration": { "month": 0, "day": 0 }
+                }
+            }]
+        });
+        let config: WorkVacationConfigResponse =
+            serde_json::from_value(config_payload.clone()).unwrap();
+        config.validate().unwrap();
+        assert_eq!(config.require_by_id(1).unwrap().name, "Annual Leave");
+        assert!(!config.require_by_id(2).unwrap().time_unit_kind().is_known());
+        assert!(config.require_by_id(3).is_err());
+        assert!(WorkVacationMonthDay { month: 2, day: 29 }
+            .validate()
+            .is_ok());
+        assert!(WorkVacationMonthDay { month: 0, day: 0 }.is_unset());
+
+        let api_error: WorkVacationConfigResponse = serde_json::from_value(json!({
+            "errcode": 301062,
+            "errmsg": "permission denied"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 301062, .. })
+        ));
+
+        let mut duplicate_config = config_payload.clone();
+        duplicate_config["lists"][1]["id"] = json!(1);
+        let duplicate_config: WorkVacationConfigResponse =
+            serde_json::from_value(duplicate_config).unwrap();
+        assert!(duplicate_config.validate().is_err());
+
+        let mut invalid_switch = config_payload.clone();
+        invalid_switch["lists"][0]["is_newovertime"] = json!(2);
+        let invalid_switch: WorkVacationConfigResponse =
+            serde_json::from_value(invalid_switch).unwrap();
+        assert!(invalid_switch.validate().is_err());
+
+        let mut invalid_reset = config_payload.clone();
+        invalid_reset["lists"][0]["quota_attr"]["auto_reset_month_day"] = json!(1332);
+        let invalid_reset: WorkVacationConfigResponse =
+            serde_json::from_value(invalid_reset).unwrap();
+        assert!(invalid_reset.validate().is_err());
+
+        let mut invalid_range = config_payload.clone();
+        invalid_range["lists"][0]["quota_attr"]["quota_rules"]["list"][1]["end"] = json!(1);
+        let invalid_range: WorkVacationConfigResponse =
+            serde_json::from_value(invalid_range).unwrap();
+        assert!(invalid_range.validate().is_err());
+
+        let mut duplicate_open_range = config_payload.clone();
+        duplicate_open_range["lists"][0]["quota_attr"]["quota_rules"]["list"][1]["end"] = json!(0);
+        let duplicate_open_range: WorkVacationConfigResponse =
+            serde_json::from_value(duplicate_open_range).unwrap();
+        assert!(duplicate_open_range.validate().is_err());
+
+        let mut invalid_expiration = config_payload.clone();
+        invalid_expiration["lists"][0]["expire_rule"]["date"] = json!({ "month": 2, "day": 30 });
+        let invalid_expiration: WorkVacationConfigResponse =
+            serde_json::from_value(invalid_expiration).unwrap();
+        assert!(invalid_expiration.validate().is_err());
+
+        let mut missing_extended_expiration = config_payload.clone();
+        missing_extended_expiration["lists"][0]["expire_rule"]
+            .as_object_mut()
+            .unwrap()
+            .remove("extern_duration");
+        let missing_extended_expiration: WorkVacationConfigResponse =
+            serde_json::from_value(missing_extended_expiration).unwrap();
+        assert!(missing_extended_expiration.validate().is_err());
+
+        let quota_payload = json!({
+            "errcode": 0,
+            "lists": [{
+                "id": 1,
+                "assignduration": 0,
+                "usedduration": 0,
+                "leftduration": 604_800,
+                "vacationname": "Annual Leave",
+                "real_assignduration": 0
+            }, {
+                "id": 2,
+                "assignduration": 1_296_000,
+                "usedduration": 86_400,
+                "leftduration": 1_209_600,
+                "vacationname": "Personal Leave",
+                "real_assignduration": 864_000
+            }]
+        });
+        let quota: WorkVacationQuotaResponse =
+            serde_json::from_value(quota_payload.clone()).unwrap();
+        quota.validate().unwrap();
+        assert_eq!(quota.total_assigned_duration().unwrap(), 1_296_000);
+        assert_eq!(quota.total_used_duration().unwrap(), 86_400);
+        assert_eq!(quota.total_remaining_duration().unwrap(), 1_814_400);
+        assert!(!quota.require_by_id(1).unwrap().is_depleted());
+
+        let mut duplicate_quota = quota_payload.clone();
+        duplicate_quota["lists"][1]["id"] = json!(1);
+        let duplicate_quota: WorkVacationQuotaResponse =
+            serde_json::from_value(duplicate_quota).unwrap();
+        assert!(duplicate_quota.validate().is_err());
+
+        let mut negative_quota = quota_payload.clone();
+        negative_quota["lists"][0]["leftduration"] = json!(-1);
+        let negative_quota: WorkVacationQuotaResponse =
+            serde_json::from_value(negative_quota).unwrap();
+        assert!(negative_quota.validate().is_err());
+
+        let overflow: WorkVacationQuotaResponse = serde_json::from_value(json!({
+            "lists": [{
+                "id": 1,
+                "assignduration": i64::MAX,
+                "usedduration": 0,
+                "leftduration": 0,
+                "vacationname": "A"
+            }, {
+                "id": 2,
+                "assignduration": 1,
+                "usedduration": 0,
+                "leftduration": 0,
+                "vacationname": "B"
+            }]
+        }))
+        .unwrap();
+        overflow.validate().unwrap();
+        assert!(overflow.total_assigned_duration().is_err());
+    }
+
+    #[test]
     fn validates_work_oa_approval_lifecycle() {
         let first_page = WorkApprovalInfoRequest::first_page(1_800_000_000, 1_800_086_400, 100);
         assert!(first_page.validate().is_ok());
@@ -51141,16 +51619,19 @@ mod tests {
             "config_version": 2
         }))
         .unwrap();
+        vacation.validate().unwrap();
         assert_eq!(vacation.lists[0].name, "Annual Leave");
         assert_eq!(
             vacation.lists[0].time_unit_kind(),
             WorkVacationTimeUnitKind::Day
         );
         assert_eq!(vacation.lists[0].seconds_per_unit(), Some(86_400));
+        assert!(vacation.lists[0].time_unit_kind().is_known());
         assert_eq!(
             vacation.find_by_id(1).map(|config| config.name.as_str()),
             Some("Annual Leave")
         );
+        assert_eq!(vacation.require_by_id(1).unwrap().name, "Annual Leave");
         let policy = vacation.lists[0]
             .quota_attr
             .as_ref()
@@ -51201,6 +51682,7 @@ mod tests {
             "quota_trace": "vacation-quota"
         }))
         .unwrap();
+        quota.validate().unwrap();
         assert_eq!(quota.lists[0].leftduration, 518400);
         assert_eq!(quota.lists[0].real_assignduration, Some(604800));
         assert_eq!(
@@ -51217,6 +51699,10 @@ mod tests {
             quota.lists[0].real_assigned_units(WorkVacationTimeUnitKind::Day),
             Some(7.0)
         );
+        assert_eq!(quota.total_assigned_duration().unwrap(), 604_800);
+        assert_eq!(quota.total_used_duration().unwrap(), 86_400);
+        assert_eq!(quota.total_remaining_duration().unwrap(), 518_400);
+        assert!(!quota.require_by_id(1).unwrap().is_depleted());
         assert_eq!(quota.lists[0].extra["quota_version"], 2);
         assert_eq!(quota.extra["quota_trace"], "vacation-quota");
     }

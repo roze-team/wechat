@@ -1848,6 +1848,26 @@ Implemented on 2026-07-20 in Work OA vacation depth:
   effective-assigned conversions for the selected day/hour unit while
   retaining exact upstream seconds.
 
+Implemented on 2026-07-21 in Work OA vacation response contracts:
+
+- corporation configuration and member quota queries now validate API success
+  and nested response structure at the HTTP boundary, while quota mutations
+  validate their status response before return;
+- configurations require unique positive vacation ids, nonblank names,
+  non-negative current or future unit/type codes, valid binary flags,
+  non-negative durations, and checked automatic-reset and expiration dates;
+- quota policies recursively validate reset metadata, nonempty unique service-
+  or company-age ranges, the documented zero-ended unbounded range, at most
+  one open-ended rule, and optional extended-expiration requirements;
+- member quota responses require unique positive vacation ids, nonblank names,
+  and non-negative assigned, used, remaining, and actual-assigned durations
+  without assuming those independent upstream values must sum to each other;
+- checked configuration/quota lookup, known-unit, depletion, and overflow-safe
+  aggregate duration helpers are available; focused tests cover API errors,
+  duplicate ids/ranges, future units, zero sentinel dates, invalid switches,
+  reset/expiration dates, negative balances, official independent-balance
+  semantics, and aggregate overflow.
+
 Implemented on 2026-07-20 in Work OA dial and PSTNCC depth:
 
 - public-phone record requests expose first-page, recent-30-days, and checked
