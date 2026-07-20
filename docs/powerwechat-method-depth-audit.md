@@ -1627,6 +1627,32 @@ Implemented on 2026-07-20 in Work external-contact customer-base depth:
   pending, mapped, changed, and lookup helpers without discarding extension
   fields.
 
+Implemented on 2026-07-20 in Payment merchant-service workflow depth:
+
+- complaint list, detail, negotiation-history, reply, completion,
+  notification-URL, and refund-approval operations now validate their request
+  contracts before signing or network I/O;
+- complaint list queries expose checked first/next-page constructors, validate
+  real `YYYY-MM-DD` dates, ordered windows of at most 30 days, the current
+  1-to-50 page boundary, non-negative offsets, and optional complained
+  merchant identifiers;
+- negotiation-history queries expose checked pagination with the current
+  1-to-300 boundary, while all complaint path identifiers are length-checked
+  and percent-encoded as path segments;
+- callback configuration requires an absolute HTTPS URL of at most 255
+  characters with a real callback path and no query, credentials, or fragment;
+- complaint replies enforce merchant/content limits, unique batches of at
+  most four image media ids, paired HTTPS jump URLs and 10-character labels,
+  and complete mini-program jump information;
+- refund approval and rejection constructors enforce supported actions,
+  non-negative launch days, required rejection reasons, action-specific field
+  separation, four-image evidence limits, and 200-character reason/remark
+  boundaries;
+- complaint list/detail/history and notification responses expose identity,
+  lookup, pending-response, priority-attention, known-order-amount,
+  refund/system-event, configured-callback, and API-error semantics while
+  preserving upstream extension fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

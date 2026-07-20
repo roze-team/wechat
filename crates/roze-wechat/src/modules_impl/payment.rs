@@ -1024,6 +1024,7 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: ComplaintListRequest,
     ) -> Result<ComplaintListResponse> {
+        request.validate()?;
         self.get_v3(
             credentials,
             "/v3/merchant-service/complaints-v2",
@@ -1037,9 +1038,10 @@ impl Payment {
         credentials: &PaymentCredentials,
         complaint_id: impl AsRef<str>,
     ) -> Result<ComplaintDetailResponse> {
+        let complaint_id = payment_path_identifier(complaint_id.as_ref(), "complaint id", 64)?;
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}",
-            complaint_id.as_ref()
+            encode_payment_path_segment(complaint_id)
         );
         self.get_v3(credentials, &path, Vec::new()).await
     }
@@ -1050,9 +1052,11 @@ impl Payment {
         complaint_id: impl AsRef<str>,
         request: ComplaintNegotiationHistoryRequest,
     ) -> Result<ComplaintNegotiationHistoryResponse> {
+        let complaint_id = payment_path_identifier(complaint_id.as_ref(), "complaint id", 64)?;
+        request.validate()?;
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/negotiation-historys",
-            complaint_id.as_ref()
+            encode_payment_path_segment(complaint_id)
         );
         self.get_v3(credentials, &path, request.into_query()).await
     }
@@ -1062,6 +1066,7 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: ComplaintNotificationRequest,
     ) -> Result<ComplaintNotificationResponse> {
+        request.validate()?;
         self.post_v3(
             credentials,
             "/v3/merchant-service/complaint-notifications",
@@ -1087,6 +1092,7 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: ComplaintNotificationRequest,
     ) -> Result<ComplaintNotificationResponse> {
+        request.validate()?;
         self.put_v3(
             credentials,
             "/v3/merchant-service/complaint-notifications",
@@ -1109,9 +1115,11 @@ impl Payment {
         complaint_id: impl AsRef<str>,
         request: ComplaintReplyRequest,
     ) -> Result<()> {
+        let complaint_id = payment_path_identifier(complaint_id.as_ref(), "complaint id", 64)?;
+        request.validate()?;
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/response",
-            complaint_id.as_ref()
+            encode_payment_path_segment(complaint_id)
         );
         self.post_v3_empty(credentials, &path, to_value(request)?)
             .await
@@ -1123,9 +1131,11 @@ impl Payment {
         complaint_id: impl AsRef<str>,
         request: ComplaintCompleteRequest,
     ) -> Result<()> {
+        let complaint_id = payment_path_identifier(complaint_id.as_ref(), "complaint id", 64)?;
+        request.validate()?;
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/complete",
-            complaint_id.as_ref()
+            encode_payment_path_segment(complaint_id)
         );
         self.post_v3_empty(credentials, &path, to_value(request)?)
             .await
@@ -1137,9 +1147,11 @@ impl Payment {
         complaint_id: impl AsRef<str>,
         request: ComplaintRefundProgressRequest,
     ) -> Result<()> {
+        let complaint_id = payment_path_identifier(complaint_id.as_ref(), "complaint id", 64)?;
+        request.validate()?;
         let path = format!(
             "/v3/merchant-service/complaints-v2/{}/update-refund-progress",
-            complaint_id.as_ref()
+            encode_payment_path_segment(complaint_id)
         );
         self.post_v3_empty(credentials, &path, to_value(request)?)
             .await
@@ -4430,6 +4442,73 @@ pub struct ComplaintListRequest {
 }
 
 impl ComplaintListRequest {
+    pub fn first_page(
+        begin_date: impl Into<String>,
+        end_date: impl Into<String>,
+        limit: i64,
+    ) -> Self {
+        Self {
+            begin_date: begin_date.into(),
+            end_date: end_date.into(),
+            limit,
+            offset: 0,
+            complainted_mchid: None,
+        }
+    }
+
+    pub fn next_page(
+        begin_date: impl Into<String>,
+        end_date: impl Into<String>,
+        limit: i64,
+        offset: i64,
+    ) -> Self {
+        Self {
+            begin_date: begin_date.into(),
+            end_date: end_date.into(),
+            limit,
+            offset,
+            complainted_mchid: None,
+        }
+    }
+
+    pub fn for_complainted_merchant(mut self, merchant_id: impl Into<String>) -> Self {
+        self.complainted_mchid = Some(merchant_id.into());
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let begin_date =
+            chrono::NaiveDate::parse_from_str(&self.begin_date, "%Y-%m-%d").map_err(|_| {
+                WechatError::Config(
+                    "complaint begin date must use the YYYY-MM-DD format".to_string(),
+                )
+            })?;
+        let end_date =
+            chrono::NaiveDate::parse_from_str(&self.end_date, "%Y-%m-%d").map_err(|_| {
+                WechatError::Config("complaint end date must use the YYYY-MM-DD format".to_string())
+            })?;
+        let span = end_date.signed_duration_since(begin_date).num_days();
+        if !(0..=30).contains(&span) {
+            return Err(WechatError::Config(
+                "complaint query dates must be ordered and span at most 30 days".to_string(),
+            ));
+        }
+        if !(1..=50).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "complaint query limit must be between 1 and 50".to_string(),
+            ));
+        }
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "complaint query offset cannot be negative".to_string(),
+            ));
+        }
+        if let Some(merchant_id) = self.complainted_mchid.as_deref() {
+            validate_payment_identifier(merchant_id, "complainted merchant id", 64)?;
+        }
+        Ok(())
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         let mut query = vec![
             ("begin_date".to_string(), self.begin_date),
@@ -4465,6 +4544,36 @@ impl ComplaintListResponse {
 
     pub fn next_offset(&self) -> Option<i64> {
         payment_page_next_offset(self.offset, self.total_count, self.data.len())
+    }
+
+    pub fn identified_count(&self) -> usize {
+        self.data
+            .iter()
+            .filter(|complaint| complaint.has_identity())
+            .count()
+    }
+
+    pub fn pending_response_count(&self) -> usize {
+        self.data
+            .iter()
+            .filter(|complaint| complaint.needs_merchant_response())
+            .count()
+    }
+
+    pub fn priority_attention_count(&self) -> usize {
+        self.data
+            .iter()
+            .filter(|complaint| complaint.needs_priority_attention())
+            .count()
+    }
+
+    pub fn find_complaint(&self, complaint_id: &str) -> Option<&ComplaintDetailResponse> {
+        self.data.iter().find(|complaint| {
+            complaint
+                .complaint_id
+                .as_deref()
+                .is_some_and(|value| value == complaint_id)
+        })
     }
 }
 
@@ -4542,6 +4651,12 @@ impl ComplaintStateKind {
 }
 
 impl ComplaintDetailResponse {
+    pub fn has_identity(&self) -> bool {
+        self.complaint_id
+            .as_deref()
+            .is_some_and(|complaint_id| !complaint_id.trim().is_empty())
+    }
+
     pub fn complaint_state_kind(&self) -> Option<ComplaintStateKind> {
         self.complaint_state
             .as_deref()
@@ -4573,8 +4688,34 @@ impl ComplaintDetailResponse {
         self.problem_type_kind() == Some(ComplaintProblemType::Refund)
     }
 
-    pub fn needs_merchant_response(&self) -> bool {
+    pub fn is_fully_refunded(&self) -> bool {
+        self.complaint_full_refunded == Some(true)
+    }
+
+    pub fn has_pending_user_response(&self) -> bool {
         self.incoming_user_response == Some(true)
+    }
+
+    pub fn identified_order_count(&self) -> usize {
+        self.complaint_order_info
+            .iter()
+            .filter(|order| order.has_identity())
+            .count()
+    }
+
+    pub fn known_order_amount(&self) -> Result<i64> {
+        self.complaint_order_info
+            .iter()
+            .filter_map(|order| order.amount)
+            .try_fold(0_i64, |total, amount| {
+                total.checked_add(amount).ok_or_else(|| {
+                    WechatError::Config("complaint order amount total overflowed".to_string())
+                })
+            })
+    }
+
+    pub fn needs_merchant_response(&self) -> bool {
+        self.has_pending_user_response()
             && !self
                 .complaint_state_kind()
                 .is_some_and(ComplaintStateKind::is_terminal)
@@ -4640,6 +4781,18 @@ pub struct ComplaintOrderInfo {
     pub amount: Option<i64>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintOrderInfo {
+    pub fn has_identity(&self) -> bool {
+        self.transaction_id
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty())
+            || self
+                .out_trade_no
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4814,6 +4967,28 @@ pub struct ComplaintNegotiationHistoryRequest {
 }
 
 impl ComplaintNegotiationHistoryRequest {
+    pub const fn first_page(limit: i64) -> Self {
+        Self { limit, offset: 0 }
+    }
+
+    pub const fn next_page(limit: i64, offset: i64) -> Self {
+        Self { limit, offset }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !(1..=300).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "complaint negotiation-history limit must be between 1 and 300".to_string(),
+            ));
+        }
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "complaint negotiation-history offset cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         vec![
             ("limit".to_string(), self.limit.to_string()),
@@ -4843,6 +5018,44 @@ impl ComplaintNegotiationHistoryResponse {
 
     pub fn next_offset(&self) -> Option<i64> {
         payment_page_next_offset(self.offset, self.total_count, self.data.len())
+    }
+
+    pub fn identified_count(&self) -> usize {
+        self.data
+            .iter()
+            .filter(|record| record.has_identity())
+            .count()
+    }
+
+    pub fn refund_event_count(&self) -> usize {
+        self.data
+            .iter()
+            .filter(|record| {
+                record
+                    .operate_type_kind()
+                    .is_some_and(ComplaintNegotiationOperateType::is_refund_event)
+            })
+            .count()
+    }
+
+    pub fn system_event_count(&self) -> usize {
+        self.data
+            .iter()
+            .filter(|record| {
+                record
+                    .operate_type_kind()
+                    .is_some_and(ComplaintNegotiationOperateType::is_system_event)
+            })
+            .count()
+    }
+
+    pub fn find_log(&self, log_id: &str) -> Option<&ComplaintNegotiationHistoryRecord> {
+        self.data.iter().find(|record| {
+            record
+                .log_id
+                .as_deref()
+                .is_some_and(|value| value == log_id)
+        })
     }
 }
 
@@ -4981,6 +5194,12 @@ impl ComplaintNegotiationOperateType {
 }
 
 impl ComplaintNegotiationHistoryRecord {
+    pub fn has_identity(&self) -> bool {
+        self.log_id
+            .as_deref()
+            .is_some_and(|log_id| !log_id.trim().is_empty())
+    }
+
     pub fn operate_type_kind(&self) -> Option<ComplaintNegotiationOperateType> {
         self.operate_type
             .as_deref()
@@ -5233,6 +5452,92 @@ pub struct ComplaintMiniProgramJumpInfo {
     pub extra: Value,
 }
 
+impl ComplaintMiniProgramJumpInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_text(&self.appid, "complaint mini-program appid", 128)?;
+        validate_payment_text(&self.path, "complaint mini-program path", 1024)?;
+        let text = self.text.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint mini-program jump text is required".to_string())
+        })?;
+        validate_payment_text(text, "complaint mini-program jump text", 128)
+    }
+}
+
+fn payment_path_identifier<'a>(value: &'a str, field: &str, max_chars: usize) -> Result<&'a str> {
+    validate_payment_identifier(value, field, max_chars)?;
+    Ok(value)
+}
+
+fn encode_payment_path_segment(value: &str) -> String {
+    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
+}
+
+fn validate_payment_text(value: &str, field: &str, max_chars: usize) -> Result<()> {
+    let count = value.chars().count();
+    if value.trim().is_empty() || count > max_chars {
+        return Err(WechatError::Config(format!(
+            "{field} must contain between 1 and {max_chars} characters"
+        )));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "{field} cannot contain control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_identifier(value: &str, field: &str, max_chars: usize) -> Result<()> {
+    validate_payment_text(value, field, max_chars)?;
+    if value.trim() != value || value.chars().any(char::is_whitespace) {
+        return Err(WechatError::Config(format!(
+            "{field} cannot contain whitespace"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_unique_payment_strings(values: &[String], field: &str, max_items: usize) -> Result<()> {
+    if values.len() > max_items {
+        return Err(WechatError::Config(format!(
+            "{field} list cannot contain more than {max_items} items"
+        )));
+    }
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_payment_identifier(value, field, 512)?;
+        if !seen.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "{field} list cannot contain duplicates"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_https_url(value: &str, field: &str, max_chars: usize, allow_query: bool) -> Result<()> {
+    validate_payment_text(value, field, max_chars)?;
+    let parsed = url::Url::parse(value)
+        .map_err(|_| WechatError::Config(format!("{field} must be an absolute HTTPS URL")))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+        || (!allow_query && parsed.query().is_some())
+    {
+        return Err(WechatError::Config(format!(
+            "{field} must be an absolute HTTPS URL without credentials or fragments{}",
+            if allow_query {
+                ""
+            } else {
+                " or query parameters"
+            }
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintMessageInfo {
     #[serde(default)]
@@ -5246,6 +5551,23 @@ pub struct ComplaintMessageInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintNotificationRequest {
     pub url: String,
+}
+
+impl ComplaintNotificationRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_https_url(&self.url, "complaint notification URL", 255, false)?;
+        let parsed = url::Url::parse(&self.url).map_err(|_| {
+            WechatError::Config(
+                "complaint notification URL must be an absolute HTTPS URL".to_string(),
+            )
+        })?;
+        if parsed.path().is_empty() || parsed.path() == "/" {
+            return Err(WechatError::Config(
+                "complaint notification URL must include a callback path".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5262,6 +5584,18 @@ pub struct ComplaintNotificationResponse {
     pub extra: Value,
 }
 
+impl ComplaintNotificationResponse {
+    pub fn is_configured(&self) -> bool {
+        self.code.is_none() && !self.url.trim().is_empty()
+    }
+
+    pub fn has_api_error(&self) -> bool {
+        self.code
+            .as_deref()
+            .is_some_and(|code| !code.trim().is_empty())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintReplyRequest {
     pub complainted_mchid: String,
@@ -5276,9 +5610,45 @@ pub struct ComplaintReplyRequest {
     pub mini_program_jump_info: Option<ComplaintMiniProgramJumpInfo>,
 }
 
+impl ComplaintReplyRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.complainted_mchid, "complainted merchant id", 64)?;
+        validate_payment_text(&self.response_content, "complaint response content", 500)?;
+        validate_unique_payment_strings(
+            &self.response_images,
+            "complaint response image media id",
+            4,
+        )?;
+
+        match (self.jump_url.as_deref(), self.jump_url_text.as_deref()) {
+            (Some(jump_url), Some(jump_url_text)) => {
+                validate_https_url(jump_url, "complaint response jump URL", 512, true)?;
+                validate_payment_text(jump_url_text, "complaint response jump URL text", 10)?;
+            }
+            (None, None) => {}
+            _ => {
+                return Err(WechatError::Config(
+                    "complaint response jump URL and text must be supplied together".to_string(),
+                ));
+            }
+        }
+
+        if let Some(mini_program) = self.mini_program_jump_info.as_ref() {
+            mini_program.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintCompleteRequest {
     pub complainted_mchid: String,
+}
+
+impl ComplaintCompleteRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.complainted_mchid, "complainted merchant id", 64)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5314,6 +5684,82 @@ impl ComplaintRefundAction {
 }
 
 impl ComplaintRefundProgressRequest {
+    pub fn approve(launch_refund_day: i64) -> Self {
+        Self {
+            action: "APPROVE".to_string(),
+            launch_refund_day: Some(launch_refund_day),
+            reject_reason: None,
+            reject_media_list: Vec::new(),
+            remark: None,
+        }
+    }
+
+    pub fn reject(reason: impl Into<String>) -> Self {
+        Self {
+            action: "REJECT".to_string(),
+            launch_refund_day: None,
+            reject_reason: Some(reason.into()),
+            reject_media_list: Vec::new(),
+            remark: None,
+        }
+    }
+
+    pub fn with_remark(mut self, remark: impl Into<String>) -> Self {
+        self.remark = Some(remark.into());
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_unique_payment_strings(
+            &self.reject_media_list,
+            "complaint refund rejection media id",
+            4,
+        )?;
+        if let Some(remark) = self.remark.as_deref() {
+            validate_payment_text(remark, "complaint refund remark", 200)?;
+        }
+
+        match self.action_kind() {
+            ComplaintRefundAction::Approve => {
+                if self.launch_refund_day.is_none_or(|days| days < 0) {
+                    return Err(WechatError::Config(
+                        "approved complaint refunds require a non-negative launch_refund_day"
+                            .to_string(),
+                    ));
+                }
+                if self
+                    .reject_reason
+                    .as_deref()
+                    .is_some_and(|reason| !reason.trim().is_empty())
+                    || !self.reject_media_list.is_empty()
+                {
+                    return Err(WechatError::Config(
+                        "approved complaint refunds cannot include rejection evidence".to_string(),
+                    ));
+                }
+            }
+            ComplaintRefundAction::Reject => {
+                let reason = self.reject_reason.as_deref().ok_or_else(|| {
+                    WechatError::Config(
+                        "rejected complaint refunds require a rejection reason".to_string(),
+                    )
+                })?;
+                validate_payment_text(reason, "complaint refund rejection reason", 200)?;
+                if self.launch_refund_day.is_some() {
+                    return Err(WechatError::Config(
+                        "rejected complaint refunds cannot include launch_refund_day".to_string(),
+                    ));
+                }
+            }
+            ComplaintRefundAction::Other => {
+                return Err(WechatError::Config(
+                    "complaint refund action must be APPROVE or REJECT".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn action_kind(&self) -> ComplaintRefundAction {
         ComplaintRefundAction::from_code(&self.action)
     }
@@ -5800,24 +6246,25 @@ mod tests {
     use crate::crypto;
 
     use super::{
-        build_merchant_media_upload_body, build_sandbox_sign_key_xml, multipart_quoted,
-        split_payment_download_url, verify_payment_download_hash, Amount, AppPayParams,
-        Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse, BillRequest,
-        BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
-        CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
-        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintAdditionalInfoType,
-        ComplaintCompleteRequest, ComplaintDetailResponse, ComplaintListRequest,
-        ComplaintListResponse, ComplaintMedia, ComplaintMediaType, ComplaintMessageActionType,
-        ComplaintMessageBlockType, ComplaintMessageSenderIdentity, ComplaintMiniProgramJumpInfo,
-        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
-        ComplaintNegotiationOperateType, ComplaintNotificationActionKind,
-        ComplaintNotificationRequest, ComplaintNotificationResource, ComplaintNotificationResponse,
-        ComplaintProblemType, ComplaintRefundAction, ComplaintRefundProgressRequest,
-        ComplaintReplyRequest, ComplaintServiceOrderStateKind, ComplaintStateKind,
-        ComplaintUserTag, CouponStockCreateRequest, CouponStockListRequest,
-        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
-        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        FundFlowBillRequest, H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
+        build_merchant_media_upload_body, build_sandbox_sign_key_xml, encode_payment_path_segment,
+        multipart_quoted, split_payment_download_url, verify_payment_download_hash, Amount,
+        AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
+        BillRequest, BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer,
+        CodepayRequest, CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest,
+        CombinePayerInfo, CombineSceneInfo, CombineSettleInfo, CombineSubOrder,
+        ComplaintAdditionalInfoType, ComplaintCompleteRequest, ComplaintDetailResponse,
+        ComplaintListRequest, ComplaintListResponse, ComplaintMedia, ComplaintMediaType,
+        ComplaintMessageActionType, ComplaintMessageBlockType, ComplaintMessageSenderIdentity,
+        ComplaintMiniProgramJumpInfo, ComplaintNegotiationHistoryRequest,
+        ComplaintNegotiationHistoryResponse, ComplaintNegotiationOperateType,
+        ComplaintNotificationActionKind, ComplaintNotificationRequest,
+        ComplaintNotificationResource, ComplaintNotificationResponse, ComplaintProblemType,
+        ComplaintRefundAction, ComplaintRefundProgressRequest, ComplaintReplyRequest,
+        ComplaintServiceOrderStateKind, ComplaintStateKind, ComplaintUserTag,
+        CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
+        CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
+        FundAppTransferBillRequest, FundAppTransferBillResponse, FundFlowBillRequest,
+        H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
         LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
         MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
         MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
@@ -7967,14 +8414,10 @@ mod tests {
 
     #[test]
     fn builds_complaint_list_query() {
-        let query = ComplaintListRequest {
-            begin_date: "2026-07-01".to_string(),
-            end_date: "2026-07-06".to_string(),
-            limit: 20,
-            offset: 0,
-            complainted_mchid: Some("mchid".to_string()),
-        }
-        .into_query();
+        let request = ComplaintListRequest::first_page("2026-07-01", "2026-07-06", 20)
+            .for_complainted_merchant("mchid");
+        assert!(request.validate().is_ok());
+        let query = request.into_query();
 
         assert_eq!(
             query,
@@ -7986,15 +8429,50 @@ mod tests {
                 ("complainted_mchid".to_string(), "mchid".to_string())
             ]
         );
+
+        assert!(
+            ComplaintListRequest::next_page("2026-07-01", "2026-07-31", 50, 50)
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ComplaintListRequest::first_page("2026-07-31", "2026-07-01", 20)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ComplaintListRequest::first_page("2026-07-01", "2026-08-01", 20)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ComplaintListRequest::first_page("2026-02-30", "2026-03-01", 20)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ComplaintListRequest::first_page("2026-07-01", "2026-07-01", 51)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ComplaintListRequest::next_page("2026-07-01", "2026-07-01", 20, -1)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ComplaintListRequest::first_page("2026-07-01", "2026-07-01", 20)
+                .for_complainted_merchant("bad merchant")
+                .validate()
+                .is_err()
+        );
     }
 
     #[test]
     fn builds_complaint_negotiation_history_query() {
-        let query = ComplaintNegotiationHistoryRequest {
-            limit: 10,
-            offset: 20,
-        }
-        .into_query();
+        let request = ComplaintNegotiationHistoryRequest::next_page(10, 20);
+        assert!(request.validate().is_ok());
+        let query = request.into_query();
 
         assert_eq!(
             query,
@@ -8002,6 +8480,19 @@ mod tests {
                 ("limit".to_string(), "10".to_string()),
                 ("offset".to_string(), "20".to_string())
             ]
+        );
+        assert!(ComplaintNegotiationHistoryRequest::first_page(300)
+            .validate()
+            .is_ok());
+        assert!(ComplaintNegotiationHistoryRequest::first_page(301)
+            .validate()
+            .is_err());
+        assert!(ComplaintNegotiationHistoryRequest::next_page(10, -1)
+            .validate()
+            .is_err());
+        assert_eq!(
+            encode_payment_path_segment("complaint/id"),
+            "complaint%2Fid"
         );
     }
 
@@ -8114,6 +8605,11 @@ mod tests {
             detail.user_tag_kinds().collect::<Vec<_>>(),
             vec![ComplaintUserTag::HighRisk]
         );
+        assert!(detail.has_identity());
+        assert!(!detail.is_fully_refunded());
+        assert!(detail.has_pending_user_response());
+        assert_eq!(detail.identified_order_count(), 1);
+        assert_eq!(detail.known_order_amount().unwrap(), 100);
         assert!(!detail.is_refund_request());
         assert!(detail.needs_merchant_response());
         assert!(detail.needs_priority_attention());
@@ -8203,6 +8699,10 @@ mod tests {
         assert_eq!(list.extra["next_key"], "cursor-1");
         assert_eq!(list.has_more(), Some(false));
         assert_eq!(list.next_offset(), None);
+        assert_eq!(list.identified_count(), 1);
+        assert_eq!(list.pending_response_count(), 1);
+        assert_eq!(list.priority_attention_count(), 1);
+        assert!(list.find_complaint("complaint-1").is_some());
         let next_page: ComplaintListResponse = serde_json::from_value(json!({
             "total_count": 3,
             "offset": 1,
@@ -8250,12 +8750,28 @@ mod tests {
 
     #[test]
     fn serializes_complaint_notification_request() {
-        let value = serde_json::to_value(ComplaintNotificationRequest {
+        let request = ComplaintNotificationRequest {
             url: "https://example.com/complaints".to_string(),
-        })
-        .unwrap();
+        };
+        assert!(request.validate().is_ok());
+        let value = serde_json::to_value(request).unwrap();
 
         assert_eq!(value["url"], "https://example.com/complaints");
+        assert!(ComplaintNotificationRequest {
+            url: "http://example.com/complaints".to_string()
+        }
+        .validate()
+        .is_err());
+        assert!(ComplaintNotificationRequest {
+            url: "https://example.com/complaints?token=secret".to_string()
+        }
+        .validate()
+        .is_err());
+        assert!(ComplaintNotificationRequest {
+            url: "https://example.com/".to_string()
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
@@ -8270,6 +8786,8 @@ mod tests {
         assert_eq!(response.mch_id.as_deref(), Some("1900000109"));
         assert_eq!(response.url, "https://example.com/complaints");
         assert_eq!(response.extra["notify_scene"], "merchant-service");
+        assert!(response.is_configured());
+        assert!(!response.has_api_error());
 
         let error: ComplaintNotificationResponse = serde_json::from_value(json!({
             "code": "INVALID_REQUEST",
@@ -8281,20 +8799,28 @@ mod tests {
         assert_eq!(error.message.as_deref(), Some("bad request"));
         assert_eq!(error.url, "");
         assert_eq!(error.extra["request_id"], "notify-error");
+        assert!(!error.is_configured());
+        assert!(error.has_api_error());
     }
 
     #[test]
     fn serializes_complaint_complete_request() {
-        let value = serde_json::to_value(ComplaintCompleteRequest {
+        let request = ComplaintCompleteRequest {
             complainted_mchid: "1900000109".to_string(),
-        })
-        .unwrap();
+        };
+        assert!(request.validate().is_ok());
+        let value = serde_json::to_value(request).unwrap();
         assert_eq!(value["complainted_mchid"], "1900000109");
+        assert!(ComplaintCompleteRequest {
+            complainted_mchid: " ".to_string()
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
     fn serializes_complaint_reply_request() {
-        let value = serde_json::to_value(ComplaintReplyRequest {
+        let request = ComplaintReplyRequest {
             complainted_mchid: "1900000109".to_string(),
             response_content: "handled".to_string(),
             response_images: vec!["media-1".to_string()],
@@ -8306,25 +8832,54 @@ mod tests {
                 text: Some("complaint".to_string()),
                 extra: serde_json::Value::Null,
             }),
-        })
-        .unwrap();
+        };
+        assert!(request.validate().is_ok());
+        let value = serde_json::to_value(request).unwrap();
 
         assert_eq!(value["complainted_mchid"], "1900000109");
         assert_eq!(value["response_content"], "handled");
         assert_eq!(value["response_images"][0], "media-1");
         assert_eq!(value["jump_url_text"], "detail");
         assert_eq!(value["mini_program_jump_info"]["appid"], "wx-app");
+
+        let unpaired_link = ComplaintReplyRequest {
+            complainted_mchid: "1900000109".to_string(),
+            response_content: "handled".to_string(),
+            response_images: Vec::new(),
+            jump_url: Some("https://example.com/detail".to_string()),
+            jump_url_text: None,
+            mini_program_jump_info: None,
+        };
+        assert!(unpaired_link.validate().is_err());
+        let duplicate_images = ComplaintReplyRequest {
+            complainted_mchid: "1900000109".to_string(),
+            response_content: "handled".to_string(),
+            response_images: vec!["media".to_string(), "media".to_string()],
+            jump_url: None,
+            jump_url_text: None,
+            mini_program_jump_info: None,
+        };
+        assert!(duplicate_images.validate().is_err());
+        let missing_mini_program_text = ComplaintReplyRequest {
+            complainted_mchid: "1900000109".to_string(),
+            response_content: "handled".to_string(),
+            response_images: Vec::new(),
+            jump_url: None,
+            jump_url_text: None,
+            mini_program_jump_info: Some(ComplaintMiniProgramJumpInfo {
+                appid: "wx-app".to_string(),
+                path: "/pages/complaint".to_string(),
+                text: None,
+                extra: serde_json::Value::Null,
+            }),
+        };
+        assert!(missing_mini_program_text.validate().is_err());
     }
 
     #[test]
     fn serializes_complaint_refund_progress_request() {
-        let request = ComplaintRefundProgressRequest {
-            action: "APPROVE".to_string(),
-            launch_refund_day: Some(3),
-            reject_reason: None,
-            reject_media_list: Vec::new(),
-            remark: Some("refund accepted".to_string()),
-        };
+        let request = ComplaintRefundProgressRequest::approve(3).with_remark("refund accepted");
+        assert!(request.validate().is_ok());
         assert_eq!(request.action_kind(), ComplaintRefundAction::Approve);
         let value = serde_json::to_value(request).unwrap();
 
@@ -8332,6 +8887,24 @@ mod tests {
         assert_eq!(value["launch_refund_day"], 3);
         assert_eq!(value["remark"], "refund accepted");
         assert!(value.get("reject_media_list").is_none());
+
+        let rejected = ComplaintRefundProgressRequest::reject("not eligible");
+        assert!(rejected.validate().is_ok());
+        assert_eq!(rejected.action_kind(), ComplaintRefundAction::Reject);
+        assert!(ComplaintRefundProgressRequest::approve(-1)
+            .validate()
+            .is_err());
+        assert!(ComplaintRefundProgressRequest::reject(" ")
+            .validate()
+            .is_err());
+        let mixed = ComplaintRefundProgressRequest {
+            action: "REJECT".to_string(),
+            launch_refund_day: Some(1),
+            reject_reason: Some("not eligible".to_string()),
+            reject_media_list: Vec::new(),
+            remark: None,
+        };
+        assert!(mixed.validate().is_err());
     }
 
     #[test]
@@ -8390,6 +8963,10 @@ mod tests {
         assert_eq!(response.total_count, Some(1));
         assert_eq!(response.has_more(), Some(false));
         assert_eq!(response.next_offset(), None);
+        assert_eq!(response.identified_count(), 1);
+        assert_eq!(response.refund_event_count(), 0);
+        assert_eq!(response.system_event_count(), 0);
+        assert!(response.find_log("log-1").is_some());
         assert_eq!(response.data[0].log_id.as_deref(), Some("log-1"));
         assert_eq!(
             response.data[0].operate_type_kind(),
