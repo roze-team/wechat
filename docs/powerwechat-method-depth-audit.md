@@ -124,6 +124,19 @@ Implemented on 2026-07-21 in Work JSSDK credential depth:
   exact pre-fragment URL bytes; deterministic construction and signature
   verification helpers are covered by a fixed WeChat-format SHA-1 vector.
 
+Implemented on 2026-07-21 in Work external-contact profile depth:
+
+- External-contact detail and batch-query exits now validate nested external
+  profile attributes before returning customer data to application code.
+- Known text, web, and mini-program attribute types require exactly one
+  matching payload with their required fields; type/payload mismatches,
+  multiple payloads, blank values, and duplicate attribute names are rejected.
+- Profile web links require absolute HTTP(S) URLs without credentials or URL
+  fragments, while unknown future attribute types remain forward-compatible
+  through flattened extension fields.
+- Profile lookup and per-kind count helpers expose the typed attribute data
+  without forcing callers back to generic JSON traversal.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream

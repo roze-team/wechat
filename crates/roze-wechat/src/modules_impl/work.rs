@@ -15746,6 +15746,9 @@ impl ExternalContactInfo {
                 "external-contact gender cannot be negative".to_string(),
             ));
         }
+        if let Some(profile) = &self.external_profile {
+            profile.validate()?;
+        }
         Ok(())
     }
 
@@ -15791,6 +15794,53 @@ pub struct ExternalContactProfile {
     pub extra: Value,
 }
 
+impl ExternalContactProfile {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .external_corp_name
+            .as_deref()
+            .is_some_and(|name| name.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "external-contact profile corporation name cannot be empty".to_string(),
+            ));
+        }
+        if self.external_attr.len() > 100 {
+            return Err(WechatError::Config(
+                "external-contact profile cannot contain more than 100 attributes".to_string(),
+            ));
+        }
+
+        let mut names = std::collections::HashSet::with_capacity(self.external_attr.len());
+        for attribute in &self.external_attr {
+            attribute.validate()?;
+            let name = attribute.name.as_deref().unwrap_or_default().trim();
+            if !names.insert(name) {
+                return Err(WechatError::Config(
+                    "external-contact profile attribute names must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn attribute(&self, name: &str) -> Option<&ExternalContactAttribute> {
+        self.external_attr.iter().find(|attribute| {
+            attribute
+                .name
+                .as_deref()
+                .is_some_and(|attribute_name| attribute_name == name)
+        })
+    }
+
+    pub fn attribute_count(&self, kind: ExternalContactAttributeKind) -> usize {
+        self.external_attr
+            .iter()
+            .filter(|attribute| attribute.attribute_kind() == Some(kind))
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactAttribute {
     #[serde(default, rename = "type")]
@@ -15816,6 +15866,54 @@ pub enum ExternalContactAttributeKind {
 }
 
 impl ExternalContactAttribute {
+    pub fn validate(&self) -> Result<()> {
+        let attr_type = self.attr_type.ok_or_else(|| {
+            WechatError::Config("external-contact profile attribute requires type".to_string())
+        })?;
+        let name = self.name.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact profile attribute requires name".to_string())
+        })?;
+        if name.trim().is_empty() {
+            return Err(WechatError::Config(
+                "external-contact profile attribute name cannot be empty".to_string(),
+            ));
+        }
+
+        let payload_count = self.payload_count();
+        match attr_type {
+            0 if payload_count == 1 && self.text.is_some() => {
+                self.text.as_ref().expect("checked text payload").validate()
+            }
+            1 if payload_count == 1 && self.web.is_some() => {
+                self.web.as_ref().expect("checked web payload").validate()
+            }
+            2 if payload_count == 1 && self.miniprogram.is_some() => self
+                .miniprogram
+                .as_ref()
+                .expect("checked mini-program payload")
+                .validate(),
+            0..=2 => Err(WechatError::Config(format!(
+                "external-contact profile attribute type {attr_type} requires exactly one matching payload"
+            ))),
+            _ if payload_count == 0 => Ok(()),
+            _ => Err(WechatError::Config(
+                "unknown external-contact profile attribute types cannot use known payload fields"
+                    .to_string(),
+            )),
+        }
+    }
+
+    pub fn payload_count(&self) -> usize {
+        [
+            self.text.is_some(),
+            self.web.is_some(),
+            self.miniprogram.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count()
+    }
+
     pub fn attribute_kind(&self) -> Option<ExternalContactAttributeKind> {
         self.attr_type.map(|attr_type| match attr_type {
             0 => ExternalContactAttributeKind::Text,
@@ -15846,6 +15944,12 @@ pub struct ExternalContactAttributeText {
     pub extra: Value,
 }
 
+impl ExternalContactAttributeText {
+    pub fn validate(&self) -> Result<()> {
+        require_external_contact_profile_field("text value", self.value.as_deref()).map(|_| ())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactAttributeWeb {
     #[serde(default)]
@@ -15854,6 +15958,14 @@ pub struct ExternalContactAttributeWeb {
     pub title: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactAttributeWeb {
+    pub fn validate(&self) -> Result<()> {
+        let url = require_external_contact_profile_field("web URL", self.url.as_deref())?;
+        require_external_contact_profile_field("web title", self.title.as_deref())?;
+        validate_external_contact_profile_http_url(url)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15866,6 +15978,46 @@ pub struct ExternalContactAttributeMiniProgram {
     pub title: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactAttributeMiniProgram {
+    pub fn validate(&self) -> Result<()> {
+        require_external_contact_profile_field("mini-program appid", self.appid.as_deref())?;
+        require_external_contact_profile_field("mini-program page path", self.pagepath.as_deref())?;
+        require_external_contact_profile_field("mini-program title", self.title.as_deref())?;
+        Ok(())
+    }
+}
+
+fn require_external_contact_profile_field<'a>(
+    label: &str,
+    value: Option<&'a str>,
+) -> Result<&'a str> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            WechatError::Config(format!("external-contact profile {label} cannot be empty"))
+        })
+}
+
+fn validate_external_contact_profile_http_url(value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|_| {
+        WechatError::Config(
+            "external-contact profile web URL must be an absolute HTTP(S) URL".to_string(),
+        )
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(
+            "external-contact profile web URL must be absolute HTTP(S) without credentials or fragments"
+                .to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48204,6 +48356,144 @@ mod tests {
             api_error.validate(),
             Err(WechatError::Api { code: 40003, .. })
         ));
+    }
+
+    #[test]
+    fn validates_external_contact_profile_attribute_contracts() {
+        let detail: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": {
+                "external_userid": "external",
+                "external_profile": {
+                    "external_corp_name": "Roze",
+                    "external_attr": [
+                        {
+                            "type": 0,
+                            "name": "Role",
+                            "text": { "value": "Buyer" }
+                        },
+                        {
+                            "type": 1,
+                            "name": "Website",
+                            "web": {
+                                "url": "https://example.com/customer",
+                                "title": "Customer portal"
+                            }
+                        },
+                        {
+                            "type": 2,
+                            "name": "Store",
+                            "miniprogram": {
+                                "appid": "wx123",
+                                "pagepath": "pages/store/index",
+                                "title": "Store"
+                            }
+                        },
+                        {
+                            "type": 9,
+                            "name": "Future",
+                            "future_payload": { "value": true }
+                        }
+                    ]
+                }
+            }
+        }))
+        .unwrap();
+        assert!(detail.validate().is_ok());
+        let profile = detail
+            .require_contact()
+            .unwrap()
+            .external_profile
+            .as_ref()
+            .unwrap();
+        assert_eq!(
+            profile.attribute_count(ExternalContactAttributeKind::Text),
+            1
+        );
+        assert_eq!(
+            profile.attribute_count(ExternalContactAttributeKind::Web),
+            1
+        );
+        assert_eq!(
+            profile
+                .attribute("Store")
+                .and_then(|attribute| attribute.miniprogram.as_ref())
+                .and_then(|mini_program| mini_program.pagepath.as_deref()),
+            Some("pages/store/index")
+        );
+
+        let mismatched_payload: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": {
+                "external_userid": "external",
+                "external_profile": {
+                    "external_attr": [{
+                        "type": 0,
+                        "name": "Role",
+                        "web": { "url": "https://example.com", "title": "Wrong" }
+                    }]
+                }
+            }
+        }))
+        .unwrap();
+        assert!(mismatched_payload.validate().is_err());
+
+        let multiple_payloads: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": {
+                "external_userid": "external",
+                "external_profile": {
+                    "external_attr": [{
+                        "type": 1,
+                        "name": "Website",
+                        "text": { "value": "duplicate" },
+                        "web": { "url": "https://example.com", "title": "Website" }
+                    }]
+                }
+            }
+        }))
+        .unwrap();
+        assert!(multiple_payloads.validate().is_err());
+
+        let unsafe_url: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": {
+                "external_userid": "external",
+                "external_profile": {
+                    "external_attr": [{
+                        "type": 1,
+                        "name": "Website",
+                        "web": {
+                            "url": "https://user:secret@example.com/#fragment",
+                            "title": "Website"
+                        }
+                    }]
+                }
+            }
+        }))
+        .unwrap();
+        assert!(unsafe_url.validate().is_err());
+
+        let duplicate_names: ExternalContactBatchGetResponse = serde_json::from_value(json!({
+            "external_contact_list": [{
+                "external_contact": {
+                    "external_userid": "external",
+                    "external_profile": {
+                        "external_attr": [
+                            { "type": 0, "name": "Role", "text": { "value": "Buyer" } },
+                            { "type": 0, "name": "Role", "text": { "value": "Owner" } }
+                        ]
+                    }
+                },
+                "follow_info": { "userid": "owner" }
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_names.validate().is_err());
+
+        let blank_mini_program: ExternalContactAttribute = serde_json::from_value(json!({
+            "type": 2,
+            "name": "Store",
+            "miniprogram": { "appid": "wx123", "pagepath": " ", "title": "Store" }
+        }))
+        .unwrap();
+        assert!(blank_mini_program.validate().is_err());
     }
 
     #[test]
