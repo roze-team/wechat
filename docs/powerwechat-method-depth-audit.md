@@ -1443,6 +1443,23 @@ depth:
 - new-group, existing-group, tag-item and full-list constructors provide valid
   defaults for common corporate and strategy tag workflows without ad hoc JSON.
 
+Implemented on 2026-07-20 in Work external-contact corporate and strategy tag
+response contracts:
+
+- corporate and strategy tag list/add/edit/delete plus customer tag-marking
+  operations now surface nonzero Work API errors at the HTTP boundary;
+- list responses require unique nonblank group and tag ids, complete bounded
+  names, non-negative ordering, positive optional creation times, and
+  consistent positive strategy ownership for strategy-tag groups;
+- add responses require a group with at least one returned tag while accepting
+  the documented compact result shape, and expose checked group/tag lookup
+  helpers without discarding extension fields;
+- malformed duplicate groups/tags, mixed strategy ids, missing create results,
+  and corporate groups carrying strategy ownership are rejected;
+- the delete wrapper continues to use the documented
+  `del_strategy_tag` endpoint, correcting PowerWeChat's implementation that
+  routes strategy-tag deletion to `edit_strategy_tag`.
+
 Implemented on 2026-07-18 in Work external-contact group-chat and identifier
 migration depth:
 

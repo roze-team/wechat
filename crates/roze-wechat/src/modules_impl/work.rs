@@ -1373,13 +1373,16 @@ impl Work {
         request: CorpTagListRequest,
     ) -> Result<CorpTagListResponse> {
         request.validate()?;
-        self.inner
+        let response: CorpTagListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_corp_tag_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_corp_tag(
@@ -1388,13 +1391,16 @@ impl Work {
         request: CorpTagAddRequest,
     ) -> Result<CorpTagAddResponse> {
         request.validate()?;
-        self.inner
+        let response: CorpTagAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/add_corp_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn edit_corp_tag(
@@ -1403,13 +1409,20 @@ impl Work {
         request: CorpTagEditRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/edit_corp_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        validate_external_contact_response_success(
+            "external-contact corporate tag edit",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub async fn delete_corp_tag(
@@ -1418,13 +1431,20 @@ impl Work {
         request: CorpTagDeleteRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/del_corp_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        validate_external_contact_response_success(
+            "external-contact corporate tag delete",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub async fn mark_external_contact_tag(
@@ -1433,13 +1453,20 @@ impl Work {
         request: ExternalContactMarkTagRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/mark_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        validate_external_contact_response_success(
+            "external-contact mark tag",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub async fn list_external_group_chats(
@@ -1740,13 +1767,16 @@ impl Work {
         request: ExternalContactStrategyTagListRequest,
     ) -> Result<ExternalContactStrategyTagListResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactStrategyTagListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_strategy_tag_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_external_contact_strategy_tag(
@@ -1755,13 +1785,16 @@ impl Work {
         request: ExternalContactStrategyTagAddRequest,
     ) -> Result<ExternalContactStrategyTagAddResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactStrategyTagAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/add_strategy_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn edit_external_contact_strategy_tag(
@@ -1770,13 +1803,20 @@ impl Work {
         request: ExternalContactStrategyTagEditRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/edit_strategy_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        validate_external_contact_response_success(
+            "external-contact strategy tag edit",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub async fn delete_external_contact_strategy_tag(
@@ -1785,13 +1825,20 @@ impl Work {
         request: ExternalContactStrategyTagDeleteRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/del_strategy_tag",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        validate_external_contact_response_success(
+            "external-contact strategy tag delete",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub async fn add_external_group_welcome_template(
@@ -2702,7 +2749,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact customer strategy edit",
             response.errcode,
             response.errmsg.as_deref(),
@@ -2724,7 +2771,7 @@ impl Work {
                 json!({ "strategy_id": strategy_id }),
             )
             .await?;
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact customer strategy delete",
             response.errcode,
             response.errmsg.as_deref(),
@@ -12381,6 +12428,31 @@ pub struct CorpTag {
     pub extra: Value,
 }
 
+impl CorpTag {
+    fn validate_response(&self, require_name: bool) -> Result<()> {
+        let id = self.id.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact tag response requires id".to_string())
+        })?;
+        validate_external_tag_identifier("tag id", id)?;
+        match self.name.as_deref() {
+            Some(name) => validate_external_tag_name("tag", name)?,
+            None if require_name => {
+                return Err(WechatError::Config(
+                    "external-contact tag response requires name".to_string(),
+                ));
+            }
+            None => {}
+        }
+        validate_external_tag_order("tag", self.order)?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact tag create time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorpTagGroup {
     #[serde(default)]
@@ -12401,6 +12473,79 @@ pub struct CorpTagGroup {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum ExternalContactTagGroupScope {
+    Corporate,
+    Strategy,
+}
+
+impl CorpTagGroup {
+    fn validate_response(
+        &self,
+        scope: ExternalContactTagGroupScope,
+        require_names: bool,
+        require_tags: bool,
+    ) -> Result<()> {
+        let group_id = self.group_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact tag group response requires group_id".to_string())
+        })?;
+        validate_external_tag_identifier("tag group id", group_id)?;
+        match self.group_name.as_deref() {
+            Some(group_name) => validate_external_tag_name("tag group", group_name)?,
+            None if require_names => {
+                return Err(WechatError::Config(
+                    "external-contact tag group response requires group_name".to_string(),
+                ));
+            }
+            None => {}
+        }
+        validate_external_tag_order("tag group", self.order)?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact tag group create time must be positive".to_string(),
+            ));
+        }
+        match scope {
+            ExternalContactTagGroupScope::Corporate if self.strategy_id.is_some() => {
+                return Err(WechatError::Config(
+                    "external-contact corporate tag group cannot contain strategy_id".to_string(),
+                ));
+            }
+            ExternalContactTagGroupScope::Strategy => {
+                let strategy_id = self.strategy_id.ok_or_else(|| {
+                    WechatError::Config(
+                        "external-contact strategy tag group requires strategy_id".to_string(),
+                    )
+                })?;
+                validate_external_strategy_id(strategy_id)?;
+            }
+            ExternalContactTagGroupScope::Corporate => {}
+        }
+        if require_tags && self.tag.is_empty() {
+            return Err(WechatError::Config(
+                "external-contact tag group response requires tags".to_string(),
+            ));
+        }
+        let mut tag_ids = std::collections::HashSet::with_capacity(self.tag.len());
+        for tag in &self.tag {
+            tag.validate_response(require_names)?;
+            let tag_id = tag.id.as_deref().unwrap_or_default();
+            if !tag_ids.insert(tag_id) {
+                return Err(WechatError::Config(
+                    "external-contact tag group cannot contain duplicate tag ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find_tag(&self, tag_id: &str) -> Option<&CorpTag> {
+        self.tag
+            .iter()
+            .find(|tag| tag.id.as_deref() == Some(tag_id))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorpTagListResponse {
     #[serde(default)]
@@ -12411,6 +12556,26 @@ pub struct CorpTagListResponse {
     pub tag_group: Vec<CorpTagGroup>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CorpTagListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact corporate tag list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_external_contact_tag_groups(
+            &self.tag_group,
+            ExternalContactTagGroupScope::Corporate,
+        )
+    }
+
+    pub fn find_group(&self, group_id: &str) -> Option<&CorpTagGroup> {
+        self.tag_group
+            .iter()
+            .find(|group| group.group_id.as_deref() == Some(group_id))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12485,6 +12650,33 @@ pub struct CorpTagAddResponse {
     pub tag_group: Option<CorpTagGroup>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CorpTagAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact corporate tag add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.tag_group
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact corporate tag add response requires tag_group".to_string(),
+                )
+            })?
+            .validate_response(ExternalContactTagGroupScope::Corporate, false, true)
+    }
+
+    pub fn require_tag_group(&self) -> Result<&CorpTagGroup> {
+        self.validate()?;
+        self.tag_group.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact corporate tag add response requires tag_group".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13634,7 +13826,7 @@ pub struct ExternalContactMomentStrategyListResponse {
 
 impl ExternalContactMomentStrategyListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact moment strategy list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13687,7 +13879,7 @@ pub struct ExternalContactMomentStrategyResponse {
 
 impl ExternalContactMomentStrategyResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact moment strategy get",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13728,7 +13920,7 @@ pub struct ExternalContactMomentStrategyRangeResponse {
 
 impl ExternalContactMomentStrategyRangeResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact moment strategy range",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13792,7 +13984,7 @@ pub struct ExternalContactMomentStrategyCreateResponse {
 
 impl ExternalContactMomentStrategyCreateResponse {
     pub fn validate_create(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact moment strategy create",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13806,7 +13998,7 @@ impl ExternalContactMomentStrategyCreateResponse {
     }
 
     pub fn validate_edit(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact moment strategy edit",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13827,7 +14019,7 @@ impl ExternalContactMomentStrategyCreateResponse {
     }
 }
 
-fn validate_external_contact_strategy_response_success(
+fn validate_external_contact_response_success(
     operation: &str,
     errcode: Option<i64>,
     errmsg: Option<&str>,
@@ -14094,6 +14286,36 @@ fn validate_external_strategy_id(strategy_id: i64) -> Result<()> {
     Ok(())
 }
 
+fn validate_external_contact_tag_groups(
+    groups: &[CorpTagGroup],
+    scope: ExternalContactTagGroupScope,
+) -> Result<()> {
+    let mut group_ids = std::collections::HashSet::with_capacity(groups.len());
+    let mut strategy_id = None;
+    for group in groups {
+        group.validate_response(scope, true, false)?;
+        let group_id = group.group_id.as_deref().unwrap_or_default();
+        if !group_ids.insert(group_id) {
+            return Err(WechatError::Config(
+                "external-contact tag response cannot contain duplicate group ids".to_string(),
+            ));
+        }
+        if matches!(scope, ExternalContactTagGroupScope::Strategy) {
+            match strategy_id {
+                Some(expected) if group.strategy_id != Some(expected) => {
+                    return Err(WechatError::Config(
+                        "external-contact strategy tag groups must share one strategy_id"
+                            .to_string(),
+                    ));
+                }
+                None => strategy_id = group.strategy_id,
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactStrategyTagListResponse {
     #[serde(default)]
@@ -14106,6 +14328,26 @@ pub struct ExternalContactStrategyTagListResponse {
     pub extra: Value,
 }
 
+impl ExternalContactStrategyTagListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact strategy tag list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_external_contact_tag_groups(
+            &self.tag_group,
+            ExternalContactTagGroupScope::Strategy,
+        )
+    }
+
+    pub fn find_group(&self, group_id: &str) -> Option<&CorpTagGroup> {
+        self.tag_group
+            .iter()
+            .find(|group| group.group_id.as_deref() == Some(group_id))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactStrategyTagAddResponse {
     #[serde(default)]
@@ -14116,6 +14358,33 @@ pub struct ExternalContactStrategyTagAddResponse {
     pub tag_group: Option<CorpTagGroup>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactStrategyTagAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact strategy tag add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.tag_group
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact strategy tag add response requires tag_group".to_string(),
+                )
+            })?
+            .validate_response(ExternalContactTagGroupScope::Strategy, false, true)
+    }
+
+    pub fn require_tag_group(&self) -> Result<&CorpTagGroup> {
+        self.validate()?;
+        self.tag_group.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact strategy tag add response requires tag_group".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20190,7 +20459,7 @@ impl ExternalContactCustomerStrategy {
 
 impl ExternalContactCustomerStrategyListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact customer strategy list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -20231,7 +20500,7 @@ impl ExternalContactCustomerStrategyListResponse {
 
 impl ExternalContactCustomerStrategyResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact customer strategy get",
             self.errcode,
             self.errmsg.as_deref(),
@@ -20272,7 +20541,7 @@ pub struct ExternalContactCustomerStrategyRangeResponse {
 
 impl ExternalContactCustomerStrategyRangeResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact customer strategy range",
             self.errcode,
             self.errmsg.as_deref(),
@@ -20335,7 +20604,7 @@ pub struct ExternalContactCustomerStrategyCreateResponse {
 
 impl ExternalContactCustomerStrategyCreateResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_strategy_response_success(
+        validate_external_contact_response_success(
             "external-contact customer strategy create",
             self.errcode,
             self.errmsg.as_deref(),
@@ -35300,6 +35569,11 @@ mod tests {
         assert_eq!(corp_tags.tag_group[0].tag[0].id.as_deref(), Some("vip"));
         assert_eq!(corp_tags.tag_group[0].tag[0].extra["tag_source"], "crm");
         assert_eq!(corp_tags.tag_group[0].extra["group_source"], "crm");
+        assert!(corp_tags.validate().is_ok());
+        assert!(corp_tags
+            .find_group("level")
+            .and_then(|group| group.find_tag("vip"))
+            .is_some());
         assert_eq!(corp_tags.extra["tag_total"], 1);
 
         let corp_tag_created: CorpTagAddResponse = serde_json::from_value(json!({
@@ -35312,14 +35586,15 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(corp_tag_created.extra["request_id"], "tag-create-1");
+        assert!(corp_tag_created.validate().is_ok());
         assert_eq!(
-            corp_tag_created.tag_group.as_ref().unwrap().tag[0]
+            corp_tag_created.require_tag_group().unwrap().tag[0]
                 .name
                 .as_deref(),
             Some("vip")
         );
         assert_eq!(
-            corp_tag_created.tag_group.unwrap().extra["group_source"],
+            corp_tag_created.require_tag_group().unwrap().extra["group_source"],
             "api"
         );
 
@@ -35394,19 +35669,86 @@ mod tests {
             "strategy"
         );
         assert_eq!(strategy_tags.tag_group[0].extra["group_source"], "strategy");
+        assert!(strategy_tags.validate().is_ok());
+        assert!(strategy_tags
+            .find_group("group")
+            .and_then(|group| group.find_tag("tag"))
+            .is_some());
         assert_eq!(strategy_tags.extra["tag_total"], 1);
 
         let strategy_created: ExternalContactStrategyTagAddResponse =
             serde_json::from_value(json!({
-                "tag_group": { "group_id": "group", "tag": [{ "id": "tag" }], "group_source": "created" },
+                "tag_group": {
+                    "group_id": "group",
+                    "strategy_id": 1,
+                    "tag": [{ "id": "tag" }],
+                    "group_source": "created"
+                },
                 "request_id": "strategy-tag-create"
             }))
             .unwrap();
         assert_eq!(strategy_created.extra["request_id"], "strategy-tag-create");
-        let strategy_created = strategy_created.tag_group.unwrap();
+        assert!(strategy_created.validate().is_ok());
+        let strategy_created = strategy_created.require_tag_group().unwrap();
         assert_eq!(strategy_created.group_id.as_deref(), Some("group"));
         assert_eq!(strategy_created.tag[0].id.as_deref(), Some("tag"));
         assert_eq!(strategy_created.extra["group_source"], "created");
+    }
+
+    #[test]
+    fn validates_external_contact_tag_response_contracts() {
+        let duplicate_tags: CorpTagListResponse = serde_json::from_value(json!({
+            "tag_group": [{
+                "group_id": "group",
+                "group_name": "group",
+                "tag": [
+                    { "id": "tag", "name": "one" },
+                    { "id": "tag", "name": "two" }
+                ]
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_tags.validate().is_err());
+
+        let duplicate_groups: CorpTagListResponse = serde_json::from_value(json!({
+            "tag_group": [
+                { "group_id": "group", "group_name": "one", "tag": [] },
+                { "group_id": "group", "group_name": "two", "tag": [] }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_groups.validate().is_err());
+
+        let mixed_strategies: ExternalContactStrategyTagListResponse =
+            serde_json::from_value(json!({
+                "tag_group": [
+                    {
+                        "group_id": "one",
+                        "group_name": "one",
+                        "strategy_id": 1,
+                        "tag": []
+                    },
+                    {
+                        "group_id": "two",
+                        "group_name": "two",
+                        "strategy_id": 2,
+                        "tag": []
+                    }
+                ]
+            }))
+            .unwrap();
+        assert!(mixed_strategies.validate().is_err());
+
+        let missing_group: CorpTagAddResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_group.validate().is_err());
+
+        let api_error: ExternalContactStrategyTagAddResponse =
+            serde_json::from_value(json!({ "errcode": 40068, "errmsg": "invalid tag" })).unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40068, .. })
+        ));
     }
 
     #[test]
