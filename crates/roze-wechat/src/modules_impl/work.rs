@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_value, Map, Value};
 
@@ -3407,11 +3408,13 @@ impl Work {
         datetime: i64,
         user_id_list: Vec<String>,
     ) -> Result<WorkCheckinOptionResponse> {
+        validate_work_checkin_time("rule date", datetime)?;
+        validate_work_checkin_userids(&user_id_list)?;
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckinoption",
                 Some(access_token.into()),
-                json!({ "datetime": datetime.to_string(), "useridlist": user_id_list }),
+                json!({ "datetime": datetime, "useridlist": user_id_list }),
             )
             .await
     }
@@ -3421,6 +3424,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinDataRequest,
     ) -> Result<WorkCheckinRecordResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckindata",
@@ -3435,6 +3439,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinDateRangeRequest,
     ) -> Result<WorkCheckinDayDataResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckin_daydata",
@@ -3449,6 +3454,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinDateRangeRequest,
     ) -> Result<WorkCheckinMonthDataResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckin_monthdata",
@@ -3463,6 +3469,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinDateRangeRequest,
     ) -> Result<WorkCheckinScheduleListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/getcheckinschedulist",
@@ -3477,6 +3484,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinSetScheduleListRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/setcheckinschedulist",
@@ -3492,14 +3500,46 @@ impl Work {
         user_id: impl Into<String>,
         user_face: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let request = WorkCheckinUserFaceRequest {
+            userid: user_id.into(),
+            userface: user_face.into(),
+        };
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/addcheckinuserface",
                 Some(access_token.into()),
-                WorkCheckinUserFaceRequest {
-                    userid: user_id.into(),
-                    userface: user_face.into(),
-                },
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_hardware_checkin_data(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkHardwareCheckinDataRequest,
+    ) -> Result<WorkHardwareCheckinDataResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/hardware/get_hardware_checkin_data",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn punch_checkin_correction(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkCheckinPunchCorrectionRequest,
+    ) -> Result<WorkStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/checkin/punch_correction",
+                Some(access_token.into()),
+                request,
             )
             .await
     }
@@ -3509,6 +3549,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinOptionMutationRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/add_checkin_option",
@@ -3523,6 +3564,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkCheckinOptionMutationRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/checkin/update_checkin_option",
@@ -3538,6 +3580,7 @@ impl Work {
         group_id: i64,
         effective_now: bool,
     ) -> Result<WorkStatusResponse> {
+        validate_work_checkin_positive("group id", group_id)?;
         self.inner
             .post(
                 "cgi-bin/checkin/del_checkin_option",
@@ -16704,11 +16747,68 @@ pub struct WorkCheckinDataRequest {
     pub useridlist: Vec<String>,
 }
 
+impl WorkCheckinDataRequest {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.opencheckindatatype, 1..=3) {
+            return Err(WechatError::Config(
+                "work checkin data type must be 1, 2, or 3".to_string(),
+            ));
+        }
+        validate_work_checkin_range(self.starttime, self.endtime, 30, false)?;
+        validate_work_checkin_userids(&self.useridlist)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinDateRangeRequest {
     pub starttime: i64,
     pub endtime: i64,
     pub useridlist: Vec<String>,
+}
+
+impl WorkCheckinDateRangeRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_range(self.starttime, self.endtime, 30, true)?;
+        validate_work_checkin_userids(&self.useridlist)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkHardwareCheckinDataRequest {
+    pub filter_type: i64,
+    pub starttime: i64,
+    pub endtime: i64,
+    pub useridlist: Vec<String>,
+}
+
+impl WorkHardwareCheckinDataRequest {
+    pub fn by_checkin_time(starttime: i64, endtime: i64, useridlist: Vec<String>) -> Self {
+        Self {
+            filter_type: 1,
+            starttime,
+            endtime,
+            useridlist,
+        }
+    }
+
+    pub fn by_upload_time(starttime: i64, endtime: i64, useridlist: Vec<String>) -> Self {
+        Self {
+            filter_type: 2,
+            starttime,
+            endtime,
+            useridlist,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.filter_type, 1 | 2) {
+            return Err(WechatError::Config(
+                "work hardware checkin filter type must be 1 or 2".to_string(),
+            ));
+        }
+        validate_work_checkin_range(self.starttime, self.endtime, 31, false)?;
+        validate_work_checkin_userids(&self.useridlist)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16725,10 +16825,105 @@ pub struct WorkCheckinSetScheduleItem {
     pub schedule_id: i64,
 }
 
+impl WorkCheckinSetScheduleListRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_positive("schedule group id", self.groupid)?;
+        let month = self.yearmonth % 100;
+        let year = self.yearmonth / 100;
+        if !(1970..=9999).contains(&year) || !(1..=12).contains(&month) {
+            return Err(WechatError::Config(
+                "work checkin schedule yearmonth must use YYYYMM format".to_string(),
+            ));
+        }
+        if self.items.is_empty() {
+            return Err(WechatError::Config(
+                "work checkin schedule requires at least one item".to_string(),
+            ));
+        }
+        let maximum_day = work_checkin_days_in_month(year, month);
+        for item in &self.items {
+            validate_work_checkin_identifier("schedule user id", &item.userid)?;
+            if !(1..=maximum_day).contains(&item.day) {
+                return Err(WechatError::Config(
+                    "work checkin schedule day is invalid for yearmonth".to_string(),
+                ));
+            }
+            if item.schedule_id < 0 {
+                return Err(WechatError::Config(
+                    "work checkin schedule id cannot be negative".to_string(),
+                ));
+            }
+        }
+        if self.items.iter().enumerate().any(|(index, item)| {
+            self.items[index + 1..]
+                .iter()
+                .any(|other| item.userid == other.userid && item.day == other.day)
+        }) {
+            return Err(WechatError::Config(
+                "work checkin schedule cannot contain duplicate user/day items".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinUserFaceRequest {
     pub userid: String,
     pub userface: String,
+}
+
+impl WorkCheckinUserFaceRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("face user id", &self.userid)?;
+        if self.userface.trim().is_empty() {
+            return Err(WechatError::Config(
+                "work checkin face image cannot be empty".to_string(),
+            ));
+        }
+        let image = base64::engine::general_purpose::STANDARD
+            .decode(&self.userface)
+            .or_else(|_| base64::engine::general_purpose::STANDARD_NO_PAD.decode(&self.userface))
+            .map_err(|_| {
+                WechatError::Config(
+                    "work checkin face image must be valid standard Base64".to_string(),
+                )
+            })?;
+        if image.is_empty() || image.len() > 1024 * 1024 {
+            return Err(WechatError::Config(
+                "work checkin face image must contain at most 1 MiB".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkCheckinPunchCorrectionRequest {
+    pub userid: String,
+    pub schedule_date_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule_checkin_time: Option<i64>,
+    pub checkin_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+}
+
+impl WorkCheckinPunchCorrectionRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("correction user id", &self.userid)?;
+        validate_work_checkin_time("correction schedule date", self.schedule_date_time)?;
+        validate_work_checkin_time("correction checkin time", self.checkin_time)?;
+        if self
+            .schedule_checkin_time
+            .is_some_and(|value| !(0..86_400).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "work checkin correction schedule offset must be within one day".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16736,6 +16931,116 @@ pub struct WorkCheckinOptionMutationRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effective_now: Option<bool>,
     pub group: WorkCheckinGroup,
+}
+
+impl WorkCheckinOptionMutationRequest {
+    pub fn validate(&self) -> Result<()> {
+        let group = to_value(&self.group).map_err(|error| {
+            WechatError::Config(format!("cannot serialize work checkin rule group: {error}"))
+        })?;
+        if group.as_object().is_none_or(serde_json::Map::is_empty) {
+            return Err(WechatError::Config(
+                "work checkin rule mutation requires group fields".to_string(),
+            ));
+        }
+        if let Some(group_id) = self.group.groupid {
+            validate_work_checkin_positive("rule group id", group_id)?;
+        }
+        if let Some(group_type) = self.group.grouptype {
+            validate_work_checkin_positive("rule group type", group_type)?;
+        }
+        if self
+            .group
+            .groupname
+            .as_ref()
+            .is_some_and(|name| name.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work checkin rule group name cannot be empty".to_string(),
+            ));
+        }
+        for range in &self.group.range {
+            if range.userid.iter().any(|userid| userid.trim().is_empty())
+                || has_duplicate_strings(&range.userid)
+                || range
+                    .partyid
+                    .iter()
+                    .any(|partyid| partyid.trim().is_empty())
+                || has_duplicate_strings(&range.partyid)
+                || range.tagid.iter().any(|tagid| *tagid <= 0)
+                || has_duplicate_i64(&range.tagid)
+            {
+                return Err(WechatError::Config(
+                    "work checkin rule ranges require unique valid user, party, and tag ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn validate_work_checkin_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work checkin {label} cannot be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_positive(label: &str, value: i64) -> Result<()> {
+    if value <= 0 {
+        return Err(WechatError::Config(format!(
+            "work checkin {label} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_time(label: &str, value: i64) -> Result<()> {
+    validate_work_checkin_positive(label, value)
+}
+
+fn validate_work_checkin_userids(useridlist: &[String]) -> Result<()> {
+    if useridlist.is_empty()
+        || useridlist.len() > 100
+        || useridlist.iter().any(|userid| userid.trim().is_empty())
+        || has_duplicate_strings(useridlist)
+    {
+        return Err(WechatError::Config(
+            "work checkin user list requires 1 to 100 unique non-empty ids".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_range(
+    starttime: i64,
+    endtime: i64,
+    maximum_days: i64,
+    allow_equal: bool,
+) -> Result<()> {
+    let order_is_valid = if allow_equal {
+        endtime >= starttime
+    } else {
+        endtime > starttime
+    };
+    if starttime <= 0 || !order_is_valid || endtime - starttime > maximum_days * 24 * 60 * 60 {
+        return Err(WechatError::Config(format!(
+            "work checkin range must be ordered and cannot exceed {maximum_days} days"
+        )));
+    }
+    Ok(())
+}
+
+fn work_checkin_days_in_month(year: i64, month: i64) -> i64 {
+    match month {
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 => 28,
+        _ => 31,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17212,6 +17517,32 @@ pub struct WorkCheckinRecord {
     pub lng: Option<i64>,
     #[serde(default)]
     pub deviceid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkHardwareCheckinDataResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub checkindata: Vec<WorkHardwareCheckinRecord>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkHardwareCheckinRecord {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub checkin_time: Option<i64>,
+    #[serde(default)]
+    pub device_name: Option<String>,
+    #[serde(default)]
+    pub device_sn: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -30830,11 +31161,31 @@ mod tests {
 
         let face = serde_json::to_value(WorkCheckinUserFaceRequest {
             userid: "user".to_string(),
-            userface: "base64-image".to_string(),
+            userface: "aW1hZ2U=".to_string(),
         })
         .unwrap();
         assert_eq!(face["userid"], "user");
         assert!(face.get("userID").is_none());
+
+        let hardware = serde_json::to_value(WorkHardwareCheckinDataRequest::by_upload_time(
+            1_800_000_000,
+            1_800_086_400,
+            vec!["user".to_string()],
+        ))
+        .unwrap();
+        assert_eq!(hardware["filter_type"], 2);
+        assert_eq!(hardware["useridlist"][0], "user");
+
+        let correction = serde_json::to_value(WorkCheckinPunchCorrectionRequest {
+            userid: "user".to_string(),
+            schedule_date_time: 1_799_971_200,
+            schedule_checkin_time: Some(32_400),
+            checkin_time: 1_800_003_600,
+            remark: Some("approved correction".to_string()),
+        })
+        .unwrap();
+        assert_eq!(correction["schedule_checkin_time"], 32_400);
+        assert_eq!(correction["remark"], "approved correction");
 
         let option = serde_json::to_value(WorkCheckinOptionMutationRequest {
             effective_now: Some(true),
@@ -31201,6 +31552,93 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_checkin_lifecycle() {
+        let data = WorkCheckinDataRequest {
+            opencheckindatatype: 3,
+            starttime: 1_800_000_000,
+            endtime: 1_802_592_000,
+            useridlist: vec!["user".to_string()],
+        };
+        data.validate().unwrap();
+
+        let invalid_type = WorkCheckinDataRequest {
+            opencheckindatatype: 4,
+            ..data.clone()
+        };
+        assert!(invalid_type.validate().is_err());
+
+        let oversized_range = WorkCheckinDateRangeRequest {
+            starttime: 1,
+            endtime: 2_592_002,
+            useridlist: vec!["user".to_string()],
+        };
+        assert!(oversized_range.validate().is_err());
+
+        let duplicate_users = WorkHardwareCheckinDataRequest::by_checkin_time(
+            1_800_000_000,
+            1_800_086_400,
+            vec!["user".to_string(), "user".to_string()],
+        );
+        assert!(duplicate_users.validate().is_err());
+
+        let schedule = WorkCheckinSetScheduleListRequest {
+            groupid: 1,
+            items: vec![
+                WorkCheckinSetScheduleItem {
+                    userid: "user".to_string(),
+                    day: 20,
+                    schedule_id: 0,
+                },
+                WorkCheckinSetScheduleItem {
+                    userid: "user".to_string(),
+                    day: 20,
+                    schedule_id: 2,
+                },
+            ],
+            yearmonth: 202607,
+        };
+        assert!(schedule.validate().is_err());
+
+        let invalid_month_day = WorkCheckinSetScheduleListRequest {
+            groupid: 1,
+            items: vec![WorkCheckinSetScheduleItem {
+                userid: "user".to_string(),
+                day: 30,
+                schedule_id: 2,
+            }],
+            yearmonth: 202602,
+        };
+        assert!(invalid_month_day.validate().is_err());
+
+        let face = WorkCheckinUserFaceRequest {
+            userid: "user".to_string(),
+            userface: "not-base64".to_string(),
+        };
+        assert!(face.validate().is_err());
+        WorkCheckinUserFaceRequest {
+            userid: "user".to_string(),
+            userface: "aW1hZ2U".to_string(),
+        }
+        .validate()
+        .unwrap();
+
+        let correction = WorkCheckinPunchCorrectionRequest {
+            userid: "user".to_string(),
+            schedule_date_time: 1_799_971_200,
+            schedule_checkin_time: Some(86_400),
+            checkin_time: 1_800_003_600,
+            remark: None,
+        };
+        assert!(correction.validate().is_err());
+
+        let empty_rule = WorkCheckinOptionMutationRequest {
+            effective_now: None,
+            group: WorkCheckinGroup::default(),
+        };
+        assert!(empty_rule.validate().is_err());
+    }
+
+    #[test]
     fn deserializes_work_oa_checkin_approval_and_vacation_responses() {
         let corp_option: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
             "trace_id": "checkin-corp",
@@ -31383,6 +31821,25 @@ mod tests {
         assert_eq!(record.checkindata[0].deviceid.as_deref(), Some("device"));
         assert_eq!(record.checkindata[0].schedule_id, Some(2));
         assert_eq!(record.checkindata[0].extra["device_id"], "device");
+
+        let hardware: WorkHardwareCheckinDataResponse = serde_json::from_value(json!({
+            "request_id": "hardware-checkin",
+            "checkindata": [{
+                "userid": "user",
+                "checkin_time": 1_800_000_000_i64,
+                "device_name": "Front Door",
+                "device_sn": "SN-1",
+                "upload_time": 1_800_000_001_i64
+            }]
+        }))
+        .unwrap();
+        assert_eq!(hardware.checkindata[0].userid.as_deref(), Some("user"));
+        assert_eq!(hardware.checkindata[0].device_sn.as_deref(), Some("SN-1"));
+        assert_eq!(
+            hardware.checkindata[0].extra["upload_time"],
+            1_800_000_001_i64
+        );
+        assert_eq!(hardware.extra["request_id"], "hardware-checkin");
 
         let day: WorkCheckinDataResponse = serde_json::from_value(json!({
             "trace_id": "checkin-data",

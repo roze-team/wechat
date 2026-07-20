@@ -1282,6 +1282,30 @@ Implemented on 2026-07-18 in Work OA meeting and meeting-room depth:
 - linked meeting-room booking responses expose conflict detection while all
   response DTOs continue preserving unknown upstream fields.
 
+Implemented on 2026-07-20 in Work OA checkin depth:
+
+- added the missing official hardware-checkin endpoint
+  `hardware/get_hardware_checkin_data`, including typed request builders for
+  checkin-time and upload-time filtering plus typed device name/serial response
+  records;
+- added the self-built-application punch-correction endpoint with optional
+  scheduled checkin offsets and remarks, matching the current
+  `checkin/punch_correction` contract;
+- rule lookup, raw records, daily/monthly reports, schedule lookup, schedule
+  mutation, face upload, rule mutation, rule deletion, hardware records, and
+  punch correction now validate before network I/O;
+- record and report queries enforce valid type/filter codes, positive ordered
+  timestamps, the upstream 30-day or one-month window, and batches of 1 to 100
+  unique users;
+- schedule mutation validates positive rule ids, `YYYYMM`, actual calendar
+  days including leap years, non-negative schedule ids including the documented
+  rest-day value zero, and duplicate user/day assignments;
+- face enrollment validates standard Base64 and the official 1 MiB decoded
+  image limit, while punch correction validates user identity, timestamps, and
+  the optional within-day scheduled offset;
+- checkin rule mutations reject empty payloads and invalid group/range
+  identifiers while retaining forward-compatible unknown fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
