@@ -3787,6 +3787,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkDialRecordRequest,
     ) -> Result<WorkDialRecordResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/dial/get_dial_record",
@@ -3886,6 +3887,7 @@ impl Work {
         access_token: impl Into<String>,
         callee_userid: Vec<String>,
     ) -> Result<WorkPstnccCallResponse> {
+        validate_work_pstncc_callees(&callee_userid)?;
         self.inner
             .post(
                 "cgi-bin/pstncc/call",
@@ -3901,11 +3903,15 @@ impl Work {
         callee_userid: impl Into<String>,
         call_id: impl Into<String>,
     ) -> Result<WorkPstnccGetStatesResponse> {
+        let callee_userid = callee_userid.into();
+        let call_id = call_id.into();
+        validate_work_pstncc_identifier("callee user id", &callee_userid)?;
+        validate_work_pstncc_identifier("call id", &call_id)?;
         self.inner
             .post(
                 "cgi-bin/pstncc/getstates",
                 Some(access_token.into()),
-                json!({ "callee_userid": callee_userid.into(), "callid": call_id.into() }),
+                json!({ "callee_userid": callee_userid, "callid": call_id }),
             )
             .await
     }
@@ -19649,24 +19655,121 @@ pub struct WorkDialRecordRequest {
     pub limit: i64,
 }
 
+impl WorkDialRecordRequest {
+    pub fn first_page(start_time: i64, end_time: i64, limit: i64) -> Self {
+        Self {
+            start_time,
+            end_time,
+            offset: 0,
+            limit,
+        }
+    }
+
+    pub fn recent_30_days(limit: i64) -> Self {
+        Self::first_page(0, 0, limit)
+    }
+
+    pub fn next_page(&self) -> Option<Self> {
+        self.offset.checked_add(self.limit).map(|offset| Self {
+            offset,
+            ..self.clone()
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "work dial record offset cannot be negative".to_string(),
+            ));
+        }
+        if !(1..=100).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "work dial record limit must be between 1 and 100".to_string(),
+            ));
+        }
+        match (self.start_time, self.end_time) {
+            (0, 0) => Ok(()),
+            (start_time, end_time) if start_time > 0 && end_time >= start_time => {
+                if end_time - start_time > 30 * 86_400 {
+                    return Err(WechatError::Config(
+                        "work dial record time range cannot exceed 30 days".to_string(),
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(WechatError::Config(
+                "work dial record timestamps must both be zero or a positive ordered range"
+                    .to_string(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WorkDialPhone {
+    Text(String),
+    Number(i64),
+}
+
+impl WorkDialPhone {
+    pub fn normalized(&self) -> String {
+        match self {
+            Self::Text(value) => value.clone(),
+            Self::Number(value) => value.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkDialParticipant {
+    #[serde(default)]
+    pub userid: Option<String>,
+    #[serde(default)]
+    pub phone: Option<WorkDialPhone>,
+    #[serde(default)]
+    pub duration: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDialRecord {
     #[serde(default)]
-    pub callee: Option<String>,
+    pub call_time: Option<i64>,
     #[serde(default)]
-    pub caller: Option<String>,
-    #[serde(default)]
-    pub duration: Option<i64>,
-    #[serde(default)]
-    pub dial_time: Option<i64>,
+    pub total_duration: Option<i64>,
     #[serde(default)]
     pub call_type: Option<i64>,
     #[serde(default)]
-    pub call_result: Option<i64>,
+    pub caller: Option<WorkDialParticipant>,
     #[serde(default)]
-    pub callid: Option<String>,
+    pub callee: Vec<WorkDialParticipant>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkDialCallTypeKind {
+    Single,
+    MultiParty,
+    Other,
+}
+
+impl WorkDialCallTypeKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            1 => Self::Single,
+            2 => Self::MultiParty,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl WorkDialRecord {
+    pub fn call_type_kind(&self) -> Option<WorkDialCallTypeKind> {
+        self.call_type.map(WorkDialCallTypeKind::from_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20039,12 +20142,12 @@ fn validate_work_journal_time_range(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkPstnccCallState {
-    #[serde(default)]
-    pub callee_userid: Option<String>,
+    #[serde(default, alias = "callee_userid")]
+    pub userid: Option<String>,
     #[serde(default)]
     pub callid: Option<String>,
-    #[serde(default)]
-    pub state: Option<i64>,
+    #[serde(default, alias = "state")]
+    pub code: Option<i64>,
     #[serde(default)]
     pub reason: Option<i64>,
     #[serde(default)]
@@ -20053,6 +20156,12 @@ pub struct WorkPstnccCallState {
     pub caller: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkPstnccCallState {
+    pub fn succeeded(&self) -> bool {
+        self.code == Some(0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20065,6 +20174,16 @@ pub struct WorkPstnccCallResponse {
     pub states: Vec<WorkPstnccCallState>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkPstnccCallResponse {
+    pub fn all_succeeded(&self) -> bool {
+        !self.states.is_empty() && self.states.iter().all(WorkPstnccCallState::succeeded)
+    }
+
+    pub fn failed_states(&self) -> impl Iterator<Item = &WorkPstnccCallState> {
+        self.states.iter().filter(|state| !state.succeeded())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20083,6 +20202,101 @@ pub struct WorkPstnccGetStatesResponse {
     pub reason: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkPstnccReasonKind {
+    Connected,
+    Ringing,
+    Answered,
+    Talking,
+    UserHangupTimeout,
+    OutOfService,
+    InsufficientBalance,
+    Rejected,
+    PoweredOff,
+    InvalidNumber,
+    Restricted,
+    LineError,
+    SystemHangupTimeout,
+    CalleeRateLimited,
+    LineTimeout,
+    CallerRateLimited,
+    LineBusy,
+    Cancelled,
+    UnconfirmedTimeout,
+    Other,
+}
+
+impl WorkPstnccReasonKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Connected,
+            1 => Self::Ringing,
+            2 => Self::Answered,
+            3 => Self::Talking,
+            4 => Self::UserHangupTimeout,
+            5 => Self::OutOfService,
+            6 => Self::InsufficientBalance,
+            7 => Self::Rejected,
+            8 => Self::PoweredOff,
+            9 => Self::InvalidNumber,
+            10 => Self::Restricted,
+            11 => Self::LineError,
+            12 => Self::SystemHangupTimeout,
+            13 => Self::CalleeRateLimited,
+            14 => Self::LineTimeout,
+            15 => Self::CallerRateLimited,
+            16 => Self::LineBusy,
+            17 => Self::Cancelled,
+            20 => Self::UnconfirmedTimeout,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_progress(self) -> bool {
+        matches!(
+            self,
+            Self::Connected | Self::Ringing | Self::Answered | Self::Talking
+        )
+    }
+}
+
+impl WorkPstnccGetStatesResponse {
+    pub fn is_talked(&self) -> bool {
+        self.istalked == Some(1)
+    }
+
+    pub fn reason_kind(&self) -> Option<WorkPstnccReasonKind> {
+        self.reason.map(WorkPstnccReasonKind::from_code)
+    }
+}
+
+fn validate_work_pstncc_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work PSTNCC {label} cannot be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_pstncc_callees(callee_userids: &[String]) -> Result<()> {
+    if callee_userids.is_empty() {
+        return Err(WechatError::Config(
+            "work PSTNCC callee user list cannot be empty".to_string(),
+        ));
+    }
+    let mut seen = std::collections::HashSet::with_capacity(callee_userids.len());
+    for userid in callee_userids {
+        validate_work_pstncc_identifier("callee user id", userid)?;
+        if !seen.insert(userid.as_str()) {
+            return Err(WechatError::Config(
+                "work PSTNCC callee user ids must be unique".to_string(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32227,15 +32441,68 @@ mod tests {
         };
         assert!(invalid_calendar.validate().is_err());
 
-        let dial = serde_json::to_value(WorkDialRecordRequest {
-            start_time: 1_800_000_000,
-            end_time: 1_800_086_400,
-            offset: 0,
-            limit: 100,
-        })
-        .unwrap();
+        let dial_request = WorkDialRecordRequest::first_page(1_800_000_000, 1_800_086_400, 100);
+        assert!(dial_request.validate().is_ok());
+        let dial = serde_json::to_value(dial_request).unwrap();
         assert_eq!(dial["start_time"], 1_800_000_000);
         assert_eq!(dial["limit"], 100);
+    }
+
+    #[test]
+    fn validates_work_oa_dial_and_pstncc_lifecycle() {
+        let first_page = WorkDialRecordRequest::first_page(1_800_000_000, 1_800_086_400, 100);
+        assert!(first_page.validate().is_ok());
+        assert_eq!(first_page.next_page().expect("next dial page").offset, 100);
+        assert!(WorkDialRecordRequest::recent_30_days(100)
+            .validate()
+            .is_ok());
+
+        for request in [
+            WorkDialRecordRequest {
+                offset: -1,
+                ..first_page.clone()
+            },
+            WorkDialRecordRequest {
+                limit: 101,
+                ..first_page.clone()
+            },
+            WorkDialRecordRequest {
+                end_time: first_page.start_time - 1,
+                ..first_page.clone()
+            },
+            WorkDialRecordRequest {
+                end_time: first_page.start_time + 30 * 86_400 + 1,
+                ..first_page.clone()
+            },
+            WorkDialRecordRequest {
+                start_time: 0,
+                ..first_page
+            },
+        ] {
+            assert!(request.validate().is_err());
+        }
+
+        assert!(validate_work_pstncc_callees(&["user".to_string()]).is_ok());
+        assert!(validate_work_pstncc_callees(&[]).is_err());
+        assert!(validate_work_pstncc_callees(&[" ".to_string()]).is_err());
+        assert!(validate_work_pstncc_callees(&["user".to_string(), "user".to_string()]).is_err());
+        assert!(validate_work_pstncc_identifier("call id", "call-1").is_ok());
+        assert!(validate_work_pstncc_identifier("call id", "").is_err());
+
+        assert_eq!(
+            WorkPstnccReasonKind::from_code(16),
+            WorkPstnccReasonKind::LineBusy
+        );
+        assert!(WorkPstnccReasonKind::Ringing.is_progress());
+        assert!(!WorkPstnccReasonKind::Rejected.is_progress());
+
+        let legacy_state: WorkPstnccCallState = serde_json::from_value(json!({
+            "callee_userid": "legacy",
+            "state": 0
+        }))
+        .expect("legacy PSTNCC state aliases");
+        assert_eq!(legacy_state.userid.as_deref(), Some("legacy"));
+        assert!(legacy_state.succeeded());
     }
 
     #[test]
@@ -32296,23 +32563,63 @@ mod tests {
         );
 
         let dial: WorkDialRecordResponse = serde_json::from_value(json!({
-            "record": [{ "callee": "user", "caller": "agent", "duration": 60, "call_scene": "pstn" }],
+            "record": [{
+                "call_time": 1_800_000_000,
+                "total_duration": 20,
+                "call_type": 2,
+                "caller": { "userid": "agent", "duration": 10, "role": "host" },
+                "callee": [
+                    { "phone": 138000800, "duration": 5 },
+                    { "userid": "user", "duration": 5 }
+                ],
+                "call_scene": "pstn"
+            }],
             "has_more": false
         }))
         .unwrap();
-        assert_eq!(dial.record[0].callee.as_deref(), Some("user"));
-        assert_eq!(dial.record[0].duration, Some(60));
+        assert_eq!(dial.record[0].call_time, Some(1_800_000_000));
+        assert_eq!(dial.record[0].total_duration, Some(20));
+        assert_eq!(
+            dial.record[0].call_type_kind(),
+            Some(WorkDialCallTypeKind::MultiParty)
+        );
+        assert_eq!(
+            dial.record[0]
+                .caller
+                .as_ref()
+                .and_then(|caller| caller.userid.as_deref()),
+            Some("agent")
+        );
+        assert_eq!(
+            dial.record[0].callee[0]
+                .phone
+                .as_ref()
+                .map(WorkDialPhone::normalized),
+            Some("138000800".to_string())
+        );
+        assert_eq!(dial.record[0].callee[1].userid.as_deref(), Some("user"));
+        assert_eq!(
+            dial.record[0].caller.as_ref().expect("dial caller").extra["role"],
+            "host"
+        );
         assert_eq!(dial.record[0].extra["call_scene"], "pstn");
         assert_eq!(dial.extra["has_more"], false);
 
         let call: WorkPstnccCallResponse = serde_json::from_value(json!({
-            "states": [{ "callee_userid": "user", "callid": "call-1", "state": 1, "state_text": "ringing" }],
+            "states": [
+                { "userid": "user", "callid": "call-1", "code": 0 },
+                { "userid": "other", "code": 301051, "failure": "balance" }
+            ],
             "session_id": "pstn-session"
         }))
         .unwrap();
         assert_eq!(call.states[0].callid.as_deref(), Some("call-1"));
-        assert_eq!(call.states[0].state, Some(1));
-        assert_eq!(call.states[0].extra["state_text"], "ringing");
+        assert_eq!(call.states[0].userid.as_deref(), Some("user"));
+        assert_eq!(call.states[0].code, Some(0));
+        assert!(call.states[0].succeeded());
+        assert!(!call.all_succeeded());
+        assert_eq!(call.failed_states().count(), 1);
+        assert_eq!(call.states[1].extra["failure"], "balance");
         assert_eq!(call.extra["session_id"], "pstn-session");
 
         let states: WorkPstnccGetStatesResponse = serde_json::from_value(json!({
@@ -32325,6 +32632,8 @@ mod tests {
         .unwrap();
         assert_eq!(states.istalked, Some(1));
         assert_eq!(states.reason, Some(0));
+        assert!(states.is_talked());
+        assert_eq!(states.reason_kind(), Some(WorkPstnccReasonKind::Connected));
         assert_eq!(states.extra["state_detail"], "completed");
     }
 

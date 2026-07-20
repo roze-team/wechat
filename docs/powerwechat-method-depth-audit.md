@@ -1381,6 +1381,28 @@ Implemented on 2026-07-20 in Work OA vacation depth:
   effective-assigned conversions for the selected day/hour unit while
   retaining exact upstream seconds.
 
+Implemented on 2026-07-20 in Work OA dial and PSTNCC depth:
+
+- public-phone record requests expose first-page, recent-30-days, and checked
+  next-page constructors, and reject partial/invalid timestamps, ranges over
+  30 days, negative offsets, and page sizes outside 1 through 100 before
+  network I/O;
+- public-phone records now match the actual upstream `call_time`,
+  `total_duration`, structured `caller`, and structured `callee[]` wire
+  contract instead of attempting to deserialize caller/callee objects as
+  strings;
+- caller and callee records preserve member ids, textual or numeric phone
+  values, per-party durations, and unknown extension fields, while call types
+  expose single-party/multi-party semantic helpers;
+- PSTNCC call submission rejects empty, blank, or duplicate callee lists, and
+  state queries reject blank member and call ids before network I/O;
+- PSTNCC initiation results now model the documented `userid`, `callid`, and
+  `code` fields, retain aliases for older field names, and expose per-call,
+  aggregate-success, and failed-result helpers;
+- PSTNCC query responses expose talked-state and forward-compatible reason
+  semantics for ringing, answering, active calls, timeout, rejection,
+  service, balance, rate-limit, line, cancellation, and unknown outcomes.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
