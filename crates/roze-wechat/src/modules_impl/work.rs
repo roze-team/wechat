@@ -1151,13 +1151,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkInvoiceCardRequest,
     ) -> Result<WorkInvoiceInfoResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkInvoiceInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/card/invoice/reimburse/getinvoiceinfo",
                 Some(access_token.into()),
-                request,
+                request.clone(),
             )
-            .await
+            .await?;
+        response.validate_for(&request)?;
+        Ok(response)
     }
 
     pub async fn get_invoice_info_batch(
@@ -1165,13 +1169,17 @@ impl Work {
         access_token: impl Into<String>,
         invoice_list: Vec<WorkInvoiceCardRequest>,
     ) -> Result<WorkInvoiceInfoBatchResponse> {
-        self.inner
+        validate_work_invoice_cards("batch query", &invoice_list)?;
+        let response: WorkInvoiceInfoBatchResponse = self
+            .inner
             .post(
                 "cgi-bin/card/invoice/reimburse/getinvoiceinfobatch",
                 Some(access_token.into()),
-                json!({ "item_list": invoice_list }),
+                json!({ "item_list": &invoice_list }),
             )
-            .await
+            .await?;
+        response.validate_for(&invoice_list)?;
+        Ok(response)
     }
 
     pub async fn update_invoice_status(
@@ -1179,13 +1187,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkInvoiceStatusRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/card/invoice/reimburse/updateinvoicestatus",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work update invoice status")?;
+        Ok(response)
     }
 
     pub async fn update_invoice_status_batch(
@@ -1193,13 +1205,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkInvoiceStatusBatchRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/card/invoice/reimburse/updatestatusbatch",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work update invoice status batch")?;
+        Ok(response)
     }
 
     pub fn external_pay(&self) -> DomainModule {
@@ -10234,6 +10250,24 @@ pub struct WorkInvoiceCardRequest {
     pub encrypt_code: String,
 }
 
+impl WorkInvoiceCardRequest {
+    pub fn new(card_id: impl Into<String>, encrypt_code: impl Into<String>) -> Self {
+        Self {
+            card_id: card_id.into(),
+            encrypt_code: encrypt_code.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_invoice_identifier("card id", &self.card_id, 128)?;
+        validate_work_invoice_identifier("encrypted code", &self.encrypt_code, 1_024)
+    }
+
+    pub fn identity(&self) -> (&str, &str) {
+        (&self.card_id, &self.encrypt_code)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkInvoiceStatusRequest {
     pub card_id: String,
@@ -10252,6 +10286,11 @@ impl WorkInvoiceStatusRequest {
             encrypt_code: encrypt_code.into(),
             reimburse_status: reimburse_status.as_code().to_string(),
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        WorkInvoiceCardRequest::new(&self.card_id, &self.encrypt_code).validate()?;
+        validate_work_invoice_reimburse_status("single status update", &self.reimburse_status)
     }
 }
 
@@ -10273,6 +10312,12 @@ impl WorkInvoiceStatusBatchRequest {
             reimburse_status: reimburse_status.as_code().to_string(),
             invoice_list,
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_invoice_identifier("openid", &self.openid, 128)?;
+        validate_work_invoice_reimburse_status("batch status update", &self.reimburse_status)?;
+        validate_work_invoice_cards("batch status update", &self.invoice_list)
     }
 }
 
@@ -10319,10 +10364,10 @@ pub struct WorkInvoiceInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub card_id: Option<String>,
-    #[serde(default)]
-    pub begin_time: Option<String>,
-    #[serde(default)]
-    pub end_time: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub begin_time: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub end_time: Option<i64>,
     #[serde(default)]
     pub openid: Option<String>,
     #[serde(default, rename = "type")]
@@ -10337,14 +10382,56 @@ pub struct WorkInvoiceInfoResponse {
     pub extra: Value,
 }
 
+impl WorkInvoiceInfoResponse {
+    pub fn validate_for(&self, request: &WorkInvoiceCardRequest) -> Result<()> {
+        request.validate()?;
+        validate_work_response_success(
+            "work get invoice info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let card_id = self.card_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work invoice response requires card_id".to_string())
+        })?;
+        validate_work_invoice_identifier("response card id", card_id, 128)?;
+        if card_id != request.card_id {
+            return Err(WechatError::Config(
+                "work invoice response card_id does not match the request".to_string(),
+            ));
+        }
+        validate_work_invoice_period(self.begin_time, self.end_time)?;
+        validate_work_invoice_required_text("response openid", self.openid.as_deref(), 128)?;
+        validate_work_invoice_required_text("response type", self.invoice_type.as_deref(), 64)?;
+        validate_work_invoice_optional_text("response payee", self.payee.as_deref(), 256)?;
+        validate_work_invoice_optional_text("response detail", self.detail.as_deref(), 2_048)?;
+        self.user_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work invoice response requires user_info".to_string())
+            })?
+            .validate()
+    }
+
+    pub fn require_user_info(
+        &self,
+        request: &WorkInvoiceCardRequest,
+    ) -> Result<&WorkInvoiceUserInfo> {
+        self.validate_for(request)?;
+        Ok(self
+            .user_info
+            .as_ref()
+            .expect("validated invoice user info"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkInvoiceUserInfo {
     #[serde(default)]
     pub fee: Option<i64>,
     #[serde(default)]
     pub title: Option<String>,
-    #[serde(default)]
-    pub billing_time: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub billing_time: Option<i64>,
     #[serde(default)]
     pub billing_no: Option<String>,
     #[serde(default)]
@@ -10364,29 +10451,164 @@ pub struct WorkInvoiceUserInfo {
     #[serde(default)]
     pub check_code: Option<String>,
     #[serde(default)]
+    pub fee_without_tax: Option<i64>,
+    #[serde(default)]
+    pub tax: Option<i64>,
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub trip_pdf_url: Option<String>,
+    #[serde(default)]
+    pub reimburse_status: Option<String>,
+    #[serde(default)]
+    pub seller_number: Option<String>,
+    #[serde(default)]
+    pub seller_address_and_phone: Option<String>,
+    #[serde(default)]
+    pub seller_bank_account: Option<String>,
+    #[serde(default)]
+    pub cashier: Option<String>,
+    #[serde(default)]
+    pub maker: Option<String>,
+    #[serde(default)]
     pub info: Vec<WorkInvoiceLineItem>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkInvoiceUserInfo {
+    pub fn validate(&self) -> Result<()> {
+        self.fee.ok_or_else(|| {
+            WechatError::Config("work invoice user_info requires fee".to_string())
+        })?;
+        validate_work_invoice_required_text("title", self.title.as_deref(), 256)?;
+        if let (Some(fee), Some(fee_without_tax), Some(tax)) =
+            (self.fee, self.fee_without_tax, self.tax)
+        {
+            if fee_without_tax.checked_add(tax) != Some(fee) {
+                return Err(WechatError::Config(
+                    "work invoice fee must equal fee_without_tax plus tax".to_string(),
+                ));
+            }
+        }
+        if self
+            .billing_time
+            .is_none_or(|billing_time| billing_time <= 0)
+        {
+            return Err(WechatError::Config(
+                "work invoice user_info requires positive billing_time".to_string(),
+            ));
+        }
+        if self
+            .billing_no
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+            && self
+                .billing_code
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work invoice user_info requires billing_no or billing_code".to_string(),
+            ));
+        }
+        for (label, value, maximum) in [
+            ("billing number", self.billing_no.as_deref(), 128),
+            ("billing code", self.billing_code.as_deref(), 128),
+            ("tax number", self.tax_no.as_deref(), 128),
+            ("buyer number", self.buyer_number.as_deref(), 128),
+            (
+                "buyer address and phone",
+                self.buyer_address_and_phone.as_deref(),
+                512,
+            ),
+            (
+                "buyer bank account",
+                self.buyer_bank_account.as_deref(),
+                512,
+            ),
+            ("seller number", self.seller_number.as_deref(), 128),
+            (
+                "seller address and phone",
+                self.seller_address_and_phone.as_deref(),
+                512,
+            ),
+            (
+                "seller bank account",
+                self.seller_bank_account.as_deref(),
+                512,
+            ),
+            ("remarks", self.remarks.as_deref(), 2_048),
+            ("detail", self.detail.as_deref(), 2_048),
+            ("check code", self.check_code.as_deref(), 128),
+            ("cashier", self.cashier.as_deref(), 128),
+            ("maker", self.maker.as_deref(), 128),
+        ] {
+            validate_work_invoice_optional_text(label, value, maximum)?;
+        }
+        for (label, value) in [
+            ("PDF", self.pdf_url.as_deref()),
+            ("trip PDF", self.trip_pdf_url.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_invoice_http_url(label, value)?;
+            }
+        }
+        if let Some(status) = self.reimburse_status.as_deref() {
+            validate_work_invoice_reimburse_status("response", status)?;
+        }
+        if self.info.len() > 1_000 {
+            return Err(WechatError::Config(
+                "work invoice cannot contain more than 1000 line items".to_string(),
+            ));
+        }
+        for item in &self.info {
+            item.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn reimburse_status_kind(&self) -> Option<WorkInvoiceReimburseStatusKind> {
+        self.reimburse_status
+            .as_deref()
+            .map(WorkInvoiceReimburseStatusKind::from_code)
+    }
+
+    pub fn is_reimbursed(&self) -> bool {
+        self.reimburse_status_kind()
+            .is_some_and(WorkInvoiceReimburseStatusKind::is_final)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkInvoiceLineItem {
     #[serde(default)]
     pub name: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub num: Option<String>,
     #[serde(default)]
     pub unit: Option<String>,
     #[serde(default)]
     pub fee: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub price: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub tax_rate: Option<String>,
     #[serde(default)]
     pub tax_amount: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkInvoiceLineItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_invoice_required_text("line-item name", self.name.as_deref(), 512)?;
+        validate_work_invoice_optional_text("line-item quantity", self.num.as_deref(), 64)?;
+        validate_work_invoice_optional_text("line-item unit", self.unit.as_deref(), 64)?;
+        validate_work_invoice_optional_text("line-item price", self.price.as_deref(), 64)?;
+        validate_work_invoice_optional_text("line-item tax rate", self.tax_rate.as_deref(), 64)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10401,6 +10623,68 @@ pub struct WorkInvoiceInfoBatchResponse {
     pub extra: Value,
 }
 
+impl WorkInvoiceInfoBatchResponse {
+    pub fn validate_for(&self, requested: &[WorkInvoiceCardRequest]) -> Result<()> {
+        validate_work_invoice_cards("batch query", requested)?;
+        validate_work_response_success(
+            "work get invoice info batch",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.item_list.len() != requested.len() {
+            return Err(WechatError::Config(
+                "work invoice batch response must contain one item per requested invoice"
+                    .to_string(),
+            ));
+        }
+        for item in &self.item_list {
+            item.validate()?;
+        }
+        let mut response_pairs = HashSet::new();
+        for item in &self.item_list {
+            if let (Some(card_id), Some(encrypt_code)) =
+                (item.card_id.as_deref(), item.encrypt_code.as_deref())
+            {
+                if !response_pairs.insert((card_id, encrypt_code)) {
+                    return Err(WechatError::Config(
+                        "work invoice batch response cannot contain duplicate card/code pairs"
+                            .to_string(),
+                    ));
+                }
+                if !requested
+                    .iter()
+                    .any(|request| request.identity() == (card_id, encrypt_code))
+                {
+                    return Err(WechatError::Config(
+                        "work invoice batch response contains an unrequested card/code pair"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(
+        &self,
+        card_id: &str,
+        encrypt_code: Option<&str>,
+    ) -> Option<&WorkInvoiceInfoBatchItem> {
+        self.item_list.iter().find(|item| {
+            item.card_id.as_deref() == Some(card_id)
+                && encrypt_code
+                    .is_none_or(|encrypt_code| item.encrypt_code.as_deref() == Some(encrypt_code))
+        })
+    }
+
+    pub fn reimbursed_count(&self) -> usize {
+        self.item_list
+            .iter()
+            .filter(|item| item.is_reimbursed())
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkInvoiceInfoBatchItem {
     #[serde(default)]
@@ -10409,8 +10693,18 @@ pub struct WorkInvoiceInfoBatchItem {
     pub encrypt_code: Option<String>,
     #[serde(default)]
     pub code: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub begin_time: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub end_time: Option<i64>,
     #[serde(default)]
     pub openid: Option<String>,
+    #[serde(default, rename = "type")]
+    pub invoice_type: Option<String>,
+    #[serde(default)]
+    pub payee: Option<String>,
+    #[serde(default)]
+    pub detail: Option<String>,
     #[serde(default)]
     pub reimburse_status: Option<String>,
     #[serde(default)]
@@ -10420,6 +10714,28 @@ pub struct WorkInvoiceInfoBatchItem {
 }
 
 impl WorkInvoiceInfoBatchItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_invoice_required_text("batch card id", self.card_id.as_deref(), 128)?;
+        if let Some(encrypt_code) = self.encrypt_code.as_deref() {
+            validate_work_invoice_identifier("batch encrypted code", encrypt_code, 1_024)?;
+        }
+        validate_work_invoice_optional_text("batch code", self.code.as_deref(), 1_024)?;
+        validate_work_invoice_period(self.begin_time, self.end_time)?;
+        validate_work_invoice_required_text("batch openid", self.openid.as_deref(), 128)?;
+        validate_work_invoice_required_text("batch type", self.invoice_type.as_deref(), 64)?;
+        validate_work_invoice_optional_text("batch payee", self.payee.as_deref(), 256)?;
+        validate_work_invoice_optional_text("batch detail", self.detail.as_deref(), 2_048)?;
+        if let Some(status) = self.reimburse_status.as_deref() {
+            validate_work_invoice_reimburse_status("batch response", status)?;
+        }
+        self.user_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work invoice batch item requires user_info".to_string())
+            })?
+            .validate()
+    }
+
     pub fn reimburse_status_kind(&self) -> Option<WorkInvoiceReimburseStatusKind> {
         self.reimburse_status
             .as_deref()
@@ -10428,8 +10744,105 @@ impl WorkInvoiceInfoBatchItem {
 
     pub fn is_reimbursed(&self) -> bool {
         self.reimburse_status_kind()
+            .or_else(|| {
+                self.user_info
+                    .as_ref()
+                    .and_then(WorkInvoiceUserInfo::reimburse_status_kind)
+            })
             .is_some_and(WorkInvoiceReimburseStatusKind::is_final)
     }
+}
+
+fn validate_work_invoice_identifier(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work invoice {label} must contain between 1 and {maximum} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_invoice_required_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    validate_work_invoice_identifier(
+        label,
+        value.ok_or_else(|| WechatError::Config(format!("work invoice requires {label}")))?,
+        maximum,
+    )
+}
+
+fn validate_work_invoice_optional_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_invoice_identifier(label, value, maximum)?;
+    }
+    Ok(())
+}
+
+fn validate_work_invoice_cards(label: &str, cards: &[WorkInvoiceCardRequest]) -> Result<()> {
+    if cards.is_empty() || cards.len() > 20 {
+        return Err(WechatError::Config(format!(
+            "work invoice {label} requires between 1 and 20 invoices"
+        )));
+    }
+    let mut identities = HashSet::new();
+    for card in cards {
+        card.validate()?;
+        if !identities.insert(card.identity()) {
+            return Err(WechatError::Config(format!(
+                "work invoice {label} cannot contain duplicate card/code pairs"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_invoice_reimburse_status(label: &str, value: &str) -> Result<()> {
+    if WorkInvoiceReimburseStatusKind::from_code(value) == WorkInvoiceReimburseStatusKind::Other {
+        return Err(WechatError::Config(format!(
+            "work invoice {label} requires INIT, LOCK, or CLOSURE reimburse status"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_invoice_period(begin_time: Option<i64>, end_time: Option<i64>) -> Result<()> {
+    let begin_time = begin_time.ok_or_else(|| {
+        WechatError::Config("work invoice response requires begin_time".to_string())
+    })?;
+    let end_time = end_time.ok_or_else(|| {
+        WechatError::Config("work invoice response requires end_time".to_string())
+    })?;
+    if begin_time <= 0 || end_time <= 0 || end_time < begin_time {
+        return Err(WechatError::Config(
+            "work invoice response period requires positive ordered timestamps".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_invoice_http_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work invoice {label} URL is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "work invoice {label} URL must be absolute HTTP(S) without credentials or fragments"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57239,10 +57652,8 @@ mod tests {
 
     #[test]
     fn serializes_invoice_requests() {
-        let card = WorkInvoiceCardRequest {
-            card_id: "card".to_string(),
-            encrypt_code: "encrypted".to_string(),
-        };
+        let card = WorkInvoiceCardRequest::new("card", "encrypted");
+        assert!(card.validate().is_ok());
         let value = serde_json::to_value(&card).unwrap();
         assert_eq!(
             value,
@@ -57285,6 +57696,27 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(typed_batch["reimburse_status"], "INVOICE_REIMBURSE_CLOSURE");
+
+        assert!(WorkInvoiceCardRequest::new(" ", "encrypted")
+            .validate()
+            .is_err());
+        assert!(WorkInvoiceStatusRequest::new(
+            "card",
+            "encrypted",
+            WorkInvoiceReimburseStatusKind::Other,
+        )
+        .validate()
+        .is_err());
+        assert!(WorkInvoiceStatusBatchRequest::new(
+            "openid",
+            WorkInvoiceReimburseStatusKind::Locked,
+            vec![
+                WorkInvoiceCardRequest::new("card", "encrypted"),
+                WorkInvoiceCardRequest::new("card", "encrypted"),
+            ],
+        )
+        .validate()
+        .is_err());
     }
 
     #[test]
@@ -57292,8 +57724,8 @@ mod tests {
         let info: WorkInvoiceInfoResponse = serde_json::from_value(json!({
             "errcode": 0,
             "card_id": "card",
-            "begin_time": "2026-01-01",
-            "end_time": "2026-01-31",
+            "begin_time": 1767225600,
+            "end_time": "1769903999",
             "openid": "openid",
             "type": "vat",
             "payee": "Roze",
@@ -57301,15 +57733,20 @@ mod tests {
             "user_info": {
                 "fee": 100,
                 "title": "Roze",
+                "billing_time": 1767225600,
                 "billing_no": "NO100",
                 "tax_no": "TAX100",
+                "fee_without_tax": 94,
+                "tax": 6,
+                "pdf_url": "https://example.com/invoice.pdf",
+                "reimburse_status": "INVOICE_REIMBURSE_INIT",
                 "info": [{
                     "name": "Cloud service",
-                    "num": "1",
+                    "num": 1,
                     "unit": "month",
                     "fee": 100,
-                    "price": "100.00",
-                    "tax_rate": "0.06",
+                    "price": 100,
+                    "tax_rate": 0.06,
                     "tax_amount": 6,
                     "discount_amount": 2
                 }]
@@ -57320,7 +57757,9 @@ mod tests {
         assert_eq!(info.card_id.as_deref(), Some("card"));
         assert_eq!(info.invoice_type.as_deref(), Some("vat"));
         assert_eq!(info.extra["invoice_source"], "wechat");
-        let user_info = info.user_info.unwrap();
+        let request = WorkInvoiceCardRequest::new("card", "encrypted");
+        assert!(info.validate_for(&request).is_ok());
+        let user_info = info.require_user_info(&request).unwrap();
         assert_eq!(user_info.fee, Some(100));
         assert_eq!(user_info.title.as_deref(), Some("Roze"));
         assert_eq!(user_info.billing_no.as_deref(), Some("NO100"));
@@ -57333,16 +57772,26 @@ mod tests {
             "item_list": [{
                 "card_id": "card",
                 "encrypt_code": "encrypted",
+                "begin_time": 1767225600,
+                "end_time": 1769903999,
+                "openid": "openid",
+                "type": "vat",
+                "payee": "Roze",
+                "detail": "Cloud service",
                 "reimburse_status": "INVOICE_REIMBURSE_INIT",
                 "user_info": {
                     "fee": 100,
                     "title": "Roze",
+                    "billing_time": 1767225600,
+                    "billing_no": "NO100",
                     "info": [{ "name": "Cloud service", "fee": 100 }]
                 },
                 "item_source": "batch"
             }]
         }))
         .unwrap();
+        let requested = vec![WorkInvoiceCardRequest::new("card", "encrypted")];
+        assert!(batch.validate_for(&requested).is_ok());
         assert_eq!(batch.extra["trace_id"], "invoice-batch");
         assert_eq!(batch.item_list[0].card_id.as_deref(), Some("card"));
         assert_eq!(
@@ -57354,6 +57803,8 @@ mod tests {
             Some(WorkInvoiceReimburseStatusKind::Init)
         );
         assert!(!batch.item_list[0].is_reimbursed());
+        assert_eq!(batch.reimbursed_count(), 0);
+        assert!(batch.find("card", Some("encrypted")).is_some());
         assert_eq!(
             WorkInvoiceReimburseStatusKind::from_code("invoice_reimburse_lock"),
             WorkInvoiceReimburseStatusKind::Locked
@@ -57383,6 +57834,120 @@ mod tests {
                 .as_deref(),
             Some("Cloud service")
         );
+    }
+
+    #[test]
+    fn validates_invoice_response_contracts() {
+        let request = WorkInvoiceCardRequest::new("card", "encrypted");
+        for invalid in [
+            json!({ "errcode": 40001, "errmsg": "invalid credential" }),
+            json!({
+                "errcode": 0,
+                "card_id": "other",
+                "begin_time": 1,
+                "end_time": 2,
+                "openid": "openid",
+                "type": "vat",
+                "user_info": {}
+            }),
+            json!({
+                "errcode": 0,
+                "card_id": "card",
+                "begin_time": 2,
+                "end_time": 1,
+                "openid": "openid",
+                "type": "vat",
+                "user_info": {}
+            }),
+            json!({
+                "errcode": 0,
+                "card_id": "card",
+                "begin_time": 1,
+                "end_time": 2,
+                "openid": "openid",
+                "type": "vat"
+            }),
+            json!({
+                "errcode": 0,
+                "card_id": "card",
+                "begin_time": 1,
+                "end_time": 2,
+                "openid": "openid",
+                "type": "vat",
+                "user_info": {
+                    "fee": 100,
+                    "title": "Roze",
+                    "billing_time": 1,
+                    "billing_no": "NO100",
+                    "fee_without_tax": 95,
+                    "tax": 6
+                }
+            }),
+            json!({
+                "errcode": 0,
+                "card_id": "card",
+                "begin_time": 1,
+                "end_time": 2,
+                "openid": "openid",
+                "type": "vat",
+                "user_info": {
+                    "fee": 100,
+                    "title": "Roze",
+                    "billing_time": 1,
+                    "billing_no": "NO100",
+                    "pdf_url": "file:///tmp/invoice.pdf"
+                }
+            }),
+            json!({
+                "errcode": 0,
+                "card_id": "card",
+                "begin_time": 1,
+                "end_time": 2,
+                "openid": "openid",
+                "type": "vat",
+                "user_info": {
+                    "fee": 100,
+                    "title": "Roze",
+                    "billing_time": 1,
+                    "billing_no": "NO100",
+                    "info": [{ "fee": 100 }]
+                }
+            }),
+        ] {
+            let response: WorkInvoiceInfoResponse = serde_json::from_value(invalid).unwrap();
+            assert!(response.validate_for(&request).is_err());
+        }
+
+        let missing: WorkInvoiceInfoBatchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "item_list": []
+        }))
+        .unwrap();
+        assert!(missing
+            .validate_for(std::slice::from_ref(&request))
+            .is_err());
+
+        let unrequested: WorkInvoiceInfoBatchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "item_list": [{
+                "card_id": "other",
+                "encrypt_code": "other-code",
+                "begin_time": 1,
+                "end_time": 2,
+                "openid": "openid",
+                "type": "vat",
+                "user_info": {
+                    "fee": 100,
+                    "title": "Roze",
+                    "billing_time": 1,
+                    "billing_no": "NO100"
+                }
+            }]
+        }))
+        .unwrap();
+        assert!(unrequested
+            .validate_for(std::slice::from_ref(&request))
+            .is_err());
     }
 
     #[test]

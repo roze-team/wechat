@@ -66,6 +66,21 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and
    component/base authorization helpers.
 
+Implemented on 2026-07-21 in Work electronic-invoice reimbursement depth:
+
+- Single and batch invoice lookup plus single and batch reimbursement-status
+  updates now validate requests and WeCom API responses at every network exit.
+- Card/encrypted-code pairs enforce bounded printable identifiers, batch size
+  and uniqueness; state mutations accept only the official initial, locked,
+  and reimbursed status values.
+- Invoice responses now use typed numeric timestamps, preserve compatibility
+  with numeric strings, and validate card identity, ordered validity periods,
+  purchaser identity, invoice type, required user information, line items,
+  PDF URLs, and signed red-invoice amount reconciliation.
+- Batch results enforce one record per requested invoice, reject duplicate or
+  unrequested card/code pairs when the upstream returns encrypted codes, and
+  expose lookup and reimbursed-count helpers for reconciliation workflows.
+
 Implemented on 2026-07-21 in Work OAuth/Auth/TFA authentication depth:
 
 - The OAuth and Auth user-info/detail exits plus both modern TFA exits now
