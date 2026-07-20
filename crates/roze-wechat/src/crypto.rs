@@ -35,8 +35,12 @@ pub fn sha1_signature(parts: &[&str]) -> String {
     let mut sorted = parts.to_vec();
     sorted.sort_unstable();
     let payload = sorted.join("");
+    sha1_hex(payload.as_bytes())
+}
+
+pub fn sha1_hex(payload: &[u8]) -> String {
     let mut hasher = Sha1::new();
-    hasher.update(payload.as_bytes());
+    hasher.update(payload);
     hex::encode(hasher.finalize())
 }
 
@@ -246,6 +250,11 @@ mod tests {
             "other",
             &signature
         ));
+    }
+
+    #[test]
+    fn hashes_sha1_payload_without_reordering() {
+        assert_eq!(sha1_hex(b"abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
     }
 
     #[test]

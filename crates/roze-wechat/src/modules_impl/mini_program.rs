@@ -2448,6 +2448,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/express/local/business/order/confirm_return",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn abnormal_confirm_immediate_delivery_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryAbnormalConfirmRequest,
+    ) -> Result<ImmediateDeliveryStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/local/business/order/confirm_return",
@@ -2462,6 +2478,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryAddOrderRequest,
+    ) -> Result<ImmediateDeliveryOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/add",
@@ -2476,6 +2508,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/addtips",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_immediate_delivery_tip_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryAddTipRequest,
+    ) -> Result<ImmediateDeliveryStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/addtips",
@@ -2490,11 +2538,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         delivery_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let delivery_id = delivery_id.into();
+        validate_immediate_delivery_required("delivery id", &delivery_id)?;
         self.inner
             .post(
                 "cgi-bin/express/local/business/shop/add",
                 Some(access_token.into()),
-                json!({ "delivery_id": delivery_id.into() }),
+                json!({ "delivery_id": delivery_id }),
             )
             .await
     }
@@ -2504,6 +2554,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<ImmediateDeliveryCancelOrderResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/cancel",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn cancel_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryCancelOrderRequest,
+    ) -> Result<ImmediateDeliveryCancelOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/cancel",
@@ -2544,6 +2610,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryGetOrderRequest,
     ) -> Result<ImmediateDeliveryGetOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/get",
@@ -2558,6 +2625,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/test_update_order",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn mock_update_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryMockUpdateOrderRequest,
+    ) -> Result<ImmediateDeliveryStatusResponse> {
+        request.validate(false)?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/test_update_order",
@@ -2585,6 +2668,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<ImmediateDeliveryPreAddOrderResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/pre_add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn pre_add_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryAddOrderRequest,
+    ) -> Result<ImmediateDeliveryPreAddOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/pre_add",
@@ -2599,6 +2698,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<ImmediateDeliveryPreCancelOrderResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/precancel",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn pre_cancel_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryCancelOrderRequest,
+    ) -> Result<ImmediateDeliveryPreCancelOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/precancel",
@@ -2613,6 +2728,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/realmock_update_order",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn real_mock_update_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryMockUpdateOrderRequest,
+    ) -> Result<ImmediateDeliveryStatusResponse> {
+        request.validate(true)?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/realmock_update_order",
@@ -2627,6 +2758,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ImmediateDeliveryRequest,
     ) -> Result<ImmediateDeliveryReOrderResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/immediateDelivery/local/business/order/readd",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn re_add_immediate_delivery_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ImmediateDeliveryReOrderRequest,
+    ) -> Result<ImmediateDeliveryReOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/immediateDelivery/local/business/order/readd",
@@ -5419,6 +5566,539 @@ impl ImmediateDeliveryRequest {
     pub fn new(payload: Value) -> Self {
         Self { payload }
     }
+
+    pub fn validate(&self) -> Result<()> {
+        match &self.payload {
+            Value::Object(payload) if !payload.is_empty() => Ok(()),
+            _ => Err(WechatError::Config(
+                "mini-program immediate-delivery payload must be a nonempty JSON object"
+                    .to_string(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryOrderIdentity {
+    pub delivery_id: String,
+    pub shop_order_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openid: Option<String>,
+    pub shop_no: String,
+    pub shopid: String,
+    pub delivery_sign: String,
+}
+
+impl ImmediateDeliveryOrderIdentity {
+    pub fn signed(
+        delivery_id: impl Into<String>,
+        shop_order_id: impl Into<String>,
+        openid: impl Into<String>,
+        shop_no: impl Into<String>,
+        shopid: impl Into<String>,
+        app_secret: impl AsRef<str>,
+    ) -> Result<Self> {
+        let mut identity = Self {
+            delivery_id: delivery_id.into(),
+            shop_order_id: shop_order_id.into(),
+            openid: Some(openid.into()),
+            shop_no: shop_no.into(),
+            shopid: shopid.into(),
+            delivery_sign: String::new(),
+        };
+        identity.sign(app_secret.as_ref())?;
+        Ok(identity)
+    }
+
+    pub fn signed_without_openid(
+        delivery_id: impl Into<String>,
+        shop_order_id: impl Into<String>,
+        shop_no: impl Into<String>,
+        shopid: impl Into<String>,
+        app_secret: impl AsRef<str>,
+    ) -> Result<Self> {
+        let mut identity = Self {
+            delivery_id: delivery_id.into(),
+            shop_order_id: shop_order_id.into(),
+            openid: None,
+            shop_no: shop_no.into(),
+            shopid: shopid.into(),
+            delivery_sign: String::new(),
+        };
+        identity.sign(app_secret.as_ref())?;
+        Ok(identity)
+    }
+
+    fn sign(&mut self, app_secret: &str) -> Result<()> {
+        for (kind, value) in [
+            ("delivery id", self.delivery_id.as_str()),
+            ("shop order id", self.shop_order_id.as_str()),
+            ("shop number", self.shop_no.as_str()),
+            ("shop id", self.shopid.as_str()),
+            ("app secret", app_secret),
+        ] {
+            validate_immediate_delivery_required(kind, value)?;
+        }
+        self.delivery_sign = crypto::sha1_hex(
+            format!("{}{}{}", self.shopid, self.shop_order_id, app_secret).as_bytes(),
+        );
+        self.validate()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("delivery id", self.delivery_id.as_str()),
+            ("shop order id", self.shop_order_id.as_str()),
+            ("shop number", self.shop_no.as_str()),
+            ("shop id", self.shopid.as_str()),
+            ("delivery signature", self.delivery_sign.as_str()),
+        ] {
+            validate_immediate_delivery_required(kind, value)?;
+        }
+        if let Some(openid) = &self.openid {
+            validate_immediate_delivery_required("openid", openid)?;
+        }
+        validate_immediate_delivery_max_bytes("shop order id", &self.shop_order_id, 128)?;
+        validate_immediate_delivery_signature(&self.delivery_sign)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryContact {
+    pub name: String,
+    pub city: String,
+    pub address: String,
+    pub address_detail: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordinate_type: Option<i64>,
+    pub lng: f64,
+    pub lat: f64,
+    pub phone: String,
+}
+
+impl ImmediateDeliveryContact {
+    pub fn validate(&self, kind: &str) -> Result<()> {
+        for (field, value) in [
+            ("name", self.name.as_str()),
+            ("city", self.city.as_str()),
+            ("address", self.address.as_str()),
+            ("address detail", self.address_detail.as_str()),
+            ("phone", self.phone.as_str()),
+        ] {
+            validate_immediate_delivery_required(&format!("{kind} {field}"), value)?;
+        }
+        validate_immediate_delivery_max_chars(&format!("{kind} name"), &self.name, 256)?;
+        validate_immediate_delivery_max_chars(&format!("{kind} phone"), &self.phone, 64)?;
+        if !matches!(self.coordinate_type, None | Some(0 | 1)) {
+            return Err(WechatError::Config(format!(
+                "mini-program immediate-delivery {kind} coordinate type must be 0 or 1"
+            )));
+        }
+        validate_immediate_delivery_number(
+            &format!("{kind} longitude"),
+            self.lng,
+            -180.0,
+            180.0,
+            true,
+        )?;
+        validate_immediate_delivery_number(&format!("{kind} latitude"), self.lat, -90.0, 90.0, true)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryGoods {
+    pub good_count: i64,
+    pub good_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub good_price: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub good_unit: Option<String>,
+}
+
+impl ImmediateDeliveryGoods {
+    pub fn validate(&self) -> Result<()> {
+        if self.good_count <= 0 {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery goods count must be positive".to_string(),
+            ));
+        }
+        validate_immediate_delivery_required("goods name", &self.good_name)?;
+        validate_immediate_delivery_max_chars(
+            "goods unit",
+            self.good_unit.as_deref().unwrap_or(""),
+            20,
+        )?;
+        if let Some(price) = self.good_price {
+            validate_immediate_delivery_money("goods price", price, 0.0, f64::MAX)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryGoodsDetail {
+    pub goods: Vec<ImmediateDeliveryGoods>,
+}
+
+impl ImmediateDeliveryGoodsDetail {
+    pub fn validate(&self) -> Result<()> {
+        if self.goods.is_empty() {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery goods detail must not be empty".to_string(),
+            ));
+        }
+        for goods in &self.goods {
+            goods.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryCargo {
+    pub goods_value: f64,
+    pub goods_weight: f64,
+    pub cargo_first_class: String,
+    pub cargo_second_class: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_height: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_length: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_detail: Option<ImmediateDeliveryGoodsDetail>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_pickup_info: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_delivery_info: Option<String>,
+}
+
+impl ImmediateDeliveryCargo {
+    pub fn validate(&self) -> Result<()> {
+        validate_immediate_delivery_money("goods value", self.goods_value, 0.0, 5000.0)?;
+        validate_immediate_delivery_number("goods weight", self.goods_weight, 0.0, 50.0, false)?;
+        for (kind, value, maximum) in [
+            ("goods height", self.goods_height, 45.0),
+            ("goods length", self.goods_length, 65.0),
+            ("goods width", self.goods_width, 50.0),
+        ] {
+            if let Some(value) = value {
+                validate_immediate_delivery_number(kind, value, 0.0, maximum, false)?;
+            }
+        }
+        validate_immediate_delivery_required("cargo first class", &self.cargo_first_class)?;
+        validate_immediate_delivery_required("cargo second class", &self.cargo_second_class)?;
+        validate_immediate_delivery_max_chars(
+            "goods pickup information",
+            self.goods_pickup_info.as_deref().unwrap_or(""),
+            100,
+        )?;
+        validate_immediate_delivery_max_chars(
+            "goods delivery information",
+            self.goods_delivery_info.as_deref().unwrap_or(""),
+            100,
+        )?;
+        if let Some(goods_detail) = &self.goods_detail {
+            goods_detail.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImmediateDeliveryOrderInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery_service_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_delivery_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_finish_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_pick_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub poi_seq: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_insured: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declared_value: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tips: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_direct_delivery: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cash_on_delivery: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cash_on_pickup: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rider_pick_method: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_finish_code_needed: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_pickup_code_needed: Option<i64>,
+}
+
+impl ImmediateDeliveryOrderInfo {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.order_type, None | Some(0 | 1)) {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery order type must be 0 or 1".to_string(),
+            ));
+        }
+        if self.order_type == Some(1)
+            && self.expected_delivery_time.is_none()
+            && self.expected_finish_time.is_none()
+            && self.expected_pick_time.is_none()
+        {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery scheduled order requires an expected time"
+                    .to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("expected delivery time", self.expected_delivery_time),
+            ("expected finish time", self.expected_finish_time),
+            ("expected pickup time", self.expected_pick_time),
+            ("order time", self.order_time),
+        ] {
+            if value.is_some_and(|value| value <= 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program immediate-delivery {kind} must be a positive Unix timestamp"
+                )));
+            }
+        }
+        validate_immediate_delivery_max_chars(
+            "order note",
+            self.note.as_deref().unwrap_or(""),
+            200,
+        )?;
+        validate_immediate_delivery_max_chars(
+            "point-of-interest sequence",
+            self.poi_seq.as_deref().unwrap_or(""),
+            32,
+        )?;
+        for (kind, value) in [
+            ("insured flag", self.is_insured),
+            ("direct-delivery flag", self.is_direct_delivery),
+            ("finish-code flag", self.is_finish_code_needed),
+            ("pickup-code flag", self.is_pickup_code_needed),
+        ] {
+            if !matches!(value, None | Some(0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "mini-program immediate-delivery {kind} must be 0 or 1"
+                )));
+            }
+        }
+        if self.is_insured == Some(1) && self.declared_value.is_none() {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery insured order requires declared value".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("declared value", self.declared_value),
+            ("cash on delivery", self.cash_on_delivery),
+            ("cash on pickup", self.cash_on_pickup),
+        ] {
+            if let Some(value) = value {
+                validate_immediate_delivery_money(kind, value, 0.0, f64::MAX)?;
+            }
+        }
+        if self.tips.is_some_and(|tips| tips < 0) {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery tips must not be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryShopInfo {
+    pub goods_count: i64,
+    pub goods_name: String,
+    pub img_url: String,
+    pub wxa_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wxa_appid: Option<String>,
+}
+
+impl ImmediateDeliveryShopInfo {
+    pub fn validate(&self) -> Result<()> {
+        if self.goods_count <= 0 {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery shop goods count must be positive".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("shop goods name", self.goods_name.as_str()),
+            ("shop image URL", self.img_url.as_str()),
+            ("shop mini-program path", self.wxa_path.as_str()),
+        ] {
+            validate_immediate_delivery_required(kind, value)?;
+        }
+        validate_immediate_delivery_https_url("shop image URL", &self.img_url)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryAddOrderRequest {
+    #[serde(flatten)]
+    pub identity: ImmediateDeliveryOrderIdentity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_biz_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender: Option<ImmediateDeliveryContact>,
+    pub receiver: ImmediateDeliveryContact,
+    pub cargo: ImmediateDeliveryCargo,
+    pub order_info: ImmediateDeliveryOrderInfo,
+    pub shop: ImmediateDeliveryShopInfo,
+}
+
+impl ImmediateDeliveryAddOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.identity.validate()?;
+        validate_immediate_delivery_required(
+            "openid",
+            self.identity.openid.as_deref().unwrap_or(""),
+        )?;
+        if let Some(sender) = &self.sender {
+            sender.validate("sender")?;
+        }
+        self.receiver.validate("receiver")?;
+        self.cargo.validate()?;
+        self.order_info.validate()?;
+        self.shop.validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryCancelOrderRequest {
+    #[serde(flatten)]
+    pub identity: ImmediateDeliveryOrderIdentity,
+    pub waybill_id: String,
+    pub cancel_reason_id: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cancel_reason: Option<String>,
+}
+
+impl ImmediateDeliveryCancelOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.identity.validate()?;
+        validate_immediate_delivery_required("waybill id", &self.waybill_id)?;
+        if self.cancel_reason_id <= 0 {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery cancel reason id must be positive".to_string(),
+            ));
+        }
+        validate_immediate_delivery_max_chars(
+            "cancel reason",
+            self.cancel_reason.as_deref().unwrap_or(""),
+            200,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryAbnormalConfirmRequest {
+    #[serde(flatten)]
+    pub identity: ImmediateDeliveryOrderIdentity,
+    pub waybill_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+}
+
+impl ImmediateDeliveryAbnormalConfirmRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.identity.validate()?;
+        validate_immediate_delivery_required("waybill id", &self.waybill_id)?;
+        validate_immediate_delivery_max_chars(
+            "abnormal-confirm remark",
+            self.remark.as_deref().unwrap_or(""),
+            200,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryAddTipRequest {
+    #[serde(flatten)]
+    pub identity: ImmediateDeliveryOrderIdentity,
+    pub waybill_id: String,
+    pub tips: i64,
+}
+
+impl ImmediateDeliveryAddTipRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.identity.validate()?;
+        validate_immediate_delivery_required("waybill id", &self.waybill_id)?;
+        if self.tips <= 0 {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery added tips must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryMockUpdateOrderRequest {
+    pub shopid: String,
+    pub shop_order_id: String,
+    pub action_time: i64,
+    pub order_status: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action_msg: Option<String>,
+}
+
+impl ImmediateDeliveryMockUpdateOrderRequest {
+    pub fn validate(&self, real_environment: bool) -> Result<()> {
+        validate_immediate_delivery_required("mock shop id", &self.shopid)?;
+        validate_immediate_delivery_required("mock shop order id", &self.shop_order_id)?;
+        if !real_environment && self.shopid != "test_shop_id" {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery sandbox mock shop id must be test_shop_id"
+                    .to_string(),
+            ));
+        }
+        if self.action_time <= 0 {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery mock action time must be positive".to_string(),
+            ));
+        }
+        if matches!(
+            ImmediateDeliveryOrderStatusKind::from(self.order_status),
+            ImmediateDeliveryOrderStatusKind::Other(_)
+        ) {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery mock order status is unsupported".to_string(),
+            ));
+        }
+        validate_immediate_delivery_max_chars(
+            "mock action message",
+            self.action_msg.as_deref().unwrap_or(""),
+            200,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryReOrderRequest {
+    #[serde(flatten)]
+    pub order: ImmediateDeliveryAddOrderRequest,
+    pub delivery_token: String,
+}
+
+impl ImmediateDeliveryReOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.order.validate()?;
+        validate_immediate_delivery_required("delivery token", &self.delivery_token)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5429,12 +6109,56 @@ pub struct ImmediateDeliveryGetOrderRequest {
     pub delivery_sign: String,
 }
 
+impl ImmediateDeliveryGetOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("shop id", self.shopid.as_str()),
+            ("shop order id", self.shop_order_id.as_str()),
+            ("shop number", self.shop_no.as_str()),
+            ("delivery signature", self.delivery_sign.as_str()),
+        ] {
+            validate_immediate_delivery_required(kind, value)?;
+        }
+        validate_immediate_delivery_max_bytes("shop order id", &self.shop_order_id, 128)?;
+        validate_immediate_delivery_signature(&self.delivery_sign)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryStatusResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
+    #[serde(default)]
+    pub resultmsg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl ImmediateDeliveryStatusResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImmediateDeliveryBindAccountResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
+    #[serde(default)]
+    pub resultmsg: Option<String>,
     #[serde(default)]
     pub shop_list: Vec<ImmediateDeliveryShop>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
@@ -5463,6 +6187,10 @@ pub struct ImmediateDeliveryDeliveryListResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
+    #[serde(default)]
+    pub resultmsg: Option<String>,
     #[serde(default)]
     pub list: Vec<ImmediateDeliveryProvider>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
@@ -5483,18 +6211,146 @@ pub struct ImmediateDeliveryProvider {
     pub extra: Value,
 }
 
+impl ImmediateDeliveryBindAccountResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+
+    pub fn find_shop(&self, delivery_id: &str, shop_id: &str) -> Option<&ImmediateDeliveryShop> {
+        self.shop_list.iter().find(|shop| {
+            shop.delivery_id.as_deref() == Some(delivery_id)
+                && shop.shopid.as_deref() == Some(shop_id)
+        })
+    }
+}
+
+impl ImmediateDeliveryDeliveryListResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+
+    pub fn find_provider(&self, delivery_id: &str) -> Option<&ImmediateDeliveryProvider> {
+        self.list
+            .iter()
+            .find(|provider| provider.delivery_id.as_deref() == Some(delivery_id))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImmediateDeliveryCancelOrderResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
     #[serde(default)]
+    pub resultmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub deduct_fee: Option<i64>,
     #[serde(default)]
     pub desc: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ImmediateDeliveryCancelOrderResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImmediateDeliveryOrderResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
+    #[serde(default)]
+    pub resultmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub fee: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub deliverfee: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub couponfee: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub tips: Option<String>,
+    #[serde(
+        default,
+        rename = "insurancfee",
+        deserialize_with = "deserialize_optional_string"
+    )]
+    pub insurance_fee: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub distance: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub waybill_id: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub order_status: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub finish_code: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub pickup_code: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub dispatch_duration: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl ImmediateDeliveryOrderResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+
+    pub fn order_status_kind(&self) -> Option<ImmediateDeliveryOrderStatusKind> {
+        self.order_status
+            .map(ImmediateDeliveryOrderStatusKind::from)
+    }
+
+    pub fn parsed_fee(&self) -> Result<Option<f64>> {
+        parse_immediate_delivery_decimal("actual fee", self.fee.as_deref())
+    }
+
+    pub fn reconcile_fee(&self) -> Result<()> {
+        let Some(actual) = self.parsed_fee()? else {
+            return Ok(());
+        };
+        let delivery =
+            parse_immediate_delivery_decimal("delivery fee", self.deliverfee.as_deref())?
+                .unwrap_or(0.0);
+        let coupon = parse_immediate_delivery_decimal("coupon fee", self.couponfee.as_deref())?
+            .unwrap_or(0.0);
+        if (actual - (delivery - coupon)).abs() > 0.005 {
+            return Err(WechatError::Config(
+                "mini-program immediate-delivery actual fee does not equal delivery fee minus coupon"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5503,6 +6359,10 @@ pub struct ImmediateDeliveryGetOrderResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
+    #[serde(default)]
+    pub resultmsg: Option<String>,
     #[serde(default)]
     pub delivery_id: Option<String>,
     #[serde(default)]
@@ -5513,13 +6373,13 @@ pub struct ImmediateDeliveryGetOrderResponse {
     pub shop_order_id: Option<String>,
     #[serde(default)]
     pub shop_no: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub order_status: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
     pub waybill_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub pickup_code: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub finish_code: Option<i64>,
     #[serde(default)]
     pub rider_name: Option<String>,
@@ -5529,7 +6389,7 @@ pub struct ImmediateDeliveryGetOrderResponse {
     pub rider_lng: Option<f64>,
     #[serde(default)]
     pub rider_lat: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub reach_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -5604,6 +6464,15 @@ impl ImmediateDeliveryGetOrderResponse {
         self.order_status
             .map(ImmediateDeliveryOrderStatusKind::from)
     }
+
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5612,7 +6481,11 @@ pub struct ImmediateDeliveryPreAddOrderResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
     #[serde(default)]
+    pub resultmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub fee: Option<i64>,
     #[serde(default)]
     pub deliverfee: Option<String>,
@@ -5624,9 +6497,9 @@ pub struct ImmediateDeliveryPreAddOrderResponse {
     pub insurancfee: Option<f64>,
     #[serde(default)]
     pub distance: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub dispatch_duration: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub delivery_token: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -5638,12 +6511,38 @@ pub struct ImmediateDeliveryPreCancelOrderResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
     #[serde(default)]
+    pub resultmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub deduct_fee: Option<i64>,
     #[serde(default)]
     pub desc: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ImmediateDeliveryPreAddOrderResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+}
+
+impl ImmediateDeliveryPreCancelOrderResponse {
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5652,7 +6551,11 @@ pub struct ImmediateDeliveryReOrderResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub resultcode: Option<i64>,
     #[serde(default)]
+    pub resultmsg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub fee: Option<i64>,
     #[serde(default)]
     pub deliverfee: Option<String>,
@@ -5664,15 +6567,15 @@ pub struct ImmediateDeliveryReOrderResponse {
     pub insurance_fee: Option<f64>,
     #[serde(default)]
     pub distance: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub waybill_id: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub order_status: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub finish_code: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub pickup_code: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub dispatch_duration: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -5683,6 +6586,139 @@ impl ImmediateDeliveryReOrderResponse {
         self.order_status
             .map(ImmediateDeliveryOrderStatusKind::from)
     }
+
+    pub fn ensure_success(&self) -> Result<()> {
+        ensure_immediate_delivery_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.resultcode,
+            self.resultmsg.as_deref(),
+        )
+    }
+}
+
+fn validate_immediate_delivery_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_immediate_delivery_max_bytes(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    if value.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must not exceed {maximum} bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_immediate_delivery_max_chars(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    if value.chars().count() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must not exceed {maximum} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_immediate_delivery_signature(signature: &str) -> Result<()> {
+    if signature.len() != 40 || !signature.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(WechatError::Config(
+            "mini-program immediate-delivery signature must be a 40-character SHA-1 hex digest"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_immediate_delivery_number(
+    kind: &str,
+    value: f64,
+    minimum: f64,
+    maximum: f64,
+    inclusive_minimum: bool,
+) -> Result<()> {
+    let lower_bound_valid = if inclusive_minimum {
+        value >= minimum
+    } else {
+        value > minimum
+    };
+    if !value.is_finite() || !lower_bound_valid || value > maximum {
+        let lower = if inclusive_minimum { "[" } else { "(" };
+        return Err(WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must be in {lower}{minimum}, {maximum}]"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_immediate_delivery_money(
+    kind: &str,
+    value: f64,
+    minimum: f64,
+    maximum: f64,
+) -> Result<()> {
+    validate_immediate_delivery_number(kind, value, minimum, maximum, true)?;
+    let cents = value * 100.0;
+    if !cents.is_finite() || (cents - cents.round()).abs() > 0.000_001 {
+        return Err(WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must have at most two decimal places"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_immediate_delivery_https_url(kind: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|err| {
+        WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must be an absolute URL: {err}"
+        ))
+    })?;
+    if parsed.scheme() != "https" || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} must use HTTPS"
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_immediate_delivery_response_success(
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+    resultcode: Option<i64>,
+    resultmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or("immediate-delivery API error").to_string(),
+        });
+    }
+    if let Some(code) = resultcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: resultmsg
+                .unwrap_or("immediate-delivery provider error")
+                .to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn parse_immediate_delivery_decimal(kind: &str, value: Option<&str>) -> Result<Option<f64>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let parsed = value.parse::<f64>().map_err(|err| {
+        WechatError::Config(format!(
+            "mini-program immediate-delivery {kind} is not a decimal: {err}"
+        ))
+    })?;
+    validate_immediate_delivery_money(kind, parsed, 0.0, f64::MAX)?;
+    Ok(Some(parsed))
 }
 
 fn validate_express_required(kind: &str, value: &str) -> Result<()> {
@@ -10301,6 +11337,148 @@ mod tests {
         assert_eq!(get_order["shop_order_id"], "order-id");
         assert_eq!(get_order["shop_no"], "shop-no");
         assert_eq!(get_order["delivery_sign"], "sign");
+    }
+
+    #[test]
+    fn validates_typed_immediate_delivery_workflows() {
+        let identity = ImmediateDeliveryOrderIdentity::signed(
+            "SFTC",
+            "test_shop_order_id",
+            "openid",
+            "shop-no",
+            "test_shop_id",
+            "test_app_secrect",
+        )
+        .unwrap();
+        assert_eq!(
+            identity.delivery_sign,
+            "a93d8d6bae9a9483c1b1d4e8670e7f6226ec94cb"
+        );
+        let cancellation_identity = ImmediateDeliveryOrderIdentity::signed_without_openid(
+            "SFTC",
+            "test_shop_order_id",
+            "shop-no",
+            "test_shop_id",
+            "test_app_secrect",
+        )
+        .unwrap();
+        assert!(cancellation_identity.openid.is_none());
+        assert_eq!(
+            cancellation_identity.delivery_sign,
+            "a93d8d6bae9a9483c1b1d4e8670e7f6226ec94cb"
+        );
+
+        let request = ImmediateDeliveryAddOrderRequest {
+            identity,
+            sub_biz_id: Some("sub-merchant".to_string()),
+            sender: None,
+            receiver: ImmediateDeliveryContact {
+                name: "Receiver".to_string(),
+                city: "Shanghai".to_string(),
+                address: "Pudong".to_string(),
+                address_detail: "No. 1".to_string(),
+                coordinate_type: Some(0),
+                lng: 121.473_701,
+                lat: 31.230_416,
+                phone: "13800000000".to_string(),
+            },
+            cargo: ImmediateDeliveryCargo {
+                goods_value: 20.0,
+                goods_weight: 1.5,
+                cargo_first_class: "Retail".to_string(),
+                cargo_second_class: "Food".to_string(),
+                goods_height: Some(10.0),
+                goods_length: Some(20.0),
+                goods_width: Some(15.0),
+                goods_detail: Some(ImmediateDeliveryGoodsDetail {
+                    goods: vec![ImmediateDeliveryGoods {
+                        good_count: 2,
+                        good_name: "Fruit".to_string(),
+                        good_price: Some(10.0),
+                        good_unit: Some("box".to_string()),
+                    }],
+                }),
+                goods_pickup_info: Some("front desk".to_string()),
+                goods_delivery_info: Some("call receiver".to_string()),
+            },
+            order_info: ImmediateDeliveryOrderInfo {
+                order_type: Some(0),
+                order_time: Some(1_800_000_000),
+                ..Default::default()
+            },
+            shop: ImmediateDeliveryShopInfo {
+                goods_count: 2,
+                goods_name: "Fruit".to_string(),
+                img_url: "https://example.com/fruit.png".to_string(),
+                wxa_path: "pages/order/detail".to_string(),
+                wxa_appid: None,
+            },
+        };
+        request.validate().unwrap();
+        let value = serde_json::to_value(&request).unwrap();
+        assert_eq!(value["shopid"], "test_shop_id");
+        assert_eq!(value["cargo"]["goods_detail"]["goods"][0]["good_count"], 2);
+        assert!(value.get("app_secret").is_none());
+
+        let mut invalid = request;
+        invalid.receiver.lat = 91.0;
+        assert!(invalid.validate().is_err());
+        invalid.receiver.lat = 31.0;
+        invalid.order_info.order_type = Some(1);
+        assert!(invalid.validate().is_err());
+        invalid.order_info.expected_finish_time = Some(1_900_000_000);
+        invalid.cargo.goods_value = 10.001;
+        assert!(invalid.validate().is_err());
+
+        assert!(ImmediateDeliveryRequest::new(json!({})).validate().is_err());
+        assert!(ImmediateDeliveryRequest::new(json!([])).validate().is_err());
+    }
+
+    #[test]
+    fn validates_immediate_delivery_provider_responses() {
+        let order: ImmediateDeliveryOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "resultcode": "0",
+            "fee": "9.00",
+            "deliverfee": 10,
+            "couponfee": "1.00",
+            "tips": 0,
+            "insurancfee": "0",
+            "distance": 1200,
+            "waybill_id": 123456789,
+            "order_status": "101",
+            "dispatch_duration": "300"
+        }))
+        .unwrap();
+        order.ensure_success().unwrap();
+        order.reconcile_fee().unwrap();
+        assert_eq!(order.waybill_id.as_deref(), Some("123456789"));
+        assert_eq!(
+            order.order_status_kind(),
+            Some(ImmediateDeliveryOrderStatusKind::WaitingForRiderAssignment)
+        );
+
+        let provider_error: ImmediateDeliveryStatusResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "resultcode": 42,
+            "resultmsg": "provider rejected order"
+        }))
+        .unwrap();
+        assert!(matches!(
+            provider_error.ensure_success(),
+            Err(WechatError::Api { code: 42, .. })
+        ));
+
+        let wechat_error: ImmediateDeliveryStatusResponse = serde_json::from_value(json!({
+            "errcode": 930561,
+            "errmsg": "invalid request",
+            "resultcode": 0
+        }))
+        .unwrap();
+        assert!(matches!(
+            wechat_error.ensure_success(),
+            Err(WechatError::Api { code: 930561, .. })
+        ));
     }
 
     #[test]
