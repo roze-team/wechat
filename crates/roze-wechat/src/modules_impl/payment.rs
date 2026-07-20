@@ -5027,6 +5027,18 @@ impl ComplaintDetailResponse {
             WechatError::Config("complaint response state is required".to_string())
         })?;
         validate_payment_identifier(complaint_state, "complaint response state", 64)?;
+        if let Some(complaint_detail) = self.complaint_detail.as_deref() {
+            validate_payment_text(complaint_detail, "complaint response detail", 2000)?;
+        }
+        if let Some(payer_openid) = self.payer_openid.as_deref() {
+            validate_payment_identifier(payer_openid, "complaint payer openid", 128)?;
+        }
+        if let Some(problem_description) = self.problem_description.as_deref() {
+            validate_payment_text(problem_description, "complaint problem description", 2000)?;
+        }
+        if let Some(problem_type) = self.problem_type.as_deref() {
+            validate_payment_identifier(problem_type, "complaint problem type", 64)?;
+        }
 
         if self.user_complaint_times.is_some_and(|count| count < 0) {
             return Err(WechatError::Config(
@@ -5073,6 +5085,9 @@ impl ComplaintDetailResponse {
                         .to_string(),
                 ));
             }
+        }
+        if let Some(additional_info) = self.additional_info.as_ref() {
+            additional_info.validate()?;
         }
         Ok(())
     }
@@ -5409,6 +5424,23 @@ impl ComplaintAdditionalInfoType {
 }
 
 impl ComplaintAdditionalInfo {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(info_type) = self.info_type.as_deref() {
+            validate_payment_identifier(info_type, "complaint additional-info type", 64)?;
+        }
+        if self.info_type_kind() == Some(ComplaintAdditionalInfoType::SharePower)
+            && self.share_power_info.is_none()
+        {
+            return Err(WechatError::Config(
+                "complaint share-power additional info requires share_power_info".to_string(),
+            ));
+        }
+        if let Some(share_power_info) = self.share_power_info.as_ref() {
+            share_power_info.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn info_type_kind(&self) -> Option<ComplaintAdditionalInfoType> {
         self.info_type
             .as_deref()
@@ -5438,6 +5470,64 @@ pub struct ComplaintReturnAddressInfo {
     pub latitude: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintSharePowerInfo {
+    pub fn validate(&self) -> Result<()> {
+        let return_time = self.return_time.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint share-power return time is required".to_string())
+        })?;
+        validate_payment_rfc3339(return_time, "complaint share-power return time")?;
+        let address = self.return_address_info.as_ref().ok_or_else(|| {
+            WechatError::Config("complaint share-power return address is required".to_string())
+        })?;
+        address.validate()
+    }
+}
+
+impl ComplaintReturnAddressInfo {
+    pub fn validate(&self) -> Result<()> {
+        let address = self.return_address.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint return address text is required".to_string())
+        })?;
+        validate_payment_text(address, "complaint return address", 512)?;
+        let longitude = parse_complaint_coordinate(
+            self.longitude.as_deref(),
+            "complaint return longitude",
+            -180.0,
+            180.0,
+        )?;
+        let latitude = parse_complaint_coordinate(
+            self.latitude.as_deref(),
+            "complaint return latitude",
+            -90.0,
+            90.0,
+        )?;
+        if !longitude.is_finite() || !latitude.is_finite() {
+            return Err(WechatError::Config(
+                "complaint return coordinates must be finite".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn parse_complaint_coordinate(
+    value: Option<&str>,
+    field: &str,
+    minimum: f64,
+    maximum: f64,
+) -> Result<f64> {
+    let value = value.ok_or_else(|| WechatError::Config(format!("{field} is required")))?;
+    let parsed = value
+        .parse::<f64>()
+        .map_err(|_| WechatError::Config(format!("{field} must be numeric")))?;
+    if !parsed.is_finite() || !(minimum..=maximum).contains(&parsed) {
+        return Err(WechatError::Config(format!(
+            "{field} must be between {minimum} and {maximum}"
+        )));
+    }
+    Ok(parsed)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5758,6 +5848,19 @@ impl ComplaintNegotiationHistoryRecord {
         for media in &self.complaint_media_list {
             media.validate()?;
         }
+        if let Some(normal_message) = self.normal_message.as_ref() {
+            normal_message.validate()?;
+        }
+        if let Some(click_message) = self.click_message.as_ref() {
+            click_message.validate()?;
+        }
+        if self.operate_type_kind() == Some(ComplaintNegotiationOperateType::UserClickResponse)
+            && self.click_message.is_none()
+        {
+            return Err(WechatError::Config(
+                "complaint user-click operation requires click_message".to_string(),
+            ));
+        }
         Ok(())
     }
 
@@ -5806,6 +5909,24 @@ impl ComplaintMessageSenderIdentity {
 }
 
 impl ComplaintNormalMessage {
+    pub fn validate(&self) -> Result<()> {
+        if self.blocks.is_empty() || self.blocks.len() > 100 {
+            return Err(WechatError::Config(
+                "complaint normal message must contain 1 to 100 blocks".to_string(),
+            ));
+        }
+        if let Some(sender_identity) = self.sender_identity.as_deref() {
+            validate_payment_identifier(sender_identity, "complaint message sender identity", 64)?;
+        }
+        if let Some(custom_data) = self.custom_data.as_deref() {
+            validate_payment_text(custom_data, "complaint message custom data", 2048)?;
+        }
+        for block in &self.blocks {
+            block.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn sender_identity_kind(&self) -> Option<ComplaintMessageSenderIdentity> {
         self.sender_identity
             .as_deref()
@@ -5823,6 +5944,22 @@ pub struct ComplaintClickMessage {
     pub clicked_log_id: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintClickMessage {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(message_content) = self.message_content.as_deref() {
+            validate_payment_text(message_content, "complaint click message content", 2000)?;
+        }
+        let action_id = self.action_id.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint click message action id is required".to_string())
+        })?;
+        validate_payment_identifier(action_id, "complaint click message action id", 128)?;
+        let clicked_log_id = self.clicked_log_id.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint click message log id is required".to_string())
+        })?;
+        validate_payment_identifier(clicked_log_id, "complaint click message log id", 64)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5871,6 +6008,66 @@ impl ComplaintMessageBlockType {
 }
 
 impl ComplaintMessageBlock {
+    pub fn validate(&self) -> Result<()> {
+        let block_type = self.block_type.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint message block type is required".to_string())
+        })?;
+        validate_payment_identifier(block_type, "complaint message block type", 64)?;
+        match self.block_type_kind() {
+            Some(ComplaintMessageBlockType::Text) => self
+                .text
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config("complaint text block requires a text payload".to_string())
+                })?
+                .validate(),
+            Some(ComplaintMessageBlockType::Image) => self
+                .image
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "complaint image block requires an image payload".to_string(),
+                    )
+                })?
+                .validate(),
+            Some(ComplaintMessageBlockType::Link) => self
+                .link
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config("complaint link block requires a link payload".to_string())
+                })?
+                .validate(),
+            Some(ComplaintMessageBlockType::FaqList) => self
+                .faq_list
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "complaint FAQ block requires an faq_list payload".to_string(),
+                    )
+                })?
+                .validate(),
+            Some(ComplaintMessageBlockType::Button) => self
+                .button
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "complaint button block requires a button payload".to_string(),
+                    )
+                })?
+                .validate(),
+            Some(ComplaintMessageBlockType::ButtonGroup) => self
+                .button_group
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "complaint button-group block requires a button_group payload".to_string(),
+                    )
+                })?
+                .validate(),
+            Some(ComplaintMessageBlockType::Other) | None => Ok(()),
+        }
+    }
+
     pub fn block_type_kind(&self) -> Option<ComplaintMessageBlockType> {
         self.block_type
             .as_deref()
@@ -5890,6 +6087,20 @@ pub struct ComplaintMessageText {
     pub extra: Value,
 }
 
+impl ComplaintMessageText {
+    pub fn validate(&self) -> Result<()> {
+        let text = self
+            .text
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("complaint message text is required".to_string()))?;
+        validate_payment_text(text, "complaint message text", 2000)?;
+        if let Some(color) = self.color.as_deref() {
+            validate_payment_identifier(color, "complaint message text color", 32)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintMessageImage {
     #[serde(default)]
@@ -5898,6 +6109,19 @@ pub struct ComplaintMessageImage {
     pub image_style_type: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintMessageImage {
+    pub fn validate(&self) -> Result<()> {
+        let media_id = self.media_id.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint message image media id is required".to_string())
+        })?;
+        validate_payment_identifier(media_id, "complaint message image media id", 512)?;
+        if let Some(style) = self.image_style_type.as_deref() {
+            validate_payment_identifier(style, "complaint message image style", 64)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5912,12 +6136,52 @@ pub struct ComplaintMessageLink {
     pub extra: Value,
 }
 
+impl ComplaintMessageLink {
+    pub fn validate(&self) -> Result<()> {
+        let text = self.text.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint message link text is required".to_string())
+        })?;
+        validate_payment_text(text, "complaint message link text", 512)?;
+        self.action
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("complaint message link action is required".to_string())
+            })?
+            .validate()?;
+        if let Some(invalid_info) = self.invalid_info.as_ref() {
+            invalid_info.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintMessageFaqList {
     #[serde(default)]
     pub faqs: Vec<ComplaintMessageFaq>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintMessageFaqList {
+    pub fn validate(&self) -> Result<()> {
+        if self.faqs.is_empty() || self.faqs.len() > 100 {
+            return Err(WechatError::Config(
+                "complaint FAQ list must contain 1 to 100 items".to_string(),
+            ));
+        }
+        let mut ids = std::collections::HashSet::with_capacity(self.faqs.len());
+        for faq in &self.faqs {
+            faq.validate()?;
+            let faq_id = faq.faq_id.as_deref().unwrap_or_default();
+            if !ids.insert(faq_id) {
+                return Err(WechatError::Config(
+                    "complaint FAQ list cannot contain duplicate faq ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5932,6 +6196,25 @@ pub struct ComplaintMessageFaq {
     pub extra: Value,
 }
 
+impl ComplaintMessageFaq {
+    pub fn validate(&self) -> Result<()> {
+        let faq_id = self
+            .faq_id
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("complaint FAQ id is required".to_string()))?;
+        validate_payment_identifier(faq_id, "complaint FAQ id", 128)?;
+        let title = self
+            .faq_title
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("complaint FAQ title is required".to_string()))?;
+        validate_payment_text(title, "complaint FAQ title", 512)?;
+        self.action
+            .as_ref()
+            .ok_or_else(|| WechatError::Config("complaint FAQ action is required".to_string()))?
+            .validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintMessageButton {
     #[serde(default)]
@@ -5944,6 +6227,25 @@ pub struct ComplaintMessageButton {
     pub extra: Value,
 }
 
+impl ComplaintMessageButton {
+    pub fn validate(&self) -> Result<()> {
+        let text = self.text.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint message button text is required".to_string())
+        })?;
+        validate_payment_text(text, "complaint message button text", 512)?;
+        self.action
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("complaint message button action is required".to_string())
+            })?
+            .validate()?;
+        if let Some(invalid_info) = self.invalid_info.as_ref() {
+            invalid_info.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplaintMessageButtonGroup {
     #[serde(default)]
@@ -5954,6 +6256,38 @@ pub struct ComplaintMessageButtonGroup {
     pub invalid_info: Option<ComplaintMessageInvalidInfo>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintMessageButtonGroup {
+    pub fn validate(&self) -> Result<()> {
+        if self.buttons.is_empty() || self.buttons.len() > 20 {
+            return Err(WechatError::Config(
+                "complaint button group must contain 1 to 20 buttons".to_string(),
+            ));
+        }
+        let mut action_ids = std::collections::HashSet::with_capacity(self.buttons.len());
+        for button in &self.buttons {
+            button.validate()?;
+            if let Some(action_id) = button
+                .action
+                .as_ref()
+                .and_then(|action| action.action_id.as_deref())
+            {
+                if !action_ids.insert(action_id) {
+                    return Err(WechatError::Config(
+                        "complaint button group cannot contain duplicate action ids".to_string(),
+                    ));
+                }
+            }
+        }
+        if let Some(layout) = self.button_layout.as_deref() {
+            validate_payment_identifier(layout, "complaint button-group layout", 64)?;
+        }
+        if let Some(invalid_info) = self.invalid_info.as_ref() {
+            invalid_info.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5992,6 +6326,43 @@ impl ComplaintMessageActionType {
 }
 
 impl ComplaintMessageAction {
+    pub fn validate(&self) -> Result<()> {
+        let action_type = self.action_type.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint message action type is required".to_string())
+        })?;
+        validate_payment_identifier(action_type, "complaint message action type", 64)?;
+        if let Some(action_id) = self.action_id.as_deref() {
+            validate_payment_identifier(action_id, "complaint message action id", 128)?;
+        }
+        match self.action_type_kind() {
+            Some(ComplaintMessageActionType::SendMessage) => self
+                .message_info
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "complaint send-message action requires message_info".to_string(),
+                    )
+                })?
+                .validate(),
+            Some(ComplaintMessageActionType::JumpUrl) => {
+                let jump_url = self.jump_url.as_deref().ok_or_else(|| {
+                    WechatError::Config("complaint jump-URL action requires jump_url".to_string())
+                })?;
+                validate_https_url(jump_url, "complaint message jump URL", 2048, true)
+            }
+            Some(ComplaintMessageActionType::JumpMiniProgram) => self
+                .mini_program_jump_info
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "complaint mini-program action requires mini_program_jump_info".to_string(),
+                    )
+                })?
+                .validate_response(),
+            Some(ComplaintMessageActionType::Other) | None => Ok(()),
+        }
+    }
+
     pub fn action_type_kind(&self) -> Option<ComplaintMessageActionType> {
         self.action_type
             .as_deref()
@@ -6007,6 +6378,15 @@ pub struct ComplaintMessageInvalidInfo {
     pub multi_clickable: Option<bool>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintMessageInvalidInfo {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(expired_time) = self.expired_time.as_deref() {
+            validate_payment_rfc3339(expired_time, "complaint message expiration time")?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6027,6 +6407,15 @@ impl ComplaintMiniProgramJumpInfo {
             WechatError::Config("complaint mini-program jump text is required".to_string())
         })?;
         validate_payment_text(text, "complaint mini-program jump text", 128)
+    }
+
+    fn validate_response(&self) -> Result<()> {
+        validate_payment_identifier(&self.appid, "complaint mini-program appid", 128)?;
+        validate_payment_text(&self.path, "complaint mini-program path", 1024)?;
+        if let Some(text) = self.text.as_deref() {
+            validate_payment_text(text, "complaint mini-program jump text", 128)?;
+        }
+        Ok(())
     }
 }
 
@@ -6138,6 +6527,23 @@ pub struct ComplaintMessageInfo {
     pub custom_data: Option<String>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl ComplaintMessageInfo {
+    pub fn validate(&self) -> Result<()> {
+        if self.content.is_none() && self.custom_data.is_none() {
+            return Err(WechatError::Config(
+                "complaint send-message action requires content or custom_data".to_string(),
+            ));
+        }
+        if let Some(content) = self.content.as_deref() {
+            validate_payment_text(content, "complaint action message content", 2000)?;
+        }
+        if let Some(custom_data) = self.custom_data.as_deref() {
+            validate_payment_text(custom_data, "complaint action custom data", 2048)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10051,6 +10457,7 @@ mod tests {
         assert!(!detail.is_refund_request());
         assert!(detail.needs_merchant_response());
         assert!(detail.needs_priority_attention());
+        assert!(detail.validate().is_ok());
         let single_media_detail: ComplaintDetailResponse = serde_json::from_value(json!({
             "complaint_media_list": {
                 "media_type": "VIDEO",
@@ -10561,6 +10968,7 @@ mod tests {
             Some("https://example.com/history-thumb.jpg")
         );
         let normal = response.data[0].normal_message.as_ref().unwrap();
+        assert!(normal.validate().is_ok());
         assert_eq!(normal.sender_identity.as_deref(), Some("MANUAL"));
         assert_eq!(
             normal.sender_identity_kind(),
@@ -10601,6 +11009,12 @@ mod tests {
                 .and_then(|message| message.clicked_log_id.as_deref()),
             Some("log-0")
         );
+        assert!(response.data[0]
+            .click_message
+            .as_ref()
+            .unwrap()
+            .validate()
+            .is_ok());
         assert_eq!(
             ComplaintNegotiationOperateType::from_code("USER_COMFIRM_COMPLAINT"),
             ComplaintNegotiationOperateType::UserConfirmComplaint
@@ -10615,6 +11029,162 @@ mod tests {
             ComplaintNotificationActionKind::from_code("USER_APPLY_PLATFORM_SERIVCE"),
             ComplaintNotificationActionKind::UserApplyPlatformService
         );
+    }
+
+    #[test]
+    fn validates_merchant_service_nested_response_contracts() {
+        let valid_detail: ComplaintDetailResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-nested-1",
+            "complaint_time": "2026-07-20T10:00:00+08:00",
+            "complaint_state": "PENDING",
+            "additional_info": {
+                "type": "SHARE_POWER_BANK",
+                "share_power_info": {
+                    "return_time": "2026-07-20T10:30:00+08:00",
+                    "return_address_info": {
+                        "return_address": "Shanghai",
+                        "longitude": "121.4737",
+                        "latitude": "31.2304"
+                    }
+                }
+            }
+        }))
+        .unwrap();
+        assert!(valid_detail.validate().is_ok());
+
+        for additional_info in [
+            json!({ "type": "SHARE_POWER_BANK" }),
+            json!({
+                "type": "SHARE_POWER_TYPE",
+                "share_power_info": {
+                    "return_time": "not-rfc3339",
+                    "return_address_info": {
+                        "return_address": "Shanghai",
+                        "longitude": "121.47",
+                        "latitude": "31.23"
+                    }
+                }
+            }),
+            json!({
+                "type": "SHARE_POWER_TYPE",
+                "share_power_info": {
+                    "return_time": "2026-07-20T10:30:00+08:00",
+                    "return_address_info": {
+                        "return_address": "Shanghai",
+                        "longitude": "181",
+                        "latitude": "31.23"
+                    }
+                }
+            }),
+        ] {
+            let detail: ComplaintDetailResponse = serde_json::from_value(json!({
+                "complaint_id": "complaint-invalid",
+                "complaint_time": "2026-07-20T10:00:00+08:00",
+                "complaint_state": "PENDING",
+                "additional_info": additional_info
+            }))
+            .unwrap();
+            assert!(detail.validate().is_err());
+        }
+
+        let valid_history: ComplaintNegotiationHistoryResponse = serde_json::from_value(json!({
+            "data": [{
+                "log_id": "log-nested-1",
+                "operator": "MERCHANT",
+                "operate_time": "2026-07-20T10:10:00+08:00",
+                "operate_type": "MERCHANT_RESPONSE",
+                "normal_message": {
+                    "sender_identity": "MANUAL",
+                    "blocks": [{
+                        "type": "BUTTON",
+                        "button": {
+                            "text": "details",
+                            "action": {
+                                "action_type": "ACTION_TYPE_JUMP_URL",
+                                "jump_url": "https://example.com/details",
+                                "action_id": "action-1"
+                            }
+                        }
+                    }]
+                },
+                "click_message": {
+                    "message_content": "details",
+                    "action_id": "action-1",
+                    "clicked_log_id": "log-parent"
+                }
+            }],
+            "limit": 10,
+            "offset": 0,
+            "total_count": 1
+        }))
+        .unwrap();
+        assert!(valid_history.validate().is_ok());
+
+        for normal_message in [
+            json!({ "blocks": [] }),
+            json!({
+                "blocks": [{
+                    "type": "TEXT",
+                    "image": { "media_id": "media-1" }
+                }]
+            }),
+            json!({
+                "blocks": [{
+                    "type": "BUTTON",
+                    "button": {
+                        "text": "details",
+                        "action": {
+                            "action_type": "ACTION_TYPE_JUMP_URL",
+                            "jump_url": "http://example.com/details"
+                        }
+                    }
+                }]
+            }),
+        ] {
+            let history: ComplaintNegotiationHistoryResponse = serde_json::from_value(json!({
+                "data": [{
+                    "log_id": "log-invalid",
+                    "operator": "MERCHANT",
+                    "operate_time": "2026-07-20T10:10:00+08:00",
+                    "operate_type": "MERCHANT_RESPONSE",
+                    "normal_message": normal_message
+                }],
+                "limit": 10,
+                "offset": 0,
+                "total_count": 1
+            }))
+            .unwrap();
+            assert!(history.validate().is_err());
+        }
+
+        let invalid_click: ComplaintNegotiationHistoryResponse = serde_json::from_value(json!({
+            "data": [{
+                "log_id": "log-invalid-click",
+                "operator": "USER",
+                "operate_time": "2026-07-20T10:10:00+08:00",
+                "operate_type": "USER_CLICK_RESPONSE",
+                "click_message": { "action_id": "action-1" }
+            }],
+            "limit": 10,
+            "offset": 0,
+            "total_count": 1
+        }))
+        .unwrap();
+        assert!(invalid_click.validate().is_err());
+
+        let missing_click: ComplaintNegotiationHistoryResponse = serde_json::from_value(json!({
+            "data": [{
+                "log_id": "log-missing-click",
+                "operator": "USER",
+                "operate_time": "2026-07-20T10:10:00+08:00",
+                "operate_type": "USER_CLICK_RESPONSE"
+            }],
+            "limit": 10,
+            "offset": 0,
+            "total_count": 1
+        }))
+        .unwrap();
+        assert!(missing_click.validate().is_err());
     }
 
     #[test]

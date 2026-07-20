@@ -2464,6 +2464,23 @@ Implemented on 2026-07-20 in Payment merchant-service response contracts:
 - all merchant-service query and callback response methods now enforce these
   contracts at the API boundary while retaining unknown extension fields.
 
+Implemented on 2026-07-21 in Payment merchant-service nested response depth:
+
+- complaint details now validate optional detail/problem/OpenID fields and
+  recursively enforce shared-power additional information at the top-level
+  response boundary;
+- known shared-power payloads require an RFC3339 return time, return address,
+  finite numeric longitude/latitude, and valid geographic coordinate ranges;
+- negotiation normal/click messages now validate sender metadata, block
+  cardinality, block-type payload matching, click action/log identities, and
+  nested text, image, link, FAQ, button, and button-group contracts;
+- known message actions now require their matching send-message, HTTPS URL, or
+  mini-program payload, while unknown block/action types remain
+  forward-compatible and retain extension fields;
+- response tests cover malformed shared-power timestamps/coordinates, missing
+  nested payloads, insecure action URLs, empty block lists, and incomplete
+  click-message identities.
+
 Implemented on 2026-07-20 in Payment bill download and statement depth:
 
 - atomic file downloads now expose an explicit maximum-byte variant, enforce
