@@ -3765,13 +3765,17 @@ impl Work {
         access_token: impl Into<String>,
         agent_id: i64,
     ) -> Result<WorkMenuResponse> {
-        self.inner
+        validate_work_menu_agent_id(agent_id)?;
+        let response: WorkMenuResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/menu/get",
                 Some(access_token.into()),
                 vec![("agentid".to_string(), agent_id.to_string())],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_menu(
@@ -3780,7 +3784,10 @@ impl Work {
         agent_id: i64,
         request: WorkMenuRequest,
     ) -> Result<WorkMenuCreateResponse> {
-        self.inner
+        validate_work_menu_agent_id(agent_id)?;
+        request.validate()?;
+        let response: WorkMenuCreateResponse = self
+            .inner
             .post_json_with_access_token_query(
                 "cgi-bin/menu/create",
                 Some(access_token.into()),
@@ -3788,7 +3795,9 @@ impl Work {
                 serde_json::to_value(request).expect("work menu request serializes"),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_menu(
@@ -3796,13 +3805,17 @@ impl Work {
         access_token: impl Into<String>,
         agent_id: i64,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        validate_work_menu_agent_id(agent_id)?;
+        let response: WorkStatusResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/menu/delete",
                 Some(access_token.into()),
                 vec![("agentid".to_string(), agent_id.to_string())],
             )
-            .await
+            .await?;
+        response.validate_for("work delete menu")?;
+        Ok(response)
     }
 
     pub fn msg_audit(&self) -> DomainModule {
@@ -12897,6 +12910,28 @@ pub struct WorkMenuRequest {
     pub button: Vec<WorkMenuButton>,
 }
 
+impl WorkMenuRequest {
+    pub fn new(button: Vec<WorkMenuButton>) -> Self {
+        Self { button }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_menu_buttons(&self.button, true)?;
+        validate_work_menu_unique_keys(&self.button)
+    }
+
+    pub fn total_button_count(&self) -> usize {
+        self.button
+            .iter()
+            .map(|button| 1 + button.sub_button.len())
+            .sum()
+    }
+
+    pub fn find_by_key(&self, key: &str) -> Option<&WorkMenuButton> {
+        find_work_menu_button_by_key(&self.button, key)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMenuButton {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
@@ -12912,6 +12947,189 @@ pub struct WorkMenuButton {
     pub url: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sub_button: Vec<WorkMenuButton>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkMenuButton {
+    pub fn click(name: impl Into<String>, key: impl Into<String>) -> Self {
+        Self {
+            kind: Some("click".to_string()),
+            name: name.into(),
+            key: Some(key.into()),
+            pagepath: None,
+            appid: None,
+            url: None,
+            sub_button: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn view(name: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            kind: Some("view".to_string()),
+            name: name.into(),
+            key: None,
+            pagepath: None,
+            appid: None,
+            url: Some(url.into()),
+            sub_button: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn mini_program(
+        name: impl Into<String>,
+        appid: impl Into<String>,
+        pagepath: impl Into<String>,
+        fallback_url: impl Into<String>,
+    ) -> Self {
+        Self {
+            kind: Some("view_miniprogram".to_string()),
+            name: name.into(),
+            key: None,
+            pagepath: Some(pagepath.into()),
+            appid: Some(appid.into()),
+            url: Some(fallback_url.into()),
+            sub_button: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn container(name: impl Into<String>, sub_button: Vec<Self>) -> Self {
+        Self {
+            kind: None,
+            name: name.into(),
+            key: None,
+            pagepath: None,
+            appid: None,
+            url: None,
+            sub_button,
+            extra: Value::Null,
+        }
+    }
+
+    pub fn button_kind(&self) -> Option<WorkMenuButtonKind> {
+        self.kind.as_deref().map(WorkMenuButtonKind::from_value)
+    }
+
+    pub fn is_container(&self) -> bool {
+        !self.sub_button.is_empty()
+    }
+
+    fn validate(&self, top_level: bool) -> Result<()> {
+        validate_work_menu_text("button name", &self.name, if top_level { 16 } else { 60 })?;
+        if self.is_container() {
+            if !top_level || self.sub_button.len() > 5 {
+                return Err(WechatError::Config(
+                    "work menu containers support 1 to 5 second-level buttons".to_string(),
+                ));
+            }
+            if self.kind.is_some()
+                || self.key.is_some()
+                || self.pagepath.is_some()
+                || self.appid.is_some()
+                || self.url.is_some()
+            {
+                return Err(WechatError::Config(
+                    "work menu containers cannot contain action fields".to_string(),
+                ));
+            }
+            return validate_work_menu_buttons(&self.sub_button, false);
+        }
+
+        let kind = self.kind.as_deref().ok_or_else(|| {
+            WechatError::Config("work menu leaf buttons require type".to_string())
+        })?;
+        validate_work_menu_text("button type", kind, 64)?;
+        let kind = WorkMenuButtonKind::from_value(kind);
+        match kind {
+            WorkMenuButtonKind::View => {
+                validate_work_menu_route_exclusivity(self, false, true, false)?;
+                validate_work_menu_url(self.url.as_deref().expect("validated view URL"))
+            }
+            WorkMenuButtonKind::ViewMiniProgram => {
+                validate_work_menu_route_exclusivity(self, false, true, true)?;
+                let appid = self.appid.as_deref().expect("validated mini-program appid");
+                let pagepath = self
+                    .pagepath
+                    .as_deref()
+                    .expect("validated mini-program pagepath");
+                validate_work_menu_text("mini-program appid", appid, 64)?;
+                validate_work_menu_text("mini-program pagepath", pagepath, 512)?;
+                validate_work_menu_url(self.url.as_deref().expect("validated fallback URL"))
+            }
+            WorkMenuButtonKind::Click
+            | WorkMenuButtonKind::ScanCodePush
+            | WorkMenuButtonKind::ScanCodeWaitMessage
+            | WorkMenuButtonKind::PictureSystemPhoto
+            | WorkMenuButtonKind::PicturePhotoOrAlbum
+            | WorkMenuButtonKind::PictureWechat
+            | WorkMenuButtonKind::LocationSelect => {
+                validate_work_menu_route_exclusivity(self, true, false, false)?;
+                validate_work_menu_text(
+                    "button key",
+                    self.key.as_deref().expect("validated key"),
+                    128,
+                )
+            }
+            WorkMenuButtonKind::Other(_) => {
+                let route_count = usize::from(self.key.is_some())
+                    + usize::from(self.url.is_some())
+                    + usize::from(self.appid.is_some() || self.pagepath.is_some());
+                if route_count > 1 {
+                    return Err(WechatError::Config(
+                        "work menu unknown button types cannot mix known route fields".to_string(),
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorkMenuButtonKind {
+    Click,
+    View,
+    ScanCodePush,
+    ScanCodeWaitMessage,
+    PictureSystemPhoto,
+    PicturePhotoOrAlbum,
+    PictureWechat,
+    LocationSelect,
+    ViewMiniProgram,
+    Other(String),
+}
+
+impl WorkMenuButtonKind {
+    pub fn from_value(value: &str) -> Self {
+        match value {
+            "click" => Self::Click,
+            "view" => Self::View,
+            "scancode_push" => Self::ScanCodePush,
+            "scancode_waitmsg" => Self::ScanCodeWaitMessage,
+            "pic_sysphoto" => Self::PictureSystemPhoto,
+            "pic_photo_or_album" => Self::PicturePhotoOrAlbum,
+            "pic_weixin" => Self::PictureWechat,
+            "location_select" => Self::LocationSelect,
+            "view_miniprogram" => Self::ViewMiniProgram,
+            other => Self::Other(other.to_string()),
+        }
+    }
+
+    pub fn requires_key(&self) -> bool {
+        matches!(
+            self,
+            Self::Click
+                | Self::ScanCodePush
+                | Self::ScanCodeWaitMessage
+                | Self::PictureSystemPhoto
+                | Self::PicturePhotoOrAlbum
+                | Self::PictureWechat
+                | Self::LocationSelect
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12926,6 +13144,28 @@ pub struct WorkMenuResponse {
     pub extra: Value,
 }
 
+impl WorkMenuResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work get menu", self.errcode, self.errmsg.as_deref())?;
+        if self.button.is_empty() {
+            return Ok(());
+        }
+        validate_work_menu_buttons(&self.button, true)?;
+        validate_work_menu_unique_keys(&self.button)
+    }
+
+    pub fn total_button_count(&self) -> usize {
+        self.button
+            .iter()
+            .map(|button| 1 + button.sub_button.len())
+            .sum()
+    }
+
+    pub fn find_by_key(&self, key: &str) -> Option<&WorkMenuButton> {
+        find_work_menu_button_by_key(&self.button, key)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMenuCreateResponse {
     #[serde(default)]
@@ -12933,9 +13173,125 @@ pub struct WorkMenuCreateResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub button: Vec<Value>,
+    pub button: Vec<WorkMenuButton>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMenuCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work create menu", self.errcode, self.errmsg.as_deref())?;
+        if self.button.is_empty() {
+            return Ok(());
+        }
+        validate_work_menu_buttons(&self.button, true)?;
+        validate_work_menu_unique_keys(&self.button)
+    }
+}
+
+fn validate_work_menu_agent_id(agent_id: i64) -> Result<()> {
+    if agent_id <= 0 {
+        return Err(WechatError::Config(
+            "work menu agent id must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_menu_buttons(buttons: &[WorkMenuButton], top_level: bool) -> Result<()> {
+    let maximum = if top_level { 3 } else { 5 };
+    if buttons.is_empty() || buttons.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "work menu {} buttons must contain between 1 and {maximum} entries",
+            if top_level {
+                "top-level"
+            } else {
+                "second-level"
+            }
+        )));
+    }
+    for button in buttons {
+        button.validate(top_level)?;
+    }
+    Ok(())
+}
+
+fn validate_work_menu_route_exclusivity(
+    button: &WorkMenuButton,
+    require_key: bool,
+    require_url: bool,
+    require_mini_program: bool,
+) -> Result<()> {
+    if button.key.is_some() != require_key
+        || button.url.is_some() != require_url
+        || button.appid.is_some() != require_mini_program
+        || button.pagepath.is_some() != require_mini_program
+    {
+        return Err(WechatError::Config(
+            "work menu button action fields do not match its type".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_menu_text(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work menu {label} must contain between 1 and {maximum} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_menu_url(value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value)
+        .map_err(|error| WechatError::Config(format!("work menu URL is invalid: {error}")))?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(
+            "work menu URL must be absolute HTTP(S) without credentials or fragments".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn find_work_menu_button_by_key<'a>(
+    buttons: &'a [WorkMenuButton],
+    key: &str,
+) -> Option<&'a WorkMenuButton> {
+    buttons.iter().find_map(|button| {
+        if button.key.as_deref() == Some(key) {
+            Some(button)
+        } else {
+            find_work_menu_button_by_key(&button.sub_button, key)
+        }
+    })
+}
+
+fn validate_work_menu_unique_keys(buttons: &[WorkMenuButton]) -> Result<()> {
+    fn visit<'a>(
+        buttons: &'a [WorkMenuButton],
+        keys: &mut HashSet<&'a str>,
+    ) -> std::result::Result<(), ()> {
+        for button in buttons {
+            if let Some(key) = button.key.as_deref() {
+                if !keys.insert(key) {
+                    return Err(());
+                }
+            }
+            visit(&button.sub_button, keys)?;
+        }
+        Ok(())
+    }
+
+    visit(buttons, &mut HashSet::new()).map_err(|()| {
+        WechatError::Config("work menu button keys must be unique across the tree".to_string())
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46332,6 +46688,7 @@ mod tests {
                     appid: None,
                     url: None,
                     sub_button: Vec::new(),
+                    extra: Value::Null,
                 },
                 WorkMenuButton {
                     kind: None,
@@ -46348,7 +46705,9 @@ mod tests {
                         appid: None,
                         url: Some("https://example.com".to_string()),
                         sub_button: Vec::new(),
+                        extra: Value::Null,
                     }],
+                    extra: Value::Null,
                 },
             ],
         })
@@ -46380,15 +46739,161 @@ mod tests {
         assert_eq!(menu.button[0].kind.as_deref(), Some("click"));
         assert_eq!(menu.button[0].key.as_deref(), Some("today"));
         assert_eq!(menu.extra["menu_version"], 2);
+        assert!(menu.validate().is_ok());
+        assert_eq!(menu.total_button_count(), 1);
+        assert_eq!(
+            menu.find_by_key("today").map(|button| button.name.as_str()),
+            Some("Today")
+        );
 
         let created: WorkMenuCreateResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "button": [{ "name": "Today", "source": "api" }],
+            "button": [{
+                "type": "click",
+                "name": "Today",
+                "key": "today",
+                "source": "api"
+            }],
             "request_id": "menu-create"
         }))
         .unwrap();
-        assert_eq!(created.button[0]["source"], "api");
+        assert!(created.validate().is_ok());
+        assert_eq!(created.button[0].extra["source"], "api");
         assert_eq!(created.extra["request_id"], "menu-create");
+    }
+
+    #[test]
+    fn validates_work_menu_contracts() {
+        let request = WorkMenuRequest::new(vec![
+            WorkMenuButton::click("Today", "today"),
+            WorkMenuButton::container(
+                "More",
+                vec![
+                    WorkMenuButton::view("Docs", "https://example.com/docs"),
+                    WorkMenuButton::mini_program(
+                        "Store",
+                        "wx-app",
+                        "pages/index",
+                        "https://example.com/store",
+                    ),
+                ],
+            ),
+        ]);
+        assert!(request.validate().is_ok());
+        assert_eq!(request.total_button_count(), 4);
+        assert_eq!(
+            request
+                .find_by_key("today")
+                .and_then(WorkMenuButton::button_kind),
+            Some(WorkMenuButtonKind::Click)
+        );
+        assert!(
+            WorkMenuButtonKind::ScanCodePush.requires_key()
+                && !WorkMenuButtonKind::View.requires_key()
+        );
+        assert!(validate_work_menu_agent_id(1).is_ok());
+        assert!(validate_work_menu_agent_id(0).is_err());
+
+        let empty = WorkMenuRequest::new(Vec::new());
+        assert!(empty.validate().is_err());
+        let oversized = WorkMenuRequest::new(
+            (0..4)
+                .map(|index| {
+                    WorkMenuButton::click(format!("Button {index}"), format!("key-{index}"))
+                })
+                .collect(),
+        );
+        assert!(oversized.validate().is_err());
+        let duplicate_keys = WorkMenuRequest::new(vec![
+            WorkMenuButton::click("One", "same"),
+            WorkMenuButton::container("More", vec![WorkMenuButton::click("Two", "same")]),
+        ]);
+        assert!(duplicate_keys.validate().is_err());
+
+        for invalid in [
+            json!({ "button": [{ "name": "Missing type", "sub_button": [] }] }),
+            json!({ "button": [{ "type": "click", "name": "Missing key" }] }),
+            json!({
+                "button": [{
+                    "type": "view",
+                    "name": "Mixed",
+                    "key": "key",
+                    "url": "https://example.com"
+                }]
+            }),
+            json!({
+                "button": [{
+                    "type": "view",
+                    "name": "Unsafe",
+                    "url": "file:///tmp/menu"
+                }]
+            }),
+            json!({
+                "button": [{
+                    "type": "view_miniprogram",
+                    "name": "Mini",
+                    "appid": "wx-app",
+                    "pagepath": "pages/index"
+                }]
+            }),
+            json!({
+                "button": [{
+                    "name": "Container",
+                    "key": "not-allowed",
+                    "sub_button": [{
+                        "type": "click",
+                        "name": "Child",
+                        "key": "child"
+                    }]
+                }]
+            }),
+            json!({
+                "button": [{
+                    "name": "Container",
+                    "sub_button": [{
+                        "name": "Nested",
+                        "sub_button": [{
+                            "type": "click",
+                            "name": "Third",
+                            "key": "third"
+                        }]
+                    }]
+                }]
+            }),
+        ] {
+            let request: WorkMenuRequest = serde_json::from_value(invalid).unwrap();
+            assert!(request.validate().is_err());
+        }
+
+        let future: WorkMenuResponse = serde_json::from_value(json!({
+            "button": [{
+                "type": "future_action",
+                "name": "Future",
+                "future_route": { "id": "future" }
+            }]
+        }))
+        .unwrap();
+        assert!(future.validate().is_ok());
+        assert_eq!(
+            future.button[0].button_kind(),
+            Some(WorkMenuButtonKind::Other("future_action".to_string()))
+        );
+        assert_eq!(future.button[0].extra["future_route"]["id"], "future");
+
+        let api_error: WorkMenuResponse = serde_json::from_value(json!({
+            "errcode": 40014,
+            "errmsg": "invalid access token"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40014, .. })
+        ));
+        let invalid_created: WorkMenuCreateResponse = serde_json::from_value(json!({
+            "button": [{ "type": "click", "name": "Missing key" }]
+        }))
+        .unwrap();
+        assert!(invalid_created.validate().is_err());
     }
 
     #[test]

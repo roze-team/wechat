@@ -2614,6 +2614,26 @@ Implemented on 2026-07-21 in Work user external-profile depth:
   retention, mismatched payloads, relative URLs, empty/negative Channels
   states, and future attribute kinds.
 
+Implemented on 2026-07-21 in Work application-menu depth:
+
+- menu get/create/delete now reject non-positive agent ids, validate request
+  trees before transport, and validate typed success or mutation responses
+  before returning application data;
+- create responses now use the shared typed menu-button DTO instead of
+  `Vec<Value>`, preserving per-button and top-level extension fields;
+- menu trees enforce one-to-three top-level buttons, one-to-five second-level
+  buttons, no third level, bounded names, unique keys across the full tree, and
+  parent/action-field separation;
+- click, scan, picture, location, view, and mini-program buttons enforce their
+  exact key/URL/appid/pagepath contracts; URLs require absolute credential-free
+  HTTP(S), while unknown future button types remain forward-compatible;
+- click, view, mini-program, and container constructors plus button-kind,
+  total-count, and recursive key-lookup helpers remove routine raw field
+  assembly from application code;
+- request/response tests cover API errors, empty and oversized menus, duplicate
+  keys, missing and mixed action fields, unsafe URLs, incomplete mini-program
+  routes, invalid nesting, typed create responses, and future button payloads.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
