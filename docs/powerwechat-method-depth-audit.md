@@ -17,7 +17,7 @@ but these areas should be expanded for stricter production parity.
 | Work | 363 | 370 | high |
 | Payment | 165 | 110 | high |
 | Open Platform | 76 | 69 | medium |
-| Mini Program | 214 | 208 | low |
+| Mini Program | 214 | 212 | low |
 | Official Account | 283 | 244 | medium |
 | Open Work | 57 | 43 | medium |
 | Basic Service | 33 | 24 | low |
@@ -49,9 +49,11 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 4. Mini Program depth:
    exact endpoint coverage is now green after filtering scanner-only
    documentation paths. `liveBroadcast` now has one-to-one PowerWeChat method
-   coverage and production request/response guards. Continue DTO normalization
-   across `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
-   `dataCube`, `operation`, and `wxa`.
+   coverage and production request/response guards. `express` retains all
+   16 PowerWeChat methods and adds typed production variants for the four
+   upstream open-map operations. Continue DTO normalization across
+   `industry/miniDrama/vod`, `immediateDelivery`, `b2b`, `dataCube`,
+   `operation`, and `wxa`.
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -704,6 +706,30 @@ Implemented on 2026-07-20 in Mini Program liveBroadcast lifecycle depth:
   while goods audit helpers expose approved inventory without treating future
   numeric values as approved.
 
+Implemented on 2026-07-20 in Mini Program express production depth:
+
+- all 16 current PowerWeChat express methods remain covered, while typed
+  add-order, preview-template, provider-business-audit, and provider-path
+  wrappers replace open JSON maps for production callers without removing the
+  compatibility entry points;
+- typed add-order contracts follow the current WeChat schema for source modes,
+  App/H5 identity, sender/receiver contacts, shop single/multi-goods details,
+  cargo dimensions/details, insurance, service, pickup expectations, tags,
+  and settlement modes;
+- every dedicated order/account/printer/path request now validates required
+  identities, bind/unbind and print modes, positive event fields, nonempty
+  object compatibility payloads, and unique batches of at most 100 orders
+  before network I/O;
+- order creation and cancellation distinguish WeChat API errors from carrier
+  result errors, require returned order/waybill identities, and validate
+  unique typed waybill data;
+- batch orders, accounts, carriers, order details, paths, printers, quotas,
+  contacts, and preview responses validate decoded counts, uniqueness,
+  non-negative values, ordered tracking events, required contacts, and
+  rendered artifacts while preserving extension fields;
+- printer counts, quotas, and contact waybill ids accept the string-or-number
+  wire variants used by current PowerWeChat/WeChat responses.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -914,7 +940,7 @@ Recommended implementation order:
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
 3. Mini Program DTO/method-depth review for `industry/miniDrama/vod`,
-   `express`, `immediateDelivery`, `b2b`, `dataCube`, `operation`, and `wxa`.
+   `immediateDelivery`, `b2b`, `dataCube`, `operation`, and `wxa`.
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 

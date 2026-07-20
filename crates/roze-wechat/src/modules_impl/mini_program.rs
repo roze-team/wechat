@@ -2645,6 +2645,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressRequest,
     ) -> Result<ExpressAddOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/order/add",
@@ -2659,6 +2660,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         order_list: Vec<ExpressBatchGetOrderItem>,
     ) -> Result<ExpressBatchOrderListResponse> {
+        validate_express_batch_orders(&order_list)?;
         self.inner
             .post(
                 "cgi-bin/express/business/order/batchget",
@@ -2673,6 +2675,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressBindAccountRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/accountService/bind",
@@ -2687,6 +2690,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressOrderRequest,
     ) -> Result<ExpressCancelOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/order/cancel",
@@ -2725,6 +2729,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressGetOrderRequest,
     ) -> Result<ExpressGetOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/order/get",
@@ -2739,6 +2744,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressOrderRequest,
     ) -> Result<ExpressGetPathResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/path/get",
@@ -2766,13 +2772,17 @@ impl MiniProgram {
         delivery_id: impl Into<String>,
         biz_id: impl Into<String>,
     ) -> Result<ExpressGetQuotaResponse> {
+        let delivery_id = delivery_id.into();
+        let biz_id = biz_id.into();
+        validate_express_required("delivery id", &delivery_id)?;
+        validate_express_required("business id", &biz_id)?;
         self.inner
             .post(
                 "cgi-bin/express/business/quota/get",
                 Some(access_token.into()),
                 json!({
-                    "delivery_id": delivery_id.into(),
-                    "biz_id": biz_id.into(),
+                    "delivery_id": delivery_id,
+                    "biz_id": biz_id,
                 }),
             )
             .await
@@ -2783,6 +2793,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressTestUpdateOrderRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/test_update_order",
@@ -2797,6 +2808,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressUpdatePrinterRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/business/printer/update",
@@ -2812,13 +2824,17 @@ impl MiniProgram {
         token: impl Into<String>,
         waybill_id: impl Into<String>,
     ) -> Result<ExpressGetContactResponse> {
+        let token = token.into();
+        let waybill_id = waybill_id.into();
+        validate_express_required("contact token", &token)?;
+        validate_express_required("waybill id", &waybill_id)?;
         self.inner
             .post(
                 "cgi-bin/express/delivery/contact/get",
                 Some(access_token.into()),
                 json!({
-                    "token": token.into(),
-                    "waybill_id": waybill_id.into(),
+                    "token": token,
+                    "waybill_id": waybill_id,
                 }),
             )
             .await
@@ -2829,6 +2845,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressRequest,
     ) -> Result<ExpressPreviewTemplateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/delivery/template/preview",
@@ -2843,6 +2860,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/delivery/service/business/update",
@@ -2857,6 +2875,67 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: ExpressRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/path/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn add_express_order_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressAddOrderRequest,
+    ) -> Result<ExpressAddOrderResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/express/business/order/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn preview_express_template_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressPreviewTemplateRequest,
+    ) -> Result<ExpressPreviewTemplateResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/template/preview",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_express_business_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressUpdateBusinessRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/express/delivery/service/business/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn update_express_path_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: ExpressUpdatePathRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/express/delivery/path/update",
@@ -5606,6 +5685,445 @@ impl ImmediateDeliveryReOrderResponse {
     }
 }
 
+fn validate_express_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program express {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_express_optional(kind: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_express_required(kind, value)?;
+    }
+    Ok(())
+}
+
+fn ensure_express_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program express operation failed")
+                .to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn ensure_express_delivery_success(
+    result_code: Option<i64>,
+    result_message: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = result_code.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: result_message
+                .unwrap_or("express carrier operation failed")
+                .to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_express_order_identity(
+    order_id: &str,
+    openid: &str,
+    delivery_id: &str,
+    waybill_id: &str,
+) -> Result<()> {
+    for (kind, value) in [
+        ("order id", order_id),
+        ("openid", openid),
+        ("delivery id", delivery_id),
+        ("waybill id", waybill_id),
+    ] {
+        validate_express_required(kind, value)?;
+    }
+    Ok(())
+}
+
+fn validate_express_batch_orders(orders: &[ExpressBatchGetOrderItem]) -> Result<()> {
+    if orders.is_empty() || orders.len() > 100 {
+        return Err(WechatError::Config(
+            "mini-program express batch order list must contain between 1 and 100 entries"
+                .to_string(),
+        ));
+    }
+    let mut order_ids = std::collections::HashSet::with_capacity(orders.len());
+    for order in orders {
+        order.validate()?;
+        if !order_ids.insert(order.order_id.trim()) {
+            return Err(WechatError::Config(
+                "mini-program express batch order ids must be unique".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressAddOrderRequest {
+    pub order_id: String,
+    pub openid: String,
+    pub delivery_id: String,
+    pub biz_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_remark: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tagid: Option<i64>,
+    pub add_source: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wx_appid: Option<String>,
+    pub sender: ExpressAddress,
+    pub receiver: ExpressAddress,
+    pub shop: ExpressShop,
+    pub cargo: ExpressCargo,
+    pub insured: ExpressInsured,
+    pub service: ExpressService,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expect_time: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub take_mode: Option<i64>,
+}
+
+impl ExpressAddOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("order id", self.order_id.as_str()),
+            ("delivery id", self.delivery_id.as_str()),
+            ("business id", self.biz_id.as_str()),
+        ] {
+            validate_express_required(kind, value)?;
+        }
+        if !matches!(self.add_source, 0 | 2) {
+            return Err(WechatError::Config(
+                "mini-program express add source must be 0 or 2".to_string(),
+            ));
+        }
+        if self.add_source == 0 {
+            validate_express_required("openid", &self.openid)?;
+        } else {
+            if !self.openid.is_empty() {
+                validate_express_required("openid", &self.openid)?;
+            }
+            let wx_appid = self.wx_appid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express App/H5 order requires wx_appid".to_string(),
+                )
+            })?;
+            validate_express_required("App/H5 appid", wx_appid)?;
+        }
+        validate_express_optional("custom remark", self.custom_remark.as_deref())?;
+        if self.tagid.is_some_and(|tagid| tagid <= 0) {
+            return Err(WechatError::Config(
+                "mini-program express tag id must be positive".to_string(),
+            ));
+        }
+        self.sender.validate("sender")?;
+        self.receiver.validate("receiver")?;
+        self.shop.validate()?;
+        self.cargo.validate()?;
+        self.insured.validate()?;
+        self.service.validate()?;
+        if self.expect_time.is_some_and(|time| time < 0) {
+            return Err(WechatError::Config(
+                "mini-program express expected delivery time cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .take_mode
+            .is_some_and(|take_mode| !matches!(take_mode, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "mini-program express take mode must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressAddress {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tel: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mobile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub company: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub province: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+}
+
+impl ExpressAddress {
+    fn validate(&self, kind: &str) -> Result<()> {
+        if self.tel.is_none() && self.mobile.is_none() {
+            return Err(WechatError::Config(format!(
+                "mini-program express {kind} requires telephone or mobile"
+            )));
+        }
+        validate_express_optional(&format!("{kind} telephone"), self.tel.as_deref())?;
+        validate_express_optional(&format!("{kind} mobile"), self.mobile.as_deref())?;
+        validate_express_optional(&format!("{kind} company"), self.company.as_deref())?;
+        validate_express_optional(&format!("{kind} post code"), self.post_code.as_deref())?;
+        for (field, value) in [
+            ("name", self.name.as_deref()),
+            ("country", self.country.as_deref()),
+            ("province", self.province.as_deref()),
+            ("city", self.city.as_deref()),
+            ("area", self.area.as_deref()),
+            ("address", self.address.as_deref()),
+        ] {
+            validate_express_optional(&format!("{kind} {field}"), value)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressShop {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wxa_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub img_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goods_count: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub detail_list: Vec<ExpressShopDetail>,
+}
+
+impl ExpressShop {
+    fn validate(&self) -> Result<()> {
+        validate_express_optional("shop mini-program path", self.wxa_path.as_deref())?;
+        validate_express_optional("shop image URL", self.img_url.as_deref())?;
+        validate_express_optional("shop goods name", self.goods_name.as_deref())?;
+        if self.goods_count.is_some_and(|count| count <= 0) {
+            return Err(WechatError::Config(
+                "mini-program express shop goods count must be positive".to_string(),
+            ));
+        }
+        if self.detail_list.is_empty()
+            && (self.img_url.is_none() || self.goods_name.is_none() || self.goods_count.is_none())
+        {
+            return Err(WechatError::Config(
+                "mini-program express shop requires image, name, and count when detail_list is empty"
+                    .to_string(),
+            ));
+        }
+        for detail in &self.detail_list {
+            detail.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressShopDetail {
+    pub goods_name: String,
+    pub goods_img_url: String,
+    pub goods_desc: String,
+}
+
+impl ExpressShopDetail {
+    fn validate(&self) -> Result<()> {
+        validate_express_required("shop detail goods name", &self.goods_name)?;
+        validate_express_required("shop detail goods image URL", &self.goods_img_url)?;
+        validate_express_required("shop detail goods description", &self.goods_desc)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressCargo {
+    pub count: i64,
+    pub weight: f64,
+    pub space_x: f64,
+    pub space_y: f64,
+    pub space_z: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub detail_list: Vec<ExpressCargoDetail>,
+}
+
+impl ExpressCargo {
+    fn validate(&self) -> Result<()> {
+        if self.count <= 0 {
+            return Err(WechatError::Config(
+                "mini-program express cargo count must be positive".to_string(),
+            ));
+        }
+        for value in [self.weight, self.space_x, self.space_y, self.space_z] {
+            if !value.is_finite() || value <= 0.0 {
+                return Err(WechatError::Config(
+                    "mini-program express cargo measurements must be finite and positive"
+                        .to_string(),
+                ));
+            }
+        }
+        let mut names = std::collections::HashSet::with_capacity(self.detail_list.len());
+        let mut detail_count = 0_i64;
+        for detail in &self.detail_list {
+            detail.validate()?;
+            if !names.insert(detail.name.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program express cargo detail names must be unique".to_string(),
+                ));
+            }
+            detail_count = detail_count.checked_add(detail.count).ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express cargo detail count overflowed".to_string(),
+                )
+            })?;
+        }
+        if !self.detail_list.is_empty() && detail_count != self.count {
+            return Err(WechatError::Config(
+                "mini-program express cargo detail count must equal cargo count".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressCargoDetail {
+    pub name: String,
+    pub count: i64,
+}
+
+impl ExpressCargoDetail {
+    fn validate(&self) -> Result<()> {
+        validate_express_required("cargo detail name", &self.name)?;
+        if self.count <= 0 {
+            return Err(WechatError::Config(
+                "mini-program express cargo detail count must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressInsured {
+    pub use_insured: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub insured_value: Option<i64>,
+}
+
+impl ExpressInsured {
+    fn validate(&self) -> Result<()> {
+        if !matches!(self.use_insured, 0 | 1) {
+            return Err(WechatError::Config(
+                "mini-program express insured flag must be 0 or 1".to_string(),
+            ));
+        }
+        match (self.use_insured, self.insured_value) {
+            (1, Some(value)) if value > 0 => Ok(()),
+            (1, _) => Err(WechatError::Config(
+                "mini-program express insured shipment requires a positive insured value"
+                    .to_string(),
+            )),
+            (0, Some(_)) => Err(WechatError::Config(
+                "mini-program express uninsured shipment must not include insured value"
+                    .to_string(),
+            )),
+            (0, None) => Ok(()),
+            _ => unreachable!("insured flag was validated"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressService {
+    pub service_type: i64,
+    pub service_name: String,
+}
+
+impl ExpressService {
+    fn validate(&self) -> Result<()> {
+        if self.service_type < 0 {
+            return Err(WechatError::Config(
+                "mini-program express service type cannot be negative".to_string(),
+            ));
+        }
+        validate_express_required("service name", &self.service_name)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressPreviewTemplateRequest {
+    pub waybill_id: String,
+    pub waybill_template: String,
+    pub waybill_data: String,
+    pub custom: ExpressAddOrderRequest,
+}
+
+impl ExpressPreviewTemplateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_required("preview waybill id", &self.waybill_id)?;
+        validate_express_required("waybill template", &self.waybill_template)?;
+        validate_express_required("waybill data", &self.waybill_data)?;
+        self.custom.validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressUpdateBusinessRequest {
+    pub shop_app_id: String,
+    pub biz_id: String,
+    pub result_code: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_msg: Option<String>,
+}
+
+impl ExpressUpdateBusinessRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_required("shop appid", &self.shop_app_id)?;
+        validate_express_required("business id", &self.biz_id)?;
+        if self.result_code != 0 && self.result_msg.is_none() {
+            return Err(WechatError::Config(
+                "mini-program express failed business audit requires result message".to_string(),
+            ));
+        }
+        validate_express_optional("business audit result message", self.result_msg.as_deref())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpressUpdatePathRequest {
+    pub token: String,
+    pub waybill_id: String,
+    pub action_time: i64,
+    pub action_type: i64,
+    pub action_msg: String,
+}
+
+impl ExpressUpdatePathRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_required("path token", &self.token)?;
+        validate_express_required("waybill id", &self.waybill_id)?;
+        if self.action_time <= 0 || self.action_type <= 0 {
+            return Err(WechatError::Config(
+                "mini-program express path action time and type must be positive".to_string(),
+            ));
+        }
+        validate_express_required("path action message", &self.action_msg)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressRequest {
     #[serde(flatten)]
@@ -5615,6 +6133,16 @@ pub struct ExpressRequest {
 impl ExpressRequest {
     pub fn new(payload: Value) -> Self {
         Self { payload }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self.payload.as_object() {
+            Some(object) if !object.is_empty() => Ok(()),
+            _ => Err(WechatError::Config(
+                "mini-program express compatibility payload must be a nonempty JSON object"
+                    .to_string(),
+            )),
+        }
     }
 }
 
@@ -5627,12 +6155,39 @@ pub struct ExpressBindAccountRequest {
     pub password: String,
 }
 
+impl ExpressBindAccountRequest {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.action_type.as_str(), "bind" | "unbind") {
+            return Err(WechatError::Config(
+                "mini-program express account action must be bind or unbind".to_string(),
+            ));
+        }
+        validate_express_required("business id", &self.biz_id)?;
+        validate_express_required("delivery id", &self.delivery_id)?;
+        if self.action_type == "bind" {
+            validate_express_required("account password", &self.password)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressOrderRequest {
     pub order_id: String,
     pub openid: String,
     pub delivery_id: String,
     pub waybill_id: String,
+}
+
+impl ExpressOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_order_identity(
+            &self.order_id,
+            &self.openid,
+            &self.delivery_id,
+            &self.waybill_id,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5644,12 +6199,40 @@ pub struct ExpressGetOrderRequest {
     pub print_type: i64,
 }
 
+impl ExpressGetOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_order_identity(
+            &self.order_id,
+            &self.openid,
+            &self.delivery_id,
+            &self.waybill_id,
+        )?;
+        if !matches!(self.print_type, 0 | 1) {
+            return Err(WechatError::Config(
+                "mini-program express print type must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressBatchGetOrderItem {
     pub order_id: String,
     pub openid: String,
     pub delivery_id: String,
     pub waybill_id: String,
+}
+
+impl ExpressBatchGetOrderItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_order_identity(
+            &self.order_id,
+            &self.openid,
+            &self.delivery_id,
+            &self.waybill_id,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5663,11 +6246,43 @@ pub struct ExpressTestUpdateOrderRequest {
     pub action_msg: String,
 }
 
+impl ExpressTestUpdateOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("business id", self.biz_id.as_str()),
+            ("order id", self.order_id.as_str()),
+            ("delivery id", self.delivery_id.as_str()),
+            ("waybill id", self.waybill_id.as_str()),
+            ("action message", self.action_msg.as_str()),
+        ] {
+            validate_express_required(kind, value)?;
+        }
+        if self.action_time <= 0 || self.action_type <= 0 {
+            return Err(WechatError::Config(
+                "mini-program express test action time and type must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressUpdatePrinterRequest {
     pub openid: String,
     pub update_type: String,
     pub tagid_list: String,
+}
+
+impl ExpressUpdatePrinterRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_express_required("printer openid", &self.openid)?;
+        if !matches!(self.update_type.as_str(), "bind" | "unbind") {
+            return Err(WechatError::Config(
+                "mini-program express printer update type must be bind or unbind".to_string(),
+            ));
+        }
+        validate_express_required("printer tag id list", &self.tagid_list)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5690,6 +6305,30 @@ pub struct ExpressAddOrderResponse {
     pub extra: Value,
 }
 
+impl ExpressAddOrderResponse {
+    pub fn ensure_created(&self) -> Result<(&str, &str)> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        ensure_express_delivery_success(
+            self.delivery_resultcode,
+            self.delivery_resultmsg.as_deref(),
+        )?;
+        let order_id = self.order_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express add-order response is missing order id".to_string(),
+            )
+        })?;
+        let waybill_id = self.waybill_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express add-order response is missing waybill id".to_string(),
+            )
+        })?;
+        validate_express_required("response order id", order_id)?;
+        validate_express_required("response waybill id", waybill_id)?;
+        validate_express_waybill_data(&self.waybill_data)?;
+        Ok((order_id, waybill_id))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressWaybillData {
     #[serde(default)]
@@ -5698,6 +6337,28 @@ pub struct ExpressWaybillData {
     pub value: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+fn validate_express_waybill_data(data: &[ExpressWaybillData]) -> Result<()> {
+    let mut keys = std::collections::HashSet::with_capacity(data.len());
+    for item in data {
+        let key = item.key.as_deref().ok_or_else(|| {
+            WechatError::Config("mini-program express waybill data item is missing key".to_string())
+        })?;
+        let value = item.value.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express waybill data item is missing value".to_string(),
+            )
+        })?;
+        validate_express_required("waybill data key", key)?;
+        validate_express_required("waybill data value", value)?;
+        if !keys.insert(key.trim()) {
+            return Err(WechatError::Config(
+                "mini-program express waybill data keys must be unique".to_string(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5714,6 +6375,27 @@ pub struct ExpressOrderSummary {
     pub extra: Value,
 }
 
+impl ExpressOrderSummary {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("summary order id", self.order_id.as_deref()),
+            ("summary waybill id", self.waybill_id.as_deref()),
+            ("summary delivery id", self.delivery_id.as_deref()),
+        ] {
+            let value = value.ok_or_else(|| {
+                WechatError::Config(format!("mini-program express {kind} is missing"))
+            })?;
+            validate_express_required(kind, value)?;
+        }
+        if self.order_status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "mini-program express order status cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressBatchOrderListResponse {
     #[serde(default)]
@@ -5724,6 +6406,38 @@ pub struct ExpressBatchOrderListResponse {
     pub order_list: Vec<ExpressOrderSummary>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExpressBatchOrderListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut order_ids = std::collections::HashSet::with_capacity(self.order_list.len());
+        let mut waybill_ids = std::collections::HashSet::with_capacity(self.order_list.len());
+        for order in &self.order_list {
+            order.validate()?;
+            let order_id = order
+                .order_id
+                .as_deref()
+                .expect("validated order id exists");
+            let waybill_id = order
+                .waybill_id
+                .as_deref()
+                .expect("validated waybill id exists");
+            if !order_ids.insert(order_id.trim()) || !waybill_ids.insert(waybill_id.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program express batch response contains duplicate order or waybill ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find_order(&self, order_id: &str) -> Option<&ExpressOrderSummary> {
+        self.order_list
+            .iter()
+            .find(|order| order.order_id.as_deref() == Some(order_id))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5740,6 +6454,16 @@ pub struct ExpressCancelOrderResponse {
     pub extra: Value,
 }
 
+impl ExpressCancelOrderResponse {
+    pub fn ensure_cancelled(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        ensure_express_delivery_success(
+            self.delivery_resultcode,
+            self.delivery_resultmsg.as_deref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressAccountListResponse {
     #[serde(default)]
@@ -5752,6 +6476,60 @@ pub struct ExpressAccountListResponse {
     pub list: Vec<ExpressAccount>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExpressAccountListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_express_decoded_count("account", self.count, self.list.len())?;
+        let mut identities = std::collections::HashSet::with_capacity(self.list.len());
+        for account in &self.list {
+            let biz_id = account.biz_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express account is missing business id".to_string(),
+                )
+            })?;
+            let delivery_id = account.delivery_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express account is missing delivery id".to_string(),
+                )
+            })?;
+            validate_express_required("account business id", biz_id)?;
+            validate_express_required("account delivery id", delivery_id)?;
+            if !identities.insert((biz_id.trim(), delivery_id.trim())) {
+                return Err(WechatError::Config(
+                    "mini-program express account list contains duplicate identities".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, biz_id: &str, delivery_id: &str) -> Option<&ExpressAccount> {
+        self.list.iter().find(|account| {
+            account.biz_id.as_deref() == Some(biz_id)
+                && account.delivery_id.as_deref() == Some(delivery_id)
+        })
+    }
+}
+
+fn validate_express_decoded_count(kind: &str, count: Option<i64>, actual: usize) -> Result<()> {
+    if count.is_some_and(|count| count < 0) {
+        return Err(WechatError::Config(format!(
+            "mini-program express {kind} count cannot be negative"
+        )));
+    }
+    let actual = i64::try_from(actual).map_err(|_| {
+        WechatError::Config(format!(
+            "mini-program express decoded {kind} count exceeds i64"
+        ))
+    })?;
+    if count.is_some_and(|count| count != actual) {
+        return Err(WechatError::Config(format!(
+            "mini-program express {kind} count does not match decoded list"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5780,6 +6558,44 @@ pub struct ExpressDeliveryListResponse {
     pub data: Vec<ExpressDelivery>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExpressDeliveryListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_express_decoded_count("delivery", self.count, self.data.len())?;
+        let mut delivery_ids = std::collections::HashSet::with_capacity(self.data.len());
+        for delivery in &self.data {
+            let delivery_id = delivery.delivery_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express delivery is missing delivery id".to_string(),
+                )
+            })?;
+            validate_express_required("delivery id", delivery_id)?;
+            if [delivery.can_use_cash, delivery.can_get_quota]
+                .into_iter()
+                .flatten()
+                .any(|flag| !matches!(flag, 0 | 1))
+            {
+                return Err(WechatError::Config(
+                    "mini-program express delivery capability flags must be 0 or 1".to_string(),
+                ));
+            }
+            if !delivery_ids.insert(delivery_id.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program express delivery list contains duplicate ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn supporting_quota(&self) -> Vec<&ExpressDelivery> {
+        self.data
+            .iter()
+            .filter(|delivery| delivery.can_get_quota == Some(1))
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5818,6 +6634,32 @@ pub struct ExpressGetOrderResponse {
     pub extra: Value,
 }
 
+impl ExpressGetOrderResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, value) in [
+            ("response delivery id", self.delivery_id.as_deref()),
+            ("response waybill id", self.waybill_id.as_deref()),
+            ("response order id", self.order_id.as_deref()),
+        ] {
+            let value = value.ok_or_else(|| {
+                WechatError::Config(format!("mini-program express {kind} is missing"))
+            })?;
+            validate_express_required(kind, value)?;
+        }
+        if self.order_status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "mini-program express response order status cannot be negative".to_string(),
+            ));
+        }
+        validate_express_waybill_data(&self.waybill_data)
+    }
+
+    pub fn matches(&self, order_id: &str, waybill_id: &str) -> bool {
+        self.order_id.as_deref() == Some(order_id) && self.waybill_id.as_deref() == Some(waybill_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressGetPathResponse {
     #[serde(default)]
@@ -5838,6 +6680,53 @@ pub struct ExpressGetPathResponse {
     pub extra: Value,
 }
 
+impl ExpressGetPathResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, value) in [
+            ("path openid", self.openid.as_deref()),
+            ("path delivery id", self.delivery_id.as_deref()),
+            ("path waybill id", self.waybill_id.as_deref()),
+        ] {
+            let value = value.ok_or_else(|| {
+                WechatError::Config(format!("mini-program express {kind} is missing"))
+            })?;
+            validate_express_required(kind, value)?;
+        }
+        validate_express_decoded_count("path item", self.path_item_num, self.path_item_list.len())?;
+        let mut previous_time = None;
+        for item in &self.path_item_list {
+            let action_time = item.action_time.ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express path item is missing action time".to_string(),
+                )
+            })?;
+            if action_time <= 0 || item.action_type.is_some_and(|action_type| action_type <= 0) {
+                return Err(WechatError::Config(
+                    "mini-program express path action time and type must be positive".to_string(),
+                ));
+            }
+            let action_msg = item.action_msg.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program express path item is missing action message".to_string(),
+                )
+            })?;
+            validate_express_required("path action message", action_msg)?;
+            if previous_time.is_some_and(|previous| action_time < previous) {
+                return Err(WechatError::Config(
+                    "mini-program express path items must be ordered by action time".to_string(),
+                ));
+            }
+            previous_time = Some(action_time);
+        }
+        Ok(())
+    }
+
+    pub fn latest(&self) -> Option<&ExpressPathItem> {
+        self.path_item_list.last()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressPathItem {
     #[serde(default)]
@@ -5856,8 +6745,8 @@ pub struct ExpressGetPrinterResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
-    pub count: Option<Value>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub count: Option<i64>,
     #[serde(default)]
     pub openid: Vec<String>,
     #[serde(default)]
@@ -5866,16 +6755,63 @@ pub struct ExpressGetPrinterResponse {
     pub extra: Value,
 }
 
+impl ExpressGetPrinterResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_express_decoded_count("printer", self.count, self.openid.len())?;
+        let mut openids = std::collections::HashSet::with_capacity(self.openid.len());
+        for openid in &self.openid {
+            validate_express_required("printer openid", openid)?;
+            if !openids.insert(openid.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program express printer list contains duplicate openids".to_string(),
+                ));
+            }
+        }
+        let mut tags = std::collections::HashSet::with_capacity(self.tagid_list.len());
+        for tag in &self.tagid_list {
+            validate_express_required("printer tag id", tag)?;
+            if !tags.insert(tag.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program express printer tag ids must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressGetQuotaResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
-    pub quota_num: Option<Value>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub quota_num: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExpressGetQuotaResponse {
+    pub fn available_quota(&self) -> Result<i64> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        let quota = self.quota_num.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express quota response is missing quota number".to_string(),
+            )
+        })?;
+        if quota < 0 {
+            return Err(WechatError::Config(
+                "mini-program express quota cannot be negative".to_string(),
+            ));
+        }
+        Ok(quota)
+    }
+
+    pub fn has_quota(&self) -> Result<bool> {
+        Ok(self.available_quota()? > 0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5884,7 +6820,7 @@ pub struct ExpressGetContactResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
     pub waybill_id: Option<String>,
     #[serde(default)]
     pub sender: Vec<ExpressContact>,
@@ -5892,6 +6828,29 @@ pub struct ExpressGetContactResponse {
     pub receiver: Vec<ExpressContact>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExpressGetContactResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        let waybill_id = self.waybill_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express contact response is missing waybill id".to_string(),
+            )
+        })?;
+        validate_express_required("contact waybill id", waybill_id)?;
+        if self.sender.is_empty() || self.receiver.is_empty() {
+            return Err(WechatError::Config(
+                "mini-program express contact response requires sender and receiver".to_string(),
+            ));
+        }
+        for (kind, contacts) in [("sender", &self.sender), ("receiver", &self.receiver)] {
+            for contact in contacts {
+                contact.validate(kind)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5920,6 +6879,25 @@ pub struct ExpressContact {
     pub extra: Value,
 }
 
+impl ExpressContact {
+    pub fn validate(&self, kind: &str) -> Result<()> {
+        let name = self.name.as_deref().ok_or_else(|| {
+            WechatError::Config(format!(
+                "mini-program express {kind} contact is missing name"
+            ))
+        })?;
+        validate_express_required(&format!("{kind} contact name"), name)?;
+        if self.tel.is_none() && self.mobile.is_none() {
+            return Err(WechatError::Config(format!(
+                "mini-program express {kind} contact requires telephone or mobile"
+            )));
+        }
+        validate_express_optional(&format!("{kind} contact telephone"), self.tel.as_deref())?;
+        validate_express_optional(&format!("{kind} contact mobile"), self.mobile.as_deref())?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressPreviewTemplateResponse {
     #[serde(default)]
@@ -5932,6 +6910,24 @@ pub struct ExpressPreviewTemplateResponse {
     pub rendered_waybill_template: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExpressPreviewTemplateResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_express_response_success(self.errcode, self.errmsg.as_deref())?;
+        let waybill_id = self.waybill_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express preview response is missing waybill id".to_string(),
+            )
+        })?;
+        let rendered = self.rendered_waybill_template.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program express preview response is missing rendered template".to_string(),
+            )
+        })?;
+        validate_express_required("preview waybill id", waybill_id)?;
+        validate_express_required("rendered waybill template", rendered)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6346,9 +7342,7 @@ fn ensure_live_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> R
     Ok(())
 }
 
-fn deserialize_live_optional_i64<'de, D>(
-    deserializer: D,
-) -> std::result::Result<Option<i64>, D::Error>
+fn deserialize_optional_i64<'de, D>(deserializer: D) -> std::result::Result<Option<i64>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -6364,6 +7358,22 @@ where
             .map_err(serde::de::Error::custom),
         Some(other) => Err(serde::de::Error::custom(format!(
             "live numeric value must be a number or string, got {other}"
+        ))),
+    }
+}
+
+fn deserialize_optional_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value)),
+        Some(Value::Number(value)) => Ok(Some(value.to_string())),
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "string value must be a string or number, got {other}"
         ))),
     }
 }
@@ -7317,7 +8327,7 @@ pub struct MiniProgramLiveFollowersResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub followers: Vec<MiniProgramLiveFollower>,
-    #[serde(default, deserialize_with = "deserialize_live_optional_i64")]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub page_break: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -7569,7 +8579,7 @@ pub struct MiniProgramLiveGoodsMutationResponse {
     #[serde(
         default,
         rename = "goodsId",
-        deserialize_with = "deserialize_live_optional_i64"
+        deserialize_with = "deserialize_optional_i64"
     )]
     pub goods_id: Option<i64>,
     #[serde(default, rename = "auditId")]
@@ -9518,6 +10528,112 @@ mod tests {
     }
 
     #[test]
+    fn serializes_typed_express_provider_and_order_requests() {
+        let request = ExpressAddOrderRequest {
+            order_id: "order-id".to_string(),
+            openid: "openid".to_string(),
+            delivery_id: "delivery-id".to_string(),
+            biz_id: "biz-id".to_string(),
+            custom_remark: Some("Leave at reception".to_string()),
+            tagid: Some(10),
+            add_source: 0,
+            wx_appid: None,
+            sender: ExpressAddress {
+                name: Some("Sender".to_string()),
+                tel: None,
+                mobile: Some("13800000000".to_string()),
+                company: Some("Roze".to_string()),
+                post_code: Some("310000".to_string()),
+                country: Some("China".to_string()),
+                province: Some("Zhejiang".to_string()),
+                city: Some("Hangzhou".to_string()),
+                area: Some("Xihu".to_string()),
+                address: Some("Sender street".to_string()),
+            },
+            receiver: ExpressAddress {
+                name: Some("Receiver".to_string()),
+                tel: Some("057100000000".to_string()),
+                mobile: None,
+                company: None,
+                post_code: Some("310000".to_string()),
+                country: Some("China".to_string()),
+                province: Some("Zhejiang".to_string()),
+                city: Some("Hangzhou".to_string()),
+                area: Some("Xihu".to_string()),
+                address: Some("Receiver street".to_string()),
+            },
+            shop: ExpressShop {
+                wxa_path: Some("pages/orders/detail".to_string()),
+                img_url: Some("https://example.com/goods.png".to_string()),
+                goods_name: Some("Coffee".to_string()),
+                goods_count: Some(2),
+                detail_list: Vec::new(),
+            },
+            cargo: ExpressCargo {
+                count: 2,
+                weight: 1.5,
+                space_x: 20.0,
+                space_y: 15.0,
+                space_z: 10.0,
+                detail_list: vec![ExpressCargoDetail {
+                    name: "Coffee".to_string(),
+                    count: 2,
+                }],
+            },
+            insured: ExpressInsured {
+                use_insured: 1,
+                insured_value: Some(10_000),
+            },
+            service: ExpressService {
+                service_type: 0,
+                service_name: "standard".to_string(),
+            },
+            expect_time: Some(1_800_000_000),
+            take_mode: Some(0),
+        };
+        assert!(request.validate().is_ok());
+        let preview_custom = request.clone();
+        let value = serde_json::to_value(request).unwrap();
+        assert_eq!(value["sender"]["mobile"], "13800000000");
+        assert_eq!(value["cargo"]["detail_list"][0]["count"], 2);
+        assert_eq!(value["insured"]["insured_value"], 10_000);
+
+        let preview = ExpressPreviewTemplateRequest {
+            waybill_id: "waybill-id".to_string(),
+            waybill_template: "<xml>template</xml>".to_string(),
+            waybill_data: r#"{"tracking_no":"waybill-id"}"#.to_string(),
+            custom: preview_custom,
+        };
+        assert!(preview.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(preview).unwrap()["custom"]["order_id"],
+            "order-id"
+        );
+
+        let business = ExpressUpdateBusinessRequest {
+            shop_app_id: "wx-shop".to_string(),
+            biz_id: "biz-id".to_string(),
+            result_code: 1,
+            result_msg: Some("credentials rejected".to_string()),
+        };
+        assert!(business.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(business).unwrap()["shop_app_id"],
+            "wx-shop"
+        );
+
+        let path = ExpressUpdatePathRequest {
+            token: "callback-token".to_string(),
+            waybill_id: "waybill-id".to_string(),
+            action_time: 1_800_000_000,
+            action_type: 100001,
+            action_msg: "picked up".to_string(),
+        };
+        assert!(path.validate().is_ok());
+        assert_eq!(serde_json::to_value(path).unwrap()["action_type"], 100001);
+    }
+
+    #[test]
     fn deserializes_express_responses() {
         let add: ExpressAddOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -9537,6 +10653,7 @@ mod tests {
         assert_eq!(add.order_id.as_deref(), Some("order-id"));
         assert_eq!(add.waybill_data[0].key.as_deref(), Some("tracking_no"));
         assert_eq!(add.waybill_data[0].value.as_deref(), Some("waybill-id"));
+        assert_eq!(add.ensure_created().unwrap(), ("order-id", "waybill-id"));
         assert_eq!(add.extra["request_id"], "add-order");
         assert_eq!(add.waybill_data[0].extra["data_extra"], "retained");
 
@@ -9546,6 +10663,7 @@ mod tests {
             "order_list": [{
                 "order_id": "order-id",
                 "waybill_id": "waybill-id",
+                "delivery_id": "delivery-id",
                 "summary_extra": "retained"
             }]
         }))
@@ -9557,6 +10675,8 @@ mod tests {
         );
         assert_eq!(batch.extra["request_id"], "batch");
         assert_eq!(batch.order_list[0].extra["summary_extra"], "retained");
+        assert!(batch.validate().is_ok());
+        assert!(batch.find_order("order-id").is_some());
 
         let cancel: ExpressCancelOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -9566,6 +10686,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(cancel.delivery_resultcode, Some(0));
+        assert!(cancel.ensure_cancelled().is_ok());
         assert_eq!(cancel.extra["request_id"], "cancel");
 
         let accounts: ExpressAccountListResponse = serde_json::from_value(json!({
@@ -9586,6 +10707,8 @@ mod tests {
         assert_eq!(accounts.list[0].delivery_id.as_deref(), Some("delivery-id"));
         assert_eq!(accounts.extra["request_id"], "accounts");
         assert_eq!(accounts.list[0].extra["account_extra"], "retained");
+        assert!(accounts.validate().is_ok());
+        assert!(accounts.find("biz-id", "delivery-id").is_some());
 
         let deliveries: ExpressDeliveryListResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -9606,6 +10729,8 @@ mod tests {
         );
         assert_eq!(deliveries.extra["request_id"], "deliveries");
         assert_eq!(deliveries.data[0].extra["delivery_extra"], "retained");
+        assert!(deliveries.validate().is_ok());
+        assert_eq!(deliveries.supporting_quota().len(), 1);
 
         let order: ExpressGetOrderResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -9627,6 +10752,8 @@ mod tests {
         assert_eq!(order.waybill_data[0].key.as_deref(), Some("tracking_no"));
         assert_eq!(order.extra["request_id"], "get-order");
         assert_eq!(order.waybill_data[0].extra["data_extra"], "retained");
+        assert!(order.validate().is_ok());
+        assert!(order.matches("order-id", "waybill-id"));
 
         let path: ExpressGetPathResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -9651,6 +10778,8 @@ mod tests {
         );
         assert_eq!(path.extra["request_id"], "path");
         assert_eq!(path.path_item_list[0].extra["operator"], "courier");
+        assert!(path.validate().is_ok());
+        assert_eq!(path.latest().unwrap().action_type, Some(100001));
 
         let printer: ExpressGetPrinterResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -9660,8 +10789,9 @@ mod tests {
             "tagid_list": ["tag-a"]
         }))
         .unwrap();
-        assert_eq!(printer.count, Some(json!("1")));
+        assert_eq!(printer.count, Some(1));
         assert_eq!(printer.openid[0], "openid");
+        assert!(printer.validate().is_ok());
         assert_eq!(printer.extra["request_id"], "printer");
 
         let quota: ExpressGetQuotaResponse = serde_json::from_value(json!({
@@ -9670,7 +10800,9 @@ mod tests {
             "request_id": "quota"
         }))
         .unwrap();
-        assert_eq!(quota.quota_num, Some(json!("100")));
+        assert_eq!(quota.quota_num, Some(100));
+        assert_eq!(quota.available_quota().unwrap(), 100);
+        assert!(quota.has_quota().unwrap());
         assert_eq!(quota.extra["request_id"], "quota");
 
         let contact: ExpressGetContactResponse = serde_json::from_value(json!({
@@ -9684,6 +10816,7 @@ mod tests {
             }],
             "receiver": [{
                 "name": "receiver",
+                "mobile": "13900000000",
                 "address": "street",
                 "contact_extra": "receiver"
             }]
@@ -9692,6 +10825,7 @@ mod tests {
         assert_eq!(contact.waybill_id.as_deref(), Some("waybill-id"));
         assert_eq!(contact.sender[0].mobile.as_deref(), Some("13800000000"));
         assert_eq!(contact.receiver[0].name.as_deref(), Some("receiver"));
+        assert!(contact.validate().is_ok());
         assert_eq!(contact.extra["request_id"], "contact");
         assert_eq!(contact.sender[0].extra["contact_extra"], "sender");
         assert_eq!(contact.receiver[0].extra["contact_extra"], "receiver");
@@ -9708,7 +10842,93 @@ mod tests {
             preview.rendered_waybill_template.as_deref(),
             Some("template")
         );
+        assert!(preview.validate().is_ok());
         assert_eq!(preview.extra["request_id"], "preview");
+    }
+
+    #[test]
+    fn rejects_inconsistent_express_contracts() {
+        assert!(ExpressRequest::new(Value::Null).validate().is_err());
+        assert!(ExpressBindAccountRequest {
+            action_type: "invalid".to_string(),
+            biz_id: "biz".to_string(),
+            delivery_id: "delivery".to_string(),
+            password: String::new(),
+        }
+        .validate()
+        .is_err());
+        assert!(ExpressGetOrderRequest {
+            order_id: "order".to_string(),
+            openid: "openid".to_string(),
+            delivery_id: "delivery".to_string(),
+            waybill_id: "waybill".to_string(),
+            print_type: 2,
+        }
+        .validate()
+        .is_err());
+        assert!(validate_express_batch_orders(&[
+            ExpressBatchGetOrderItem {
+                order_id: "order".to_string(),
+                openid: "openid".to_string(),
+                delivery_id: "delivery".to_string(),
+                waybill_id: "waybill-1".to_string(),
+            },
+            ExpressBatchGetOrderItem {
+                order_id: "order".to_string(),
+                openid: "openid".to_string(),
+                delivery_id: "delivery".to_string(),
+                waybill_id: "waybill-2".to_string(),
+            },
+        ])
+        .is_err());
+
+        let carrier_error: ExpressAddOrderResponse = serde_json::from_value(json!({
+            "delivery_resultcode": 10002,
+            "delivery_resultmsg": "invalid account password"
+        }))
+        .unwrap();
+        assert!(matches!(
+            carrier_error.ensure_created(),
+            Err(WechatError::Api { code: 10002, .. })
+        ));
+
+        let duplicate_batch: ExpressBatchOrderListResponse = serde_json::from_value(json!({
+            "order_list": [
+                {
+                    "order_id": "order",
+                    "waybill_id": "waybill-1",
+                    "delivery_id": "delivery"
+                },
+                {
+                    "order_id": "order",
+                    "waybill_id": "waybill-2",
+                    "delivery_id": "delivery"
+                }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_batch.validate().is_err());
+
+        let unordered_path: ExpressGetPathResponse = serde_json::from_value(json!({
+            "openid": "openid",
+            "delivery_id": "delivery",
+            "waybill_id": "waybill",
+            "path_item_num": 2,
+            "path_item_list": [
+                {"action_time": 20, "action_type": 100002, "action_msg": "transit"},
+                {"action_time": 10, "action_type": 100001, "action_msg": "picked up"}
+            ]
+        }))
+        .unwrap();
+        assert!(unordered_path.validate().is_err());
+
+        let negative_quota: ExpressGetQuotaResponse =
+            serde_json::from_value(json!({ "quota_num": "-1" })).unwrap();
+        assert!(negative_quota.available_quota().is_err());
+
+        let mismatched_printers: ExpressGetPrinterResponse =
+            serde_json::from_value(json!({ "count": "2", "openid": ["openid"] })).unwrap();
+        assert!(mismatched_printers.validate().is_err());
     }
 
     #[test]
