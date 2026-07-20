@@ -1864,6 +1864,25 @@ Implemented on 2026-07-20 in Work application-message depth:
 
 Implemented on 2026-07-20 in Work user, tag, and identity-conversion depth:
 
+- core member CRUD, department-member lists, user-ID pagination, batch
+  import/export, lookup, invitation, join-code, active-stat, linked-corporation,
+  and userid/openid conversion responses now validate Work API success before
+  leaving the HTTP boundary;
+- user detail and list responses require a usable plaintext or privacy-mode
+  identity, validate unique positive departments, aligned department metadata,
+  leader flags, main-department membership, status values, and duplicate users;
+- user-ID pages validate up to 10000 entries, exact user/department
+  duplication, and expose normalized cursor continuation helpers;
+- import/export start responses require checked job IDs, while result
+  responses validate status, job type, totals, progress, row data, and expose
+  completion plus partial-failure helpers without rejecting future job kinds;
+- invitation results validate invalid-member, department, and tag sets and
+  expose aggregate failure counts; join QR codes require absolute HTTP(S)
+  URLs, and active counts accept numeric or string wire forms with checked
+  unsigned conversion;
+- linked-corporation permission, user, user-list, and department-list
+  responses validate required identities, hierarchy fields, duplicate entries,
+  and forward-compatible positive statuses while retaining unknown fields;
 - department member lists, authorization confirmation, linked-corporation
   member and department reads, join QR codes, mobile/email lookups, and active
   statistics now reject invalid identifiers, dimensions, formats, types, and

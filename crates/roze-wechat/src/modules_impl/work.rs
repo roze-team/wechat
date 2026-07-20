@@ -248,13 +248,16 @@ impl Work {
     ) -> Result<WorkUserDetailResponse> {
         let user_id = user_id.into();
         validate_work_user_id(&user_id)?;
-        self.inner
+        let response: WorkUserDetailResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/user/get",
                 Some(access_token.into()),
                 vec![("userid".to_string(), user_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_user(
@@ -263,9 +266,12 @@ impl Work {
         request: WorkUserRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate_for_create()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/user/create", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work create user")?;
+        Ok(response)
     }
 
     pub async fn update_user(
@@ -274,9 +280,12 @@ impl Work {
         request: WorkUserRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate_for_update()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/user/update", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work update user")?;
+        Ok(response)
     }
 
     pub async fn delete_user(
@@ -286,13 +295,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let user_id = user_id.into();
         validate_work_user_id(&user_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/user/delete",
                 Some(access_token.into()),
                 vec![("userid".to_string(), user_id)],
             )
-            .await
+            .await?;
+        response.validate_for("work delete user")?;
+        Ok(response)
     }
 
     pub async fn batch_delete_users(
@@ -302,13 +314,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let request = WorkUserBatchDeleteRequest::new(user_id_list);
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/user/batchdelete",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work batch delete users")?;
+        Ok(response)
     }
 
     pub async fn list_department_users(
@@ -318,7 +333,8 @@ impl Work {
         fetch_child: bool,
     ) -> Result<WorkDepartmentUserSimpleListResponse> {
         validate_work_department_id(department_id)?;
-        self.inner
+        let response: WorkDepartmentUserSimpleListResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/user/simplelist",
                 Some(access_token.into()),
@@ -330,7 +346,9 @@ impl Work {
                     ),
                 ],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_detailed_department_users(
@@ -340,7 +358,8 @@ impl Work {
         fetch_child: bool,
     ) -> Result<WorkDepartmentUserDetailListResponse> {
         validate_work_department_id(department_id)?;
-        self.inner
+        let response: WorkDepartmentUserDetailListResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/user/list",
                 Some(access_token.into()),
@@ -352,7 +371,9 @@ impl Work {
                     ),
                 ],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_user_ids(
@@ -367,13 +388,16 @@ impl Work {
                 "work user-id page limit must be between 1 and 10000".to_string(),
             ));
         }
-        self.inner
+        let response: WorkUserListIdResponse = self
+            .inner
             .post(
                 "cgi-bin/user/list_id",
                 Some(access_token.into()),
                 json!({ "cursor": cursor, "limit": limit }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn sync_users_by_batch(
@@ -382,9 +406,12 @@ impl Work {
         request: WorkUserBatchJobRequest,
     ) -> Result<WorkUserBatchJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserBatchJobResponse = self
+            .inner
             .post("cgi-bin/batch/syncuser", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn replace_users_by_batch(
@@ -393,13 +420,16 @@ impl Work {
         request: WorkUserBatchJobRequest,
     ) -> Result<WorkUserBatchJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserBatchJobResponse = self
+            .inner
             .post(
                 "cgi-bin/batch/replaceuser",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn replace_departments_by_batch(
@@ -408,13 +438,16 @@ impl Work {
         request: WorkUserBatchJobRequest,
     ) -> Result<WorkUserBatchJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserBatchJobResponse = self
+            .inner
             .post(
                 "cgi-bin/batch/replaceparty",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_user_batch_job_result(
@@ -424,13 +457,16 @@ impl Work {
     ) -> Result<WorkUserBatchJobResultResponse> {
         let job_id = job_id.into();
         validate_work_user_job_id(&job_id)?;
-        self.inner
+        let response: WorkUserBatchJobResultResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/batch/getresult",
                 Some(access_token.into()),
                 vec![("jobid".to_string(), job_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn export_simple_users(
@@ -439,13 +475,16 @@ impl Work {
         request: WorkUserExportJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserExportJobResponse = self
+            .inner
             .post(
                 "cgi-bin/export/simple_user",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn export_users(
@@ -454,9 +493,12 @@ impl Work {
         request: WorkUserExportJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserExportJobResponse = self
+            .inner
             .post("cgi-bin/export/user", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn export_departments(
@@ -465,13 +507,16 @@ impl Work {
         request: WorkUserExportJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserExportJobResponse = self
+            .inner
             .post(
                 "cgi-bin/export/department",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn export_tag_users(
@@ -480,9 +525,12 @@ impl Work {
         request: WorkUserExportTagUserJobRequest,
     ) -> Result<WorkUserExportJobResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserExportJobResponse = self
+            .inner
             .post("cgi-bin/export/taguser", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_user_export_job_result(
@@ -492,13 +540,16 @@ impl Work {
     ) -> Result<WorkUserExportJobResultResponse> {
         let job_id = job_id.into();
         validate_work_user_job_id(&job_id)?;
-        self.inner
+        let response: WorkUserExportJobResultResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/export/get_result",
                 Some(access_token.into()),
                 vec![("jobid".to_string(), job_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn mobile_to_user_id(
@@ -508,13 +559,16 @@ impl Work {
     ) -> Result<WorkUserIdLookupResponse> {
         let mobile = mobile.into().trim().to_string();
         validate_work_mobile(&mobile)?;
-        self.inner
+        let response: WorkUserIdLookupResponse = self
+            .inner
             .post(
                 "cgi-bin/user/getuserid",
                 Some(access_token.into()),
                 json!({ "mobile": mobile }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn email_to_user_id(
@@ -530,13 +584,16 @@ impl Work {
                 "work user email type must be 1 or 2".to_string(),
             ));
         }
-        self.inner
+        let response: WorkUserIdLookupResponse = self
+            .inner
             .post(
                 "cgi-bin/user/get_userid_by_email",
                 Some(access_token.into()),
                 json!({ "email": email, "email_type": email_type }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn accept_user_auth_success(
@@ -546,13 +603,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let user_id = user_id.into();
         validate_work_user_id(&user_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/user/authsucc",
                 Some(access_token.into()),
                 vec![("userid".to_string(), user_id)],
             )
-            .await
+            .await?;
+        response.validate_for("work confirm user authorization")?;
+        Ok(response)
     }
 
     pub async fn invite_users(
@@ -561,9 +621,12 @@ impl Work {
         request: WorkUserInviteRequest,
     ) -> Result<WorkUserInviteResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUserInviteResponse = self
+            .inner
             .post("cgi-bin/batch/invite", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_join_qrcode(
@@ -576,13 +639,16 @@ impl Work {
                 "work join QR-code size type must be between 1 and 4".to_string(),
             ));
         }
-        self.inner
+        let response: WorkJoinQrCodeResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/corp/get_join_qrcode",
                 Some(access_token.into()),
                 vec![("size_type".to_string(), size_type.to_string())],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_user_active_stat(
@@ -592,26 +658,32 @@ impl Work {
     ) -> Result<WorkUserActiveStatResponse> {
         let date = date.into();
         validate_work_active_stat_date(&date)?;
-        self.inner
+        let response: WorkUserActiveStatResponse = self
+            .inner
             .post(
                 "cgi-bin/user/get_active_stat",
                 Some(access_token.into()),
                 json!({ "date": date }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_linked_corp_perm_list(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkLinkedCorpPermListResponse> {
-        self.inner
+        let response: WorkLinkedCorpPermListResponse = self
+            .inner
             .post(
                 "cgi-bin/linkedcorp/agent/get_perm_list",
                 Some(access_token.into()),
                 Value::Null,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_linked_corp_user(
@@ -621,13 +693,16 @@ impl Work {
     ) -> Result<WorkLinkedCorpUserResponse> {
         let user_id = user_id.into();
         validate_work_user_identifier("linked-corp user id", &user_id)?;
-        self.inner
+        let response: WorkLinkedCorpUserResponse = self
+            .inner
             .post(
                 "cgi-bin/linkedcorp/user/get",
                 Some(access_token.into()),
                 json!({ "userid": user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_linked_corp_department_users(
@@ -638,13 +713,16 @@ impl Work {
     ) -> Result<WorkLinkedCorpUserListResponse> {
         let department_id = department_id.into();
         validate_work_user_identifier("linked-corp department id", &department_id)?;
-        self.inner
+        let response: WorkLinkedCorpUserListResponse = self
+            .inner
             .post(
                 "cgi-bin/linkedcorp/user/simplelist",
                 Some(access_token.into()),
                 json!({ "department_id": department_id, "fetch_child": fetch_child }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_linked_corp_detailed_department_users(
@@ -655,13 +733,16 @@ impl Work {
     ) -> Result<WorkLinkedCorpUserListResponse> {
         let department_id = department_id.into();
         validate_work_user_identifier("linked-corp department id", &department_id)?;
-        self.inner
+        let response: WorkLinkedCorpUserListResponse = self
+            .inner
             .post(
                 "cgi-bin/linkedcorp/user/list",
                 Some(access_token.into()),
                 json!({ "department_id": department_id, "fetch_child": fetch_child }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_linked_corp_departments(
@@ -671,13 +752,16 @@ impl Work {
     ) -> Result<WorkLinkedCorpDepartmentListResponse> {
         let department_id = department_id.into();
         validate_work_user_identifier("linked-corp department id", &department_id)?;
-        self.inner
+        let response: WorkLinkedCorpDepartmentListResponse = self
+            .inner
             .post(
                 "cgi-bin/linkedcorp/department/list",
                 Some(access_token.into()),
                 json!({ "department_id": department_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn user_id_to_openid(
@@ -700,13 +784,16 @@ impl Work {
         request: UserIdToOpenIdRequest,
     ) -> Result<UserIdToOpenIdResponse> {
         request.validate()?;
-        self.inner
+        let response: UserIdToOpenIdResponse = self
+            .inner
             .post(
                 "cgi-bin/user/convert_to_openid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn openid_to_user_id(
@@ -729,13 +816,16 @@ impl Work {
         request: OpenIdToUserIdRequest,
     ) -> Result<OpenIdToUserIdResponse> {
         request.validate()?;
-        self.inner
+        let response: OpenIdToUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/user/convert_to_userid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn corpgroup(&self) -> DomainModule {
@@ -7273,6 +7363,27 @@ pub struct OpenIdToUserIdResponse {
     pub extra: Value,
 }
 
+impl OpenIdToUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work openid to userid conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work openid to userid response requires userid".to_string())
+        })?;
+        validate_work_user_id(userid)
+    }
+
+    pub fn require_user_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work openid to userid response requires userid".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUnionIdToExternalUserIdRequest {
     pub unionid: String,
@@ -9887,6 +9998,26 @@ pub struct WorkDepartmentUserId {
     pub extra: Value,
 }
 
+impl WorkDepartmentUserId {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_response_identity(
+            "user-id list entry",
+            self.userid.as_deref(),
+            self.open_userid.as_deref(),
+        )?;
+        if self.department.is_some_and(|department| department <= 0) {
+            return Err(WechatError::Config(
+                "work user-id list department must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn identity(&self) -> Option<&str> {
+        work_user_response_identity(self.userid.as_deref(), self.open_userid.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserDetailResponse {
     #[serde(default)]
@@ -9899,6 +10030,18 @@ pub struct WorkUserDetailResponse {
     pub extra: Value,
 }
 
+impl WorkUserDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work get user", self.errcode, self.errmsg.as_deref())?;
+        self.user.validate_response()
+    }
+
+    pub fn require_user(&self) -> Result<&WorkUserDetail> {
+        self.validate()?;
+        Ok(&self.user)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDepartmentUserSimpleListResponse {
     #[serde(default)]
@@ -9909,6 +10052,31 @@ pub struct WorkDepartmentUserSimpleListResponse {
     pub userlist: Vec<WorkDepartmentSimpleUser>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkDepartmentUserSimpleListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work list simple department users",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for user in &self.userlist {
+            user.validate()?;
+        }
+        validate_work_user_unique_response_identities(
+            "simple department-user list",
+            self.userlist
+                .iter()
+                .filter_map(WorkDepartmentSimpleUser::identity),
+        )
+    }
+
+    pub fn find(&self, identity: &str) -> Option<&WorkDepartmentSimpleUser> {
+        self.userlist
+            .iter()
+            .find(|user| user.identity() == Some(identity))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9925,6 +10093,21 @@ pub struct WorkDepartmentSimpleUser {
     pub extra: Value,
 }
 
+impl WorkDepartmentSimpleUser {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_response_identity(
+            "simple department user",
+            self.userid.as_deref(),
+            self.open_userid.as_deref(),
+        )?;
+        validate_work_user_response_departments(&self.department)
+    }
+
+    pub fn identity(&self) -> Option<&str> {
+        work_user_response_identity(self.userid.as_deref(), self.open_userid.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDepartmentUserDetailListResponse {
     #[serde(default)]
@@ -9935,6 +10118,29 @@ pub struct WorkDepartmentUserDetailListResponse {
     pub userlist: Vec<WorkUserDetail>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkDepartmentUserDetailListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work list detailed department users",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for user in &self.userlist {
+            user.validate_response()?;
+        }
+        validate_work_user_unique_response_identities(
+            "detailed department-user list",
+            self.userlist.iter().filter_map(WorkUserDetail::identity),
+        )
+    }
+
+    pub fn find(&self, identity: &str) -> Option<&WorkUserDetail> {
+        self.userlist
+            .iter()
+            .find(|user| user.identity() == Some(identity))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10278,6 +10484,85 @@ fn validate_work_user_string_batch(label: &str, values: &[String], maximum: usiz
     Ok(())
 }
 
+fn work_user_response_identity<'a>(
+    userid: Option<&'a str>,
+    open_userid: Option<&'a str>,
+) -> Option<&'a str> {
+    userid
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| open_userid.filter(|value| !value.trim().is_empty()))
+}
+
+fn validate_work_user_response_identity(
+    label: &str,
+    userid: Option<&str>,
+    open_userid: Option<&str>,
+) -> Result<()> {
+    for (kind, value) in [("userid", userid), ("open_userid", open_userid)] {
+        if value.is_some_and(|value| value.trim().is_empty()) {
+            return Err(WechatError::Config(format!(
+                "work user {label} response {kind} cannot be blank"
+            )));
+        }
+    }
+    if work_user_response_identity(userid, open_userid).is_none() {
+        return Err(WechatError::Config(format!(
+            "work user {label} response requires userid or open_userid"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_user_response_departments(departments: &[i64]) -> Result<()> {
+    if departments.len() > 20
+        || departments.iter().any(|department| *department <= 0)
+        || has_duplicate_i64(departments)
+    {
+        return Err(WechatError::Config(
+            "work user response departments must contain at most 20 unique positive ids"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_user_unique_response_identities<'a>(
+    label: &str,
+    identities: impl Iterator<Item = &'a str>,
+) -> Result<()> {
+    let mut seen = std::collections::HashSet::new();
+    if identities
+        .into_iter()
+        .any(|identity| !seen.insert(identity))
+    {
+        return Err(WechatError::Config(format!(
+            "work user {label} response cannot contain duplicate identities"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_linked_corp_identifiers(label: &str, values: &[String]) -> Result<()> {
+    if values.iter().any(|value| value.trim().is_empty()) || has_duplicate_strings(values) {
+        return Err(WechatError::Config(format!(
+            "work linked-corp {label} ids must be unique and non-empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_user_http_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work user {label} URL is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work user {label} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
 fn has_duplicate_i64(values: &[i64]) -> bool {
     let mut seen = std::collections::HashSet::new();
     values.iter().any(|value| !seen.insert(*value))
@@ -10367,6 +10652,62 @@ impl WorkUserStatusKind {
 }
 
 impl WorkUserDetail {
+    pub fn validate_response(&self) -> Result<()> {
+        validate_work_user_response_identity(
+            "detail",
+            self.userid.as_deref(),
+            self.open_userid.as_deref(),
+        )?;
+        validate_work_user_response_departments(&self.department)?;
+        for (label, values) in [
+            ("department order", &self.order),
+            ("department leader flags", &self.is_leader_in_dept),
+        ] {
+            if !values.is_empty() && values.len() != self.department.len() {
+                return Err(WechatError::Config(format!(
+                    "work user response {label} must align with the department list"
+                )));
+            }
+        }
+        if self
+            .is_leader_in_dept
+            .iter()
+            .any(|flag| !matches!(flag, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "work user response department leader flags must be 0 or 1".to_string(),
+            ));
+        }
+        if self.main_department.is_some_and(|main| {
+            main <= 0 || (!self.department.is_empty() && !self.department.contains(&main))
+        }) {
+            return Err(WechatError::Config(
+                "work user response main department must be positive and belong to the user"
+                    .to_string(),
+            ));
+        }
+        if self.status.is_some_and(|status| status <= 0) {
+            return Err(WechatError::Config(
+                "work user response status must be positive".to_string(),
+            ));
+        }
+        if self
+            .direct_leader
+            .iter()
+            .any(|leader| leader.trim().is_empty())
+            || has_duplicate_strings(&self.direct_leader)
+        {
+            return Err(WechatError::Config(
+                "work user response direct leaders must be unique non-empty ids".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn identity(&self) -> Option<&str> {
+        work_user_response_identity(self.userid.as_deref(), self.open_userid.as_deref())
+    }
+
     pub fn status_kind(&self) -> Option<WorkUserStatusKind> {
         self.status.map(WorkUserStatusKind::from)
     }
@@ -10499,6 +10840,41 @@ pub struct WorkUserListIdResponse {
     pub extra: Value,
 }
 
+impl WorkUserListIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work list user ids", self.errcode, self.errmsg.as_deref())?;
+        if self.dept_user.len() > 10_000 {
+            return Err(WechatError::Config(
+                "work user-id list response cannot contain more than 10000 entries".to_string(),
+            ));
+        }
+        for user in &self.dept_user {
+            user.validate()?;
+        }
+        let mut entries = std::collections::HashSet::new();
+        if self.dept_user.iter().any(|user| {
+            let identity = user.identity().unwrap_or_default();
+            !entries.insert((identity, user.department))
+        }) {
+            return Err(WechatError::Config(
+                "work user-id list response cannot contain duplicate user-department entries"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        self.next_cursor
+            .as_deref()
+            .filter(|cursor| !cursor.trim().is_empty())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserIdLookupResponse {
     #[serde(default)]
@@ -10509,6 +10885,23 @@ pub struct WorkUserIdLookupResponse {
     pub userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserIdLookupResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work lookup userid", self.errcode, self.errmsg.as_deref())?;
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work userid lookup response requires userid".to_string())
+        })?;
+        validate_work_user_id(userid)
+    }
+
+    pub fn require_user_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work userid lookup response requires userid".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10563,6 +10956,41 @@ pub struct WorkUserInviteResponse {
     pub extra: Value,
 }
 
+impl WorkUserInviteResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work invite users", self.errcode, self.errmsg.as_deref())?;
+        if self
+            .invaliduser
+            .iter()
+            .any(|userid| userid.trim().is_empty())
+            || has_duplicate_strings(&self.invaliduser)
+        {
+            return Err(WechatError::Config(
+                "work user invite response invalid users must be unique non-empty ids".to_string(),
+            ));
+        }
+        for (label, values) in [
+            ("departments", &self.invalidparty),
+            ("tags", &self.invalidtag),
+        ] {
+            if values.iter().any(|value| *value <= 0) || has_duplicate_i64(values) {
+                return Err(WechatError::Config(format!(
+                    "work user invite response invalid {label} must be unique positive ids"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.invaliduser.len() + self.invalidparty.len() + self.invalidtag.len()
+    }
+
+    pub fn has_failures(&self) -> bool {
+        self.failure_count() > 0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJoinQrCodeResponse {
     #[serde(default)]
@@ -10575,16 +11003,60 @@ pub struct WorkJoinQrCodeResponse {
     pub extra: Value,
 }
 
+impl WorkJoinQrCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get join QR code",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let qr_code = self.join_qrcode.as_deref().ok_or_else(|| {
+            WechatError::Config("work join QR-code response requires join_qrcode".to_string())
+        })?;
+        validate_work_user_http_url("join QR-code response", qr_code)
+    }
+
+    pub fn require_url(&self) -> Result<&str> {
+        self.validate()?;
+        self.join_qrcode.as_deref().ok_or_else(|| {
+            WechatError::Config("work join QR-code response requires join_qrcode".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserActiveStatResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub active_cnt: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserActiveStatResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get active user statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.active_count()?;
+        Ok(())
+    }
+
+    pub fn active_count(&self) -> Result<u64> {
+        let count = self.active_cnt.as_deref().ok_or_else(|| {
+            WechatError::Config("work active-user response requires active_cnt".to_string())
+        })?;
+        count.parse::<u64>().map_err(|_| {
+            WechatError::Config(
+                "work active-user response active_cnt must be a non-negative integer".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10601,6 +11073,18 @@ pub struct WorkLinkedCorpPermListResponse {
     pub extra: Value,
 }
 
+impl WorkLinkedCorpPermListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get linked-corp permission list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_linked_corp_identifiers("department", &self.department_ids)?;
+        validate_work_linked_corp_identifiers("user", &self.userids)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLinkedCorpUserResponse {
     #[serde(default)]
@@ -10611,6 +11095,29 @@ pub struct WorkLinkedCorpUserResponse {
     pub user_info: Option<WorkLinkedCorpUserInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLinkedCorpUserResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get linked-corp user",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.user_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work linked-corp user response requires user_info".to_string())
+            })?
+            .validate()
+    }
+
+    pub fn require_user(&self) -> Result<&WorkLinkedCorpUserInfo> {
+        self.validate()?;
+        self.user_info.as_ref().ok_or_else(|| {
+            WechatError::Config("work linked-corp user response requires user_info".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10625,6 +11132,25 @@ pub struct WorkLinkedCorpUserListResponse {
     pub extra: Value,
 }
 
+impl WorkLinkedCorpUserListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work list linked-corp users",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for user in &self.userlist {
+            user.validate()?;
+        }
+        validate_work_user_unique_response_identities(
+            "linked-corp user list",
+            self.userlist
+                .iter()
+                .filter_map(WorkLinkedCorpUserInfo::identity),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLinkedCorpDepartmentListResponse {
     #[serde(default)]
@@ -10635,6 +11161,25 @@ pub struct WorkLinkedCorpDepartmentListResponse {
     pub department_list: Vec<WorkLinkedCorpDepartment>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLinkedCorpDepartmentListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work list linked-corp departments",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for department in &self.department_list {
+            department.validate()?;
+        }
+        validate_work_user_unique_response_identities(
+            "linked-corp department list",
+            self.department_list
+                .iter()
+                .filter_map(WorkLinkedCorpDepartment::identity),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10664,6 +11209,32 @@ pub struct WorkLinkedCorpUserInfo {
 }
 
 impl WorkLinkedCorpUserInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_response_identity("linked-corp detail", self.userid.as_deref(), None)?;
+        validate_work_linked_corp_identifiers("department", &self.department)?;
+        if self.status.is_some_and(|status| status <= 0) {
+            return Err(WechatError::Config(
+                "work linked-corp user status must be positive".to_string(),
+            ));
+        }
+        if self
+            .corp_id
+            .as_deref()
+            .is_some_and(|corp_id| corp_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work linked-corp user corp_id cannot be blank".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn identity(&self) -> Option<&str> {
+        self.userid
+            .as_deref()
+            .filter(|userid| !userid.trim().is_empty())
+    }
+
     pub fn status_kind(&self) -> Option<WorkUserStatusKind> {
         self.status.map(WorkUserStatusKind::from)
     }
@@ -10681,6 +11252,38 @@ pub struct WorkLinkedCorpDepartment {
     pub order: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLinkedCorpDepartment {
+    pub fn validate(&self) -> Result<()> {
+        let department_id = self.department_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work linked-corp department response requires department_id".to_string(),
+            )
+        })?;
+        validate_work_user_identifier("linked-corp department id", department_id)?;
+        if self
+            .parentid
+            .as_deref()
+            .is_some_and(|parent_id| parent_id.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work linked-corp department parentid cannot be blank".to_string(),
+            ));
+        }
+        if self.order.is_some_and(|order| order < 0) {
+            return Err(WechatError::Config(
+                "work linked-corp department order cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn identity(&self) -> Option<&str> {
+        self.department_id
+            .as_deref()
+            .filter(|department_id| !department_id.trim().is_empty())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10733,6 +11336,27 @@ pub struct WorkUserBatchJobResponse {
     pub jobid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserBatchJobResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work start user batch job",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let job_id = self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config("work user batch-job response requires jobid".to_string())
+        })?;
+        validate_work_user_job_id(job_id)
+    }
+
+    pub fn require_job_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config("work user batch-job response requires jobid".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10849,6 +11473,45 @@ impl WorkAsyncJobTypeKind {
 }
 
 impl WorkUserBatchJobResultResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get user batch-job result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.status.is_none_or(|status| status <= 0) {
+            return Err(WechatError::Config(
+                "work user batch-job result requires a positive status".to_string(),
+            ));
+        }
+        if self
+            .job_type
+            .as_deref()
+            .is_none_or(|job_type| job_type.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work user batch-job result requires a non-empty type".to_string(),
+            ));
+        }
+        if self.total.is_some_and(|total| total < 0) {
+            return Err(WechatError::Config(
+                "work user batch-job total cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .percentage
+            .is_some_and(|percentage| !(0..=100).contains(&percentage))
+        {
+            return Err(WechatError::Config(
+                "work user batch-job percentage must be between 0 and 100".to_string(),
+            ));
+        }
+        for item in &self.result {
+            item.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<WorkAsyncJobStatusKind> {
         self.status.map(WorkAsyncJobStatusKind::from)
     }
@@ -10857,6 +11520,18 @@ impl WorkUserBatchJobResultResponse {
         self.job_type
             .as_deref()
             .map(WorkAsyncJobTypeKind::from_code)
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkAsyncJobStatusKind::is_finished)
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.result
+            .iter()
+            .filter(|item| item.errcode.is_some_and(|code| code != 0))
+            .count()
     }
 }
 
@@ -10874,6 +11549,35 @@ pub struct WorkUserBatchJobResultItem {
     pub partyid: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserBatchJobResultItem {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .userid
+            .as_deref()
+            .is_some_and(|userid| userid.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work user batch-job result userid cannot be blank".to_string(),
+            ));
+        }
+        if self.action.is_some_and(|action| action < 0) {
+            return Err(WechatError::Config(
+                "work user batch-job result action cannot be negative".to_string(),
+            ));
+        }
+        if self.partyid.is_some_and(|party_id| party_id <= 0) {
+            return Err(WechatError::Config(
+                "work user batch-job result partyid must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn is_failure(&self) -> bool {
+        self.errcode.is_some_and(|code| code != 0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10941,6 +11645,27 @@ pub struct WorkUserExportJobResponse {
     pub extra: Value,
 }
 
+impl WorkUserExportJobResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work start user export job",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let job_id = self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config("work user export-job response requires jobid".to_string())
+        })?;
+        validate_work_user_job_id(job_id)
+    }
+
+    pub fn require_job_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config("work user export-job response requires jobid".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExportJobResultResponse {
     #[serde(default)]
@@ -10956,8 +11681,30 @@ pub struct WorkUserExportJobResultResponse {
 }
 
 impl WorkUserExportJobResultResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get user export-job result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.status.is_none_or(|status| status <= 0) {
+            return Err(WechatError::Config(
+                "work user export-job result requires a positive status".to_string(),
+            ));
+        }
+        for item in &self.data_list {
+            item.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<WorkAsyncJobStatusKind> {
         self.status.map(WorkAsyncJobStatusKind::from)
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkAsyncJobStatusKind::is_finished)
     }
 }
 
@@ -10984,6 +11731,30 @@ pub struct WorkUserExportJobData {
 }
 
 impl WorkUserExportJobData {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .userid
+            .as_deref()
+            .is_some_and(|userid| userid.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work user export data userid cannot be blank".to_string(),
+            ));
+        }
+        validate_work_user_response_departments(&self.department)?;
+        if self.status.is_some_and(|status| status <= 0) {
+            return Err(WechatError::Config(
+                "work user export data status must be positive".to_string(),
+            ));
+        }
+        if self.tagid.is_some_and(|tag_id| tag_id <= 0) {
+            return Err(WechatError::Config(
+                "work user export data tagid must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<WorkUserStatusKind> {
         self.status.map(WorkUserStatusKind::from)
     }
@@ -42830,11 +43601,13 @@ mod tests {
         );
         assert_eq!(list_id.dept_user[0].extra["dept_role"], "owner");
         assert_eq!(list_id.extra["next_open_cursor"], "open-cursor");
+        assert!(list_id.validate().is_ok());
 
         let lookup: WorkUserIdLookupResponse =
             serde_json::from_value(json!({ "userid": "user", "source": "mobile" })).unwrap();
         assert_eq!(lookup.userid.as_deref(), Some("user"));
         assert_eq!(lookup.extra["source"], "mobile");
+        assert!(lookup.validate().is_ok());
 
         let user: WorkUserDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -42876,6 +43649,7 @@ mod tests {
         assert_eq!(user.user.status_kind(), Some(WorkUserStatusKind::Active));
         assert!(user.user.status_kind().expect("status").can_login());
         assert_eq!(user.user.extra["custom_status_text"], "busy");
+        assert!(user.validate().is_ok());
         assert_eq!(
             user.user.external_profile.as_ref().unwrap().external_attr[0]
                 .web
@@ -42906,6 +43680,7 @@ mod tests {
         );
         assert_eq!(simple_list.extra["has_more"], true);
         assert_eq!(simple_list.userlist[0].extra["user_ticket"], "ticket");
+        assert!(simple_list.validate().is_ok());
 
         let detail_list: WorkDepartmentUserDetailListResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -42926,6 +43701,7 @@ mod tests {
         );
         assert_eq!(detail_list.extra["cursor"], "next");
         assert_eq!(detail_list.userlist[0].extra["biz_ext"]["level"], "gold");
+        assert!(detail_list.validate().is_ok());
 
         let invite = serde_json::to_value(WorkUserInviteRequest {
             user: vec!["user".to_string()],
@@ -42948,6 +43724,8 @@ mod tests {
         assert_eq!(invite_response.invalidparty[0], 2);
         assert_eq!(invite_response.invalidtag[0], 3);
         assert_eq!(invite_response.extra["invalid_open_userid"][0], "bad-open");
+        assert!(invite_response.validate().is_ok());
+        assert_eq!(invite_response.failure_count(), 3);
 
         let qrcode: WorkJoinQrCodeResponse = serde_json::from_value(json!({
             "join_qrcode": "https://example.com/qr",
@@ -42959,16 +43737,177 @@ mod tests {
             Some("https://example.com/qr")
         );
         assert_eq!(qrcode.extra["expires_in"], 300);
+        assert!(qrcode.validate().is_ok());
 
         let active: WorkUserActiveStatResponse =
             serde_json::from_value(json!({ "active_cnt": "42", "stat_date": "2026-07-17" }))
                 .unwrap();
         assert_eq!(active.active_cnt.as_deref(), Some("42"));
         assert_eq!(active.extra["stat_date"], "2026-07-17");
+        assert_eq!(active.active_count().unwrap(), 42);
         assert_eq!(WorkUserStatusKind::from(2), WorkUserStatusKind::Disabled);
         assert_eq!(WorkUserStatusKind::from(4), WorkUserStatusKind::Inactive);
         assert!(WorkUserStatusKind::Exited.is_terminal());
         assert_eq!(WorkUserStatusKind::from(99), WorkUserStatusKind::Other(99));
+    }
+
+    #[test]
+    fn validates_work_user_response_contracts() {
+        let private_user: WorkUserDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "open_userid": "open-user",
+            "department": [1],
+            "status": 99
+        }))
+        .unwrap();
+        assert!(private_user.validate().is_ok());
+        assert_eq!(
+            private_user.require_user().unwrap().identity(),
+            Some("open-user")
+        );
+        assert_eq!(
+            private_user.user.status_kind(),
+            Some(WorkUserStatusKind::Other(99))
+        );
+
+        let api_error: WorkUserDetailResponse = serde_json::from_value(json!({
+            "errcode": 60111,
+            "errmsg": "user not found"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 60111, .. })
+        ));
+        let missing_identity: WorkUserDetailResponse =
+            serde_json::from_value(json!({ "errcode": 0, "name": "Unknown" })).unwrap();
+        assert!(missing_identity.validate().is_err());
+        let invalid_departments: WorkUserDetailResponse = serde_json::from_value(json!({
+            "userid": "user",
+            "department": [1, 1]
+        }))
+        .unwrap();
+        assert!(invalid_departments.validate().is_err());
+
+        let simple_list: WorkDepartmentUserSimpleListResponse = serde_json::from_value(json!({
+            "userlist": [
+                { "userid": "user", "department": [1] },
+                { "open_userid": "open-user", "department": [2] }
+            ]
+        }))
+        .unwrap();
+        assert!(simple_list.validate().is_ok());
+        assert_eq!(
+            simple_list
+                .find("open-user")
+                .and_then(|user| user.identity()),
+            Some("open-user")
+        );
+        let duplicate_simple: WorkDepartmentUserSimpleListResponse =
+            serde_json::from_value(json!({
+                "userlist": [{ "userid": "user" }, { "userid": "user" }]
+            }))
+            .unwrap();
+        assert!(duplicate_simple.validate().is_err());
+
+        let list_ids: WorkUserListIdResponse = serde_json::from_value(json!({
+            "next_cursor": "next",
+            "dept_user": [
+                { "userid": "user", "department": 1 },
+                { "userid": "user", "department": 2 }
+            ]
+        }))
+        .unwrap();
+        assert!(list_ids.validate().is_ok());
+        assert!(list_ids.has_more());
+        assert_eq!(list_ids.next_cursor(), Some("next"));
+        let duplicate_entry: WorkUserListIdResponse = serde_json::from_value(json!({
+            "dept_user": [
+                { "userid": "user", "department": 1 },
+                { "userid": "user", "department": 1 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_entry.validate().is_err());
+
+        let lookup: WorkUserIdLookupResponse =
+            serde_json::from_value(json!({ "userid": "user" })).unwrap();
+        assert_eq!(lookup.require_user_id().unwrap(), "user");
+        let missing_lookup: WorkUserIdLookupResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_lookup.validate().is_err());
+
+        let invite: WorkUserInviteResponse = serde_json::from_value(json!({
+            "invaliduser": ["bad-user"],
+            "invalidparty": [2],
+            "invalidtag": [3]
+        }))
+        .unwrap();
+        assert!(invite.validate().is_ok());
+        assert!(invite.has_failures());
+        assert_eq!(invite.failure_count(), 3);
+        let duplicate_invite: WorkUserInviteResponse =
+            serde_json::from_value(json!({ "invalidparty": [2, 2] })).unwrap();
+        assert!(duplicate_invite.validate().is_err());
+
+        let qr_code: WorkJoinQrCodeResponse =
+            serde_json::from_value(json!({ "join_qrcode": "https://example.com/join" })).unwrap();
+        assert_eq!(qr_code.require_url().unwrap(), "https://example.com/join");
+        let invalid_qr_code: WorkJoinQrCodeResponse =
+            serde_json::from_value(json!({ "join_qrcode": "file:///tmp/join" })).unwrap();
+        assert!(invalid_qr_code.validate().is_err());
+
+        let active: WorkUserActiveStatResponse =
+            serde_json::from_value(json!({ "active_cnt": 42 })).unwrap();
+        assert!(active.validate().is_ok());
+        assert_eq!(active.active_count().unwrap(), 42);
+        let invalid_active: WorkUserActiveStatResponse =
+            serde_json::from_value(json!({ "active_cnt": "-1" })).unwrap();
+        assert!(invalid_active.validate().is_err());
+
+        let batch_job: WorkUserBatchJobResponse =
+            serde_json::from_value(json!({ "jobid": "batch-job" })).unwrap();
+        assert_eq!(batch_job.require_job_id().unwrap(), "batch-job");
+        let batch_result: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
+            "status": 99,
+            "type": "future_job",
+            "total": 2,
+            "percentage": 50,
+            "result": [
+                { "userid": "user", "errcode": 0 },
+                { "partyid": 1, "errcode": 40058 }
+            ]
+        }))
+        .unwrap();
+        assert!(batch_result.validate().is_ok());
+        assert_eq!(
+            batch_result.status_kind(),
+            Some(WorkAsyncJobStatusKind::Other(99))
+        );
+        assert_eq!(batch_result.failure_count(), 1);
+        assert!(batch_result.result[1].is_failure());
+        let invalid_progress: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
+            "status": 2,
+            "type": "sync_user",
+            "percentage": 101
+        }))
+        .unwrap();
+        assert!(invalid_progress.validate().is_err());
+
+        let export_job: WorkUserExportJobResponse =
+            serde_json::from_value(json!({ "jobid": "export-job" })).unwrap();
+        assert_eq!(export_job.require_job_id().unwrap(), "export-job");
+        let export_result: WorkUserExportJobResultResponse = serde_json::from_value(json!({
+            "status": 3,
+            "data_list": [{ "userid": "user", "department": [1], "status": 1 }]
+        }))
+        .unwrap();
+        assert!(export_result.validate().is_ok());
+        assert!(export_result.is_finished());
+
+        let open_to_user: OpenIdToUserIdResponse =
+            serde_json::from_value(json!({ "userid": "user" })).unwrap();
+        assert_eq!(open_to_user.require_user_id().unwrap(), "user");
     }
 
     #[test]
@@ -42982,6 +43921,7 @@ mod tests {
         assert_eq!(perm.department_ids[0], "Corp/department");
         assert_eq!(perm.userids[0], "Corp/user");
         assert_eq!(perm.extra["trace_id"], "linked-perm");
+        assert!(perm.validate().is_ok());
 
         let user: WorkLinkedCorpUserResponse = serde_json::from_value(json!({
             "trace_id": "linked-user",
@@ -42996,6 +43936,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(user.extra["trace_id"], "linked-user");
+        assert!(user.validate().is_ok());
         let user_info = user.user_info.unwrap();
         assert_eq!(user_info.userid.as_deref(), Some("Corp/user"));
         assert_eq!(user_info.name.as_deref(), Some("User"));
@@ -43013,6 +43954,7 @@ mod tests {
         assert_eq!(simple.userlist[0].name.as_deref(), Some("User"));
         assert_eq!(simple.extra["next_cursor"], "linked-next");
         assert_eq!(simple.userlist[0].extra["member_source"], "linked");
+        assert!(simple.validate().is_ok());
 
         let departments: WorkLinkedCorpDepartmentListResponse = serde_json::from_value(json!({
             "trace_id": "linked-department",
@@ -43033,6 +43975,20 @@ mod tests {
         assert_eq!(departments.department_list[0].name.as_deref(), Some("Dept"));
         assert_eq!(departments.department_list[0].order, Some(1));
         assert_eq!(departments.department_list[0].extra["department_level"], 2);
+        assert!(departments.validate().is_ok());
+
+        let missing_user: WorkLinkedCorpUserResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_user.validate().is_err());
+        let duplicate_departments: WorkLinkedCorpDepartmentListResponse =
+            serde_json::from_value(json!({
+                "department_list": [
+                    { "department_id": "Corp/department" },
+                    { "department_id": "Corp/department" }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_departments.validate().is_err());
     }
 
     #[test]
@@ -43079,6 +44035,7 @@ mod tests {
             serde_json::from_value(json!({ "jobid": "batch-job", "job_source": "csv" })).unwrap();
         assert_eq!(batch_job.jobid.as_deref(), Some("batch-job"));
         assert_eq!(batch_job.extra["job_source"], "csv");
+        assert!(batch_job.validate().is_ok());
 
         let batch_result: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
             "status": 2,
@@ -43106,12 +44063,14 @@ mod tests {
         assert_eq!(batch_result.result[0].errcode, Some(0));
         assert_eq!(batch_result.result[0].extra["row_num"], 3);
         assert_eq!(batch_result.extra["fail_count"], 0);
+        assert!(batch_result.validate().is_ok());
 
         let export_job: WorkUserExportJobResponse =
             serde_json::from_value(json!({ "jobid": "export-job", "export_type": "user" }))
                 .unwrap();
         assert_eq!(export_job.jobid.as_deref(), Some("export-job"));
         assert_eq!(export_job.extra["export_type"], "user");
+        assert!(export_job.validate().is_ok());
 
         let export_result: WorkUserExportJobResultResponse = serde_json::from_value(json!({
             "status": 2,
@@ -43135,6 +44094,7 @@ mod tests {
         assert_eq!(export_result.data_list[0].department[0], 1);
         assert_eq!(export_result.extra["next_cursor"], "cursor");
         assert_eq!(export_result.data_list[0].extra["biz_ext"]["grade"], "A");
+        assert!(export_result.validate().is_ok());
         assert_eq!(
             WorkAsyncJobStatusKind::from(3),
             WorkAsyncJobStatusKind::Finished
