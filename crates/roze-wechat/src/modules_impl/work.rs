@@ -2449,13 +2449,16 @@ impl Work {
         request: ExternalCustomerTransferRequest,
     ) -> Result<ExternalCustomerTransferResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalCustomerTransferResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/transfer_customer",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_transfer()?;
+        Ok(response)
     }
 
     pub async fn transfer_unassigned_external_contact(
@@ -2482,13 +2485,16 @@ impl Work {
         request: ExternalCustomerTransferResultRequest,
     ) -> Result<ExternalCustomerTransferResultResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalCustomerTransferResultResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/transfer_result",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_result()?;
+        Ok(response)
     }
 
     pub async fn get_unassigned_external_contacts(
@@ -2497,13 +2503,16 @@ impl Work {
         request: ExternalContactUnassignedListRequest,
     ) -> Result<ExternalContactUnassignedListResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactUnassignedListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_unassigned_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn transfer_resigned_external_customer(
@@ -2512,13 +2521,16 @@ impl Work {
         request: ResignedExternalCustomerTransferRequest,
     ) -> Result<ExternalCustomerTransferResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalCustomerTransferResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/resigned/transfer_customer",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_transfer()?;
+        Ok(response)
     }
 
     pub async fn query_resigned_external_customer_transfer_result(
@@ -2527,13 +2539,16 @@ impl Work {
         request: ExternalCustomerTransferResultRequest,
     ) -> Result<ExternalCustomerTransferResultResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalCustomerTransferResultResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/resigned/transfer_result",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_result()?;
+        Ok(response)
     }
 
     pub async fn list_external_contact_moments(
@@ -19083,6 +19098,98 @@ pub struct ExternalCustomerTransferResponse {
 
 pub type ExternalCustomerTransferResultResponse = ExternalCustomerTransferResponse;
 
+impl ExternalCustomerTransferResponse {
+    pub fn validate_transfer(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-customer transfer",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if !(1..=100).contains(&self.customer.len()) {
+            return Err(WechatError::Config(
+                "external-customer transfer response requires 1 to 100 customer receipts"
+                    .to_string(),
+            ));
+        }
+        self.validate_unique_customers(|customer| customer.validate_transfer_receipt())
+    }
+
+    pub fn validate_result(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-customer transfer result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.customer.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-customer transfer-result response cannot exceed 1000 customers"
+                    .to_string(),
+            ));
+        }
+        self.validate_unique_customers(ExternalCustomerTransferRecord::validate_result)
+    }
+
+    fn validate_unique_customers(
+        &self,
+        validate: impl Fn(&ExternalCustomerTransferRecord) -> Result<()>,
+    ) -> Result<()> {
+        let mut external_userids = std::collections::HashSet::with_capacity(self.customer.len());
+        for customer in &self.customer {
+            validate(customer)?;
+            let external_userid = customer.external_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-customer transfer record requires external_userid".to_string(),
+                )
+            })?;
+            if !external_userids.insert(external_userid) {
+                return Err(WechatError::Config(
+                    "external-customer transfer response contains duplicate customer ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(&self, external_userid: &str) -> Option<&ExternalCustomerTransferRecord> {
+        self.customer.iter().find(|customer| {
+            customer
+                .external_userid
+                .as_deref()
+                .is_some_and(|value| value == external_userid)
+        })
+    }
+
+    pub fn completed_count(&self) -> usize {
+        self.customer
+            .iter()
+            .filter(|customer| customer.is_completed())
+            .count()
+    }
+
+    pub fn pending_count(&self) -> usize {
+        self.customer
+            .iter()
+            .filter(|customer| customer.is_pending())
+            .count()
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.customer
+            .iter()
+            .filter(|customer| customer.is_failed())
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalCustomerTransferRecord {
     #[serde(default)]
@@ -19136,6 +19243,74 @@ impl ExternalCustomerTransferStatusKind {
 }
 
 impl ExternalCustomerTransferRecord {
+    pub fn validate_transfer_receipt(&self) -> Result<()> {
+        self.validate_identity()?;
+        if self.errcode.is_none() {
+            return Err(WechatError::Config(
+                "external-customer transfer receipt requires errcode".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_result(&self) -> Result<()> {
+        self.validate_identity()?;
+        let status = self.status.ok_or_else(|| {
+            WechatError::Config(
+                "external-customer transfer-result record requires status".to_string(),
+            )
+        })?;
+        if status <= 0 {
+            return Err(WechatError::Config(
+                "external-customer transfer-result status must be positive".to_string(),
+            ));
+        }
+        if self.is_completed()
+            && self
+                .takeover_time
+                .is_none_or(|takeover_time| takeover_time <= 0)
+        {
+            return Err(WechatError::Config(
+                "completed external-customer transfer requires a positive takeover_time"
+                    .to_string(),
+            ));
+        }
+        if self
+            .takeover_time
+            .is_some_and(|takeover_time| takeover_time <= 0)
+        {
+            return Err(WechatError::Config(
+                "external-customer transfer takeover_time must be positive".to_string(),
+            ));
+        }
+        if let Some(handover_userid) = self.handover_userid.as_deref() {
+            validate_external_contact_identifier("handover userid", handover_userid)?;
+        }
+        if let Some(takeover_userid) = self.takeover_userid.as_deref() {
+            validate_external_contact_identifier("takeover userid", takeover_userid)?;
+        }
+        if self.handover_userid.as_deref().is_some()
+            && self.handover_userid.as_deref() == self.takeover_userid.as_deref()
+        {
+            return Err(WechatError::Config(
+                "external-customer transfer-result handover and takeover users must be different"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_identity(&self) -> Result<()> {
+        validate_external_contact_identifier(
+            "external userid",
+            self.external_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-customer transfer record requires external_userid".to_string(),
+                )
+            })?,
+        )
+    }
+
     pub fn status_kind(&self) -> Option<ExternalCustomerTransferStatusKind> {
         self.status
             .map(ExternalCustomerTransferStatusKind::from_code)
@@ -19221,6 +19396,99 @@ pub struct ExternalContactUnassignedInfo {
     pub dimission_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactUnassignedListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact unassigned list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.info.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-contact unassigned response cannot exceed 1000 customers".to_string(),
+            ));
+        }
+        let is_last = self.is_last.ok_or_else(|| {
+            WechatError::Config("external-contact unassigned response requires is_last".to_string())
+        })?;
+        let next_cursor = normalized_external_contact_cursor(self.next_cursor.as_deref());
+        if is_last && next_cursor.is_some() {
+            return Err(WechatError::Config(
+                "final external-contact unassigned page cannot contain next_cursor".to_string(),
+            ));
+        }
+        if !is_last && next_cursor.is_none() {
+            return Err(WechatError::Config(
+                "non-final external-contact unassigned page requires next_cursor".to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.info.len());
+        for customer in &self.info {
+            customer.validate()?;
+            let identity = (
+                customer.handover_userid.as_deref().unwrap_or_default(),
+                customer.external_userid.as_deref().unwrap_or_default(),
+            );
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "external-contact unassigned response contains duplicate customer records"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.is_last == Some(false) && self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(
+        &self,
+        handover_userid: &str,
+        external_userid: &str,
+    ) -> Option<&ExternalContactUnassignedInfo> {
+        self.info.iter().find(|customer| {
+            customer.handover_userid.as_deref() == Some(handover_userid)
+                && customer.external_userid.as_deref() == Some(external_userid)
+        })
+    }
+}
+
+impl ExternalContactUnassignedInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_identifier(
+            "handover userid",
+            self.handover_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact unassigned record requires handover_userid".to_string(),
+                )
+            })?,
+        )?;
+        validate_external_contact_identifier(
+            "external userid",
+            self.external_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact unassigned record requires external_userid".to_string(),
+                )
+            })?,
+        )?;
+        if self
+            .dimission_time
+            .is_none_or(|dimission_time| dimission_time <= 0)
+        {
+            return Err(WechatError::Config(
+                "external-contact unassigned record requires positive dimission_time".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38842,6 +39110,13 @@ mod tests {
         assert_eq!(response.customer[0].extra["transfer_remark"], "manual");
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(response.extra["job_id"], "transfer-job-1");
+        assert!(response.validate_result().is_ok());
+        assert!(response.has_more());
+        assert_eq!(response.next_cursor(), Some("cursor"));
+        assert!(response.find("external").is_some());
+        assert_eq!(response.completed_count(), 1);
+        assert_eq!(response.pending_count(), 0);
+        assert_eq!(response.failure_count(), 0);
         assert_eq!(
             ExternalCustomerTransferStatusKind::from_code(2),
             ExternalCustomerTransferStatusKind::Pending
@@ -38889,6 +39164,10 @@ mod tests {
         assert_eq!(unassigned_response.info[0].extra["handover_department"], 1);
         assert_eq!(unassigned_response.is_last, Some(false));
         assert_eq!(unassigned_response.extra["total"], 1);
+        assert!(unassigned_response.validate().is_ok());
+        assert!(unassigned_response.has_more());
+        assert_eq!(unassigned_response.next_cursor(), Some("next"));
+        assert!(unassigned_response.find("old", "external").is_some());
     }
 
     #[test]
@@ -38931,6 +39210,76 @@ mod tests {
         assert!(ExternalContactUnassignedListRequest::first_page(1_001)
             .validate()
             .is_err());
+
+        let receipt: ExternalCustomerTransferResponse = serde_json::from_value(json!({
+            "customer": [{
+                "external_userid": "external",
+                "errcode": 0
+            }]
+        }))
+        .unwrap();
+        assert!(receipt.validate_transfer().is_ok());
+        assert!(receipt.find("external").is_some());
+
+        let api_error: ExternalCustomerTransferResponse =
+            serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid" })).unwrap();
+        assert!(matches!(
+            api_error.validate_transfer(),
+            Err(WechatError::Api { .. })
+        ));
+
+        let missing_receipt_code: ExternalCustomerTransferResponse =
+            serde_json::from_value(json!({
+                "customer": [{ "external_userid": "external" }]
+            }))
+            .unwrap();
+        assert!(missing_receipt_code.validate_transfer().is_err());
+
+        let duplicate_result: ExternalCustomerTransferResponse = serde_json::from_value(json!({
+            "customer": [{
+                "external_userid": "external",
+                "status": 2
+            }, {
+                "external_userid": "external",
+                "status": 3
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_result.validate_result().is_err());
+
+        let completed_without_time: ExternalCustomerTransferResponse =
+            serde_json::from_value(json!({
+                "customer": [{
+                    "external_userid": "external",
+                    "status": 1
+                }]
+            }))
+            .unwrap();
+        assert!(completed_without_time.validate_result().is_err());
+
+        let inconsistent_page: ExternalContactUnassignedListResponse =
+            serde_json::from_value(json!({
+                "info": [],
+                "is_last": false
+            }))
+            .unwrap();
+        assert!(inconsistent_page.validate().is_err());
+
+        let duplicate_unassigned: ExternalContactUnassignedListResponse =
+            serde_json::from_value(json!({
+                "info": [{
+                    "handover_userid": "old",
+                    "external_userid": "external",
+                    "dimission_time": 100
+                }, {
+                    "handover_userid": "old",
+                    "external_userid": "external",
+                    "dimission_time": 101
+                }],
+                "is_last": true
+            }))
+            .unwrap();
+        assert!(duplicate_unassigned.validate().is_err());
     }
 
     #[test]

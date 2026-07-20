@@ -2087,6 +2087,23 @@ product-album response contracts:
   product identities, normalize continuation cursors, and expose pagination
   plus checked lookup helpers.
 
+Implemented on 2026-07-20 in Work external-customer transfer response
+contracts:
+
+- on-job and resigned transfer submission, result-query, and unassigned-list
+  operations now validate successful responses before leaving the HTTP
+  boundary;
+- transfer submissions require one to 100 unique customer receipts with
+  explicit per-customer error codes, while result pages accept up to 1000
+  unique customers with positive forward-compatible statuses;
+- completed transfers require positive takeover timestamps, optional handover
+  and takeover identities are validated and kept distinct, and response
+  helpers expose normalized cursors, lookup, and completed/pending/failure
+  counts;
+- unassigned pages require coherent `is_last` and continuation-cursor state,
+  valid unique handover/customer pairs, and positive resignation timestamps,
+  with checked pagination and pair lookup helpers.
+
 Implemented on 2026-07-20 in Payment merchant-service workflow depth:
 
 - complaint list, detail, negotiation-history, reply, completion,
