@@ -2634,6 +2634,31 @@ Implemented on 2026-07-21 in Work application-menu depth:
   keys, missing and mixed action fields, unsafe URLs, incomplete mini-program
   routes, invalid nesting, typed create responses, and future button payloads.
 
+Implemented on 2026-07-21 in Work base and agent response-contract depth:
+
+- access-token, callback-IP, API-domain-IP, agent list/detail, agent update,
+  scope update, and workbench get/set network methods now validate requests and
+  successful responses instead of returning deserialized data directly;
+- access-token responses require a nonblank token and positive lifetime, while
+  IP responses require nonempty unique valid IPv4/IPv6 addresses and expose
+  membership lookup;
+- agent summaries/details require positive unique ids, bounded names, valid
+  logo/home URLs, valid redirect domains, 0/1 control flags, and unique valid
+  user/department/tag scopes, with id lookup and closed-state helpers;
+- `agent/set_scope` now uses PowerWeChat's exact flat `allow_user`,
+  `allow_party`, and `allow_tag` wire fields instead of the previous incorrect
+  response-shaped nested fields;
+- agent updates require a real patch and validate ids, flags, names, media ids,
+  domains, and URLs before transport; scope mutations enforce nonempty unique
+  targets and the upstream user/department/tag boundaries;
+- workbench requests and responses now enforce key-data, image, list, and
+  webview type/payload matching, nested required fields, safe URLs, item
+  boundaries, and typed future-response semantics; template requests also
+  expose `replace_user_data`, and webviews retain jump URL/pagepath metadata;
+- failure matrices cover API errors, missing tokens, invalid lifetimes,
+  malformed/duplicate IPs and agents, bad flags/logos/scopes, empty updates,
+  wrong workbench payloads, unsafe URLs, and forward-compatible future types.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

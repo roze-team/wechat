@@ -37,40 +37,56 @@ impl Work {
         corp_id: impl Into<String>,
         corp_secret: impl Into<String>,
     ) -> Result<WorkAccessTokenResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        let corp_secret = corp_secret.into();
+        validate_work_base_credential("corporation id", &corp_id)?;
+        validate_work_base_credential("corporation secret", &corp_secret)?;
+        let response: WorkAccessTokenResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/gettoken",
                 None,
                 vec![
-                    ("corpid".to_string(), corp_id.into()),
-                    ("corpsecret".to_string(), corp_secret.into()),
+                    ("corpid".to_string(), corp_id),
+                    ("corpsecret".to_string(), corp_secret),
                 ],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn callback_ip(&self, access_token: impl Into<String>) -> Result<WorkIpListResponse> {
-        self.inner
+        let response: WorkIpListResponse = self
+            .inner
             .get("cgi-bin/getcallbackip", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate_for("callback")?;
+        Ok(response)
     }
 
     pub async fn api_domain_ip(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkIpListResponse> {
-        self.inner
+        let response: WorkIpListResponse = self
+            .inner
             .get("cgi-bin/get_api_domain_ip", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate_for("API domain")?;
+        Ok(response)
     }
 
     pub async fn list_agents(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkAgentListResponse> {
-        self.inner
+        let response: WorkAgentListResponse = self
+            .inner
             .get("cgi-bin/agent/list", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_agent(
@@ -78,13 +94,17 @@ impl Work {
         access_token: impl Into<String>,
         agent_id: i64,
     ) -> Result<WorkAgentDetailResponse> {
-        self.inner
+        validate_work_agent_id(agent_id)?;
+        let response: WorkAgentDetailResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/agent/get",
                 Some(access_token.into()),
                 vec![("agentid".to_string(), agent_id.to_string())],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_agent(
@@ -92,9 +112,13 @@ impl Work {
         access_token: impl Into<String>,
         request: AgentUpdateRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/agent/set", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work update agent")?;
+        Ok(response)
     }
 
     pub async fn set_agent_scope(
@@ -102,13 +126,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAgentScopeRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/agent/set_scope",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work update agent scope")?;
+        Ok(response)
     }
 
     pub async fn get_agent_workbench_template(
@@ -116,13 +144,17 @@ impl Work {
         access_token: impl Into<String>,
         agent_id: i64,
     ) -> Result<WorkAgentWorkbenchTemplateResponse> {
-        self.inner
+        validate_work_agent_id(agent_id)?;
+        let response: WorkAgentWorkbenchTemplateResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/agent/get_workbench_template",
                 Some(access_token.into()),
                 vec![("agentid".to_string(), agent_id.to_string())],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_agent_workbench_template(
@@ -130,13 +162,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAgentWorkbenchTemplateRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/agent/set_workbench_template",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work set agent workbench template")?;
+        Ok(response)
     }
 
     pub async fn set_agent_workbench_data(
@@ -144,13 +180,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAgentWorkbenchDataRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/agent/set_workbench_data",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work set agent workbench data")?;
+        Ok(response)
     }
 
     pub fn contact(&self) -> DomainModule {
@@ -7430,6 +7470,29 @@ pub struct WorkAgentListResponse {
     pub extra: Value,
 }
 
+impl WorkAgentListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work list agents", self.errcode, self.errmsg.as_deref())?;
+        let mut agent_ids = HashSet::new();
+        for agent in &self.agentlist {
+            agent.validate()?;
+            let agent_id = agent.agentid.expect("validated agent id");
+            if !agent_ids.insert(agent_id) {
+                return Err(WechatError::Config(
+                    "work agent list cannot contain duplicate agent ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, agent_id: i64) -> Option<&WorkAgentSummary> {
+        self.agentlist
+            .iter()
+            .find(|agent| agent.agentid == Some(agent_id))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentSummary {
     #[serde(default)]
@@ -7442,6 +7505,17 @@ pub struct WorkAgentSummary {
     pub round_logo_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAgentSummary {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_id(self.agentid.ok_or_else(|| {
+            WechatError::Config("work agent summary requires agentid".to_string())
+        })?)?;
+        validate_work_agent_required_text("summary name", self.name.as_deref(), 64)?;
+        validate_work_agent_optional_url("square logo", self.square_logo_url.as_deref())?;
+        validate_work_agent_optional_url("round logo", self.round_logo_url.as_deref())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7482,10 +7556,79 @@ pub struct WorkAgentDetailResponse {
     pub extra: Value,
 }
 
+impl WorkAgentDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work get agent", self.errcode, self.errmsg.as_deref())?;
+        validate_work_agent_id(self.agentid.ok_or_else(|| {
+            WechatError::Config("work agent detail requires agentid".to_string())
+        })?)?;
+        validate_work_agent_required_text("detail name", self.name.as_deref(), 64)?;
+        validate_work_agent_optional_url("square logo", self.square_logo_url.as_deref())?;
+        validate_work_agent_optional_url("round logo", self.round_logo_url.as_deref())?;
+        if let Some(users) = &self.allow_userinfos {
+            users.validate()?;
+        }
+        if let Some(parties) = &self.allow_partys {
+            validate_work_agent_positive_ids("allowed department", &parties.partyid, 100)?;
+        }
+        if let Some(tags) = &self.allow_tags {
+            validate_work_agent_positive_ids("allowed tag", &tags.tagid, 100)?;
+        }
+        for (label, flag) in [
+            ("close", self.close),
+            ("location report", self.report_location_flag),
+            ("entry report", self.isreportenter),
+        ] {
+            if flag.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "work agent {label} flag must be 0 or 1"
+                )));
+            }
+        }
+        if self
+            .customized_publish_status
+            .is_some_and(|status| status < 0)
+        {
+            return Err(WechatError::Config(
+                "work agent customized publish status cannot be negative".to_string(),
+            ));
+        }
+        validate_work_agent_optional_domain("redirect domain", self.redirect_domain.as_deref())?;
+        validate_work_agent_optional_url("home", self.home_url.as_deref())
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.close == Some(1)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentAllowUsers {
     #[serde(default)]
     pub user: Vec<WorkAgentAllowUser>,
+}
+
+impl WorkAgentAllowUsers {
+    pub fn validate(&self) -> Result<()> {
+        if self.user.len() > 1_000 {
+            return Err(WechatError::Config(
+                "work agent allowed users cannot exceed 1000 entries".to_string(),
+            ));
+        }
+        let mut userids = HashSet::new();
+        for user in &self.user {
+            let userid = user.userid.as_deref().ok_or_else(|| {
+                WechatError::Config("work agent allowed user requires userid".to_string())
+            })?;
+            validate_work_agent_required_text("allowed userid", Some(userid), 64)?;
+            if !userids.insert(userid) {
+                return Err(WechatError::Config(
+                    "work agent allowed users must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7522,14 +7665,57 @@ pub struct WorkAgentWorkbenchTemplateResponse {
     pub list: Option<WorkAgentWorkbenchListTemplate>,
     #[serde(default)]
     pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
+    #[serde(default)]
+    pub replace_user_data: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAgentWorkbenchTemplateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get agent workbench template",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let template_type = self.template_type.as_deref().ok_or_else(|| {
+            WechatError::Config("work agent workbench response requires type".to_string())
+        })?;
+        validate_work_agent_workbench_payload(
+            template_type,
+            self.keydata.as_ref(),
+            self.image.as_ref(),
+            self.list.as_ref(),
+            self.webview.as_ref(),
+            true,
+        )
+    }
+
+    pub fn template_kind(&self) -> Option<WorkAgentWorkbenchTypeKind> {
+        self.template_type
+            .as_deref()
+            .map(WorkAgentWorkbenchTypeKind::from_value)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchKeyDataTemplate {
     #[serde(default)]
     pub items: Vec<WorkAgentWorkbenchKeyDataItem>,
+}
+
+impl WorkAgentWorkbenchKeyDataTemplate {
+    pub fn validate(&self) -> Result<()> {
+        if self.items.is_empty() || self.items.len() > 10 {
+            return Err(WechatError::Config(
+                "work agent key-data workbench requires 1 to 10 items".to_string(),
+            ));
+        }
+        for item in &self.items {
+            item.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7544,6 +7730,15 @@ pub struct WorkAgentWorkbenchKeyDataItem {
     pub pagepath: Option<String>,
 }
 
+impl WorkAgentWorkbenchKeyDataItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_required_text("workbench key", self.key.as_deref(), 128)?;
+        validate_work_agent_required_text("workbench data", self.data.as_deref(), 256)?;
+        validate_work_agent_optional_url("workbench jump", self.jump_url.as_deref())?;
+        validate_work_agent_optional_text("workbench pagepath", self.pagepath.as_deref(), 512)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchImageTemplate {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7554,10 +7749,35 @@ pub struct WorkAgentWorkbenchImageTemplate {
     pub pagepath: Option<String>,
 }
 
+impl WorkAgentWorkbenchImageTemplate {
+    pub fn validate(&self) -> Result<()> {
+        let url = self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("work agent image workbench requires URL".to_string())
+        })?;
+        validate_work_agent_url("workbench image", url)?;
+        validate_work_agent_optional_url("workbench jump", self.jump_url.as_deref())?;
+        validate_work_agent_optional_text("workbench pagepath", self.pagepath.as_deref(), 512)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchListTemplate {
     #[serde(default)]
     pub items: Vec<WorkAgentWorkbenchListItem>,
+}
+
+impl WorkAgentWorkbenchListTemplate {
+    pub fn validate(&self) -> Result<()> {
+        if self.items.is_empty() || self.items.len() > 100 {
+            return Err(WechatError::Config(
+                "work agent list workbench requires 1 to 100 items".to_string(),
+            ));
+        }
+        for item in &self.items {
+            item.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7572,10 +7792,63 @@ pub struct WorkAgentWorkbenchListItem {
     pub pagepath: Option<String>,
 }
 
+impl WorkAgentWorkbenchListItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_required_text("workbench list title", self.title.as_deref(), 128)?;
+        validate_work_agent_optional_text(
+            "workbench list subtitle",
+            self.subtitle.as_deref(),
+            256,
+        )?;
+        validate_work_agent_optional_url("workbench list jump", self.jump_url.as_deref())?;
+        validate_work_agent_optional_text("workbench list pagepath", self.pagepath.as_deref(), 512)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAgentWorkbenchWebviewTemplate {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pagepath: Option<String>,
+}
+
+impl WorkAgentWorkbenchWebviewTemplate {
+    pub fn validate(&self) -> Result<()> {
+        let url = self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("work agent webview workbench requires URL".to_string())
+        })?;
+        validate_work_agent_url("workbench webview", url)?;
+        validate_work_agent_optional_url("workbench webview jump", self.jump_url.as_deref())?;
+        validate_work_agent_optional_text(
+            "workbench webview pagepath",
+            self.pagepath.as_deref(),
+            512,
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorkAgentWorkbenchTypeKind {
+    KeyData,
+    Image,
+    List,
+    Webview,
+    Other(String),
+}
+
+impl WorkAgentWorkbenchTypeKind {
+    pub fn from_value(value: &str) -> Self {
+        match value {
+            "keydata" => Self::KeyData,
+            "image" => Self::Image,
+            "list" => Self::List,
+            "webview" => Self::Webview,
+            other => Self::Other(other.to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7597,51 +7870,105 @@ pub struct AgentUpdateRequest {
     pub home_url: Option<String>,
 }
 
+impl AgentUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_id(self.agentid)?;
+        if self.report_location_flag.is_none()
+            && self.logo_mediaid.is_none()
+            && self.name.is_none()
+            && self.description.is_none()
+            && self.redirect_domain.is_none()
+            && self.isreportenter.is_none()
+            && self.home_url.is_none()
+        {
+            return Err(WechatError::Config(
+                "work agent update requires at least one changed field".to_string(),
+            ));
+        }
+        for (label, flag) in [
+            ("location report", self.report_location_flag),
+            ("entry report", self.isreportenter),
+        ] {
+            if flag.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "work agent {label} flag must be 0 or 1"
+                )));
+            }
+        }
+        if let Some(media_id) = &self.logo_mediaid {
+            validate_work_agent_text("logo media id", media_id, 512)?;
+        }
+        if let Some(name) = &self.name {
+            validate_work_agent_text("name", name, 64)?;
+        }
+        if let Some(description) = self
+            .description
+            .as_deref()
+            .filter(|description| !description.is_empty())
+        {
+            validate_work_agent_text("description", description, 512)?;
+        }
+        validate_work_agent_optional_domain("redirect domain", self.redirect_domain.as_deref())?;
+        validate_work_agent_optional_url("home", self.home_url.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkAgentScopeRequest {
     pub agentid: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_userinfos: Option<WorkAgentAllowUsers>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_partys: Option<WorkAgentAllowParties>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_tags: Option<WorkAgentAllowTags>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allow_user: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allow_party: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allow_tag: Vec<i64>,
 }
 
 impl WorkAgentScopeRequest {
     pub fn new(agentid: i64) -> Self {
         Self {
             agentid,
-            allow_userinfos: None,
-            allow_partys: None,
-            allow_tags: None,
+            allow_user: Vec::new(),
+            allow_party: Vec::new(),
+            allow_tag: Vec::new(),
         }
     }
 
     pub fn with_users(mut self, users: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.allow_userinfos = Some(WorkAgentAllowUsers {
-            user: users
-                .into_iter()
-                .map(|userid| WorkAgentAllowUser {
-                    userid: Some(userid.into()),
-                })
-                .collect(),
-        });
+        self.allow_user = users.into_iter().map(Into::into).collect();
         self
     }
 
     pub fn with_parties(mut self, party_ids: impl IntoIterator<Item = i64>) -> Self {
-        self.allow_partys = Some(WorkAgentAllowParties {
-            partyid: party_ids.into_iter().collect(),
-        });
+        self.allow_party = party_ids.into_iter().collect();
         self
     }
 
     pub fn with_tags(mut self, tag_ids: impl IntoIterator<Item = i64>) -> Self {
-        self.allow_tags = Some(WorkAgentAllowTags {
-            tagid: tag_ids.into_iter().collect(),
-        });
+        self.allow_tag = tag_ids.into_iter().collect();
         self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_id(self.agentid)?;
+        if self.allow_user.is_empty() && self.allow_party.is_empty() && self.allow_tag.is_empty() {
+            return Err(WechatError::Config(
+                "work agent scope requires users, departments, or tags".to_string(),
+            ));
+        }
+        if self.allow_user.len() > 1_000
+            || self
+                .allow_user
+                .iter()
+                .any(|userid| userid.trim().is_empty())
+            || has_duplicate_strings(&self.allow_user)
+        {
+            return Err(WechatError::Config(
+                "work agent scope supports at most 1000 unique non-empty users".to_string(),
+            ));
+        }
+        validate_work_agent_positive_ids("scope department", &self.allow_party, 100)?;
+        validate_work_agent_positive_ids("scope tag", &self.allow_tag, 100)
     }
 }
 
@@ -7658,6 +7985,22 @@ pub struct WorkAgentWorkbenchTemplateRequest {
     pub list: Option<WorkAgentWorkbenchListTemplate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replace_user_data: Option<bool>,
+}
+
+impl WorkAgentWorkbenchTemplateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_id(self.agentid)?;
+        validate_work_agent_workbench_payload(
+            &self.template_type,
+            self.keydata.as_ref(),
+            self.image.as_ref(),
+            self.list.as_ref(),
+            self.webview.as_ref(),
+            false,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7674,6 +8017,187 @@ pub struct WorkAgentWorkbenchDataRequest {
     pub list: Option<WorkAgentWorkbenchListTemplate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub webview: Option<WorkAgentWorkbenchWebviewTemplate>,
+}
+
+impl WorkAgentWorkbenchDataRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_agent_id(self.agentid)?;
+        validate_work_agent_required_text("workbench userid", Some(&self.userid), 64)?;
+        validate_work_agent_workbench_payload(
+            &self.template_type,
+            self.keydata.as_ref(),
+            self.image.as_ref(),
+            self.list.as_ref(),
+            self.webview.as_ref(),
+            false,
+        )
+    }
+}
+
+fn validate_work_base_credential(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() || value.len() > 2_048 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work {label} must contain between 1 and 2048 bytes without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_agent_id(agent_id: i64) -> Result<()> {
+    if agent_id <= 0 {
+        return Err(WechatError::Config(
+            "work agent id must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_agent_text(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work agent {label} must contain between 1 and {maximum} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_agent_required_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    validate_work_agent_text(
+        label,
+        value
+            .ok_or_else(|| WechatError::Config(format!("work agent response requires {label}")))?,
+        maximum,
+    )
+}
+
+fn validate_work_agent_optional_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    let Some(value) = value.filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+    validate_work_agent_text(label, value, maximum)
+}
+
+fn validate_work_agent_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work agent {label} URL is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "work agent {label} URL must be absolute HTTP(S) without credentials or fragments"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_agent_optional_url(label: &str, value: Option<&str>) -> Result<()> {
+    let Some(value) = value.filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+    validate_work_agent_url(label, value)
+}
+
+fn validate_work_agent_optional_domain(label: &str, value: Option<&str>) -> Result<()> {
+    let Some(value) = value.filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+    if value.chars().any(char::is_whitespace)
+        || value.contains("://")
+        || value.contains('/')
+        || value.contains('?')
+        || value.contains('#')
+    {
+        return Err(WechatError::Config(format!(
+            "work agent {label} must be a bare domain"
+        )));
+    }
+    let parsed = url::Url::parse(&format!("https://{value}"))
+        .map_err(|error| WechatError::Config(format!("work agent {label} is invalid: {error}")))?;
+    if parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work agent {label} must contain a host"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_agent_positive_ids(label: &str, values: &[i64], maximum: usize) -> Result<()> {
+    if values.len() > maximum || values.iter().any(|value| *value <= 0) || has_duplicate_i64(values)
+    {
+        return Err(WechatError::Config(format!(
+            "work agent {label} ids must contain at most {maximum} unique positive values"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_agent_workbench_payload(
+    template_type: &str,
+    keydata: Option<&WorkAgentWorkbenchKeyDataTemplate>,
+    image: Option<&WorkAgentWorkbenchImageTemplate>,
+    list: Option<&WorkAgentWorkbenchListTemplate>,
+    webview: Option<&WorkAgentWorkbenchWebviewTemplate>,
+    allow_unknown: bool,
+) -> Result<()> {
+    validate_work_agent_text("workbench type", template_type, 64)?;
+    let payload_count = usize::from(keydata.is_some())
+        + usize::from(image.is_some())
+        + usize::from(list.is_some())
+        + usize::from(webview.is_some());
+    let kind = WorkAgentWorkbenchTypeKind::from_value(template_type);
+    let matching_payload = match &kind {
+        WorkAgentWorkbenchTypeKind::KeyData => keydata.is_some(),
+        WorkAgentWorkbenchTypeKind::Image => image.is_some(),
+        WorkAgentWorkbenchTypeKind::List => list.is_some(),
+        WorkAgentWorkbenchTypeKind::Webview => webview.is_some(),
+        WorkAgentWorkbenchTypeKind::Other(_) => false,
+    };
+    match kind {
+        WorkAgentWorkbenchTypeKind::Other(_) if !allow_unknown => {
+            return Err(WechatError::Config(
+                "work agent workbench request type is unsupported".to_string(),
+            ));
+        }
+        WorkAgentWorkbenchTypeKind::Other(_) if payload_count > 1 => {
+            return Err(WechatError::Config(
+                "work agent unknown workbench response cannot contain multiple known payloads"
+                    .to_string(),
+            ));
+        }
+        WorkAgentWorkbenchTypeKind::Other(_) => {}
+        _ if payload_count != 1 || !matching_payload => {
+            return Err(WechatError::Config(
+                "work agent workbench type must match exactly one payload".to_string(),
+            ));
+        }
+        _ => {}
+    }
+    if let Some(payload) = keydata {
+        payload.validate()?;
+    }
+    if let Some(payload) = image {
+        payload.validate()?;
+    }
+    if let Some(payload) = list {
+        payload.validate()?;
+    }
+    if let Some(payload) = webview {
+        payload.validate()?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7778,6 +8302,40 @@ pub struct WorkIpListResponse {
     pub extra: Value,
 }
 
+impl WorkIpListResponse {
+    pub fn validate_for(&self, kind: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work {kind} IP list"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.ip_list.is_empty() {
+            return Err(WechatError::Config(format!(
+                "work {kind} IP list cannot be empty"
+            )));
+        }
+        let mut addresses = HashSet::new();
+        for value in &self.ip_list {
+            let address = value.parse::<std::net::IpAddr>().map_err(|_| {
+                WechatError::Config(format!("work {kind} IP list contains an invalid address"))
+            })?;
+            if !addresses.insert(address) {
+                return Err(WechatError::Config(format!(
+                    "work {kind} IP list cannot contain duplicate addresses"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn contains(&self, address: std::net::IpAddr) -> bool {
+        self.ip_list
+            .iter()
+            .filter_map(|value| value.parse::<std::net::IpAddr>().ok())
+            .any(|candidate| candidate == address)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccessTokenResponse {
     #[serde(default)]
@@ -7790,6 +8348,32 @@ pub struct WorkAccessTokenResponse {
     pub expires_in: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccessTokenResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work access token", self.errcode, self.errmsg.as_deref())?;
+        validate_work_base_credential(
+            "access token",
+            self.access_token.as_deref().ok_or_else(|| {
+                WechatError::Config("work access-token response requires access_token".to_string())
+            })?,
+        )?;
+        if self.expires_in.is_none_or(|expires_in| expires_in <= 0) {
+            return Err(WechatError::Config(
+                "work access-token response requires positive expires_in".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn require_access_token(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self
+            .access_token
+            .as_deref()
+            .expect("validated access token"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51258,6 +51842,11 @@ mod tests {
         assert_eq!(list.agentlist[0].agentid, Some(100001));
         assert_eq!(list.agentlist[0].name.as_deref(), Some("App"));
         assert_eq!(list.agentlist[0].extra["visible_scope"], "all");
+        assert!(list.validate().is_ok());
+        assert_eq!(
+            list.find(100001).and_then(|agent| agent.name.as_deref()),
+            Some("App")
+        );
 
         let detail: WorkAgentDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -51286,6 +51875,8 @@ mod tests {
         assert_eq!(detail.allow_partys.as_ref().unwrap().partyid[0], 1);
         assert_eq!(detail.allow_tags.as_ref().unwrap().tagid[0], 2);
         assert_eq!(detail.extra["beta_feature_flag"], true);
+        assert!(detail.validate().is_ok());
+        assert!(!detail.is_closed());
 
         let template: WorkAgentWorkbenchTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -51298,20 +51889,7 @@ mod tests {
                     "pagepath": "pages/tasks/index"
                 }]
             },
-            "image": {
-                "url": "https://example.com/banner.png",
-                "jump_url": "https://example.com/banner"
-            },
-            "list": {
-                "items": [{
-                    "title": "Task",
-                    "subtitle": "Due today",
-                    "jump_url": "https://example.com/task"
-                }]
-            },
-            "webview": {
-                "url": "https://example.com/workbench"
-            },
+            "replace_user_data": true,
             "template_version": 2
         }))
         .unwrap();
@@ -51320,18 +51898,12 @@ mod tests {
             template.keydata.as_ref().unwrap().items[0].key.as_deref(),
             Some("Pending")
         );
+        assert!(template.validate().is_ok());
         assert_eq!(
-            template.image.as_ref().unwrap().url.as_deref(),
-            Some("https://example.com/banner.png")
+            template.template_kind(),
+            Some(WorkAgentWorkbenchTypeKind::KeyData)
         );
-        assert_eq!(
-            template.list.as_ref().unwrap().items[0].title.as_deref(),
-            Some("Task")
-        );
-        assert_eq!(
-            template.webview.as_ref().unwrap().url.as_deref(),
-            Some("https://example.com/workbench")
-        );
+        assert_eq!(template.replace_user_data, Some(true));
         assert_eq!(template.extra["template_version"], 2);
     }
 
@@ -51347,6 +51919,8 @@ mod tests {
         assert_eq!(callback.ip_list[0], "1.1.1.1");
         assert_eq!(callback.ip_list.len(), 2);
         assert_eq!(callback.extra["trace_id"], "ip-list");
+        assert!(callback.validate_for("callback").is_ok());
+        assert!(callback.contains("1.1.1.1".parse().unwrap()));
 
         let token: WorkAccessTokenResponse = serde_json::from_value(json!({
             "access_token": "token",
@@ -51357,6 +51931,7 @@ mod tests {
         assert_eq!(token.access_token.as_deref(), Some("token"));
         assert_eq!(token.expires_in, Some(7200));
         assert_eq!(token.extra["issued_at"], 1_800_000_000);
+        assert_eq!(token.require_access_token().unwrap(), "token");
 
         let status: WorkStatusResponse =
             serde_json::from_value(json!({ "errcode": 0, "request_id": "status-ok" })).unwrap();
@@ -51371,6 +51946,145 @@ mod tests {
         .unwrap();
         assert_eq!(ticket.ticket.as_deref(), Some("ticket"));
         assert_eq!(ticket.extra["issued_at"], 1_800_000_000);
+    }
+
+    #[test]
+    fn validates_work_base_response_contracts() {
+        assert!(validate_work_base_credential("corporation id", "corp").is_ok());
+        assert!(validate_work_base_credential("corporation id", " ").is_err());
+        assert!(validate_work_base_credential("corporation secret", "bad\nsecret").is_err());
+
+        let api_error: WorkAccessTokenResponse = serde_json::from_value(json!({
+            "errcode": 40013,
+            "errmsg": "invalid corpid"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40013, .. })
+        ));
+        let missing_token: WorkAccessTokenResponse =
+            serde_json::from_value(json!({ "expires_in": 7200 })).unwrap();
+        assert!(missing_token.validate().is_err());
+        let invalid_expiry: WorkAccessTokenResponse =
+            serde_json::from_value(json!({ "access_token": "token", "expires_in": 0 })).unwrap();
+        assert!(invalid_expiry.validate().is_err());
+
+        let ipv6: WorkIpListResponse =
+            serde_json::from_value(json!({ "ip_list": ["2001:db8::1"] })).unwrap();
+        assert!(ipv6.validate_for("API domain").is_ok());
+        let empty: WorkIpListResponse = serde_json::from_value(json!({ "ip_list": [] })).unwrap();
+        assert!(empty.validate_for("callback").is_err());
+        let malformed: WorkIpListResponse =
+            serde_json::from_value(json!({ "ip_list": ["not-an-ip"] })).unwrap();
+        assert!(malformed.validate_for("callback").is_err());
+        let duplicate: WorkIpListResponse =
+            serde_json::from_value(json!({ "ip_list": ["1.1.1.1", "1.1.1.1"] })).unwrap();
+        assert!(duplicate.validate_for("callback").is_err());
+    }
+
+    #[test]
+    fn validates_work_agent_response_and_mutation_contracts() {
+        let duplicate_agents: WorkAgentListResponse = serde_json::from_value(json!({
+            "agentlist": [
+                { "agentid": 100001, "name": "One" },
+                { "agentid": 100001, "name": "Two" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_agents.validate().is_err());
+        let invalid_logo: WorkAgentListResponse = serde_json::from_value(json!({
+            "agentlist": [{
+                "agentid": 100001,
+                "name": "App",
+                "square_logo_url": "/relative"
+            }]
+        }))
+        .unwrap();
+        assert!(invalid_logo.validate().is_err());
+
+        let invalid_flag: WorkAgentDetailResponse = serde_json::from_value(json!({
+            "agentid": 100001,
+            "name": "App",
+            "close": 2
+        }))
+        .unwrap();
+        assert!(invalid_flag.validate().is_err());
+        let duplicate_scope: WorkAgentDetailResponse = serde_json::from_value(json!({
+            "agentid": 100001,
+            "name": "App",
+            "allow_userinfos": {
+                "user": [{ "userid": "user" }, { "userid": "user" }]
+            }
+        }))
+        .unwrap();
+        assert!(duplicate_scope.validate().is_err());
+
+        let empty_update = AgentUpdateRequest {
+            agentid: 100001,
+            report_location_flag: None,
+            logo_mediaid: None,
+            name: None,
+            description: None,
+            redirect_domain: None,
+            isreportenter: None,
+            home_url: None,
+        };
+        assert!(empty_update.validate().is_err());
+        assert!(AgentUpdateRequest {
+            report_location_flag: Some(2),
+            ..empty_update
+        }
+        .validate()
+        .is_err());
+
+        let scope = WorkAgentScopeRequest::new(100001)
+            .with_users(["user"])
+            .with_parties([2])
+            .with_tags([3]);
+        assert!(scope.validate().is_ok());
+        assert!(WorkAgentScopeRequest::new(100001).validate().is_err());
+        assert!(WorkAgentScopeRequest::new(100001)
+            .with_users(["user", "user"])
+            .validate()
+            .is_err());
+
+        let mismatched: WorkAgentWorkbenchTemplateResponse = serde_json::from_value(json!({
+            "type": "keydata",
+            "image": { "url": "https://example.com/image.png" }
+        }))
+        .unwrap();
+        assert!(mismatched.validate().is_err());
+        let invalid_url: WorkAgentWorkbenchTemplateResponse = serde_json::from_value(json!({
+            "type": "webview",
+            "webview": { "url": "file:///tmp/workbench" }
+        }))
+        .unwrap();
+        assert!(invalid_url.validate().is_err());
+        let future: WorkAgentWorkbenchTemplateResponse = serde_json::from_value(json!({
+            "type": "future_template",
+            "future_payload": { "enabled": true }
+        }))
+        .unwrap();
+        assert!(future.validate().is_ok());
+        assert_eq!(
+            future.template_kind(),
+            Some(WorkAgentWorkbenchTypeKind::Other(
+                "future_template".to_string()
+            ))
+        );
+        assert_eq!(future.extra["future_payload"]["enabled"], true);
+
+        let unsupported_request = WorkAgentWorkbenchTemplateRequest {
+            agentid: 100001,
+            template_type: "future_template".to_string(),
+            keydata: None,
+            image: None,
+            list: None,
+            webview: None,
+            replace_user_data: None,
+        };
+        assert!(unsupported_request.validate().is_err());
     }
 
     #[test]
@@ -61171,9 +61885,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(scope["agentid"], 100001);
-        assert_eq!(scope["allow_userinfos"]["user"][0]["userid"], "user");
-        assert_eq!(scope["allow_partys"]["partyid"][1], 3);
-        assert_eq!(scope["allow_tags"]["tagid"][0], 4);
+        assert_eq!(scope["allow_user"][0], "user");
+        assert_eq!(scope["allow_party"][1], 3);
+        assert_eq!(scope["allow_tag"][0], 4);
+        assert!(scope.get("allow_userinfos").is_none());
 
         let template = serde_json::to_value(WorkAgentWorkbenchTemplateRequest {
             agentid: 100001,
@@ -61189,6 +61904,7 @@ mod tests {
             image: None,
             list: None,
             webview: None,
+            replace_user_data: Some(true),
         })
         .unwrap();
         assert_eq!(template["type"], "keydata");
@@ -61209,6 +61925,8 @@ mod tests {
             list: None,
             webview: Some(WorkAgentWorkbenchWebviewTemplate {
                 url: Some("https://example.com/workbench".to_string()),
+                jump_url: None,
+                pagepath: None,
             }),
         })
         .unwrap();
