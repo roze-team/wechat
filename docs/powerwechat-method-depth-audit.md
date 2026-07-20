@@ -1126,6 +1126,25 @@ permanent-material depth:
   unknown-field retention, avoiding direct `Value` traversal for normal news
   list workflows.
 
+Implemented on 2026-07-20 in Open Platform authorizer release workflow depth:
+
+- submitted and latest audit responses expose checked positive audit IDs,
+  while audit states distinguish terminal, releasable, and operator-attention
+  outcomes without treating future unknown states as approved;
+- audit status and latest-status responses validate required status data,
+  require a reason for rejected audits, expose rejection reasons, and provide
+  an explicit release-readiness guard;
+- audit quota responses validate non-negative remaining/limit pairs, reject
+  impossible remaining values, and expose submit/speedup availability plus
+  used-quota helpers;
+- rollback release versions validate percentages, timestamps, version labels,
+  and unique application versions, with latest-version and application-version
+  lookup helpers for recovery workflows;
+- gray-release plans validate timestamps, percentages, and running-state
+  consistency, while plan responses expose a direct active-release helper;
+- support-version responses reject blank current versions, negative UV counts,
+  and percentages outside zero through one hundred before rollout decisions.
+
 Implemented on 2026-07-18 in Official Account draft, publish, and menu depth:
 
 - draft add/update and draft/published list requests expose constructors and

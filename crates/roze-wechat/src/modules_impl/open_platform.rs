@@ -1933,6 +1933,12 @@ pub struct OpenPlatformMiniProgramSubmitAuditResponse {
     pub extra: Value,
 }
 
+impl OpenPlatformMiniProgramSubmitAuditResponse {
+    pub fn require_audit_id(&self) -> Result<i64> {
+        require_open_platform_positive_response_id("mini-program submitted audit id", self.auditid)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramAuditStatusResponse {
     #[serde(default)]
@@ -1958,6 +1964,20 @@ pub enum OpenPlatformMiniProgramAuditState {
     Other,
 }
 
+impl OpenPlatformMiniProgramAuditState {
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Approved | Self::Rejected | Self::Withdrawn)
+    }
+
+    pub fn can_release(self) -> bool {
+        matches!(self, Self::Approved)
+    }
+
+    pub fn needs_attention(self) -> bool {
+        matches!(self, Self::Rejected | Self::Other)
+    }
+}
+
 impl OpenPlatformMiniProgramAuditStatusResponse {
     pub fn audit_state(&self) -> Option<OpenPlatformMiniProgramAuditState> {
         mini_program_audit_state(self.status)
@@ -1969,6 +1989,31 @@ impl OpenPlatformMiniProgramAuditStatusResponse {
 
     pub fn is_audit_rejected(&self) -> bool {
         self.audit_state() == Some(OpenPlatformMiniProgramAuditState::Rejected)
+    }
+
+    pub fn rejection_reason(&self) -> Option<&str> {
+        self.is_audit_rejected()
+            .then_some(self.reason.as_deref())
+            .flatten()
+            .filter(|reason| !reason.trim().is_empty())
+    }
+
+    pub fn ensure_releasable(&self) -> Result<()> {
+        validate_open_platform_audit_result(self.status, self.reason.as_deref())?;
+        if !self
+            .audit_state()
+            .is_some_and(OpenPlatformMiniProgramAuditState::can_release)
+        {
+            return Err(WechatError::Config(format!(
+                "open platform mini-program audit is not releasable in state {:?}",
+                self.audit_state()
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_audit_result(self.status, self.reason.as_deref())
     }
 }
 
@@ -2008,6 +2053,65 @@ impl OpenPlatformMiniProgramLatestAuditStatusResponse {
     pub fn is_audit_rejected(&self) -> bool {
         self.audit_state() == Some(OpenPlatformMiniProgramAuditState::Rejected)
     }
+
+    pub fn require_audit_id(&self) -> Result<i64> {
+        require_open_platform_positive_response_id("mini-program latest audit id", self.auditid)
+    }
+
+    pub fn rejection_reason(&self) -> Option<&str> {
+        self.is_audit_rejected()
+            .then_some(self.reason.as_deref())
+            .flatten()
+            .filter(|reason| !reason.trim().is_empty())
+    }
+
+    pub fn ensure_releasable(&self) -> Result<i64> {
+        self.validate()?;
+        if !self
+            .audit_state()
+            .is_some_and(OpenPlatformMiniProgramAuditState::can_release)
+        {
+            return Err(WechatError::Config(format!(
+                "open platform mini-program latest audit is not releasable in state {:?}",
+                self.audit_state()
+            )));
+        }
+        self.require_audit_id()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_audit_result(self.status, self.reason.as_deref())?;
+        if self.auditid.is_some() {
+            self.require_audit_id()?;
+        }
+        if self.submit_audit_time.is_some_and(|time| time <= 0) {
+            return Err(WechatError::Config(
+                "open platform mini-program submit audit time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn require_open_platform_positive_response_id(kind: &str, value: Option<i64>) -> Result<i64> {
+    let value =
+        value.ok_or_else(|| WechatError::Config(format!("open platform {kind} is missing")))?;
+    validate_open_platform_positive(kind, value)?;
+    Ok(value)
+}
+
+fn validate_open_platform_audit_result(status: Option<i64>, reason: Option<&str>) -> Result<()> {
+    let state = mini_program_audit_state(status).ok_or_else(|| {
+        WechatError::Config("open platform mini-program audit status is missing".to_string())
+    })?;
+    if state == OpenPlatformMiniProgramAuditState::Rejected
+        && reason.is_none_or(|reason| reason.trim().is_empty())
+    {
+        return Err(WechatError::Config(
+            "open platform mini-program rejected audit reason is missing".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn mini_program_audit_state(status: Option<i64>) -> Option<OpenPlatformMiniProgramAuditState> {
@@ -2040,6 +2144,50 @@ pub struct OpenPlatformMiniProgramReleaseVersion {
     pub extra: Value,
 }
 
+impl OpenPlatformMiniProgramReleaseVersion {
+    pub fn release_label(&self) -> Option<&str> {
+        self.user_version
+            .as_deref()
+            .or(self.version.as_deref())
+            .filter(|version| !version.trim().is_empty())
+    }
+
+    pub fn is_full_release(&self) -> bool {
+        self.percentage == Some(100)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .percentage
+            .is_some_and(|value| !(0..=100).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "open platform mini-program release percentage must be between 0 and 100"
+                    .to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("release create time", self.create_time),
+            ("release commit time", self.commit_time),
+            ("release app version", self.app_version),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "open platform mini-program {kind} cannot be negative"
+                )));
+            }
+        }
+        if self.version.is_some() || self.user_version.is_some() {
+            self.release_label().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform mini-program release version cannot be blank".to_string(),
+                )
+            })?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramRollbackReleaseResponse {
     #[serde(default)]
@@ -2050,6 +2198,41 @@ pub struct OpenPlatformMiniProgramRollbackReleaseResponse {
     pub version_list: Vec<OpenPlatformMiniProgramReleaseVersion>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformMiniProgramRollbackReleaseResponse {
+    pub fn validate(&self) -> Result<()> {
+        let mut app_versions = std::collections::HashSet::new();
+        for version in &self.version_list {
+            version.validate()?;
+            if let Some(app_version) = version.app_version {
+                if !app_versions.insert(app_version) {
+                    return Err(WechatError::Config(format!(
+                        "open platform mini-program rollback app version {app_version} is duplicated"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn latest(&self) -> Option<&OpenPlatformMiniProgramReleaseVersion> {
+        self.version_list.iter().max_by_key(|version| {
+            version
+                .commit_time
+                .or(version.create_time)
+                .unwrap_or_default()
+        })
+    }
+
+    pub fn find_app_version(
+        &self,
+        app_version: i64,
+    ) -> Option<&OpenPlatformMiniProgramReleaseVersion> {
+        self.version_list
+            .iter()
+            .find(|version| version.app_version == Some(app_version))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2106,6 +2289,33 @@ impl OpenPlatformMiniProgramGrayReleasePlan {
         self.status
             .map(OpenPlatformMiniProgramGrayReleaseState::from)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.create_timestamp.is_some_and(|value| value < 0) {
+            return Err(WechatError::Config(
+                "open platform mini-program gray release timestamp cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .gray_percentage
+            .is_some_and(|value| !(0..=100).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "open platform mini-program gray percentage must be between 0 and 100".to_string(),
+            ));
+        }
+        if self.release_state() == Some(OpenPlatformMiniProgramGrayReleaseState::Running)
+            && !self
+                .gray_percentage
+                .is_some_and(|percentage| (1..=100).contains(&percentage))
+        {
+            return Err(WechatError::Config(
+                "open platform running gray release requires a percentage between 1 and 100"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2118,6 +2328,22 @@ pub struct OpenPlatformMiniProgramGrayReleasePlanResponse {
     pub gray_release_plan: Option<OpenPlatformMiniProgramGrayReleasePlan>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformMiniProgramGrayReleasePlanResponse {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(plan) = &self.gray_release_plan {
+            plan.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.gray_release_plan
+            .as_ref()
+            .and_then(OpenPlatformMiniProgramGrayReleasePlan::release_state)
+            .is_some_and(OpenPlatformMiniProgramGrayReleaseState::is_active)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2163,6 +2389,46 @@ pub struct OpenPlatformMiniProgramSupportVersionResponse {
     pub extra: Value,
 }
 
+impl OpenPlatformMiniProgramSupportVersionResponse {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .now_version
+            .as_deref()
+            .is_some_and(|version| version.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "open platform mini-program support version cannot be blank".to_string(),
+            ));
+        }
+        if let Some(uv_info) = &self.uv_info {
+            for item in &uv_info.items {
+                if item.visit_uv.is_some_and(|value| value < 0) {
+                    return Err(WechatError::Config(
+                        "open platform mini-program support-version visit UV cannot be negative"
+                            .to_string(),
+                    ));
+                }
+                if item
+                    .percentage
+                    .is_some_and(|value| !(0..=100).contains(&value))
+                {
+                    return Err(WechatError::Config(
+                        "open platform mini-program support-version percentage must be between 0 and 100"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn current_version(&self) -> Option<&str> {
+        self.now_version
+            .as_deref()
+            .filter(|version| !version.trim().is_empty())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramAuditQuotaResponse {
     #[serde(default)]
@@ -2179,6 +2445,54 @@ pub struct OpenPlatformMiniProgramAuditQuotaResponse {
     pub speedup_limit: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformMiniProgramAuditQuotaResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_quota_pair("audit", self.rest, self.limit)?;
+        validate_open_platform_quota_pair("speedup audit", self.speedup_rest, self.speedup_limit)
+    }
+
+    pub fn can_submit(&self) -> bool {
+        self.rest.is_some_and(|remaining| remaining > 0)
+    }
+
+    pub fn can_speedup(&self) -> bool {
+        self.speedup_rest.is_some_and(|remaining| remaining > 0)
+    }
+
+    pub fn used(&self) -> Option<i64> {
+        self.limit
+            .zip(self.rest)
+            .and_then(|(limit, remaining)| limit.checked_sub(remaining))
+    }
+
+    pub fn speedup_used(&self) -> Option<i64> {
+        self.speedup_limit
+            .zip(self.speedup_rest)
+            .and_then(|(limit, remaining)| limit.checked_sub(remaining))
+    }
+}
+
+fn validate_open_platform_quota_pair(
+    kind: &str,
+    remaining: Option<i64>,
+    limit: Option<i64>,
+) -> Result<()> {
+    if remaining.is_some_and(|value| value < 0) || limit.is_some_and(|value| value < 0) {
+        return Err(WechatError::Config(format!(
+            "open platform mini-program {kind} quota cannot be negative"
+        )));
+    }
+    if remaining
+        .zip(limit)
+        .is_some_and(|(rest, limit)| rest > limit)
+    {
+        return Err(WechatError::Config(format!(
+            "open platform mini-program remaining {kind} quota cannot exceed its limit"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -3549,6 +3863,7 @@ mod tests {
         .unwrap();
         assert_eq!(submitted.audit_type.as_deref(), Some("audit"));
         assert_eq!(submitted.auditid, Some(123));
+        assert_eq!(submitted.require_audit_id().unwrap(), 123);
         assert_eq!(submitted.extra["request_id"], "submit");
 
         let status: OpenPlatformMiniProgramAuditStatusResponse = serde_json::from_value(json!({
@@ -3565,6 +3880,10 @@ mod tests {
         );
         assert!(status.is_audit_approved());
         assert!(!status.is_audit_rejected());
+        assert!(status.audit_state().expect("state").is_terminal());
+        assert!(status.audit_state().expect("state").can_release());
+        status.ensure_releasable().unwrap();
+        status.validate().unwrap();
         assert_eq!(status.reason.as_deref(), Some("ok"));
         assert_eq!(status.extra["request_id"], "status");
 
@@ -3585,6 +3904,8 @@ mod tests {
         );
         assert!(latest.is_audit_approved());
         assert!(!latest.is_audit_rejected());
+        assert_eq!(latest.ensure_releasable().unwrap(), 124);
+        latest.validate().unwrap();
         assert_eq!(
             latest.screenshot.as_deref(),
             Some("https://example.com/latest.png")
@@ -3597,6 +3918,9 @@ mod tests {
             Some(OpenPlatformMiniProgramAuditState::Rejected)
         );
         assert!(rejected.is_audit_rejected());
+        assert_eq!(rejected.rejection_reason(), Some("bad content"));
+        assert!(rejected.audit_state().expect("state").needs_attention());
+        assert!(rejected.ensure_releasable().is_err());
         let auditing: OpenPlatformMiniProgramAuditStatusResponse =
             serde_json::from_value(json!({ "status": 2 })).unwrap();
         assert_eq!(
@@ -3632,6 +3956,19 @@ mod tests {
         );
         assert_eq!(rollback.version_list[0].commit_time, Some(1800000000));
         assert_eq!(rollback.version_list[0].app_version, Some(1));
+        rollback.validate().unwrap();
+        assert_eq!(
+            rollback
+                .latest()
+                .and_then(|version| version.release_label()),
+            Some("1.0.0")
+        );
+        assert_eq!(
+            rollback
+                .find_app_version(1)
+                .and_then(|version| version.app_version),
+            Some(1)
+        );
         assert_eq!(rollback.extra["request_id"], "rollback");
 
         let gray: OpenPlatformMiniProgramGrayReleasePlanResponse = serde_json::from_value(json!({
@@ -3640,6 +3977,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(gray.extra["request_id"], "gray");
+        gray.validate().unwrap();
+        assert!(gray.is_active());
         let gray_plan = gray.gray_release_plan.unwrap();
         assert_eq!(gray_plan.gray_percentage, Some(10));
         assert_eq!(
@@ -3670,6 +4009,8 @@ mod tests {
                 "request_id": "support"
             }))
             .unwrap();
+        support.validate().unwrap();
+        assert_eq!(support.current_version(), Some("3.0.0"));
         assert_eq!(support.now_version.as_deref(), Some("3.0.0"));
         assert_eq!(support.extra["request_id"], "support");
         let uv_info = support.uv_info.unwrap();
@@ -3688,7 +4029,84 @@ mod tests {
         .unwrap();
         assert_eq!(quota.rest, Some(10));
         assert_eq!(quota.speedup_limit, Some(10));
+        quota.validate().unwrap();
+        assert!(quota.can_submit());
+        assert!(quota.can_speedup());
+        assert_eq!(quota.used(), Some(90));
+        assert_eq!(quota.speedup_used(), Some(9));
         assert_eq!(quota.extra["request_id"], "quota");
+    }
+
+    #[test]
+    fn rejects_inconsistent_authorizer_release_workflow_responses() {
+        let missing_id: OpenPlatformMiniProgramSubmitAuditResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.require_audit_id().is_err());
+
+        let rejected_without_reason: OpenPlatformMiniProgramAuditStatusResponse =
+            serde_json::from_value(json!({ "status": 1 })).unwrap();
+        let reason_error = rejected_without_reason
+            .validate()
+            .expect_err("rejected audit without reason must fail");
+        assert!(reason_error.to_string().contains("reason is missing"));
+
+        let auditing: OpenPlatformMiniProgramLatestAuditStatusResponse =
+            serde_json::from_value(json!({
+                "auditid": 1,
+                "status": 2,
+                "submit_audit_time": 1_800_000_000
+            }))
+            .unwrap();
+        assert!(auditing.validate().is_ok());
+        assert!(auditing.ensure_releasable().is_err());
+
+        let invalid_quota: OpenPlatformMiniProgramAuditQuotaResponse =
+            serde_json::from_value(json!({
+                "rest": 11,
+                "limit": 10,
+                "speedup_rest": -1,
+                "speedup_limit": 1
+            }))
+            .unwrap();
+        assert!(invalid_quota.validate().is_err());
+
+        let duplicate_versions: OpenPlatformMiniProgramRollbackReleaseResponse =
+            serde_json::from_value(json!({
+                "version_list": [
+                    {"app_version": 1, "commit_time": 10, "user_version": "1.0.0"},
+                    {"app_version": 1, "commit_time": 20, "user_version": "1.0.1"}
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_versions.validate().is_err());
+
+        let invalid_release_version: OpenPlatformMiniProgramRollbackReleaseResponse =
+            serde_json::from_value(json!({
+                "version_list": [{
+                    "app_version": 2,
+                    "percentage": 101,
+                    "user_version": "2.0.0"
+                }]
+            }))
+            .unwrap();
+        assert!(invalid_release_version.validate().is_err());
+
+        let invalid_gray: OpenPlatformMiniProgramGrayReleasePlanResponse =
+            serde_json::from_value(json!({
+                "gray_release_plan": {"status": 1, "gray_percentage": 0}
+            }))
+            .unwrap();
+        assert!(invalid_gray.validate().is_err());
+
+        let invalid_support: OpenPlatformMiniProgramSupportVersionResponse =
+            serde_json::from_value(json!({
+                "now_version": "3.0.0",
+                "uv_info": {
+                    "items": [{"visit_uv": 1, "percentage": 101, "version": "3.0.0"}]
+                }
+            }))
+            .unwrap();
+        assert!(invalid_support.validate().is_err());
     }
 
     #[test]
