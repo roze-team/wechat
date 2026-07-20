@@ -1139,6 +1139,7 @@ impl Work {
         access_token: impl Into<String>,
         subscribe_mode: i64,
     ) -> Result<WorkStatusResponse> {
+        validate_school_notification_subscribe_mode(subscribe_mode)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/set_subscribe_mode",
@@ -1221,6 +1222,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUnionIdToExternalUserIdRequest,
     ) -> Result<WorkExternalUserIdConvertResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/unionid_to_external_userid",
@@ -6906,6 +6908,21 @@ pub struct WorkUnionIdToExternalUserIdResponse {
     pub extra: Value,
 }
 
+impl WorkUnionIdToExternalUserIdResponse {
+    pub fn has_external_user_id(&self) -> bool {
+        self.external_userid
+            .as_deref()
+            .is_some_and(|external_userid| !external_userid.trim().is_empty())
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.pending_id
+            .as_deref()
+            .is_some_and(|pending_id| !pending_id.trim().is_empty())
+            && !self.has_external_user_id()
+    }
+}
+
 pub type WorkExternalUserIdConvertResponse = WorkUnionIdToExternalUserIdResponse;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6960,6 +6977,24 @@ pub struct WorkExternalUserIdMigrationResponse {
     pub extra: Value,
 }
 
+impl WorkExternalUserIdMigrationResponse {
+    pub fn mapped_count(&self) -> usize {
+        self.items.iter().filter(|item| item.is_mapped()).count()
+    }
+
+    pub fn changed_count(&self) -> usize {
+        self.items.iter().filter(|item| item.is_changed()).count()
+    }
+
+    pub fn find_mapping(&self, external_userid: &str) -> Option<&WorkExternalUserIdMigrationItem> {
+        self.items.iter().find(|item| {
+            item.external_userid
+                .as_deref()
+                .is_some_and(|value| value == external_userid)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalUserIdMigrationItem {
     #[serde(default)]
@@ -6968,6 +7003,22 @@ pub struct WorkExternalUserIdMigrationItem {
     pub new_external_userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalUserIdMigrationItem {
+    pub fn is_mapped(&self) -> bool {
+        self.external_userid
+            .as_deref()
+            .is_some_and(|external_userid| !external_userid.trim().is_empty())
+            && self
+                .new_external_userid
+                .as_deref()
+                .is_some_and(|external_userid| !external_userid.trim().is_empty())
+    }
+
+    pub fn is_changed(&self) -> bool {
+        self.is_mapped() && self.external_userid != self.new_external_userid
+    }
 }
 
 fn validate_external_user_id_migration_list(external_userids: &[String]) -> Result<()> {
@@ -10592,6 +10643,26 @@ impl ExternalContactBatchGetRequest {
         }
     }
 
+    pub fn first_page(userids: impl IntoIterator<Item = impl Into<String>>, limit: i64) -> Self {
+        Self {
+            userid_list: userids.into_iter().map(Into::into).collect(),
+            cursor: None,
+            limit: Some(limit),
+        }
+    }
+
+    pub fn next_page(
+        userids: impl IntoIterator<Item = impl Into<String>>,
+        cursor: impl Into<String>,
+        limit: i64,
+    ) -> Self {
+        Self {
+            userid_list: userids.into_iter().map(Into::into).collect(),
+            cursor: Some(cursor.into()),
+            limit: Some(limit),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.userid_list.is_empty()
             || self.userid_list.len() > 100
@@ -10626,6 +10697,20 @@ pub struct ExternalContactListResponse {
     pub extra: Value,
 }
 
+impl ExternalContactListResponse {
+    pub fn unique_contact_count(&self) -> usize {
+        self.external_userid
+            .iter()
+            .map(String::as_str)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
+
+    pub fn has_duplicate_contacts(&self) -> bool {
+        self.unique_contact_count() != self.external_userid.len()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactServedListRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -10638,6 +10723,13 @@ impl ExternalContactServedListRequest {
     pub fn first_page(limit: i64) -> Self {
         Self {
             cursor: None,
+            limit: Some(limit),
+        }
+    }
+
+    pub fn next_page(cursor: impl Into<String>, limit: i64) -> Self {
+        Self {
+            cursor: Some(cursor.into()),
             limit: Some(limit),
         }
     }
@@ -10751,6 +10843,16 @@ pub enum WorkSchoolSubscribeModeKind {
     Other(i64),
 }
 
+impl WorkSchoolSubscribeModeKind {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::AllowQrCodeRegistration => 1,
+            Self::ForbidQrCodeRegistration => 2,
+            Self::Other(code) => code,
+        }
+    }
+}
+
 impl From<i64> for WorkSchoolSubscribeModeKind {
     fn from(value: i64) -> Self {
         match value {
@@ -10759,6 +10861,15 @@ impl From<i64> for WorkSchoolSubscribeModeKind {
             other => Self::Other(other),
         }
     }
+}
+
+fn validate_school_notification_subscribe_mode(subscribe_mode: i64) -> Result<()> {
+    if !matches!(subscribe_mode, 1 | 2) {
+        return Err(WechatError::Config(
+            "school-notification subscribe mode must be 1 or 2".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10771,6 +10882,20 @@ pub struct ExternalContactFollowUserListResponse {
     pub follow_user: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactFollowUserListResponse {
+    pub fn unique_member_count(&self) -> usize {
+        self.follow_user
+            .iter()
+            .map(String::as_str)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
+
+    pub fn has_duplicate_members(&self) -> bool {
+        self.unique_member_count() != self.follow_user.len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10789,6 +10914,34 @@ pub struct ExternalContactDetailResponse {
     pub extra: Value,
 }
 
+impl ExternalContactDetailResponse {
+    pub fn has_contact(&self) -> bool {
+        self.external_contact
+            .as_ref()
+            .is_some_and(ExternalContactInfo::has_identity)
+    }
+
+    pub fn identified_follow_user_count(&self) -> usize {
+        self.follow_user
+            .iter()
+            .filter(|follow| follow.has_identity())
+            .count()
+    }
+
+    pub fn unique_follow_user_count(&self) -> usize {
+        self.follow_user
+            .iter()
+            .filter_map(|follow| follow.userid.as_deref())
+            .filter(|userid| !userid.trim().is_empty())
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
+
+    pub fn has_duplicate_follow_users(&self) -> bool {
+        self.unique_follow_user_count() != self.identified_follow_user_count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactBatchGetResponse {
     #[serde(default)]
@@ -10803,6 +10956,36 @@ pub struct ExternalContactBatchGetResponse {
     pub extra: Value,
 }
 
+impl ExternalContactBatchGetResponse {
+    pub fn complete_item_count(&self) -> usize {
+        self.external_contact_list
+            .iter()
+            .filter(|item| item.is_complete())
+            .count()
+    }
+
+    pub fn identified_contact_count(&self) -> usize {
+        self.external_contact_list
+            .iter()
+            .filter(|item| item.has_contact())
+            .count()
+    }
+
+    pub fn unique_contact_count(&self) -> usize {
+        self.external_contact_list
+            .iter()
+            .filter_map(|item| item.external_contact.as_ref())
+            .filter_map(|contact| contact.external_userid.as_deref())
+            .filter(|external_userid| !external_userid.trim().is_empty())
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
+
+    pub fn has_duplicate_contacts(&self) -> bool {
+        self.unique_contact_count() != self.identified_contact_count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactBatchItem {
     #[serde(default)]
@@ -10811,6 +10994,24 @@ pub struct ExternalContactBatchItem {
     pub follow_info: Option<ExternalContactFollowInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactBatchItem {
+    pub fn has_contact(&self) -> bool {
+        self.external_contact
+            .as_ref()
+            .is_some_and(ExternalContactInfo::has_identity)
+    }
+
+    pub fn has_follow_info(&self) -> bool {
+        self.follow_info
+            .as_ref()
+            .is_some_and(ExternalContactFollowInfo::has_identity)
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.has_contact() && self.has_follow_info()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10855,6 +11056,12 @@ pub enum WorkContactGender {
 }
 
 impl ExternalContactInfo {
+    pub fn has_identity(&self) -> bool {
+        self.external_userid
+            .as_deref()
+            .is_some_and(|external_userid| !external_userid.trim().is_empty())
+    }
+
     pub fn contact_kind(&self) -> Option<ExternalContactKind> {
         self.contact_type.map(|contact_type| match contact_type {
             1 => ExternalContactKind::WechatUser,
@@ -10981,6 +11188,8 @@ pub struct ExternalContactFollowInfo {
     #[serde(default)]
     pub tags: Vec<ExternalContactFollowTag>,
     #[serde(default)]
+    pub tag_id: Vec<String>,
+    #[serde(default)]
     pub remark_corp_name: Option<String>,
     #[serde(default)]
     pub remark_mobiles: Vec<String>,
@@ -10990,8 +11199,114 @@ pub struct ExternalContactFollowInfo {
     pub state: Option<String>,
     #[serde(default)]
     pub oper_userid: Option<String>,
+    #[serde(default)]
+    pub wechat_channels: Option<ExternalContactFollowWechatChannels>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactFollowInfo {
+    pub fn has_identity(&self) -> bool {
+        self.userid
+            .as_deref()
+            .is_some_and(|userid| !userid.trim().is_empty())
+    }
+
+    pub fn add_way_kind(&self) -> Option<ExternalContactAddWayKind> {
+        self.add_way.map(ExternalContactAddWayKind::from_code)
+    }
+
+    pub fn tag_id_count(&self) -> usize {
+        self.tags
+            .iter()
+            .filter_map(|tag| tag.tag_id.as_deref())
+            .chain(self.tag_id.iter().map(String::as_str))
+            .filter(|tag_id| !tag_id.trim().is_empty())
+            .count()
+    }
+
+    pub fn is_assigned(&self) -> bool {
+        self.add_way_kind()
+            .is_some_and(ExternalContactAddWayKind::is_assigned)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalContactFollowWechatChannels {
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub source: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactAddWayKind {
+    Unknown,
+    QrCode,
+    MobileSearch,
+    BusinessCardShare,
+    GroupChat,
+    MobileContacts,
+    WechatContacts,
+    WechatFriendRequest,
+    ThirdPartyInstallService,
+    EmailSearch,
+    Channels,
+    CalendarParticipant,
+    MeetingParticipant,
+    WechatFriendToWork,
+    SmartHardwareService,
+    DoorToDoorService,
+    CustomerAcquisitionLink,
+    CustomDevelopment,
+    DemandReply,
+    ThirdPartyPresalesService,
+    PotentialBusinessPartner,
+    WechatAccountFriendRequest,
+    InternalMemberShare,
+    AdministratorAssignment,
+    Other(i64),
+}
+
+impl ExternalContactAddWayKind {
+    pub const fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Unknown,
+            1 => Self::QrCode,
+            2 => Self::MobileSearch,
+            3 => Self::BusinessCardShare,
+            4 => Self::GroupChat,
+            5 => Self::MobileContacts,
+            6 => Self::WechatContacts,
+            7 => Self::WechatFriendRequest,
+            8 => Self::ThirdPartyInstallService,
+            9 => Self::EmailSearch,
+            10 => Self::Channels,
+            11 => Self::CalendarParticipant,
+            12 => Self::MeetingParticipant,
+            13 => Self::WechatFriendToWork,
+            14 => Self::SmartHardwareService,
+            15 => Self::DoorToDoorService,
+            16 => Self::CustomerAcquisitionLink,
+            17 => Self::CustomDevelopment,
+            18 => Self::DemandReply,
+            21 => Self::ThirdPartyPresalesService,
+            22 => Self::PotentialBusinessPartner,
+            24 => Self::WechatAccountFriendRequest,
+            201 => Self::InternalMemberShare,
+            202 => Self::AdministratorAssignment,
+            other => Self::Other(other),
+        }
+    }
+
+    pub const fn is_assigned(self) -> bool {
+        matches!(
+            self,
+            Self::InternalMemberShare | Self::AdministratorAssignment
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31455,6 +31770,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(list.external_userid[0], "wm-external");
+        assert_eq!(list.unique_contact_count(), 1);
+        assert!(!list.has_duplicate_contacts());
         assert_eq!(list.extra["next_openid"], "open-cursor");
 
         let follow_users: ExternalContactFollowUserListResponse = serde_json::from_value(json!({
@@ -31464,6 +31781,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(follow_users.follow_user[1], "user-b");
+        assert_eq!(follow_users.unique_member_count(), 2);
+        assert!(!follow_users.has_duplicate_members());
         assert_eq!(follow_users.extra["department_scope"][0], 1);
 
         let detail: ExternalContactDetailResponse = serde_json::from_value(json!({
@@ -31516,7 +31835,12 @@ mod tests {
             "detail_extra": true
         }))
         .unwrap();
-        let contact = detail.external_contact.expect("external_contact");
+        assert!(detail.has_contact());
+        assert_eq!(detail.identified_follow_user_count(), 1);
+        assert_eq!(detail.unique_follow_user_count(), 1);
+        assert!(!detail.has_duplicate_follow_users());
+        let contact = detail.external_contact.as_ref().expect("external_contact");
+        assert!(contact.has_identity());
         assert_eq!(contact.external_userid.as_deref(), Some("wm-external"));
         assert_eq!(contact.contact_type, Some(2));
         assert_eq!(contact.contact_kind(), Some(ExternalContactKind::WorkUser));
@@ -31613,6 +31937,12 @@ mod tests {
             detail.follow_user[0].tags[0].tag_name.as_deref(),
             Some("Gold")
         );
+        assert_eq!(
+            detail.follow_user[0].add_way_kind(),
+            Some(ExternalContactAddWayKind::QrCode)
+        );
+        assert_eq!(detail.follow_user[0].tag_id_count(), 1);
+        assert!(!detail.follow_user[0].is_assigned());
         assert_eq!(detail.follow_user[0].extra["tag_source"], "crm");
         assert_eq!(detail.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(detail.extra["detail_extra"], true);
@@ -31626,7 +31956,14 @@ mod tests {
                 },
                 "follow_info": {
                     "userid": "user-a",
-                    "remark": "VIP"
+                    "remark": "VIP",
+                    "tag_id": ["tag-a", "tag-b"],
+                    "add_way": 10,
+                    "wechat_channels": {
+                        "nickname": "Roze Shop",
+                        "source": 1,
+                        "channel_version": 2
+                    }
                 },
                 "batch_item_extra": "item-extra"
             }],
@@ -31652,12 +31989,56 @@ mod tests {
                 .as_deref(),
             Some("user-a")
         );
+        assert_eq!(batch.complete_item_count(), 1);
+        assert_eq!(batch.identified_contact_count(), 1);
+        assert_eq!(batch.unique_contact_count(), 1);
+        assert!(!batch.has_duplicate_contacts());
+        assert!(batch.external_contact_list[0].is_complete());
+        let batch_follow = batch.external_contact_list[0]
+            .follow_info
+            .as_ref()
+            .expect("follow_info");
+        assert_eq!(batch_follow.tag_id_count(), 2);
+        assert_eq!(
+            batch_follow.add_way_kind(),
+            Some(ExternalContactAddWayKind::Channels)
+        );
+        assert_eq!(
+            batch_follow
+                .wechat_channels
+                .as_ref()
+                .and_then(|channels| channels.nickname.as_deref()),
+            Some("Roze Shop")
+        );
+        assert_eq!(
+            batch_follow.wechat_channels.as_ref().unwrap().extra["channel_version"],
+            2
+        );
         assert_eq!(
             batch.external_contact_list[0].extra["batch_item_extra"],
             "item-extra"
         );
         assert_eq!(batch.next_cursor.as_deref(), Some("next"));
         assert_eq!(batch.extra["batch_extra"], "batch-extra");
+
+        let duplicate_list: ExternalContactListResponse = serde_json::from_value(json!({
+            "external_userid": ["external", "external"]
+        }))
+        .unwrap();
+        assert!(duplicate_list.has_duplicate_contacts());
+        let duplicate_followers: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": { "external_userid": "external" },
+            "follow_user": [{ "userid": "user" }, { "userid": "user" }]
+        }))
+        .unwrap();
+        assert!(duplicate_followers.has_duplicate_follow_users());
+        let incomplete_batch: ExternalContactBatchGetResponse = serde_json::from_value(json!({
+            "external_contact_list": [{
+                "external_contact": { "external_userid": "external" }
+            }]
+        }))
+        .unwrap();
+        assert_eq!(incomplete_batch.complete_item_count(), 0);
     }
 
     #[test]
@@ -32207,6 +32588,12 @@ mod tests {
     fn validates_external_contact_customer_operations() {
         let batch = ExternalContactBatchGetRequest::new(["user-a", "user-b"]);
         assert!(batch.validate().is_ok());
+        let first_page = ExternalContactBatchGetRequest::first_page(["user-a"], 100);
+        assert!(first_page.validate().is_ok());
+        assert!(first_page.cursor.is_none());
+        let next_page = ExternalContactBatchGetRequest::next_page(["user-a"], "cursor", 100);
+        assert!(next_page.validate().is_ok());
+        assert_eq!(next_page.cursor.as_deref(), Some("cursor"));
         assert!(ExternalContactBatchGetRequest::new(Vec::<String>::new())
             .validate()
             .is_err());
@@ -32228,6 +32615,12 @@ mod tests {
             .validate()
             .is_ok());
         assert!(ExternalContactServedListRequest::first_page(1001)
+            .validate()
+            .is_err());
+        assert!(ExternalContactServedListRequest::next_page("cursor", 1000)
+            .validate()
+            .is_ok());
+        assert!(ExternalContactServedListRequest::next_page("", 1000)
             .validate()
             .is_err());
         assert!(ExternalContactServedListRequest {
@@ -32283,6 +32676,25 @@ mod tests {
             future_tag.tag_kind(),
             Some(ExternalContactFollowTagKind::Other(99))
         );
+        assert_eq!(
+            ExternalContactAddWayKind::from_code(16),
+            ExternalContactAddWayKind::CustomerAcquisitionLink
+        );
+        assert_eq!(
+            ExternalContactAddWayKind::from_code(17),
+            ExternalContactAddWayKind::CustomDevelopment
+        );
+        assert!(ExternalContactAddWayKind::from_code(201).is_assigned());
+        assert!(ExternalContactAddWayKind::from_code(202).is_assigned());
+        assert_eq!(
+            ExternalContactAddWayKind::from_code(999),
+            ExternalContactAddWayKind::Other(999)
+        );
+        assert!(validate_school_notification_subscribe_mode(
+            WorkSchoolSubscribeModeKind::AllowQrCodeRegistration.as_code()
+        )
+        .is_ok());
+        assert!(validate_school_notification_subscribe_mode(3).is_err());
     }
 
     #[test]
@@ -32770,6 +33182,16 @@ mod tests {
         .unwrap();
         assert_eq!(
             converted.items[0].new_external_userid.as_deref(),
+            Some("new-external")
+        );
+        assert_eq!(converted.mapped_count(), 1);
+        assert_eq!(converted.changed_count(), 1);
+        assert!(converted.items[0].is_mapped());
+        assert!(converted.items[0].is_changed());
+        assert_eq!(
+            converted
+                .find_mapping("old-external")
+                .and_then(|item| item.new_external_userid.as_deref()),
             Some("new-external")
         );
         assert_eq!(converted.items[0].extra["migration_source"], "legacy");
@@ -36055,7 +36477,14 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(union.external_userid.as_deref(), Some("external"));
+        assert!(union.has_external_user_id());
+        assert!(!union.is_pending());
         assert_eq!(union.extra["convert_scene"], "union");
+
+        let pending_union: WorkUnionIdToExternalUserIdResponse =
+            serde_json::from_value(json!({ "pending_id": "pending" })).unwrap();
+        assert!(!pending_union.has_external_user_id());
+        assert!(pending_union.is_pending());
 
         let pending: WorkExternalUserIdToPendingIdResponse = serde_json::from_value(json!({
             "result": [{ "external_userid": "external", "pending_id": "pending", "item_source": "batch" }],

@@ -1604,6 +1604,29 @@ Implemented on 2026-07-20 in Work external-contact intercept-rule depth:
   historical top-level field, and response helpers expose rule identity,
   principal totals, and identified-list counts.
 
+Implemented on 2026-07-20 in Work external-contact customer-base depth:
+
+- the external-contact unionid conversion path now applies the same unionid,
+  openid, and subject-type validation as the shared ID-conversion endpoint,
+  and school-notification subscription changes reject unsupported modes before
+  network I/O;
+- batch customer reads and served-contact lists expose checked first/next-page
+  constructors with their documented 100-member and 1000-record limits and
+  nonblank cursor checks;
+- list, detail, follower, and batch responses expose identity, completeness,
+  uniqueness, duplicate-detection, and follow-user aggregation helpers for
+  production synchronization jobs;
+- batch `follow_info.tag_id` and `follow_info.wechat_channels` are now typed
+  instead of falling through to extension JSON, while detail-style tag
+  objects and unknown response fields remain compatible;
+- customer add-way semantics cover QR code, search/share, group and contact
+  sources, video channels, calendar/meeting, hardware and on-site service,
+  acquisition links, custom development, demand replies, presales/business
+  sources, internal sharing, administrator assignment, and future values;
+- unionid conversion and external-userid migration responses expose resolved,
+  pending, mapped, changed, and lookup helpers without discarding extension
+  fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
