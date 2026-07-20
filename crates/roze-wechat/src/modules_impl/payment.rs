@@ -1415,6 +1415,38 @@ impl Payment {
         request: PaymentBillDownloadRequest,
         destination: impl AsRef<Path>,
     ) -> Result<PaymentDownloadedBillFile> {
+        self.download_bill_to_file_inner(credentials, request, destination.as_ref(), None)
+            .await
+    }
+
+    pub async fn download_bill_to_file_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        destination: impl AsRef<Path>,
+        max_bytes: u64,
+    ) -> Result<PaymentDownloadedBillFile> {
+        if max_bytes == 0 {
+            return Err(WechatError::Config(
+                "payment bill download maximum bytes must be positive".to_string(),
+            ));
+        }
+        self.download_bill_to_file_inner(
+            credentials,
+            request,
+            destination.as_ref(),
+            Some(max_bytes),
+        )
+        .await
+    }
+
+    async fn download_bill_to_file_inner(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        destination: &Path,
+        max_bytes: Option<u64>,
+    ) -> Result<PaymentDownloadedBillFile> {
         let expected_hash = request
             .hash_value
             .as_deref()
@@ -1425,7 +1457,7 @@ impl Payment {
                 )
             })?;
         let mut hasher = PaymentDownloadHasher::new(request.hash_type.as_deref())?;
-        let destination = destination.as_ref().to_path_buf();
+        let destination = destination.to_path_buf();
         let parent = destination.parent().unwrap_or_else(|| Path::new("."));
         let file_name = destination
             .file_name()
@@ -1457,11 +1489,14 @@ impl Payment {
         let mut response = self.inner.get_stream_response(path, query, headers).await?;
         let mut bytes_written = 0_u64;
         while let Some(chunk) = response.next_chunk().await? {
+            bytes_written = checked_payment_download_size(bytes_written, chunk.len(), max_bytes)?;
             file.write_all(&chunk).await?;
             hasher.update(&chunk);
-            bytes_written = bytes_written
-                .checked_add(chunk.len() as u64)
-                .ok_or_else(|| WechatError::Config("payment bill is too large".to_string()))?;
+        }
+        if bytes_written == 0 {
+            return Err(WechatError::Config(
+                "payment bill download is empty".to_string(),
+            ));
         }
         file.flush().await?;
         file.sync_all().await?;
@@ -1852,6 +1887,26 @@ fn verify_payment_download_hash(
         ));
     }
     Ok(())
+}
+
+fn checked_payment_download_size(
+    current: u64,
+    chunk_len: usize,
+    max_bytes: Option<u64>,
+) -> Result<u64> {
+    let chunk_len = u64::try_from(chunk_len)
+        .map_err(|_| WechatError::Config("payment bill is too large".to_string()))?;
+    let next = current
+        .checked_add(chunk_len)
+        .ok_or_else(|| WechatError::Config("payment bill is too large".to_string()))?;
+    if let Some(maximum) = max_bytes {
+        if next > maximum {
+            return Err(WechatError::Config(format!(
+                "payment bill exceeds the configured {maximum} byte limit"
+            )));
+        }
+    }
+    Ok(next)
 }
 
 enum PaymentDownloadHasher {
@@ -3724,6 +3779,54 @@ pub struct PaymentDownloadedBillFile {
     pub hash_value: String,
 }
 
+impl PaymentDownloadedBillFile {
+    pub async fn read_verified(&self, max_bytes: u64) -> Result<PaymentDownloadedBill> {
+        if max_bytes == 0 {
+            return Err(WechatError::Config(
+                "payment bill read maximum bytes must be positive".to_string(),
+            ));
+        }
+        let metadata = tokio::fs::metadata(&self.path).await?;
+        if metadata.len() != self.bytes_written {
+            return Err(WechatError::Config(format!(
+                "payment bill file length changed: expected {}, got {}",
+                self.bytes_written,
+                metadata.len()
+            )));
+        }
+        if metadata.len() > max_bytes {
+            return Err(WechatError::Config(format!(
+                "payment bill file exceeds the configured {max_bytes} byte read limit"
+            )));
+        }
+
+        let bytes = tokio::fs::read(&self.path).await?;
+        let actual_len = u64::try_from(bytes.len())
+            .map_err(|_| WechatError::Config("payment bill file is too large".to_string()))?;
+        if actual_len != self.bytes_written {
+            return Err(WechatError::Config(format!(
+                "payment bill file length changed while reading: expected {}, got {actual_len}",
+                self.bytes_written
+            )));
+        }
+        if actual_len > max_bytes {
+            return Err(WechatError::Config(format!(
+                "payment bill file exceeds the configured {max_bytes} byte read limit"
+            )));
+        }
+        verify_payment_download_hash(&bytes, Some(&self.hash_type), Some(&self.hash_value))?;
+        PaymentDownloadedBill::from_verified_bytes(
+            Bytes::from(bytes),
+            Some(self.hash_type.clone()),
+            Some(self.hash_value.clone()),
+        )
+    }
+
+    pub async fn statement(&self, max_bytes: u64) -> Result<PaymentBillStatement> {
+        self.read_verified(max_bytes).await?.statement()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaymentBillRecord {
     pub raw: String,
@@ -3832,9 +3935,8 @@ impl PaymentBillStatement {
 
     pub fn sum_i64(&self, name: &str) -> Result<i64> {
         self.records.iter().try_fold(0_i64, |sum, record| {
-            record
-                .get_i64(name)
-                .map(|value| sum + value.unwrap_or_default())
+            let amount = record.get_i64(name)?.unwrap_or_default();
+            checked_payment_bill_add(sum, amount, name)
         })
     }
 
@@ -3900,7 +4002,7 @@ impl PaymentBillStatement {
         self.require_columns(&[filter_name, amount_name])?;
         self.records.iter().try_fold(0_i64, |sum, record| {
             if record.get(filter_name) == Some(filter_value) {
-                record.require_i64(amount_name).map(|amount| sum + amount)
+                checked_payment_bill_add(sum, record.require_i64(amount_name)?, amount_name)
             } else {
                 Ok(sum)
             }
@@ -3916,7 +4018,7 @@ impl PaymentBillStatement {
                 .iter()
                 .all(|(name, value)| record.get(name) == Some(*value))
             {
-                record.require_i64(amount_name).map(|amount| sum + amount)
+                checked_payment_bill_add(sum, record.require_i64(amount_name)?, amount_name)
             } else {
                 Ok(sum)
             }
@@ -4034,7 +4136,8 @@ impl PaymentBillStatement {
         for record in &self.records {
             let group = record.require(group_name)?.to_string();
             let amount = record.require_i64(amount_name)?;
-            *sums.entry(group).or_insert(0) += amount;
+            let entry = sums.entry(group).or_insert(0);
+            *entry = checked_payment_bill_add(*entry, amount, amount_name)?;
         }
         Ok(sums)
     }
@@ -4067,7 +4170,8 @@ impl PaymentBillStatement {
             {
                 let group = record.require(group_name)?.to_string();
                 let amount = record.require_i64(amount_name)?;
-                *sums.entry(group).or_insert(0) += amount;
+                let entry = sums.entry(group).or_insert(0);
+                *entry = checked_payment_bill_add(*entry, amount, amount_name)?;
             }
         }
         Ok(sums)
@@ -4094,7 +4198,8 @@ impl PaymentBillStatement {
         self.require_columns(&[name])?;
         let expected = self.summary.require_i64(summary_index)?;
         let actual = self.non_empty_count(name);
-        if actual as i64 != expected {
+        let actual_i64 = checked_payment_bill_count(actual)?;
+        if actual_i64 != expected {
             return Err(WechatError::Config(format!(
                 "payment bill column {name} non-empty count {actual} does not match summary field {summary_index} value {expected}"
             )));
@@ -4106,7 +4211,8 @@ impl PaymentBillStatement {
     pub fn assert_record_count_matches_summary(&self, summary_index: usize) -> Result<usize> {
         let expected = self.summary.require_i64(summary_index)?;
         let actual = self.records.len();
-        if actual as i64 != expected {
+        let actual_i64 = checked_payment_bill_count(actual)?;
+        if actual_i64 != expected {
             return Err(WechatError::Config(format!(
                 "payment bill record count {actual} does not match summary field {summary_index} value {expected}"
             )));
@@ -4211,6 +4317,20 @@ impl PaymentDownloadedBill {
             })
             .collect()
     }
+}
+
+fn checked_payment_bill_add(total: i64, amount: i64, name: &str) -> Result<i64> {
+    total.checked_add(amount).ok_or_else(|| {
+        WechatError::Config(format!(
+            "payment bill column {name} sum exceeds the supported i64 range"
+        ))
+    })
+}
+
+fn checked_payment_bill_count(count: usize) -> Result<i64> {
+    i64::try_from(count).map_err(|_| {
+        WechatError::Config("payment bill record count exceeds the supported i64 range".to_string())
+    })
 }
 
 fn parse_payment_bill_csv_line(line: &str) -> Result<Vec<String>> {
@@ -6246,25 +6366,25 @@ mod tests {
     use crate::crypto;
 
     use super::{
-        build_merchant_media_upload_body, build_sandbox_sign_key_xml, encode_payment_path_segment,
-        multipart_quoted, split_payment_download_url, verify_payment_download_hash, Amount,
-        AppPayParams, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
-        BillRequest, BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer,
-        CodepayRequest, CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest,
-        CombinePayerInfo, CombineSceneInfo, CombineSettleInfo, CombineSubOrder,
-        ComplaintAdditionalInfoType, ComplaintCompleteRequest, ComplaintDetailResponse,
-        ComplaintListRequest, ComplaintListResponse, ComplaintMedia, ComplaintMediaType,
-        ComplaintMessageActionType, ComplaintMessageBlockType, ComplaintMessageSenderIdentity,
-        ComplaintMiniProgramJumpInfo, ComplaintNegotiationHistoryRequest,
-        ComplaintNegotiationHistoryResponse, ComplaintNegotiationOperateType,
-        ComplaintNotificationActionKind, ComplaintNotificationRequest,
-        ComplaintNotificationResource, ComplaintNotificationResponse, ComplaintProblemType,
-        ComplaintRefundAction, ComplaintRefundProgressRequest, ComplaintReplyRequest,
-        ComplaintServiceOrderStateKind, ComplaintStateKind, ComplaintUserTag,
-        CouponStockCreateRequest, CouponStockListRequest, CouponStockListResponse,
-        CouponStockOperationRequest, CouponStockResponse, FundAppElecSignResponse,
-        FundAppTransferBillRequest, FundAppTransferBillResponse, FundFlowBillRequest,
-        H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
+        build_merchant_media_upload_body, build_sandbox_sign_key_xml,
+        checked_payment_download_size, encode_payment_path_segment, multipart_quoted,
+        split_payment_download_url, verify_payment_download_hash, Amount, AppPayParams,
+        Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse, BillRequest,
+        BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
+        CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
+        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintAdditionalInfoType,
+        ComplaintCompleteRequest, ComplaintDetailResponse, ComplaintListRequest,
+        ComplaintListResponse, ComplaintMedia, ComplaintMediaType, ComplaintMessageActionType,
+        ComplaintMessageBlockType, ComplaintMessageSenderIdentity, ComplaintMiniProgramJumpInfo,
+        ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
+        ComplaintNegotiationOperateType, ComplaintNotificationActionKind,
+        ComplaintNotificationRequest, ComplaintNotificationResource, ComplaintNotificationResponse,
+        ComplaintProblemType, ComplaintRefundAction, ComplaintRefundProgressRequest,
+        ComplaintReplyRequest, ComplaintServiceOrderStateKind, ComplaintStateKind,
+        ComplaintUserTag, CouponStockCreateRequest, CouponStockListRequest,
+        CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
+        FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
+        FundFlowBillRequest, H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
         LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
         MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
         MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
@@ -6272,18 +6392,18 @@ mod tests {
         PartnerOrderQuery, PartnerPayer, PartnerRefundQuery, PartnerTransactionQuery,
         PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
         PayScoreServiceOrderResponse, PayScoreTimeRange, PaymentBillDownloadRequest,
-        PaymentCredentials, PaymentDownloadHasher, PaymentDownloadedBill, PaymentNotification,
-        PaymentOrderResponse, PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource,
-        PaymentStatusResponse, PaymentTradeStateKind, PaymentTransactionNotification,
-        PaymentTransferBillNotification, PrepayResponse, ProfitSharingBillRequest,
-        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
-        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
-        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundDetailResponse, RefundRequest,
-        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
-        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
-        TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard, TransferBatchQuery,
-        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        PaymentCredentials, PaymentDownloadHasher, PaymentDownloadedBill,
+        PaymentDownloadedBillFile, PaymentNotification, PaymentOrderResponse,
+        PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse,
+        PaymentTradeStateKind, PaymentTransactionNotification, PaymentTransferBillNotification,
+        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
+        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
+        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
+        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard,
+        TransferBatchQuery, TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
         TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
         TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
         UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
@@ -7595,6 +7715,15 @@ mod tests {
     }
 
     #[test]
+    fn enforces_payment_download_size_before_writing_chunks() {
+        assert_eq!(checked_payment_download_size(4, 3, Some(7)).unwrap(), 7);
+        let error = checked_payment_download_size(4, 4, Some(7))
+            .expect_err("download over the configured limit should fail");
+        assert!(error.to_string().contains("7 byte limit"));
+        assert_eq!(checked_payment_download_size(4, 4, None).unwrap(), 8);
+    }
+
+    #[test]
     fn removes_abandoned_payment_download_temporary_file() {
         let path =
             std::env::temp_dir().join(format!("roze-wechat-payment-{}.part", uuid::Uuid::now_v7()));
@@ -7606,6 +7735,59 @@ mod tests {
         }
 
         assert!(!path.exists());
+    }
+
+    #[tokio::test]
+    async fn verifies_and_reads_committed_payment_bill_files() {
+        let bytes = b"transaction_id,out_trade_no,amount\n4200001,order-1,100\nsum,1,100\n";
+        let path =
+            std::env::temp_dir().join(format!("roze-wechat-payment-{}.csv", uuid::Uuid::now_v7()));
+        tokio::fs::write(&path, bytes).await.unwrap();
+        let file = PaymentDownloadedBillFile {
+            path: path.clone(),
+            bytes_written: u64::try_from(bytes.len()).unwrap(),
+            hash_type: "SHA256".to_string(),
+            hash_value: crypto::sha256_hex(bytes),
+        };
+
+        let statement = file.statement(1024).await.unwrap();
+        assert_eq!(statement.records.len(), 1);
+        assert_eq!(statement.sum_i64("amount").unwrap(), 100);
+
+        let limit_error = file
+            .read_verified(10)
+            .await
+            .expect_err("file over the read limit should fail");
+        assert!(limit_error.to_string().contains("byte read limit"));
+
+        tokio::fs::write(&path, b"changed").await.unwrap();
+        let length_error = file
+            .read_verified(1024)
+            .await
+            .expect_err("changed file length should fail");
+        assert!(length_error.to_string().contains("file length changed"));
+        tokio::fs::remove_file(path).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_tampered_payment_bill_files() {
+        let bytes = b"header\nrow\nsummary\n";
+        let path =
+            std::env::temp_dir().join(format!("roze-wechat-payment-{}.csv", uuid::Uuid::now_v7()));
+        tokio::fs::write(&path, bytes).await.unwrap();
+        let file = PaymentDownloadedBillFile {
+            path: path.clone(),
+            bytes_written: u64::try_from(bytes.len()).unwrap(),
+            hash_type: "SHA256".to_string(),
+            hash_value: crypto::sha256_hex(b"different same-length data"),
+        };
+
+        let error = file
+            .read_verified(1024)
+            .await
+            .expect_err("hash mismatch should fail");
+        assert!(error.to_string().contains("hash mismatch"));
+        tokio::fs::remove_file(path).await.unwrap();
     }
 
     #[test]
@@ -7760,6 +7942,36 @@ mod tests {
             .require_i64(1)
             .expect_err("invalid required summary total should fail");
         assert!(required_summary_err.to_string().contains("not a valid i64"));
+    }
+
+    #[test]
+    fn rejects_payment_bill_sum_overflow() {
+        let bill = PaymentDownloadedBill::from_verified_bytes(
+            bytes::Bytes::from_static(
+                b"state,group,amount\nSUCCESS,A,9223372036854775807\nSUCCESS,A,1\nsum,2,0\n",
+            ),
+            None,
+            None,
+        )
+        .unwrap();
+        let statement = bill.statement().unwrap();
+
+        let sum_error = statement
+            .sum_i64("amount")
+            .expect_err("total overflow should fail");
+        assert!(sum_error.to_string().contains("i64 range"));
+        let filtered_error = statement
+            .sum_i64_where("state", "SUCCESS", "amount")
+            .expect_err("filtered overflow should fail");
+        assert!(filtered_error.to_string().contains("i64 range"));
+        let grouped_error = statement
+            .group_sum_i64("group", "amount")
+            .expect_err("grouped overflow should fail");
+        assert!(grouped_error.to_string().contains("i64 range"));
+        let grouped_filtered_error = statement
+            .group_sum_i64_where("state", "SUCCESS", "group", "amount")
+            .expect_err("filtered grouped overflow should fail");
+        assert!(grouped_filtered_error.to_string().contains("i64 range"));
     }
 
     #[test]

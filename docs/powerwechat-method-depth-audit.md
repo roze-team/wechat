@@ -1653,6 +1653,21 @@ Implemented on 2026-07-20 in Payment merchant-service workflow depth:
   refund/system-event, configured-callback, and API-error semantics while
   preserving upstream extension fields.
 
+Implemented on 2026-07-20 in Payment bill download and statement depth:
+
+- atomic file downloads now expose an explicit maximum-byte variant, enforce
+  the limit before writing each response chunk, reject empty artifacts, and
+  retain the existing compatibility entry point;
+- committed bill files can be reopened with a caller-defined memory limit,
+  checked against their recorded and observed lengths, reverified using their
+  SHA-1 or SHA-256 digest, and parsed directly into a typed bill statement;
+- post-download verification detects truncation, replacement, concurrent
+  length changes, hash tampering, and oversized reads before reconciliation;
+- statement total, filtered-total, grouped-total, and filtered-grouped-total
+  helpers now use checked `i64` arithmetic and return explicit configuration
+  errors instead of panicking in debug builds or wrapping in release builds;
+- summary count reconciliation now uses checked `usize` to `i64` conversion.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
