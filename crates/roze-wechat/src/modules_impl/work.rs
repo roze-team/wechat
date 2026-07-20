@@ -1815,6 +1815,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CustomerAcquisitionLinkListRequest,
     ) -> Result<CustomerAcquisitionLinkListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/list_link",
@@ -1829,11 +1830,13 @@ impl Work {
         access_token: impl Into<String>,
         link_id: impl Into<String>,
     ) -> Result<CustomerAcquisitionLinkResponse> {
+        let link_id = link_id.into();
+        validate_customer_acquisition_link_id(&link_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/get",
                 Some(access_token.into()),
-                json!({ "link_id": link_id.into() }),
+                json!({ "link_id": link_id }),
             )
             .await
     }
@@ -1843,6 +1846,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CustomerAcquisitionLinkRequest,
     ) -> Result<CustomerAcquisitionLinkCreateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/create_link",
@@ -1857,6 +1861,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CustomerAcquisitionLinkUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/update_link",
@@ -1871,11 +1876,13 @@ impl Work {
         access_token: impl Into<String>,
         link_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let link_id = link_id.into();
+        validate_customer_acquisition_link_id(&link_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/delete_link",
                 Some(access_token.into()),
-                json!({ "link_id": link_id.into() }),
+                json!({ "link_id": link_id }),
             )
             .await
     }
@@ -2035,6 +2042,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CustomerAcquisitionCustomerListRequest,
     ) -> Result<CustomerAcquisitionCustomerListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/customer",
@@ -2049,6 +2057,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CustomerAcquisitionStatisticRequest,
     ) -> Result<CustomerAcquisitionStatisticResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/statistic",
@@ -2063,6 +2072,7 @@ impl Work {
         access_token: impl Into<String>,
         request: CustomerAcquisitionChatInfoRequest,
     ) -> Result<CustomerAcquisitionChatInfoResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/get_chat_info",
@@ -13232,6 +13242,26 @@ pub struct CustomerAcquisitionLinkListRequest {
     pub limit: i64,
 }
 
+impl CustomerAcquisitionLinkListRequest {
+    pub fn first_page(limit: i64) -> Self {
+        Self {
+            cursor: None,
+            limit,
+        }
+    }
+
+    pub fn next_page(limit: i64, cursor: impl Into<String>) -> Self {
+        Self {
+            cursor: Some(cursor.into()),
+            limit,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_page(self.cursor.as_deref(), Some(self.limit), 100)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionLinkListResponse {
     #[serde(default)]
@@ -13246,14 +13276,79 @@ pub struct CustomerAcquisitionLinkListResponse {
     pub extra: Value,
 }
 
+impl CustomerAcquisitionLinkListResponse {
+    pub fn unique_link_count(&self) -> usize {
+        self.link_id_list
+            .iter()
+            .map(|link_id| link_id.trim())
+            .filter(|link_id| !link_id.is_empty())
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionRange {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub user_list: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub department_list: Vec<String>,
+    pub department_list: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CustomerAcquisitionRange {
+    pub fn from_users(users: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            user_list: users.into_iter().map(Into::into).collect(),
+            department_list: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn from_departments(departments: impl IntoIterator<Item = i64>) -> Self {
+        Self {
+            user_list: Vec::new(),
+            department_list: departments.into_iter().collect(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn principal_count(&self) -> usize {
+        self.user_list.len() + self.department_list.len()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.principal_count() == 0 {
+            return Err(WechatError::Config(
+                "customer-acquisition range requires at least one member or department".to_string(),
+            ));
+        }
+        if self.user_list.len() > 100
+            || self.department_list.len() > 100
+            || self.principal_count() > 100
+        {
+            return Err(WechatError::Config(
+                "customer-acquisition range supports at most 100 member and department entries"
+                    .to_string(),
+            ));
+        }
+        validate_external_contact_message_identifiers(
+            "customer-acquisition member",
+            &self.user_list,
+        )?;
+        if self
+            .department_list
+            .iter()
+            .any(|department_id| *department_id <= 0)
+            || has_duplicate_i64(&self.department_list)
+        {
+            return Err(WechatError::Config(
+                "customer-acquisition department ids must be positive and unique".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13265,6 +13360,52 @@ pub struct CustomerAcquisitionPriorityOption {
     pub extra: Value,
 }
 
+impl CustomerAcquisitionPriorityOption {
+    pub fn enterprise_friend_priority() -> Self {
+        Self {
+            priority_type: 1,
+            priority_userid_list: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn specified_members(users: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            priority_type: 2,
+            priority_userid_list: users.into_iter().map(Into::into).collect(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.priority_type, 1 | 2) {
+            return Err(WechatError::Config(
+                "customer-acquisition priority type must be 1 or 2".to_string(),
+            ));
+        }
+        if self.priority_userid_list.len() > 100 {
+            return Err(WechatError::Config(
+                "customer-acquisition priority member list supports at most 100 members"
+                    .to_string(),
+            ));
+        }
+        if self.priority_type == 1 && !self.priority_userid_list.is_empty() {
+            return Err(WechatError::Config(
+                "enterprise-wide customer-acquisition priority cannot specify members".to_string(),
+            ));
+        }
+        if self.priority_type == 2 && self.priority_userid_list.is_empty() {
+            return Err(WechatError::Config(
+                "specified customer-acquisition priority requires at least one member".to_string(),
+            ));
+        }
+        validate_external_contact_message_identifiers(
+            "customer-acquisition priority member",
+            &self.priority_userid_list,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionLinkRequest {
     pub link_name: String,
@@ -13272,16 +13413,81 @@ pub struct CustomerAcquisitionLinkRequest {
     pub skip_verify: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority_option: Option<CustomerAcquisitionPriorityOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mark_source: Option<bool>,
+}
+
+impl CustomerAcquisitionLinkRequest {
+    pub fn new(link_name: impl Into<String>, range: CustomerAcquisitionRange) -> Self {
+        Self {
+            link_name: link_name.into(),
+            range,
+            skip_verify: true,
+            priority_option: None,
+            mark_source: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_customer_acquisition_link_name(&self.link_name)?;
+        self.range.validate()?;
+        if let Some(priority_option) = &self.priority_option {
+            priority_option.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionLinkUpdateRequest {
     pub link_id: String,
-    pub link_name: String,
-    pub range: CustomerAcquisitionRange,
-    pub skip_verify: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range: Option<CustomerAcquisitionRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skip_verify: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority_option: Option<CustomerAcquisitionPriorityOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mark_source: Option<bool>,
+}
+
+impl CustomerAcquisitionLinkUpdateRequest {
+    pub fn new(link_id: impl Into<String>) -> Self {
+        Self {
+            link_id: link_id.into(),
+            link_name: None,
+            range: None,
+            skip_verify: None,
+            priority_option: None,
+            mark_source: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_customer_acquisition_link_id(&self.link_id)?;
+        if self.link_name.is_none()
+            && self.range.is_none()
+            && self.skip_verify.is_none()
+            && self.priority_option.is_none()
+            && self.mark_source.is_none()
+        {
+            return Err(WechatError::Config(
+                "customer-acquisition link update requires at least one changed field".to_string(),
+            ));
+        }
+        if let Some(link_name) = &self.link_name {
+            validate_customer_acquisition_link_name(link_name)?;
+        }
+        if let Some(range) = &self.range {
+            range.validate()?;
+        }
+        if let Some(priority_option) = &self.priority_option {
+            priority_option.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13304,8 +13510,37 @@ pub struct CustomerAcquisitionLinkResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub link: Option<CustomerAcquisitionLink>,
+    #[serde(default)]
+    pub range: Option<CustomerAcquisitionRange>,
+    #[serde(default)]
+    pub skip_verify: Option<bool>,
+    #[serde(default)]
+    pub priority_option: Option<CustomerAcquisitionPriorityOption>,
+    #[serde(default)]
+    pub mark_source: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CustomerAcquisitionLinkResponse {
+    pub fn effective_range(&self) -> Option<&CustomerAcquisitionRange> {
+        self.range
+            .as_ref()
+            .or_else(|| self.link.as_ref().and_then(|link| link.range.as_ref()))
+    }
+
+    pub fn effective_skip_verify(&self) -> Option<bool> {
+        self.skip_verify
+            .or_else(|| self.link.as_ref().and_then(|link| link.skip_verify))
+    }
+
+    pub fn effective_priority_option(&self) -> Option<&CustomerAcquisitionPriorityOption> {
+        self.priority_option.as_ref().or_else(|| {
+            self.link
+                .as_ref()
+                .and_then(|link| link.priority_option.as_ref())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13323,11 +13558,44 @@ pub struct CustomerAcquisitionLink {
     #[serde(default)]
     pub priority_option: Option<CustomerAcquisitionPriorityOption>,
     #[serde(default)]
+    pub mark_source: Option<bool>,
+    #[serde(default)]
     pub create_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CustomerAcquisitionLink {
+    pub fn has_identity(&self) -> bool {
+        self.link_id
+            .as_deref()
+            .is_some_and(|link_id| !link_id.trim().is_empty())
+            && self
+                .url
+                .as_deref()
+                .is_some_and(|url| !url.trim().is_empty())
+    }
+}
+
+fn validate_customer_acquisition_link_id(link_id: &str) -> Result<()> {
+    validate_external_contact_identifier("customer-acquisition link id", link_id)?;
+    if link_id.len() > 128 {
+        return Err(WechatError::Config(
+            "customer-acquisition link id cannot exceed 128 UTF-8 bytes".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_customer_acquisition_link_name(link_name: &str) -> Result<()> {
+    if link_name.trim().is_empty() || link_name.len() > 100 {
+        return Err(WechatError::Config(
+            "customer-acquisition link name must contain 1 to 100 UTF-8 bytes".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13627,13 +13895,36 @@ pub struct CustomerAcquisitionQuotaResponse {
 
 impl CustomerAcquisitionQuotaResponse {
     pub fn is_exhausted(&self) -> bool {
-        self.balance == Some(0)
+        self.balance.is_some_and(|balance| balance <= 0)
+    }
+
+    pub fn available_balance(&self) -> i64 {
+        self.balance.unwrap_or_default().max(0)
+    }
+
+    pub fn used(&self) -> Option<i64> {
+        Some(self.total?.saturating_sub(self.balance?).max(0))
     }
 
     pub fn next_expiring_quota(&self) -> Option<&CustomerAcquisitionQuota> {
         self.quota_list
             .iter()
             .filter(|quota| quota.expire_date.is_some())
+            .min_by_key(|quota| quota.expire_date)
+    }
+
+    pub fn next_active_expiring_quota(
+        &self,
+        current_timestamp: i64,
+    ) -> Option<&CustomerAcquisitionQuota> {
+        self.quota_list
+            .iter()
+            .filter(|quota| {
+                quota
+                    .expire_date
+                    .is_some_and(|expire_date| expire_date > current_timestamp)
+                    && quota.balance.is_none_or(|balance| balance > 0)
+            })
             .min_by_key(|quota| quota.expire_date)
     }
 }
@@ -13656,6 +13947,29 @@ pub struct CustomerAcquisitionCustomerListRequest {
     pub cursor: Option<String>,
 }
 
+impl CustomerAcquisitionCustomerListRequest {
+    pub fn first_page(link_id: impl Into<String>, limit: i64) -> Self {
+        Self {
+            link_id: link_id.into(),
+            limit,
+            cursor: None,
+        }
+    }
+
+    pub fn next_page(link_id: impl Into<String>, limit: i64, cursor: impl Into<String>) -> Self {
+        Self {
+            link_id: link_id.into(),
+            limit,
+            cursor: Some(cursor.into()),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_customer_acquisition_link_id(&self.link_id)?;
+        validate_external_contact_page(self.cursor.as_deref(), Some(self.limit), 1_000)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionCustomerListResponse {
     #[serde(default)]
@@ -13668,6 +13982,26 @@ pub struct CustomerAcquisitionCustomerListResponse {
     pub next_cursor: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CustomerAcquisitionCustomerListResponse {
+    pub fn messaged_count(&self) -> usize {
+        self.customer_list
+            .iter()
+            .filter(|customer| customer.is_messaged())
+            .count()
+    }
+
+    pub fn unknown_status_count(&self) -> usize {
+        self.customer_list
+            .iter()
+            .filter(|customer| {
+                customer
+                    .chat_status_kind()
+                    .is_some_and(CustomerAcquisitionChatStatusKind::is_unknown)
+            })
+            .count()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13689,12 +14023,18 @@ impl CustomerAcquisitionCustomer {
         self.chat_status
             .map(CustomerAcquisitionChatStatusKind::from)
     }
+
+    pub fn is_messaged(&self) -> bool {
+        self.chat_status_kind()
+            .is_some_and(CustomerAcquisitionChatStatusKind::is_messaged)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CustomerAcquisitionChatStatusKind {
     NotMessaged,
     Messaged,
+    Unknown,
     Other(i64),
 }
 
@@ -13703,8 +14043,19 @@ impl From<i64> for CustomerAcquisitionChatStatusKind {
         match value {
             0 => Self::NotMessaged,
             1 => Self::Messaged,
+            2 => Self::Unknown,
             other => Self::Other(other),
         }
+    }
+}
+
+impl CustomerAcquisitionChatStatusKind {
+    pub fn is_messaged(self) -> bool {
+        matches!(self, Self::Messaged)
+    }
+
+    pub fn is_unknown(self) -> bool {
+        matches!(self, Self::Unknown | Self::Other(_))
     }
 }
 
@@ -13713,6 +14064,30 @@ pub struct CustomerAcquisitionStatisticRequest {
     pub link_id: String,
     pub start_time: i64,
     pub end_time: i64,
+}
+
+impl CustomerAcquisitionStatisticRequest {
+    pub fn new(link_id: impl Into<String>, start_time: i64, end_time: i64) -> Self {
+        Self {
+            link_id: link_id.into(),
+            start_time,
+            end_time,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_customer_acquisition_link_id(&self.link_id)?;
+        if self.start_time <= 0
+            || self.end_time < self.start_time
+            || self.end_time - self.start_time > 30 * 24 * 60 * 60
+        {
+            return Err(WechatError::Config(
+                "customer-acquisition statistic range must be positive, ordered, and at most 30 days"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13729,9 +14104,35 @@ pub struct CustomerAcquisitionStatisticResponse {
     pub extra: Value,
 }
 
+impl CustomerAcquisitionStatisticResponse {
+    pub fn conversion_rate(&self) -> Option<f64> {
+        let clicks = self.click_link_customer_cnt?;
+        let customers = self.new_customer_cnt?;
+        (clicks > 0).then_some(customers as f64 / clicks as f64)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionChatInfoRequest {
     pub chat_key: String,
+}
+
+impl CustomerAcquisitionChatInfoRequest {
+    pub fn new(chat_key: impl Into<String>) -> Self {
+        Self {
+            chat_key: chat_key.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_identifier("customer-acquisition chat key", &self.chat_key)?;
+        if self.chat_key.len() > 512 {
+            return Err(WechatError::Config(
+                "customer-acquisition chat key cannot exceed 512 UTF-8 bytes".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13750,6 +14151,18 @@ pub struct CustomerAcquisitionChatInfoResponse {
     pub extra: Value,
 }
 
+impl CustomerAcquisitionChatInfoResponse {
+    pub fn has_customer_identity(&self) -> bool {
+        self.userid
+            .as_deref()
+            .is_some_and(|userid| !userid.trim().is_empty())
+            && self
+                .external_userid
+                .as_deref()
+                .is_some_and(|external_userid| !external_userid.trim().is_empty())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomerAcquisitionChatInfo {
     #[serde(default)]
@@ -13760,6 +14173,12 @@ pub struct CustomerAcquisitionChatInfo {
     pub state: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CustomerAcquisitionChatInfo {
+    pub fn has_received_messages(&self) -> bool {
+        self.recv_msg_cnt.is_some_and(|count| count > 0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31997,64 +32416,55 @@ mod tests {
 
     #[test]
     fn serializes_customer_acquisition_link_requests_and_responses() {
-        let list = serde_json::to_value(CustomerAcquisitionLinkListRequest {
-            cursor: None,
-            limit: 50,
-        })
-        .unwrap();
+        let list_request = CustomerAcquisitionLinkListRequest::first_page(50);
+        list_request.validate().unwrap();
+        let list = serde_json::to_value(list_request).unwrap();
         assert_eq!(list["limit"], 50);
         assert!(list.get("cursor").is_none());
 
-        let create = serde_json::to_value(CustomerAcquisitionLinkRequest {
-            link_name: "summer".to_string(),
-            range: CustomerAcquisitionRange {
-                user_list: vec!["user".to_string()],
-                department_list: Vec::new(),
-                extra: Value::Null,
-            },
-            skip_verify: true,
-            priority_option: Some(CustomerAcquisitionPriorityOption {
-                priority_type: 1,
-                priority_userid_list: vec!["priority".to_string()],
-                extra: Value::Null,
-            }),
-        })
-        .unwrap();
+        let mut create_request = CustomerAcquisitionLinkRequest::new(
+            "summer",
+            CustomerAcquisitionRange::from_users(["user"]),
+        );
+        create_request.priority_option =
+            Some(CustomerAcquisitionPriorityOption::specified_members([
+                "priority",
+            ]));
+        create_request.mark_source = Some(true);
+        create_request.validate().unwrap();
+        let create = serde_json::to_value(create_request).unwrap();
         assert_eq!(create["link_name"], "summer");
         assert_eq!(create["range"]["user_list"][0], "user");
         assert_eq!(create["skip_verify"], true);
+        assert_eq!(create["priority_option"]["priority_type"], 2);
         assert_eq!(
             create["priority_option"]["priority_userid_list"][0],
             "priority"
         );
+        assert_eq!(create["mark_source"], true);
         assert!(create["range"].get("department_list").is_none());
 
-        let update = serde_json::to_value(CustomerAcquisitionLinkUpdateRequest {
-            link_id: "link".to_string(),
-            link_name: "autumn".to_string(),
-            range: CustomerAcquisitionRange {
-                user_list: Vec::new(),
-                department_list: vec!["2".to_string()],
-                extra: Value::Null,
-            },
-            skip_verify: false,
-            priority_option: None,
-        })
-        .unwrap();
+        let mut update_request = CustomerAcquisitionLinkUpdateRequest::new("link");
+        update_request.link_name = Some("autumn".to_string());
+        update_request.range = Some(CustomerAcquisitionRange::from_departments([2]));
+        update_request.skip_verify = Some(false);
+        update_request.validate().unwrap();
+        let update = serde_json::to_value(update_request).unwrap();
         assert_eq!(update["link_id"], "link");
-        assert_eq!(update["range"]["department_list"][0], "2");
+        assert_eq!(update["range"]["department_list"][0], 2);
         assert!(update.get("priority_option").is_none());
 
         let links: CustomerAcquisitionLinkListResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "link_id_list": ["link"],
+            "link_id_list": ["link", "link", "other"],
             "next_cursor": "cursor",
-            "link_total": 1
+            "link_total": 3
         }))
         .unwrap();
         assert_eq!(links.link_id_list[0], "link");
         assert_eq!(links.next_cursor.as_deref(), Some("cursor"));
-        assert_eq!(links.extra["link_total"], 1);
+        assert_eq!(links.unique_link_count(), 2);
+        assert_eq!(links.extra["link_total"], 3);
 
         let created: CustomerAcquisitionLinkCreateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -32066,10 +32476,11 @@ mod tests {
                 "skip_verify": true,
                 "range": { "user_list": ["user"], "range_extra": "kept" },
                 "priority_option": {
-                    "priority_type": 1,
+                    "priority_type": 2,
                     "priority_userid_list": ["priority"],
                     "priority_extra": "kept"
                 },
+                "mark_source": true,
                 "create_time": 1_720_000_000,
                 "update_time": 1_720_000_001,
                 "future_field": "kept"
@@ -32081,7 +32492,9 @@ mod tests {
         assert_eq!(created.link_id.as_deref(), Some("link"));
         assert_eq!(created.link_name.as_deref(), Some("summer"));
         assert_eq!(created.url.as_deref(), Some("https://example.com"));
+        assert!(created.has_identity());
         assert_eq!(created.skip_verify, Some(true));
+        assert_eq!(created.mark_source, Some(true));
         assert_eq!(
             created
                 .range
@@ -32109,42 +32522,76 @@ mod tests {
         let got: CustomerAcquisitionLinkResponse = serde_json::from_value(json!({
             "errcode": 0,
             "request_id": "get-link",
-            "link": { "link_id": "link", "url": "https://example.com" }
+            "link": { "link_id": "link", "url": "https://example.com" },
+            "range": {
+                "user_list": ["user"],
+                "department_list": [2]
+            },
+            "skip_verify": false,
+            "priority_option": {
+                "priority_type": 1,
+                "priority_userid_list": []
+            },
+            "mark_source": true
         }))
         .unwrap();
         assert_eq!(got.extra["request_id"], "get-link");
         assert_eq!(
-            got.link.and_then(|link| link.url).as_deref(),
+            got.link.as_ref().and_then(|link| link.url.as_deref()),
             Some("https://example.com")
         );
+        assert_eq!(got.effective_range().unwrap().department_list, vec![2]);
+        assert_eq!(got.effective_skip_verify(), Some(false));
+        assert_eq!(got.effective_priority_option().unwrap().priority_type, 1);
+        assert_eq!(got.mark_source, Some(true));
+
+        assert!(CustomerAcquisitionLinkListRequest::next_page(101, "cursor")
+            .validate()
+            .is_err());
+        assert!(CustomerAcquisitionLinkListRequest::next_page(100, " ")
+            .validate()
+            .is_err());
+        assert!(CustomerAcquisitionRange::from_users(Vec::<String>::new())
+            .validate()
+            .is_err());
+        assert!(CustomerAcquisitionRange::from_departments([0])
+            .validate()
+            .is_err());
+        assert!(
+            CustomerAcquisitionPriorityOption::enterprise_friend_priority()
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            CustomerAcquisitionPriorityOption::specified_members(Vec::<String>::new())
+                .validate()
+                .is_err()
+        );
+        assert!(CustomerAcquisitionLinkUpdateRequest::new("link")
+            .validate()
+            .is_err());
     }
 
     #[test]
     fn serializes_customer_acquisition_monitoring_requests_and_responses() {
-        let customers = serde_json::to_value(CustomerAcquisitionCustomerListRequest {
-            link_id: "link".to_string(),
-            limit: 1000,
-            cursor: None,
-        })
-        .unwrap();
+        let customer_request = CustomerAcquisitionCustomerListRequest::first_page("link", 1_000);
+        customer_request.validate().unwrap();
+        let customers = serde_json::to_value(customer_request).unwrap();
         assert_eq!(customers["link_id"], "link");
         assert_eq!(customers["limit"], 1000);
         assert!(customers.get("cursor").is_none());
 
-        let statistic = serde_json::to_value(CustomerAcquisitionStatisticRequest {
-            link_id: "link".to_string(),
-            start_time: 1_720_000_000,
-            end_time: 1_720_086_400,
-        })
-        .unwrap();
+        let statistic_request =
+            CustomerAcquisitionStatisticRequest::new("link", 1_720_000_000, 1_720_086_400);
+        statistic_request.validate().unwrap();
+        let statistic = serde_json::to_value(statistic_request).unwrap();
         assert_eq!(statistic["link_id"], "link");
         assert_eq!(statistic["start_time"], 1_720_000_000_i64);
         assert_eq!(statistic["end_time"], 1_720_086_400_i64);
 
-        let chat_request = serde_json::to_value(CustomerAcquisitionChatInfoRequest {
-            chat_key: "single-use-chat-key".to_string(),
-        })
-        .unwrap();
+        let chat_info_request = CustomerAcquisitionChatInfoRequest::new("single-use-chat-key");
+        chat_info_request.validate().unwrap();
+        let chat_request = serde_json::to_value(chat_info_request).unwrap();
         assert_eq!(chat_request, json!({ "chat_key": "single-use-chat-key" }));
 
         let quota: CustomerAcquisitionQuotaResponse = serde_json::from_value(json!({
@@ -32168,11 +32615,19 @@ mod tests {
         .unwrap();
         assert_eq!(quota.total, Some(1000));
         assert_eq!(quota.balance, Some(500));
+        assert_eq!(quota.available_balance(), 500);
+        assert_eq!(quota.used(), Some(500));
         assert!(!quota.is_exhausted());
         let next_quota = quota.next_expiring_quota().expect("next quota");
         assert_eq!(next_quota.expire_date, Some(1_720_000_000));
         assert_eq!(next_quota.balance, Some(200));
         assert_eq!(next_quota.extra["batch_id"], "next");
+        assert_eq!(
+            quota
+                .next_active_expiring_quota(1_725_000_000)
+                .and_then(|quota| quota.expire_date),
+            Some(1_730_000_000)
+        );
         assert_eq!(quota.extra["quota_policy"], "purchased");
 
         let exhausted: CustomerAcquisitionQuotaResponse =
@@ -32189,6 +32644,10 @@ mod tests {
                     "chat_status": 1,
                     "state": "campaign-a",
                     "acquired_at": 1_720_000_000
+                }, {
+                    "external_userid": "unknown",
+                    "userid": "user",
+                    "chat_status": 2
                 }],
                 "next_cursor": "cursor",
                 "link_id": "link"
@@ -32201,8 +32660,15 @@ mod tests {
             Some(CustomerAcquisitionChatStatusKind::Messaged)
         );
         assert_eq!(customer.extra["acquired_at"], 1_720_000_000_i64);
+        assert!(customer.is_messaged());
+        assert_eq!(customer_list.messaged_count(), 1);
+        assert_eq!(customer_list.unknown_status_count(), 1);
         assert_eq!(customer_list.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(customer_list.extra["link_id"], "link");
+        assert_eq!(
+            CustomerAcquisitionChatStatusKind::from(2),
+            CustomerAcquisitionChatStatusKind::Unknown
+        );
         assert_eq!(
             CustomerAcquisitionChatStatusKind::from(9),
             CustomerAcquisitionChatStatusKind::Other(9)
@@ -32216,6 +32682,7 @@ mod tests {
         .unwrap();
         assert_eq!(statistic.click_link_customer_cnt, Some(80));
         assert_eq!(statistic.new_customer_cnt, Some(25));
+        assert_eq!(statistic.conversion_rate(), Some(0.3125));
         assert_eq!(statistic.extra["stat_date"], "2026-07-18");
 
         let chat: CustomerAcquisitionChatInfoResponse = serde_json::from_value(json!({
@@ -32232,12 +32699,33 @@ mod tests {
         .unwrap();
         assert_eq!(chat.userid.as_deref(), Some("user"));
         assert_eq!(chat.external_userid.as_deref(), Some("external"));
-        let chat_info = chat.chat_info.expect("chat info");
+        assert!(chat.has_customer_identity());
+        let chat_info = chat.chat_info.as_ref().expect("chat info");
         assert_eq!(chat_info.recv_msg_cnt, Some(4));
+        assert!(chat_info.has_received_messages());
         assert_eq!(chat_info.link_id.as_deref(), Some("link"));
         assert_eq!(chat_info.state.as_deref(), Some("campaign-a"));
         assert_eq!(chat_info.extra["latest_msg_time"], 1_720_000_000_i64);
         assert_eq!(chat.extra["request_id"], "chat-info");
+
+        assert!(
+            CustomerAcquisitionCustomerListRequest::next_page("link", 1_001, "cursor")
+                .validate()
+                .is_err()
+        );
+        assert!(
+            CustomerAcquisitionCustomerListRequest::next_page("link", 1_000, " ")
+                .validate()
+                .is_err()
+        );
+        assert!(
+            CustomerAcquisitionStatisticRequest::new("link", 1, 30 * 24 * 60 * 60 + 2)
+                .validate()
+                .is_err()
+        );
+        assert!(CustomerAcquisitionChatInfoRequest::new(" ")
+            .validate()
+            .is_err());
     }
 
     #[test]

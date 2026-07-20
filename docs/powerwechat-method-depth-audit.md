@@ -1541,6 +1541,32 @@ depth:
 - add/get responses retain template, agent, notification, and future extension
   fields and expose typed notification and attachment-kind helpers.
 
+Implemented on 2026-07-20 in Work external-contact customer-acquisition
+depth:
+
+- link list/get/create/update/delete plus customer list, usage statistic, and
+  chat-detail operations now validate their contracts before network I/O;
+- link pages enforce the 100-item limit, customer pages enforce the 1000-item
+  limit, and both reject blank continuation cursors while exposing checked
+  first-page and next-page constructors;
+- acquisition ranges now serialize department ids as JSON integers instead of
+  PowerWeChat's string-array mismatch, require a nonempty unique member or
+  department scope, and enforce the 100-principal request boundary;
+- priority assignment exposes enterprise-wide and specified-member
+  constructors, validates type 1/2 semantics, and rejects empty, duplicate,
+  blank, or oversized member selections;
+- partial link updates now preserve explicit `false` booleans, require at
+  least one changed field, support the current optional `mark_source` setting,
+  and validate link ids, names, ranges, and priority settings;
+- link-detail responses model the actual top-level `range`, `skip_verify`,
+  `priority_option`, and `mark_source` fields while retaining compatibility
+  helpers for older nested response shapes;
+- customer status now distinguishes not-messaged, messaged, unknown, and
+  future values, with aggregate helpers for delivered and unknown records;
+- quota, 30-day statistic, and chat-detail DTOs expose available/used quota,
+  active-expiry, conversion-rate, customer-identity, and received-message
+  semantics while preserving extension fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
