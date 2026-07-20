@@ -1949,6 +1949,33 @@ Implemented on 2026-07-20 in current Work OA WeDrive endpoint depth:
   types, file sharing accepts scopes 1 through 5 with permissions 1 or 4,
   and file deletion sends a unique file-id array instead of a scalar.
 
+Implemented on 2026-07-21 in Work OA WeDrive response-contract depth:
+
+- all 29 WeDrive HTTP return boundaries now reject nonzero WeCom API status
+  codes and validate successful typed or status responses before returning
+  them to callers;
+- space creation, detail, and sharing responses require usable identifiers,
+  names, ACL members, settings, and absolute HTTP(S) share URLs, with checked
+  accessors for created space ids, space details, and share URLs;
+- file listings require an explicit pagination state and file container,
+  reject negative continuation offsets, duplicate ids, oversized pages,
+  invalid file metadata, reversed timestamps, and malformed optional URLs;
+- upload responses require file ids, while chunk initialization enforces the
+  exclusive deduplication contract: an existing file returns only `fileid`
+  and a pending upload returns only `upload_key`; checked accessors expose
+  each lifecycle branch;
+- download responses require absolute HTTP(S) URLs and paired cookie fields;
+  create, rename, move, info, and share responses now validate their required
+  payloads before use;
+- file-permission responses validate enabled sharing ranges, ACL identities
+  and uniqueness, inherited members, ACL timestamps, and watermark density
+  while retaining unknown positive upstream permission and enum values;
+- professional-edition and capacity responses enforce required fields,
+  positive expiry, used-account bounds, paired VIP capacity fields, and
+  remaining-capacity bounds; normal and malformed response matrices cover
+  API failures, missing payloads, contradictions, duplicates, invalid URLs,
+  reversed timestamps, permissions, quotas, and capacity overflows.
+
 Implemented on 2026-07-20 in Work application-message depth:
 
 - ordinary sends, statistics, recall, template-card and task-card updates,

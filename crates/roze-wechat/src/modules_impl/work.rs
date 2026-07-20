@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_value, Map, Value};
@@ -5880,13 +5882,16 @@ impl Work {
         request: WorkWeDriveSpaceCreateRequest,
     ) -> Result<WorkWeDriveSpaceCreateResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveSpaceCreateResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_create",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_rename(
@@ -5895,13 +5900,16 @@ impl Work {
         request: WorkWeDriveSpaceRenameRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_rename",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive space rename")?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_dismiss(
@@ -5910,13 +5918,16 @@ impl Work {
         request: WorkWeDriveSpaceIdRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_dismiss",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive space dismiss")?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_info(
@@ -5925,13 +5936,16 @@ impl Work {
         request: WorkWeDriveSpaceIdRequest,
     ) -> Result<WorkWeDriveSpaceInfoResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveSpaceInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_info",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_new_space_info(
@@ -5941,13 +5955,16 @@ impl Work {
     ) -> Result<WorkWeDriveSpaceInfoResponse> {
         let space_id = space_id.into();
         validate_work_wedrive_identifier("space id", &space_id)?;
-        self.inner
+        let response: WorkWeDriveSpaceInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/new_space_info",
                 Some(access_token.into()),
                 json!({ "spaceid": space_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_acl_add(
@@ -5956,13 +5973,16 @@ impl Work {
         request: WorkWeDriveSpaceAclRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate_for_add()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_acl_add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive space ACL add")?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_acl_del(
@@ -5971,13 +5991,16 @@ impl Work {
         request: WorkWeDriveSpaceAclRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate_for_delete()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_acl_del",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive space ACL delete")?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_setting(
@@ -5986,13 +6009,16 @@ impl Work {
         request: WorkWeDriveSpaceSettingRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_setting",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive space setting")?;
+        Ok(response)
     }
 
     pub async fn wedrive_space_share(
@@ -6001,13 +6027,16 @@ impl Work {
         request: WorkWeDriveSpaceIdRequest,
     ) -> Result<WorkWeDriveSpaceShareResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveSpaceShareResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/space_share",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_list(
@@ -6016,13 +6045,16 @@ impl Work {
         request: WorkWeDriveFileListRequest,
     ) -> Result<WorkWeDriveFileListResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileListResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_upload(
@@ -6031,13 +6063,16 @@ impl Work {
         request: WorkWeDriveFileUploadRequest,
     ) -> Result<WorkWeDriveFileUploadResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileUploadResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_upload",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_upload_by_ticket(
@@ -6046,13 +6081,16 @@ impl Work {
         request: WorkWeDriveFileUploadByTicketRequest,
     ) -> Result<WorkWeDriveFileUploadResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileUploadResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_upload",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_upload_init(
@@ -6061,13 +6099,16 @@ impl Work {
         request: WorkWeDriveFileUploadInitRequest,
     ) -> Result<WorkWeDriveFileUploadInitResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileUploadInitResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_upload_init",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_upload_part(
@@ -6076,13 +6117,16 @@ impl Work {
         request: WorkWeDriveFileUploadPartRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_upload_part",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive file upload part")?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_upload_finish(
@@ -6091,13 +6135,16 @@ impl Work {
         request: WorkWeDriveFileUploadFinishRequest,
     ) -> Result<WorkWeDriveFileUploadFinishResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileUploadFinishResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_upload_finish",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_download(
@@ -6106,13 +6153,16 @@ impl Work {
         request: WorkWeDriveFileIdRequest,
     ) -> Result<WorkWeDriveFileDownloadResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileDownloadResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_download",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_create(
@@ -6121,13 +6171,16 @@ impl Work {
         request: WorkWeDriveFileCreateRequest,
     ) -> Result<WorkWeDriveFileCreateResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileCreateResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_create",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_rename(
@@ -6136,13 +6189,16 @@ impl Work {
         request: WorkWeDriveFileRenameRequest,
     ) -> Result<WorkWeDriveFileRenameResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileRenameResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_rename",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_move(
@@ -6151,13 +6207,16 @@ impl Work {
         request: WorkWeDriveFileMoveRequest,
     ) -> Result<WorkWeDriveFileMoveResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileMoveResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_move",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_delete<R>(
@@ -6170,13 +6229,16 @@ impl Work {
     {
         let request = request.into();
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_delete",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive file delete")?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_permission(
@@ -6186,13 +6248,16 @@ impl Work {
     ) -> Result<WorkWeDriveFilePermissionResponse> {
         let file_id = file_id.into();
         validate_work_wedrive_identifier("file id", &file_id)?;
-        self.inner
+        let response: WorkWeDriveFilePermissionResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/get_file_permission",
                 Some(access_token.into()),
                 json!({ "fileid": file_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_secure_setting(
@@ -6201,13 +6266,16 @@ impl Work {
         request: WorkWeDriveFileSecureSettingRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_secure_setting",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive file secure setting")?;
+        Ok(response)
     }
 
     pub async fn wedrive_pro_info(
@@ -6217,26 +6285,32 @@ impl Work {
     ) -> Result<WorkWeDriveProInfoResponse> {
         let user_id = user_id.into();
         validate_work_wedrive_identifier("user id", &user_id)?;
-        self.inner
+        let response: WorkWeDriveProInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/mng_pro_info",
                 Some(access_token.into()),
                 json!({ "userid": user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_capacity(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkWeDriveCapacityResponse> {
-        self.inner
+        let response: WorkWeDriveCapacityResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/mng_capacity",
                 Some(access_token.into()),
                 json!({}),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_info(
@@ -6246,13 +6320,16 @@ impl Work {
     ) -> Result<WorkWeDriveFileInfoResponse> {
         let file_id = file_id.into();
         validate_work_wedrive_identifier("file id", &file_id)?;
-        self.inner
+        let response: WorkWeDriveFileInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_info",
                 Some(access_token.into()),
                 json!({ "fileid": file_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_acl_add(
@@ -6261,13 +6338,16 @@ impl Work {
         request: WorkWeDriveFileAclRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate_for_add()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_acl_add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive file ACL add")?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_acl_del(
@@ -6276,13 +6356,16 @@ impl Work {
         request: WorkWeDriveFileAclRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate_for_delete()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_acl_del",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive file ACL delete")?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_setting(
@@ -6291,13 +6374,16 @@ impl Work {
         request: WorkWeDriveFileSettingRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_setting",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDrive file setting")?;
+        Ok(response)
     }
 
     pub async fn wedrive_file_share(
@@ -6306,13 +6392,16 @@ impl Work {
         request: WorkWeDriveFileIdRequest,
     ) -> Result<WorkWeDriveFileShareResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDriveFileShareResponse = self
+            .inner
             .post(
                 "cgi-bin/wedrive/file_share",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn account_service(&self) -> DomainModule {
@@ -39071,6 +39160,27 @@ impl WorkWeDriveWatermarkSetting {
         }
         Ok(())
     }
+
+    fn validate_response(&self) -> Result<()> {
+        if self
+            .text
+            .as_deref()
+            .is_some_and(|text| text.chars().any(char::is_control))
+        {
+            return Err(WechatError::Config(
+                "work WeDrive watermark text cannot contain control characters".to_string(),
+            ));
+        }
+        if self
+            .margin_type
+            .is_some_and(|margin_type| !(0..=2).contains(&margin_type))
+        {
+            return Err(WechatError::Config(
+                "work WeDrive watermark margin type must be 0, 1, or 2".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn validate_work_wedrive_identifier(label: &str, value: &str) -> Result<()> {
@@ -39204,6 +39314,22 @@ pub struct WorkWeDriveSpaceCreateResponse {
     pub extra: Value,
 }
 
+impl WorkWeDriveSpaceCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive space create",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_required_response_identifier("space id", self.spaceid.as_deref())
+    }
+
+    pub fn require_space_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.spaceid.as_deref().expect("validated space id"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveSpaceInfo {
     #[serde(default)]
@@ -39272,6 +39398,86 @@ pub struct WorkWeDriveSpaceInfoResponse {
     pub extra: Value,
 }
 
+impl WorkWeDriveSpaceInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive space info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.space_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDrive space info response requires space_info".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_space_info(&self) -> Result<&WorkWeDriveSpaceInfo> {
+        self.validate()?;
+        Ok(self.space_info.as_ref().expect("validated space info"))
+    }
+}
+
+impl WorkWeDriveSpaceInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_required_response_identifier("space id", self.spaceid.as_deref())?;
+        validate_work_wedrive_required_response_identifier(
+            "space name",
+            self.space_name.as_deref(),
+        )?;
+        if self.space_sub_type.is_some_and(|value| value < 0) {
+            return Err(WechatError::Config(
+                "work WeDrive space info subtype must be non-negative".to_string(),
+            ));
+        }
+        if let Some(auth_list) = &self.auth_list {
+            auth_list.validate()?;
+        }
+        if let Some(setting) = &self.secure_setting {
+            setting.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDriveAuthList {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response_auth_info(&self.auth_info)?;
+        let mut quit_users = HashSet::new();
+        for user_id in &self.quit_userid {
+            validate_work_wedrive_identifier("quit user id", user_id)?;
+            if !quit_users.insert(user_id.as_str()) {
+                return Err(WechatError::Config(
+                    "work WeDrive space info contains duplicate quit users".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDriveSpaceSecureSetting {
+    pub fn validate(&self) -> Result<()> {
+        for (label, auth) in [
+            (
+                "default share permission",
+                self.share_url_no_approve_default_auth,
+            ),
+            ("default file scope", self.default_file_scope),
+        ] {
+            if auth.is_some_and(|value| value <= 0) {
+                return Err(WechatError::Config(format!(
+                    "work WeDrive space info {label} must be positive"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveSpaceShareResponse {
     #[serde(default)]
@@ -39282,6 +39488,25 @@ pub struct WorkWeDriveSpaceShareResponse {
     pub space_share_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveSpaceShareResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive space share",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_response_url("space share URL", self.space_share_url.as_deref(), true)
+    }
+
+    pub fn require_share_url(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self
+            .space_share_url
+            .as_deref()
+            .expect("validated space share URL"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39311,6 +39536,35 @@ impl WorkWeDriveFileListResponse {
             .flatten()
             .filter(|start| *start >= 0)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let files = self.file_list.as_ref().ok_or_else(|| {
+            WechatError::Config("work WeDrive file list response requires file_list".to_string())
+        })?;
+        files.validate()?;
+        if self.has_more.is_none() {
+            return Err(WechatError::Config(
+                "work WeDrive file list response requires has_more".to_string(),
+            ));
+        }
+        if self.has_more() && self.next_start.is_none_or(|start| start < 0) {
+            return Err(WechatError::Config(
+                "work WeDrive file list response with more data requires a non-negative next_start"
+                    .to_string(),
+            ));
+        }
+        if !self.has_more() && self.next_start.is_some_and(|start| start < 0) {
+            return Err(WechatError::Config(
+                "work WeDrive file list response next_start cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39319,6 +39573,27 @@ pub struct WorkWeDriveFileList {
     pub item: Vec<WorkWeDriveFileInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileList {
+    pub fn validate(&self) -> Result<()> {
+        if self.item.len() > 1000 {
+            return Err(WechatError::Config(
+                "work WeDrive file list response cannot contain more than 1000 files".to_string(),
+            ));
+        }
+        let mut file_ids = HashSet::new();
+        for file in &self.item {
+            file.validate()?;
+            let file_id = file.fileid.as_deref().expect("validated file id");
+            if !file_ids.insert(file_id) {
+                return Err(WechatError::Config(
+                    "work WeDrive file list response contains duplicate file ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39331,6 +39606,22 @@ pub struct WorkWeDriveFileUploadResponse {
     pub fileid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileUploadResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file upload",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_required_response_identifier("file id", self.fileid.as_deref())
+    }
+
+    pub fn require_file_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.fileid.as_deref().expect("validated file id"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39360,6 +39651,63 @@ impl WorkWeDriveFileUploadInitResponse {
             .then_some(self.fileid.as_deref())
             .flatten()
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file upload init",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        match self.hit_exist {
+            Some(true) => {
+                validate_work_wedrive_required_response_identifier(
+                    "completed file id",
+                    self.fileid.as_deref(),
+                )?;
+                if self.upload_key.is_some() {
+                    return Err(WechatError::Config(
+                        "work WeDrive deduplicated upload response cannot contain upload_key"
+                            .to_string(),
+                    ));
+                }
+            }
+            Some(false) => {
+                validate_work_wedrive_required_response_identifier(
+                    "upload key",
+                    self.upload_key.as_deref(),
+                )?;
+                if self.fileid.is_some() {
+                    return Err(WechatError::Config(
+                        "work WeDrive pending upload response cannot contain fileid".to_string(),
+                    ));
+                }
+            }
+            None => {
+                return Err(WechatError::Config(
+                    "work WeDrive file upload init response requires hit_exist".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn require_upload_key(&self) -> Result<&str> {
+        self.validate()?;
+        self.upload_key.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work WeDrive deduplicated upload does not require an upload key".to_string(),
+            )
+        })
+    }
+
+    pub fn require_completed_file_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.completed_file_id().ok_or_else(|| {
+            WechatError::Config(
+                "work WeDrive pending upload does not have a completed file id".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39372,6 +39720,22 @@ pub struct WorkWeDriveFileUploadFinishResponse {
     pub fileid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileUploadFinishResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file upload finish",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_required_response_identifier("file id", self.fileid.as_deref())
+    }
+
+    pub fn require_file_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.fileid.as_deref().expect("validated file id"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39390,6 +39754,40 @@ pub struct WorkWeDriveFileDownloadResponse {
     pub extra: Value,
 }
 
+impl WorkWeDriveFileDownloadResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file download",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_response_url(
+            "file download URL",
+            self.download_url.as_deref(),
+            true,
+        )?;
+        match (self.cookie_name.as_deref(), self.cookie_value.as_deref()) {
+            (Some(name), Some(value)) => {
+                validate_work_wedrive_identifier("download cookie name", name)?;
+                validate_work_wedrive_identifier("download cookie value", value)
+            }
+            (None, None) => Ok(()),
+            _ => Err(WechatError::Config(
+                "work WeDrive file download response requires both cookie_name and cookie_value"
+                    .to_string(),
+            )),
+        }
+    }
+
+    pub fn require_download_url(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self
+            .download_url
+            .as_deref()
+            .expect("validated download URL"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileCreateResponse {
     #[serde(default)]
@@ -39402,6 +39800,23 @@ pub struct WorkWeDriveFileCreateResponse {
     pub url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file create",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_required_response_identifier("file id", self.fileid.as_deref())?;
+        validate_work_wedrive_response_url("created file URL", self.url.as_deref(), true)
+    }
+
+    pub fn require_file_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.fileid.as_deref().expect("validated file id"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39445,6 +39860,40 @@ impl WorkWeDriveFileInfo {
 
     pub fn status_kind(&self) -> WorkWeDriveFileStatusKind {
         WorkWeDriveFileStatusKind::from_code(self.file_status)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_required_response_identifier("file id", self.fileid.as_deref())?;
+        validate_work_wedrive_required_response_identifier("file name", self.file_name.as_deref())?;
+        for (label, code) in [
+            ("file type", self.file_type),
+            ("file status", self.file_status),
+        ] {
+            if code.is_some_and(|value| value <= 0) {
+                return Err(WechatError::Config(format!(
+                    "work WeDrive response {label} must be positive"
+                )));
+            }
+        }
+        for (label, value) in [
+            ("space id", self.spaceid.as_deref()),
+            ("parent id", self.fatherid.as_deref()),
+            ("creator user id", self.create_userid.as_deref()),
+            ("updater user id", self.update_userid.as_deref()),
+            ("SHA", self.sha.as_deref()),
+            ("MD5", self.md5.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_wedrive_identifier(label, value)?;
+            }
+        }
+        if matches!((self.ctime, self.mtime), (Some(created), Some(modified)) if modified < created)
+        {
+            return Err(WechatError::Config(
+                "work WeDrive file modified time cannot precede created time".to_string(),
+            ));
+        }
+        validate_work_wedrive_response_url("file URL", self.url.as_deref(), false)
     }
 }
 
@@ -39511,6 +39960,22 @@ pub struct WorkWeDriveFileRenameResponse {
     pub extra: Value,
 }
 
+impl WorkWeDriveFileRenameResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file rename",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.file
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work WeDrive file rename response requires file".to_string())
+            })?
+            .validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileInfoResponse {
     #[serde(default)]
@@ -39521,6 +39986,24 @@ pub struct WorkWeDriveFileInfoResponse {
     pub file_info: Option<WorkWeDriveFileInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.file_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDrive file info response requires file_info".to_string(),
+                )
+            })?
+            .validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39535,6 +40018,24 @@ pub struct WorkWeDriveFileMoveResponse {
     pub extra: Value,
 }
 
+impl WorkWeDriveFileMoveResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file move",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.file_list
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDrive file move response requires file_list".to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileShareResponse {
     #[serde(default)]
@@ -39545,6 +40046,22 @@ pub struct WorkWeDriveFileShareResponse {
     pub share_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileShareResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file share",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_wedrive_response_url("file share URL", self.share_url.as_deref(), true)
+    }
+
+    pub fn require_share_url(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.share_url.as_deref().expect("validated file share URL"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39569,6 +40086,28 @@ pub struct WorkWeDriveFilePermissionResponse {
     pub extra: Value,
 }
 
+impl WorkWeDriveFilePermissionResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive file permission",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(range) = &self.share_range {
+            range.validate()?;
+        }
+        validate_work_wedrive_response_auth_info(&self.member_list)?;
+        validate_work_wedrive_response_auth_info(&self.file_member_list)?;
+        if let Some(inherited) = &self.inherit_father_auth {
+            inherited.validate()?;
+        }
+        if let Some(watermark) = &self.watermark {
+            watermark.validate_response()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileShareRange {
     #[serde(default)]
@@ -39585,6 +40124,35 @@ pub struct WorkWeDriveFileShareRange {
     pub corp_external_approve_only_by_admin: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileShareRange {
+    pub fn validate(&self) -> Result<()> {
+        for (enabled, auth, label) in [
+            (
+                self.enable_corp_internal,
+                self.corp_internal_auth,
+                "internal sharing permission",
+            ),
+            (
+                self.enable_corp_external,
+                self.corp_external_auth,
+                "external sharing permission",
+            ),
+        ] {
+            if enabled == Some(true) && auth.is_none() {
+                return Err(WechatError::Config(format!(
+                    "work WeDrive file permission response requires {label} when sharing is enabled"
+                )));
+            }
+            if auth.is_some_and(|value| value <= 0) {
+                return Err(WechatError::Config(format!(
+                    "work WeDrive file permission response {label} must be positive"
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39611,6 +40179,12 @@ pub struct WorkWeDriveInheritedFileAuth {
     pub extra: Value,
 }
 
+impl WorkWeDriveInheritedFileAuth {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response_auth_info(&self.auth_list)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveProInfoResponse {
     #[serde(default)]
@@ -39632,6 +40206,45 @@ pub struct WorkWeDriveProInfoResponse {
 impl WorkWeDriveProInfoResponse {
     pub fn available_vip_accounts(&self) -> Option<u64> {
         self.total_vip_acct_num?.checked_sub(self.use_vip_acct_num?)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive professional info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let is_pro = self.is_pro.ok_or_else(|| {
+            WechatError::Config(
+                "work WeDrive professional info response requires is_pro".to_string(),
+            )
+        })?;
+        if is_pro
+            && (self.total_vip_acct_num.is_none()
+                || self.use_vip_acct_num.is_none()
+                || self.pro_expire_time.is_none())
+        {
+            return Err(WechatError::Config(
+                "work WeDrive professional account requires quota and expiry fields".to_string(),
+            ));
+        }
+        if self
+            .pro_expire_time
+            .is_some_and(|expire_time| is_pro && expire_time == 0)
+        {
+            return Err(WechatError::Config(
+                "work WeDrive professional account expiry must be positive".to_string(),
+            ));
+        }
+        if matches!(
+            (self.total_vip_acct_num, self.use_vip_acct_num),
+            (Some(total), Some(used)) if used > total
+        ) {
+            return Err(WechatError::Config(
+                "work WeDrive used VIP accounts cannot exceed total VIP accounts".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -39663,6 +40276,96 @@ impl WorkWeDriveCapacityResponse {
         self.total_capacity_for_vip?
             .checked_sub(self.rest_capacity_for_vip?)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_response(
+            "work WeDrive capacity",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let total = self.total_capacity_for_all.ok_or_else(|| {
+            WechatError::Config(
+                "work WeDrive capacity response requires total_capacity_for_all".to_string(),
+            )
+        })?;
+        let rest = self.rest_capacity_for_all.ok_or_else(|| {
+            WechatError::Config(
+                "work WeDrive capacity response requires rest_capacity_for_all".to_string(),
+            )
+        })?;
+        if rest > total {
+            return Err(WechatError::Config(
+                "work WeDrive remaining capacity cannot exceed total capacity".to_string(),
+            ));
+        }
+        match (self.total_capacity_for_vip, self.rest_capacity_for_vip) {
+            (Some(total), Some(rest)) if rest <= total => Ok(()),
+            (None, None) => Ok(()),
+            (Some(_), Some(_)) => Err(WechatError::Config(
+                "work WeDrive remaining VIP capacity cannot exceed total VIP capacity".to_string(),
+            )),
+            _ => Err(WechatError::Config(
+                "work WeDrive VIP capacity total and remaining fields must appear together"
+                    .to_string(),
+            )),
+        }
+    }
+}
+
+fn validate_work_wedrive_response(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    validate_work_response_success(operation, errcode, errmsg)
+}
+
+fn validate_work_wedrive_required_response_identifier(
+    label: &str,
+    value: Option<&str>,
+) -> Result<()> {
+    let value = value
+        .ok_or_else(|| WechatError::Config(format!("work WeDrive response requires {label}")))?;
+    validate_work_wedrive_identifier(label, value)
+}
+
+fn validate_work_wedrive_response_url(
+    label: &str,
+    value: Option<&str>,
+    required: bool,
+) -> Result<()> {
+    let Some(value) = value else {
+        return if required {
+            Err(WechatError::Config(format!(
+                "work WeDrive response requires {label}"
+            )))
+        } else {
+            Ok(())
+        };
+    };
+    validate_work_wedrive_identifier(label, value)?;
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work WeDrive {label} is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_wedrive_response_auth_info(auth_info: &[WorkWeDriveAuthInfo]) -> Result<()> {
+    validate_work_wedrive_auth_info(auth_info, true)?;
+    if auth_info
+        .iter()
+        .any(|member| member.create_time.is_some_and(|time| time < 0))
+    {
+        return Err(WechatError::Config(
+            "work WeDrive ACL create time cannot be negative".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54148,6 +54851,233 @@ mod tests {
         let missing_viewer: WorkLivingShareInfoResponse =
             serde_json::from_value(json!({ "livingid": "living-1" })).unwrap();
         assert!(missing_viewer.validate().is_err());
+    }
+
+    #[test]
+    fn validates_work_oa_wedrive_response_contracts() {
+        let created: WorkWeDriveSpaceCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "spaceid": "space-1" })).unwrap();
+        assert_eq!(created.require_space_id().unwrap(), "space-1");
+        let api_error: WorkWeDriveSpaceCreateResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid space"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+        let missing_space: WorkWeDriveSpaceCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_space.validate().is_err());
+
+        let space: WorkWeDriveSpaceInfoResponse = serde_json::from_value(json!({
+            "space_info": {
+                "spaceid": "space-1",
+                "space_name": "Production",
+                "space_sub_type": 99,
+                "auth_list": {
+                    "auth_info": [{
+                        "type": 1,
+                        "userid": "member",
+                        "auth": 7,
+                        "create_time": 1_800_000_000
+                    }],
+                    "quit_userid": ["former-member"]
+                },
+                "secure_setting": {
+                    "share_url_no_approve_default_auth": 99,
+                    "default_file_scope": 99
+                }
+            }
+        }))
+        .unwrap();
+        assert_eq!(
+            space.require_space_info().unwrap().spaceid.as_deref(),
+            Some("space-1")
+        );
+        let duplicate_acl: WorkWeDriveSpaceInfoResponse = serde_json::from_value(json!({
+            "space_info": {
+                "spaceid": "space-1",
+                "space_name": "Production",
+                "auth_list": {
+                    "auth_info": [
+                        { "type": 1, "userid": "member", "auth": 1 },
+                        { "type": 1, "userid": "member", "auth": 4 }
+                    ]
+                }
+            }
+        }))
+        .unwrap();
+        assert!(duplicate_acl.validate().is_err());
+
+        let share: WorkWeDriveSpaceShareResponse = serde_json::from_value(json!({
+            "space_share_url": "https://example.com/space"
+        }))
+        .unwrap();
+        assert_eq!(
+            share.require_share_url().unwrap(),
+            "https://example.com/space"
+        );
+        let invalid_share: WorkWeDriveSpaceShareResponse =
+            serde_json::from_value(json!({ "space_share_url": "/relative" })).unwrap();
+        assert!(invalid_share.validate().is_err());
+
+        let file = json!({
+            "fileid": "file-1",
+            "file_name": "release.txt",
+            "file_type": 99,
+            "file_status": 99,
+            "spaceid": "space-1",
+            "ctime": 1_800_000_000,
+            "mtime": 1_800_000_100,
+            "url": "https://example.com/file"
+        });
+        let list: WorkWeDriveFileListResponse = serde_json::from_value(json!({
+            "has_more": true,
+            "next_start": 100,
+            "file_list": { "item": [file.clone()] }
+        }))
+        .unwrap();
+        assert!(list.validate().is_ok());
+        assert_eq!(list.next_start(), Some(100));
+        let missing_cursor: WorkWeDriveFileListResponse = serde_json::from_value(json!({
+            "has_more": true,
+            "file_list": { "item": [] }
+        }))
+        .unwrap();
+        assert!(missing_cursor.validate().is_err());
+        let duplicate_files: WorkWeDriveFileListResponse = serde_json::from_value(json!({
+            "has_more": false,
+            "file_list": { "item": [file.clone(), file.clone()] }
+        }))
+        .unwrap();
+        assert!(duplicate_files.validate().is_err());
+
+        let upload: WorkWeDriveFileUploadResponse =
+            serde_json::from_value(json!({ "fileid": "file-1" })).unwrap();
+        assert_eq!(upload.require_file_id().unwrap(), "file-1");
+        let pending: WorkWeDriveFileUploadInitResponse = serde_json::from_value(json!({
+            "hit_exist": false,
+            "upload_key": "upload-1"
+        }))
+        .unwrap();
+        assert_eq!(pending.require_upload_key().unwrap(), "upload-1");
+        let completed: WorkWeDriveFileUploadInitResponse = serde_json::from_value(json!({
+            "hit_exist": true,
+            "fileid": "file-1"
+        }))
+        .unwrap();
+        assert_eq!(completed.require_completed_file_id().unwrap(), "file-1");
+        let contradictory_init: WorkWeDriveFileUploadInitResponse = serde_json::from_value(json!({
+            "hit_exist": true,
+            "fileid": "file-1",
+            "upload_key": "upload-1"
+        }))
+        .unwrap();
+        assert!(contradictory_init.validate().is_err());
+
+        let download: WorkWeDriveFileDownloadResponse = serde_json::from_value(json!({
+            "download_url": "https://example.com/file",
+            "cookie_name": "SESSION",
+            "cookie_value": "value"
+        }))
+        .unwrap();
+        assert_eq!(
+            download.require_download_url().unwrap(),
+            "https://example.com/file"
+        );
+        let incomplete_cookie: WorkWeDriveFileDownloadResponse = serde_json::from_value(json!({
+            "download_url": "https://example.com/file",
+            "cookie_name": "SESSION"
+        }))
+        .unwrap();
+        assert!(incomplete_cookie.validate().is_err());
+
+        let create: WorkWeDriveFileCreateResponse = serde_json::from_value(json!({
+            "fileid": "file-1",
+            "url": "https://example.com/document"
+        }))
+        .unwrap();
+        assert_eq!(create.require_file_id().unwrap(), "file-1");
+        let renamed: WorkWeDriveFileRenameResponse =
+            serde_json::from_value(json!({ "file": file.clone() })).unwrap();
+        assert!(renamed.validate().is_ok());
+        let info: WorkWeDriveFileInfoResponse =
+            serde_json::from_value(json!({ "file_info": file.clone() })).unwrap();
+        assert!(info.validate().is_ok());
+        let moved: WorkWeDriveFileMoveResponse =
+            serde_json::from_value(json!({ "file_list": { "item": [file.clone()] } })).unwrap();
+        assert!(moved.validate().is_ok());
+        let invalid_time: WorkWeDriveFileInfoResponse = serde_json::from_value(json!({
+            "file_info": {
+                "fileid": "file-1",
+                "file_name": "release.txt",
+                "ctime": 200,
+                "mtime": 100
+            }
+        }))
+        .unwrap();
+        assert!(invalid_time.validate().is_err());
+
+        let permission: WorkWeDriveFilePermissionResponse = serde_json::from_value(json!({
+            "share_range": {
+                "enable_corp_internal": true,
+                "corp_internal_auth": 99
+            },
+            "member_list": [{
+                "type": 1,
+                "userid": "member",
+                "auth": 1
+            }],
+            "watermark": { "margin_type": 2 }
+        }))
+        .unwrap();
+        assert!(permission.validate().is_ok());
+        let missing_permission: WorkWeDriveFilePermissionResponse = serde_json::from_value(json!({
+            "share_range": { "enable_corp_internal": true }
+        }))
+        .unwrap();
+        assert!(missing_permission.validate().is_err());
+        let invalid_watermark: WorkWeDriveFilePermissionResponse = serde_json::from_value(json!({
+            "watermark": { "margin_type": 3 }
+        }))
+        .unwrap();
+        assert!(invalid_watermark.validate().is_err());
+
+        let pro: WorkWeDriveProInfoResponse = serde_json::from_value(json!({
+            "is_pro": true,
+            "total_vip_acct_num": 10,
+            "use_vip_acct_num": 4,
+            "pro_expire_time": 1_800_000_000
+        }))
+        .unwrap();
+        assert!(pro.validate().is_ok());
+        assert_eq!(pro.available_vip_accounts(), Some(6));
+        let overused: WorkWeDriveProInfoResponse = serde_json::from_value(json!({
+            "is_pro": true,
+            "total_vip_acct_num": 1,
+            "use_vip_acct_num": 2,
+            "pro_expire_time": 1_800_000_000
+        }))
+        .unwrap();
+        assert!(overused.validate().is_err());
+
+        let capacity: WorkWeDriveCapacityResponse = serde_json::from_value(json!({
+            "total_capacity_for_all": 1000,
+            "rest_capacity_for_all": 250,
+            "total_capacity_for_vip": 600,
+            "rest_capacity_for_vip": 100
+        }))
+        .unwrap();
+        assert!(capacity.validate().is_ok());
+        assert_eq!(capacity.used_capacity_for_all(), Some(750));
+        let invalid_capacity: WorkWeDriveCapacityResponse = serde_json::from_value(json!({
+            "total_capacity_for_all": 100,
+            "rest_capacity_for_all": 101
+        }))
+        .unwrap();
+        assert!(invalid_capacity.validate().is_err());
     }
 
     #[test]
