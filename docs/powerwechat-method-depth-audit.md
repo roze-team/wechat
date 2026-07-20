@@ -1245,6 +1245,15 @@ Implemented on 2026-07-18 in Work media upload/download depth:
 - media downloads now decode RFC 5987 UTF-8 filenames, reject malformed
   content ranges semantically, and expose expected body length, complete-body,
   successful-response, consistent-range, and resumable-download helpers;
+- complete-media, ranged-media, and JSSDK download network exits now enforce
+  successful non-empty responses, parseable content lengths and ranges, and
+  exact body-length consistency before returning bytes; ranged downloads also
+  require status 206, the requested start offset, and an end offset no later
+  than requested, preventing ignored or mismatched range responses from being
+  appended to resumable files;
+- attachment image/video uploads now enforce the same minimum and 2/10 MiB
+  maximum byte boundaries as their corresponding temporary-media kinds before
+  multipart network I/O;
 - asynchronous URL-upload results classify invalid URL, download failure,
   oversized-file, MD5-mismatch, and forward-compatible unknown detail errors,
   with terminal and retryable-failure helpers for polling workers.

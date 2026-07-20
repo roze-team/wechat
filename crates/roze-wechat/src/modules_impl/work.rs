@@ -3124,15 +3124,7 @@ impl Work {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
-        let media_id = media_id.into();
-        validate_work_media_identifier("media id", &media_id)?;
-        self.inner
-            .get_bytes(
-                "cgi-bin/media/get",
-                Some(access_token.into()),
-                vec![("media_id".to_string(), media_id)],
-            )
-            .await
+        Ok(self.get_media_download(access_token, media_id).await?.body)
     }
 
     pub async fn get_media_download(
@@ -3151,7 +3143,9 @@ impl Work {
                 Vec::new(),
             )
             .await?;
-        Ok(response.into())
+        let response = WorkMediaDownload::from(response);
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_media_range(
@@ -3173,7 +3167,9 @@ impl Work {
                 vec![("range".to_string(), range)],
             )
             .await?;
-        Ok(response.into())
+        let response = WorkMediaDownload::from(response);
+        response.validate_range(start, end_inclusive)?;
+        Ok(response)
     }
 
     pub async fn get_jssdk_media(
@@ -3181,15 +3177,10 @@ impl Work {
         access_token: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
-        let media_id = media_id.into();
-        validate_work_media_identifier("JSSDK media id", &media_id)?;
-        self.inner
-            .get_bytes(
-                "cgi-bin/media/get/jssdk",
-                Some(access_token.into()),
-                vec![("media_id".to_string(), media_id)],
-            )
-            .await
+        Ok(self
+            .get_jssdk_media_download(access_token, media_id)
+            .await?
+            .body)
     }
 
     pub async fn get_jssdk_media_download(
@@ -3208,7 +3199,9 @@ impl Work {
                 Vec::new(),
             )
             .await?;
-        Ok(response.into())
+        let response = WorkMediaDownload::from(response);
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn upload_work_image_from_bytes(
@@ -3357,7 +3350,7 @@ impl Work {
         let file_name = file_name.into();
         validate_work_media_type(&media_type, false)?;
         validate_work_media_identifier("attachment type", &attachment_type)?;
-        validate_work_media_file(&file_name, &data)?;
+        validate_work_attachment_media_file(&media_type, &file_name, &data)?;
         let media_kind = WorkMediaTypeKind::from_code(&media_type);
         let content_type = work_media_content_type(media_kind, &file_name)?;
         let form = reqwest::multipart::Form::new().part(
@@ -23936,6 +23929,26 @@ fn validate_work_temp_media_file(media_type: &str, file_name: &str, data: &[u8])
     )
 }
 
+fn validate_work_attachment_media_file(
+    media_type: &str,
+    file_name: &str,
+    data: &[u8],
+) -> Result<()> {
+    validate_work_media_file(file_name, data)?;
+    let kind = WorkMediaTypeKind::from_code(media_type);
+    let max_bytes = match kind {
+        WorkMediaTypeKind::Image => WORK_IMAGE_MAX_BYTES,
+        WorkMediaTypeKind::Video => WORK_VIDEO_MAX_BYTES,
+        _ => {
+            return Err(WechatError::Config(
+                "work attachment media type must be image or video".to_string(),
+            ));
+        }
+    };
+    work_media_content_type(kind, file_name)?;
+    validate_work_media_size("attachment", data.len(), WORK_MEDIA_MIN_BYTES, max_bytes)
+}
+
 fn validate_work_media_size(
     label: &str,
     actual_bytes: usize,
@@ -24168,6 +24181,78 @@ impl WorkMediaDownload {
             && self.has_complete_body()
             && (self.accepts_byte_ranges() || self.is_partial())
             && self.next_range_start().is_some()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.is_successful() {
+            return Err(WechatError::Config(format!(
+                "work media download response requires a successful status, got {}",
+                self.status
+            )));
+        }
+        if self.body.is_empty() {
+            return Err(WechatError::Config(
+                "work media download response body cannot be empty".to_string(),
+            ));
+        }
+        if self
+            .header("content-length")
+            .is_some_and(|_| self.content_length().is_none())
+        {
+            return Err(WechatError::Config(
+                "work media download response has an invalid content-length".to_string(),
+            ));
+        }
+        if self
+            .header("content-range")
+            .is_some_and(|_| self.content_range().is_none())
+        {
+            return Err(WechatError::Config(
+                "work media download response has an invalid content-range".to_string(),
+            ));
+        }
+        if !self.has_consistent_range() {
+            return Err(WechatError::Config(
+                "work media download response range is inconsistent".to_string(),
+            ));
+        }
+        if !self.has_complete_body() {
+            return Err(WechatError::Config(
+                "work media download response body length is incomplete".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_range(&self, start: u64, end_inclusive: Option<u64>) -> Result<()> {
+        work_media_range_header(start, end_inclusive)?;
+        self.validate()?;
+        if !self.is_partial() {
+            return Err(WechatError::Config(format!(
+                "work media range response requires status 206, got {}",
+                self.status
+            )));
+        }
+        let range = self.content_range().ok_or_else(|| {
+            WechatError::Config(
+                "work media range response requires a valid content-range".to_string(),
+            )
+        })?;
+        if range.start != start {
+            return Err(WechatError::Config(format!(
+                "work media range response starts at {}, expected {start}",
+                range.start
+            )));
+        }
+        if let Some(expected_end) = end_inclusive {
+            if range.end_inclusive > expected_end {
+                return Err(WechatError::Config(format!(
+                    "work media range response ends at {}, beyond requested end {expected_end}",
+                    range.end_inclusive
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -51910,6 +51995,10 @@ mod tests {
         assert!(validate_work_temp_media_file("voice", "voice.mp3", b"voice!").is_err());
         assert!(validate_work_temp_media_file("video", "video.MP4", b"video!").is_ok());
         assert!(validate_work_temp_media_file("file", "archive.bin", b"file!!").is_ok());
+        assert!(validate_work_attachment_media_file("image", "image.png", b"image!").is_ok());
+        assert!(validate_work_attachment_media_file("video", "video.mp4", b"video!").is_ok());
+        assert!(validate_work_attachment_media_file("voice", "voice.amr", b"voice!").is_err());
+        assert!(validate_work_attachment_media_file("image", "image.png", b"tiny").is_err());
         assert_eq!(
             work_media_content_type(WorkMediaTypeKind::Image, "photo.JPG").unwrap(),
             "image/jpeg"
@@ -52000,6 +52089,7 @@ mod tests {
         assert!(full.has_consistent_range());
         assert!(full.has_complete_body());
         assert!(!full.is_resumable());
+        assert!(full.validate().is_ok());
         assert_eq!(full.body.len(), 10);
 
         let encoded_name = WorkMediaDownload {
@@ -52040,6 +52130,11 @@ mod tests {
         assert!(partial.has_consistent_range());
         assert!(partial.has_complete_body());
         assert!(partial.is_resumable());
+        assert!(partial.validate().is_ok());
+        assert!(partial.validate_range(10, Some(24)).is_ok());
+        assert!(partial.validate_range(10, None).is_ok());
+        assert!(partial.validate_range(9, Some(24)).is_err());
+        assert!(partial.validate_range(10, Some(18)).is_err());
 
         let final_chunk = WorkMediaDownload {
             status: 206,
@@ -52048,6 +52143,8 @@ mod tests {
         };
         assert_eq!(final_chunk.next_range_start(), None);
         assert!(!final_chunk.is_resumable());
+        assert!(final_chunk.validate().is_ok());
+        assert!(final_chunk.validate_range(20, Some(30)).is_ok());
         let malformed_range = WorkMediaDownload {
             status: 206,
             headers: vec![("content-range".to_string(), "bytes 20-25/25".to_string())],
@@ -52055,6 +52152,7 @@ mod tests {
         };
         assert_eq!(malformed_range.content_range(), None);
         assert!(!malformed_range.has_consistent_range());
+        assert!(malformed_range.validate().is_err());
         let truncated = WorkMediaDownload {
             status: 206,
             headers: vec![
@@ -52065,6 +52163,26 @@ mod tests {
         };
         assert!(!truncated.has_complete_body());
         assert!(!truncated.is_resumable());
+        assert!(truncated.validate().is_err());
+        let empty = WorkMediaDownload {
+            status: 200,
+            headers: Vec::new(),
+            body: bytes::Bytes::new(),
+        };
+        assert!(empty.validate().is_err());
+        let invalid_length = WorkMediaDownload {
+            status: 200,
+            headers: vec![("content-length".to_string(), "invalid".to_string())],
+            body: bytes::Bytes::from_static(b"data"),
+        };
+        assert!(invalid_length.validate().is_err());
+        let ignored_range = WorkMediaDownload {
+            status: 200,
+            headers: vec![("content-length".to_string(), "4".to_string())],
+            body: bytes::Bytes::from_static(b"data"),
+        };
+        assert!(ignored_range.validate().is_ok());
+        assert!(ignored_range.validate_range(0, Some(3)).is_err());
         assert_eq!(
             work_media_range_header(0, Some(1023)).unwrap(),
             "bytes=0-1023"
