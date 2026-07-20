@@ -3220,6 +3220,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkLinkedCorpMessage,
     ) -> Result<WorkLinkedCorpMessageSendResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/linkedcorp/message/send",
@@ -3234,6 +3235,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkExternalContactSchoolMessage,
     ) -> Result<WorkExternalContactSchoolMessageSendResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/message/send",
@@ -6117,6 +6119,7 @@ impl Work {
         access_token: impl Into<String>,
         request: AppChatMessage,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post("cgi-bin/appchat/send", Some(access_token.into()), request)
             .await
@@ -7496,53 +7499,33 @@ impl WorkMessage {
             toparty: self.toparty.clone(),
             totag: self.totag.clone(),
             agentid: self.agentid,
-            safe: self.safe,
+            safe: None,
             enable_id_trans: self.enable_id_trans,
             enable_duplicate_check: self.enable_duplicate_check,
             duplicate_check_interval: self.duplicate_check_interval,
         }
         .validate()?;
 
-        let payloads = [
-            ("text", self.text.as_ref().map(to_value)),
-            ("image", self.image.as_ref().map(to_value)),
-            ("voice", self.voice.as_ref().map(to_value)),
-            ("video", self.video.as_ref().map(to_value)),
-            ("file", self.file.as_ref().map(to_value)),
-            ("markdown", self.markdown.as_ref().map(to_value)),
-            ("textcard", self.textcard.as_ref().map(to_value)),
-            ("news", self.news.as_ref().map(to_value)),
-            ("mpnews", self.mpnews.as_ref().map(to_value)),
-            (
-                "miniprogram_notice",
-                self.miniprogram_notice.as_ref().map(to_value),
-            ),
-            ("taskcard", self.taskcard.as_ref().map(to_value)),
-            ("template_card", self.template_card.as_ref().map(to_value)),
-        ];
-        let populated = payloads
-            .into_iter()
-            .filter_map(|(kind, payload)| payload.map(|payload| (kind, payload)))
-            .collect::<Vec<_>>();
-        if populated.len() != 1 {
-            return Err(WechatError::Config(
-                "work messages require exactly one typed payload".to_string(),
-            ));
-        }
-        let (payload_kind, payload) = &populated[0];
-        let expected_kind = self.msgtype_kind().as_code();
-        if expected_kind == WorkMessageTypeKind::Other.as_code() || expected_kind != *payload_kind {
-            return Err(WechatError::Config(
-                "work message type must match its typed payload".to_string(),
-            ));
-        }
-        validate_work_message_payload(
-            expected_kind,
-            payload.as_ref().map_err(|error| {
-                WechatError::Config(format!(
-                    "work message payload cannot be serialized: {error}"
-                ))
-            })?,
+        validate_work_message_safe(self.msgtype_kind(), self.safe)?;
+        validate_work_message_payload_set(
+            self.msgtype_kind(),
+            [
+                ("text", self.text.as_ref().map(to_value)),
+                ("image", self.image.as_ref().map(to_value)),
+                ("voice", self.voice.as_ref().map(to_value)),
+                ("video", self.video.as_ref().map(to_value)),
+                ("file", self.file.as_ref().map(to_value)),
+                ("markdown", self.markdown.as_ref().map(to_value)),
+                ("textcard", self.textcard.as_ref().map(to_value)),
+                ("news", self.news.as_ref().map(to_value)),
+                ("mpnews", self.mpnews.as_ref().map(to_value)),
+                (
+                    "miniprogram_notice",
+                    self.miniprogram_notice.as_ref().map(to_value),
+                ),
+                ("taskcard", self.taskcard.as_ref().map(to_value)),
+                ("template_card", self.template_card.as_ref().map(to_value)),
+            ],
         )
     }
 }
@@ -7928,28 +7911,17 @@ impl WorkMessageAudience {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.agentid <= 0 {
-            return Err(WechatError::Config(
-                "work message agent id must be positive".to_string(),
-            ));
-        }
+        validate_work_message_agent_id(self.agentid)?;
         let recipients = [
-            ("user recipients", self.touser.as_deref()),
-            ("department recipients", self.toparty.as_deref()),
-            ("tag recipients", self.totag.as_deref()),
+            ("user recipients", self.touser.as_deref(), 1_000),
+            ("department recipients", self.toparty.as_deref(), 100),
+            ("tag recipients", self.totag.as_deref(), 100),
         ];
         let mut has_recipient = false;
-        for (label, value) in recipients {
+        for (label, value, maximum) in recipients {
             if let Some(value) = value {
                 has_recipient = true;
-                if value
-                    .split('|')
-                    .any(|identifier| identifier.trim().is_empty())
-                {
-                    return Err(WechatError::Config(format!(
-                        "work message {label} must contain non-empty pipe-delimited identifiers"
-                    )));
-                }
+                validate_work_message_recipient_string(label, value, maximum)?;
             }
         }
         if !has_recipient {
@@ -7957,28 +7929,121 @@ impl WorkMessageAudience {
                 "work messages require at least one user, department, or tag recipient".to_string(),
             ));
         }
-        for (label, value) in [
-            ("safe", self.safe),
-            ("ID translation", self.enable_id_trans),
-            ("duplicate check", self.enable_duplicate_check),
-        ] {
-            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
-                return Err(WechatError::Config(format!(
-                    "work message {label} must be 0 or 1"
-                )));
-            }
-        }
-        if self
-            .duplicate_check_interval
-            .is_some_and(|interval| !(1..=10_000).contains(&interval))
-        {
-            return Err(WechatError::Config(
-                "work message duplicate-check interval must be between 1 and 10000 seconds"
-                    .to_string(),
-            ));
-        }
-        Ok(())
+        validate_work_message_boolean("safe", self.safe)?;
+        validate_work_message_boolean("ID translation", self.enable_id_trans)?;
+        validate_work_message_boolean("duplicate check", self.enable_duplicate_check)?;
+        validate_work_message_duplicate_interval(self.duplicate_check_interval)
     }
+}
+
+fn validate_work_message_agent_id(agent_id: i64) -> Result<()> {
+    if agent_id <= 0 {
+        return Err(WechatError::Config(
+            "work message agent id must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_message_boolean(label: &str, value: Option<i64>) -> Result<()> {
+    if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+        return Err(WechatError::Config(format!(
+            "work message {label} must be 0 or 1"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_message_duplicate_interval(interval: Option<i64>) -> Result<()> {
+    if interval.is_some_and(|interval| !(1..=14_400).contains(&interval)) {
+        return Err(WechatError::Config(
+            "work message duplicate-check interval must be between 1 and 14400 seconds".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_message_recipient_string(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let identifiers = value.split('|').map(str::trim).collect::<Vec<_>>();
+    if identifiers.is_empty()
+        || identifiers.len() > maximum
+        || identifiers.iter().any(|identifier| identifier.is_empty())
+    {
+        return Err(WechatError::Config(format!(
+            "work message {label} must contain 1 to {maximum} non-empty pipe-delimited identifiers"
+        )));
+    }
+    let unique = identifiers
+        .iter()
+        .copied()
+        .collect::<std::collections::HashSet<_>>();
+    if unique.len() != identifiers.len() {
+        return Err(WechatError::Config(format!(
+            "work message {label} cannot contain duplicates"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_message_id_list(
+    label: &str,
+    identifiers: &[String],
+    maximum: usize,
+) -> Result<()> {
+    if identifiers.len() > maximum
+        || identifiers
+            .iter()
+            .any(|identifier| identifier.trim().is_empty())
+        || has_duplicate_strings(identifiers)
+    {
+        return Err(WechatError::Config(format!(
+            "work message {label} must contain at most {maximum} unique non-empty identifiers"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_message_safe(message_type: WorkMessageTypeKind, safe: Option<i64>) -> Result<()> {
+    let valid = match message_type {
+        WorkMessageTypeKind::MpNews => safe.is_none_or(|safe| matches!(safe, 0..=2)),
+        _ => safe.is_none_or(|safe| matches!(safe, 0 | 1)),
+    };
+    if !valid {
+        return Err(WechatError::Config(
+            "work message safe must be 0 or 1, except mpnews which also supports 2".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_message_payload_set<const N: usize>(
+    message_type: WorkMessageTypeKind,
+    payloads: [(&str, Option<serde_json::Result<Value>>); N],
+) -> Result<()> {
+    let populated = payloads
+        .into_iter()
+        .filter_map(|(kind, payload)| payload.map(|payload| (kind, payload)))
+        .collect::<Vec<_>>();
+    if populated.len() != 1 {
+        return Err(WechatError::Config(
+            "work messages require exactly one typed payload".to_string(),
+        ));
+    }
+    let (payload_kind, payload) = &populated[0];
+    let expected_kind = message_type.as_code();
+    if expected_kind == WorkMessageTypeKind::Other.as_code() || expected_kind != *payload_kind {
+        return Err(WechatError::Config(
+            "work message type must match its typed payload".to_string(),
+        ));
+    }
+    validate_work_message_payload(
+        expected_kind,
+        payload.as_ref().map_err(|error| {
+            WechatError::Config(format!(
+                "work message payload cannot be serialized: {error}"
+            ))
+        })?,
+    )
 }
 
 fn validate_work_message_identifier(label: &str, value: &str) -> Result<()> {
@@ -7998,49 +8063,239 @@ fn work_message_payload_string<'a>(payload: &'a Value, field: &str) -> Option<&'
         .filter(|value| !value.trim().is_empty())
 }
 
-fn validate_work_message_payload(msg_type: &str, payload: &Value) -> Result<()> {
-    let kind = WorkMessageTypeKind::from_code(msg_type);
-    let valid = match kind {
-        WorkMessageTypeKind::Text | WorkMessageTypeKind::Markdown => {
-            work_message_payload_string(payload, "content").is_some()
-        }
-        WorkMessageTypeKind::Image | WorkMessageTypeKind::Voice | WorkMessageTypeKind::File => {
-            work_message_payload_string(payload, "media_id").is_some()
-        }
-        WorkMessageTypeKind::Video => work_message_payload_string(payload, "media_id").is_some(),
-        WorkMessageTypeKind::TextCard => ["title", "description", "url"]
-            .into_iter()
-            .all(|field| work_message_payload_string(payload, field).is_some()),
-        WorkMessageTypeKind::News | WorkMessageTypeKind::MpNews => payload
-            .as_object()
-            .and_then(|object| object.get("articles"))
-            .and_then(Value::as_array)
-            .is_some_and(|articles| (1..=8).contains(&articles.len())),
-        WorkMessageTypeKind::MiniProgramNotice => ["appid", "title"]
-            .into_iter()
-            .all(|field| work_message_payload_string(payload, field).is_some()),
-        WorkMessageTypeKind::TaskCard => {
-            ["title", "description", "task_id"]
-                .into_iter()
-                .all(|field| work_message_payload_string(payload, field).is_some())
-                && payload
-                    .as_object()
-                    .and_then(|object| object.get("btn"))
-                    .and_then(Value::as_array)
-                    .is_some_and(|buttons| !buttons.is_empty())
-        }
-        WorkMessageTypeKind::TemplateCard => work_message_payload_string(payload, "card_type")
-            .is_some_and(|card_type| {
-                WorkTemplateCardTypeKind::from_code(card_type) != WorkTemplateCardTypeKind::Other
-            }),
-        WorkMessageTypeKind::MarkdownV2 | WorkMessageTypeKind::Other => false,
-    };
-    if !valid {
+fn validate_work_message_payload_string(
+    payload: &Value,
+    field: &str,
+    maximum_bytes: usize,
+) -> Result<()> {
+    let value = work_message_payload_string(payload, field).ok_or_else(|| {
+        WechatError::Config(format!(
+            "work message payload field {field} cannot be empty"
+        ))
+    })?;
+    if value.len() > maximum_bytes {
         return Err(WechatError::Config(format!(
-            "work message {msg_type} payload is missing required fields or exceeds its item limit"
+            "work message payload field {field} cannot exceed {maximum_bytes} UTF-8 bytes"
         )));
     }
     Ok(())
+}
+
+fn validate_work_message_optional_payload_string(
+    payload: &Value,
+    field: &str,
+    maximum_bytes: usize,
+) -> Result<()> {
+    let Some(value) = payload.as_object().and_then(|object| object.get(field)) else {
+        return Ok(());
+    };
+    let value = value.as_str().ok_or_else(|| {
+        WechatError::Config(format!(
+            "work message payload field {field} must be a string"
+        ))
+    })?;
+    if value.len() > maximum_bytes {
+        return Err(WechatError::Config(format!(
+            "work message payload field {field} cannot exceed {maximum_bytes} UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_message_http_url(payload: &Value, field: &str, required: bool) -> Result<()> {
+    let value = payload
+        .as_object()
+        .and_then(|object| object.get(field))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let Some(value) = value else {
+        if required {
+            return Err(WechatError::Config(format!(
+                "work message payload field {field} requires an absolute HTTP(S) URL"
+            )));
+        }
+        return Ok(());
+    };
+    if value.len() > 2_048 {
+        return Err(WechatError::Config(format!(
+            "work message payload field {field} cannot exceed 2048 UTF-8 bytes"
+        )));
+    }
+    let url = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!(
+            "work message payload field {field} is not a valid URL: {error}"
+        ))
+    })?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work message payload field {field} requires an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_message_articles(
+    payload: &Value,
+    message_type: WorkMessageTypeKind,
+) -> Result<()> {
+    let articles = payload
+        .as_object()
+        .and_then(|object| object.get("articles"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| WechatError::Config("work message articles must be an array".to_string()))?;
+    if !(1..=8).contains(&articles.len()) {
+        return Err(WechatError::Config(
+            "work message articles must contain 1 to 8 items".to_string(),
+        ));
+    }
+    for article in articles {
+        validate_work_message_payload_string(article, "title", 128)?;
+        match message_type {
+            WorkMessageTypeKind::News => {
+                validate_work_message_optional_payload_string(article, "description", 512)?;
+                validate_work_message_http_url(article, "url", true)?;
+                validate_work_message_http_url(article, "picurl", false)?;
+            }
+            WorkMessageTypeKind::MpNews => {
+                validate_work_message_payload_string(article, "thumb_media_id", 512)?;
+                validate_work_message_optional_payload_string(article, "author", 64)?;
+                validate_work_message_optional_payload_string(article, "digest", 512)?;
+                validate_work_message_optional_payload_string(article, "content", 666 * 1_024)?;
+                validate_work_message_http_url(article, "content_source_url", false)?;
+            }
+            _ => unreachable!("article validation only accepts news and mpnews"),
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_message_mini_program_notice(payload: &Value) -> Result<()> {
+    validate_work_message_payload_string(payload, "appid", 128)?;
+    validate_work_message_payload_string(payload, "title", 48)?;
+    let title = work_message_payload_string(payload, "title").unwrap_or_default();
+    if !(4..=12).contains(&title.chars().count()) {
+        return Err(WechatError::Config(
+            "work mini-program notice title must contain 4 to 12 characters".to_string(),
+        ));
+    }
+    if let Some(description) = payload
+        .as_object()
+        .and_then(|object| object.get("description"))
+        .and_then(Value::as_str)
+    {
+        if !(4..=12).contains(&description.chars().count()) {
+            return Err(WechatError::Config(
+                "work mini-program notice description must contain 4 to 12 characters".to_string(),
+            ));
+        }
+    }
+    validate_work_message_optional_payload_string(payload, "page", 1_024)?;
+    let items = payload
+        .as_object()
+        .and_then(|object| object.get("content_item"))
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    if items.len() > 10 {
+        return Err(WechatError::Config(
+            "work mini-program notices support at most 10 content items".to_string(),
+        ));
+    }
+    for item in items {
+        let key = work_message_payload_string(item, "key").ok_or_else(|| {
+            WechatError::Config("work mini-program notice item key cannot be empty".to_string())
+        })?;
+        let value = work_message_payload_string(item, "value").ok_or_else(|| {
+            WechatError::Config("work mini-program notice item value cannot be empty".to_string())
+        })?;
+        if key.chars().count() > 10 || value.chars().count() > 30 {
+            return Err(WechatError::Config(
+                "work mini-program notice item keys support 10 characters and values support 30"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_message_payload(msg_type: &str, payload: &Value) -> Result<()> {
+    let kind = WorkMessageTypeKind::from_code(msg_type);
+    match kind {
+        WorkMessageTypeKind::Text | WorkMessageTypeKind::Markdown => {
+            validate_work_message_payload_string(payload, "content", 2_048)
+        }
+        WorkMessageTypeKind::Image | WorkMessageTypeKind::Voice | WorkMessageTypeKind::File => {
+            validate_work_message_payload_string(payload, "media_id", 512)
+        }
+        WorkMessageTypeKind::Video => {
+            validate_work_message_payload_string(payload, "media_id", 512)?;
+            validate_work_message_optional_payload_string(payload, "title", 128)?;
+            validate_work_message_optional_payload_string(payload, "description", 512)
+        }
+        WorkMessageTypeKind::TextCard => {
+            validate_work_message_payload_string(payload, "title", 128)?;
+            validate_work_message_payload_string(payload, "description", 512)?;
+            validate_work_message_http_url(payload, "url", true)?;
+            if let Some(button_text) = payload
+                .as_object()
+                .and_then(|object| object.get("btntxt"))
+                .and_then(Value::as_str)
+            {
+                if button_text.chars().count() > 4 {
+                    return Err(WechatError::Config(
+                        "work text-card button text cannot exceed 4 characters".to_string(),
+                    ));
+                }
+            }
+            Ok(())
+        }
+        WorkMessageTypeKind::News | WorkMessageTypeKind::MpNews => {
+            validate_work_message_articles(payload, kind)
+        }
+        WorkMessageTypeKind::MiniProgramNotice => {
+            validate_work_message_mini_program_notice(payload)
+        }
+        WorkMessageTypeKind::TaskCard => {
+            validate_work_message_payload_string(payload, "title", 128)?;
+            validate_work_message_payload_string(payload, "description", 512)?;
+            validate_work_message_payload_string(payload, "task_id", 128)?;
+            validate_work_message_http_url(payload, "url", false)?;
+            let buttons = payload
+                .as_object()
+                .and_then(|object| object.get("btn"))
+                .and_then(Value::as_array)
+                .ok_or_else(|| {
+                    WechatError::Config("work task-card buttons must be an array".to_string())
+                })?;
+            if buttons.is_empty() {
+                return Err(WechatError::Config(
+                    "work task-card requires at least one button".to_string(),
+                ));
+            }
+            for button in buttons {
+                validate_work_message_payload_string(button, "key", 128)?;
+                validate_work_message_payload_string(button, "name", 128)?;
+            }
+            Ok(())
+        }
+        WorkMessageTypeKind::TemplateCard => {
+            let card_type = work_message_payload_string(payload, "card_type").ok_or_else(|| {
+                WechatError::Config(
+                    "work template-card type must identify a supported card".to_string(),
+                )
+            })?;
+            if WorkTemplateCardTypeKind::from_code(card_type) == WorkTemplateCardTypeKind::Other {
+                return Err(WechatError::Config(
+                    "work template-card type must identify a supported card".to_string(),
+                ));
+            }
+            Ok(())
+        }
+        WorkMessageTypeKind::MarkdownV2 | WorkMessageTypeKind::Other => Err(WechatError::Config(
+            format!("work message type {msg_type} is unsupported"),
+        )),
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8326,6 +8581,8 @@ pub struct WorkLinkedCorpMessage {
     pub toparty: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub totag: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toall: Option<i64>,
     pub msgtype: String,
     pub agentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -8348,6 +8605,8 @@ pub struct WorkLinkedCorpMessage {
     pub markdown: Option<WorkMarkdownMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safe: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -8381,6 +8640,52 @@ impl WorkLinkedCorpMessage {
         message
     }
 
+    pub fn voice(agent_id: i64, media_id: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Voice);
+        message.voice = Some(WorkMediaMessage {
+            media_id: media_id.into(),
+        });
+        message
+    }
+
+    pub fn video(agent_id: i64, video: WorkVideoMessage) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Video);
+        message.video = Some(video);
+        message
+    }
+
+    pub fn markdown(agent_id: i64, content: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Markdown);
+        message.markdown = Some(WorkMarkdownMessage {
+            content: content.into(),
+        });
+        message
+    }
+
+    pub fn text_card(agent_id: i64, text_card: WorkTextCardMessage) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::TextCard);
+        message.textcard = Some(text_card);
+        message
+    }
+
+    pub fn news(agent_id: i64, articles: Vec<WorkNewsArticle>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::News);
+        message.news = Some(WorkNewsMessage { articles });
+        message
+    }
+
+    pub fn mpnews(agent_id: i64, articles: Vec<WorkMpNewsArticle>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::MpNews);
+        message.mpnews = Some(WorkMpNewsMessage { articles });
+        message
+    }
+
+    pub fn mini_program_notice(agent_id: i64, notice: WorkMiniProgramNoticeMessage) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::MiniProgramNotice);
+        message.miniprogram_notice = Some(notice);
+        message
+    }
+
     pub fn with_touser(mut self, user_id: impl Into<String>) -> Self {
         self.touser.push(user_id.into());
         self
@@ -8396,11 +8701,58 @@ impl WorkLinkedCorpMessage {
         self
     }
 
+    pub fn to_all(mut self) -> Self {
+        self.toall = Some(1);
+        self
+    }
+
+    pub fn with_safe(mut self, safe: i64) -> Self {
+        self.safe = Some(safe);
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_message_agent_id(self.agentid)?;
+        validate_work_message_id_list("linked-corp user ids", &self.touser, 1_000)?;
+        validate_work_message_id_list("linked-corp department ids", &self.toparty, 100)?;
+        validate_work_message_id_list("linked-corp tag ids", &self.totag, 100)?;
+        validate_work_message_boolean("linked-corp toall", self.toall)?;
+        if self.touser.is_empty()
+            && self.toparty.is_empty()
+            && self.totag.is_empty()
+            && self.toall != Some(1)
+        {
+            return Err(WechatError::Config(
+                "linked-corp messages require recipients or toall=1".to_string(),
+            ));
+        }
+        validate_work_message_safe(self.msgtype_kind(), self.safe)?;
+        validate_work_message_payload_set(
+            self.msgtype_kind(),
+            [
+                ("text", self.text.as_ref().map(to_value)),
+                ("image", self.image.as_ref().map(to_value)),
+                ("voice", self.voice.as_ref().map(to_value)),
+                ("video", self.video.as_ref().map(to_value)),
+                ("file", self.file.as_ref().map(to_value)),
+                ("textcard", self.textcard.as_ref().map(to_value)),
+                ("news", self.news.as_ref().map(to_value)),
+                ("mpnews", self.mpnews.as_ref().map(to_value)),
+                ("markdown", self.markdown.as_ref().map(to_value)),
+                (
+                    "miniprogram_notice",
+                    self.miniprogram_notice.as_ref().map(to_value),
+                ),
+            ],
+        )
+    }
+
     fn empty(agent_id: i64, msg_type: WorkMessageTypeKind) -> Self {
         Self {
             touser: Vec::new(),
             toparty: Vec::new(),
             totag: Vec::new(),
+            toall: None,
             msgtype: msg_type.as_code().to_string(),
             agentid: agent_id,
             text: None,
@@ -8413,6 +8765,7 @@ impl WorkLinkedCorpMessage {
             mpnews: None,
             markdown: None,
             miniprogram_notice: None,
+            safe: None,
             extra: Value::Null,
         }
     }
@@ -8422,7 +8775,12 @@ impl WorkLinkedCorpMessage {
 pub struct WorkExternalContactSchoolMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recv_scope: Option<i64>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        rename = "to_external_user",
+        alias = "to_external_userid",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub to_external_userid: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_parent_userid: Vec<String>,
@@ -8430,6 +8788,8 @@ pub struct WorkExternalContactSchoolMessage {
     pub to_student_userid: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_party: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toall: Option<i64>,
     pub msgtype: String,
     pub agentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -8437,7 +8797,23 @@ pub struct WorkExternalContactSchoolMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<WorkMediaMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video: Option<WorkVideoMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<WorkMediaMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub news: Option<WorkNewsMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mpnews: Option<WorkMpNewsMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub miniprogram_notice: Option<WorkMiniProgramNoticeMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_id_trans: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_duplicate_check: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_check_interval: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -8460,6 +8836,46 @@ impl WorkExternalContactSchoolMessage {
         message.image = Some(WorkMediaMessage {
             media_id: media_id.into(),
         });
+        message
+    }
+
+    pub fn voice(agent_id: i64, media_id: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Voice);
+        message.voice = Some(WorkMediaMessage {
+            media_id: media_id.into(),
+        });
+        message
+    }
+
+    pub fn video(agent_id: i64, video: WorkVideoMessage) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::Video);
+        message.video = Some(video);
+        message
+    }
+
+    pub fn file(agent_id: i64, media_id: impl Into<String>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::File);
+        message.file = Some(WorkMediaMessage {
+            media_id: media_id.into(),
+        });
+        message
+    }
+
+    pub fn news(agent_id: i64, articles: Vec<WorkNewsArticle>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::News);
+        message.news = Some(WorkNewsMessage { articles });
+        message
+    }
+
+    pub fn mpnews(agent_id: i64, articles: Vec<WorkMpNewsArticle>) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::MpNews);
+        message.mpnews = Some(WorkMpNewsMessage { articles });
+        message
+    }
+
+    pub fn mini_program_notice(agent_id: i64, notice: WorkMiniProgramNoticeMessage) -> Self {
+        let mut message = Self::empty(agent_id, WorkMessageTypeKind::MiniProgramNotice);
+        message.miniprogram_notice = Some(notice);
         message
     }
 
@@ -8488,6 +8904,67 @@ impl WorkExternalContactSchoolMessage {
         self
     }
 
+    pub fn to_all(mut self) -> Self {
+        self.toall = Some(1);
+        self
+    }
+
+    pub fn with_duplicate_check(mut self, interval_seconds: i64) -> Self {
+        self.enable_duplicate_check = Some(1);
+        self.duplicate_check_interval = Some(interval_seconds);
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_message_agent_id(self.agentid)?;
+        if self
+            .recv_scope
+            .is_some_and(|scope| !(0..=2).contains(&scope))
+        {
+            return Err(WechatError::Config(
+                "school message receive scope must be 0, 1, or 2".to_string(),
+            ));
+        }
+        validate_work_message_id_list(
+            "school legacy external-user ids",
+            &self.to_external_userid,
+            1_000,
+        )?;
+        validate_work_message_id_list("school parent ids", &self.to_parent_userid, 1_000)?;
+        validate_work_message_id_list("school student ids", &self.to_student_userid, 1_000)?;
+        validate_work_message_id_list("school department ids", &self.to_party, 100)?;
+        validate_work_message_boolean("school toall", self.toall)?;
+        validate_work_message_boolean("school ID translation", self.enable_id_trans)?;
+        validate_work_message_boolean("school duplicate check", self.enable_duplicate_check)?;
+        validate_work_message_duplicate_interval(self.duplicate_check_interval)?;
+        if self.to_external_userid.is_empty()
+            && self.to_parent_userid.is_empty()
+            && self.to_student_userid.is_empty()
+            && self.to_party.is_empty()
+            && self.toall != Some(1)
+        {
+            return Err(WechatError::Config(
+                "school messages require recipients or toall=1".to_string(),
+            ));
+        }
+        validate_work_message_payload_set(
+            self.msgtype_kind(),
+            [
+                ("text", self.text.as_ref().map(to_value)),
+                ("image", self.image.as_ref().map(to_value)),
+                ("voice", self.voice.as_ref().map(to_value)),
+                ("video", self.video.as_ref().map(to_value)),
+                ("file", self.file.as_ref().map(to_value)),
+                ("news", self.news.as_ref().map(to_value)),
+                ("mpnews", self.mpnews.as_ref().map(to_value)),
+                (
+                    "miniprogram_notice",
+                    self.miniprogram_notice.as_ref().map(to_value),
+                ),
+            ],
+        )
+    }
+
     fn empty(agent_id: i64, msg_type: WorkMessageTypeKind) -> Self {
         Self {
             recv_scope: None,
@@ -8495,11 +8972,20 @@ impl WorkExternalContactSchoolMessage {
             to_parent_userid: Vec::new(),
             to_student_userid: Vec::new(),
             to_party: Vec::new(),
+            toall: None,
             msgtype: msg_type.as_code().to_string(),
             agentid: agent_id,
             text: None,
             image: None,
+            voice: None,
+            video: None,
+            file: None,
+            news: None,
+            mpnews: None,
             miniprogram_notice: None,
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
             extra: Value::Null,
         }
     }
@@ -9613,6 +10099,13 @@ impl MessageSendResponse {
                 .next()
                 .is_some()
     }
+
+    pub fn invalid_recipient_count(&self) -> usize {
+        self.invalid_users().len()
+            + self.invalid_parties().len()
+            + self.invalid_tags().len()
+            + self.unlicensed_users().len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9631,6 +10124,16 @@ pub struct WorkLinkedCorpMessageSendResponse {
     pub extra: Value,
 }
 
+impl WorkLinkedCorpMessageSendResponse {
+    pub fn invalid_recipient_count(&self) -> usize {
+        self.invaliduser.len() + self.invalidparty.len() + self.invalidtag.len()
+    }
+
+    pub fn has_delivery_failures(&self) -> bool {
+        self.invalid_recipient_count() != 0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalContactSchoolMessageSendResponse {
     #[serde(default)]
@@ -9647,6 +10150,19 @@ pub struct WorkExternalContactSchoolMessageSendResponse {
     pub invalid_party: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalContactSchoolMessageSendResponse {
+    pub fn invalid_recipient_count(&self) -> usize {
+        self.invalid_external_user.len()
+            + self.invalid_parent_userid.len()
+            + self.invalid_student_userid.len()
+            + self.invalid_party.len()
+    }
+
+    pub fn has_delivery_failures(&self) -> bool {
+        self.invalid_recipient_count() != 0
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27771,6 +28287,25 @@ impl AppChatMessage {
         self
     }
 
+    pub fn validate(&self) -> Result<()> {
+        validate_work_message_identifier("application chat id", &self.chatid)?;
+        validate_work_message_safe(self.msgtype_kind(), self.safe)?;
+        validate_work_message_payload_set(
+            self.msgtype_kind(),
+            [
+                ("text", self.text.as_ref().map(to_value)),
+                ("image", self.image.as_ref().map(to_value)),
+                ("voice", self.voice.as_ref().map(to_value)),
+                ("video", self.video.as_ref().map(to_value)),
+                ("file", self.file.as_ref().map(to_value)),
+                ("textcard", self.textcard.as_ref().map(to_value)),
+                ("news", self.news.as_ref().map(to_value)),
+                ("mpnews", self.mpnews.as_ref().map(to_value)),
+                ("markdown", self.markdown.as_ref().map(to_value)),
+            ],
+        )
+    }
+
     fn media(
         chat_id: impl Into<String>,
         msg_type: WorkMessageTypeKind,
@@ -28120,7 +28655,24 @@ mod tests {
         audience.safe = Some(2);
         assert!(audience.validate().is_err());
         audience.safe = Some(0);
-        audience.duplicate_check_interval = Some(10_001);
+        audience.duplicate_check_interval = Some(14_401);
+        assert!(audience.validate().is_err());
+        audience.duplicate_check_interval = Some(14_400);
+        audience.touser = Some(
+            (0..1_000)
+                .map(|index| format!("user-{index}"))
+                .collect::<Vec<_>>()
+                .join("|"),
+        );
+        assert!(audience.validate().is_ok());
+        audience.touser = Some(
+            (0..1_001)
+                .map(|index| format!("user-{index}"))
+                .collect::<Vec<_>>()
+                .join("|"),
+        );
+        assert!(audience.validate().is_err());
+        audience.touser = Some("user-a|user-a".to_string());
         assert!(audience.validate().is_err());
 
         let mut message = WorkMessage {
@@ -28189,6 +28741,114 @@ mod tests {
         assert!(template_update.validate().is_err());
         template_update.atall = Some(2);
         assert!(template_update.validate().is_err());
+    }
+
+    #[test]
+    fn validates_work_message_payload_limits_and_special_audiences() {
+        assert!(
+            validate_work_message_payload("text", &json!({ "content": "x".repeat(2_048) })).is_ok()
+        );
+        assert!(
+            validate_work_message_payload("text", &json!({ "content": "x".repeat(2_049) }))
+                .is_err()
+        );
+        assert!(validate_work_message_payload(
+            "video",
+            &json!({
+                "media_id": "media",
+                "title": "x".repeat(128),
+                "description": "x".repeat(512)
+            })
+        )
+        .is_ok());
+        assert!(validate_work_message_payload(
+            "video",
+            &json!({ "media_id": "media", "title": "x".repeat(129) })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "textcard",
+            &json!({
+                "title": "title",
+                "description": "description",
+                "url": "https://example.test/card",
+                "btntxt": "详情"
+            })
+        )
+        .is_ok());
+        assert!(validate_work_message_payload(
+            "textcard",
+            &json!({
+                "title": "title",
+                "description": "description",
+                "url": "javascript:alert(1)"
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "news",
+            &json!({
+                "articles": (0..8).map(|index| json!({
+                    "title": format!("article-{index}"),
+                    "description": "description",
+                    "url": "https://example.test/article",
+                    "picurl": "https://example.test/image.png"
+                })).collect::<Vec<_>>()
+            })
+        )
+        .is_ok());
+        assert!(validate_work_message_payload(
+            "news",
+            &json!({
+                "articles": (0..9).map(|index| json!({
+                    "title": format!("article-{index}"),
+                    "url": "https://example.test/article"
+                })).collect::<Vec<_>>()
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "miniprogram_notice",
+            &json!({
+                "appid": "wx-app",
+                "title": "会议通知",
+                "description": "会议详情",
+                "page": "pages/meeting",
+                "content_item": [{ "key": "会议室", "value": "402" }]
+            })
+        )
+        .is_ok());
+        assert!(validate_work_message_payload(
+            "miniprogram_notice",
+            &json!({ "appid": "wx-app", "title": "短" })
+        )
+        .is_err());
+
+        let linked = WorkLinkedCorpMessage::markdown(100001, "**hello**")
+            .with_touser("corp/user")
+            .with_safe(0);
+        assert!(linked.validate().is_ok());
+        let linked_all = WorkLinkedCorpMessage::text(100001, "hello").to_all();
+        assert!(linked_all.validate().is_ok());
+        let mut invalid_linked = WorkLinkedCorpMessage::text(100001, "hello");
+        invalid_linked.touser = vec!["user".to_string(), "user".to_string()];
+        assert!(invalid_linked.validate().is_err());
+
+        let school = WorkExternalContactSchoolMessage::file(100001, "media")
+            .with_external_user("external")
+            .with_duplicate_check(14_400);
+        assert!(school.validate().is_ok());
+        let school_value = serde_json::to_value(&school).unwrap();
+        assert_eq!(school_value["to_external_user"][0], "external");
+        assert!(school_value.get("to_external_userid").is_none());
+        let mut invalid_school = school;
+        invalid_school.duplicate_check_interval = Some(14_401);
+        assert!(invalid_school.validate().is_err());
+
+        assert!(AppChatMessage::markdown("chat", "**hello**")
+            .validate()
+            .is_ok());
+        assert!(AppChatMessage::text("", "hello").validate().is_err());
     }
 
     #[test]
@@ -28461,6 +29121,7 @@ mod tests {
         assert_eq!(response.invalid_tags(), vec!["tag-a"]);
         assert_eq!(response.unlicensed_users(), vec!["user-c", "user-d"]);
         assert!(response.has_delivery_failures());
+        assert_eq!(response.invalid_recipient_count(), 6);
         assert_eq!(response.msgid.as_deref(), Some("msg"));
         assert_eq!(response.response_code.as_deref(), Some("response"));
         assert_eq!(response.extra["request_id"], "req-1");
@@ -28476,6 +29137,7 @@ mod tests {
             touser: vec!["Corp/user".to_string()],
             toparty: vec!["Corp/party".to_string()],
             totag: vec!["Corp/tag".to_string()],
+            toall: None,
             msgtype: "text".to_string(),
             agentid: 100001,
             text: Some(WorkTextMessage {
@@ -28490,6 +29152,7 @@ mod tests {
             mpnews: None,
             markdown: None,
             miniprogram_notice: None,
+            safe: Some(0),
             extra: serde_json::Value::Null,
         })
         .unwrap();
@@ -28561,6 +29224,8 @@ mod tests {
         assert_eq!(linked_response.invaliduser[0], "Corp/bad-user");
         assert_eq!(linked_response.invalidparty[0], "Corp/bad-party");
         assert_eq!(linked_response.invalidtag[0], "Corp/bad-tag");
+        assert_eq!(linked_response.invalid_recipient_count(), 3);
+        assert!(linked_response.has_delivery_failures());
         assert_eq!(linked_response.extra["msgid"], "linked-msg");
 
         let school_body = serde_json::to_value(WorkExternalContactSchoolMessage {
@@ -28569,13 +29234,22 @@ mod tests {
             to_parent_userid: vec!["parent".to_string()],
             to_student_userid: vec!["student".to_string()],
             to_party: vec!["party".to_string()],
+            toall: None,
             msgtype: "text".to_string(),
             agentid: 100001,
             text: Some(WorkTextMessage {
                 content: "notice".to_string(),
             }),
             image: None,
+            voice: None,
+            video: None,
+            file: None,
+            news: None,
+            mpnews: None,
             miniprogram_notice: None,
+            enable_id_trans: Some(0),
+            enable_duplicate_check: Some(1),
+            duplicate_check_interval: Some(1800),
             extra: Value::Null,
         })
         .unwrap();
@@ -28642,6 +29316,8 @@ mod tests {
         assert_eq!(school_response.invalid_parent_userid[0], "parent");
         assert_eq!(school_response.invalid_student_userid[0], "student");
         assert_eq!(school_response.invalid_party[0], "party");
+        assert_eq!(school_response.invalid_recipient_count(), 4);
+        assert!(school_response.has_delivery_failures());
         assert_eq!(school_response.extra["send_id"], "school-send");
     }
 

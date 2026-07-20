@@ -1448,6 +1448,29 @@ Implemented on 2026-07-20 in current Work OA WeDrive endpoint depth:
   types, file sharing accepts scopes 1 through 5 with permissions 1 or 4,
   and file deletion sends a unique file-id array instead of a scalar.
 
+Implemented on 2026-07-20 in Work application-message depth:
+
+- application-message audiences now enforce the documented 1000-member,
+  100-department, and 100-tag limits, reject blank and duplicate recipients,
+  and accept duplicate-check windows through the documented four-hour
+  (`14400` seconds) maximum;
+- text and Markdown bodies, media ids, video metadata, text cards, task cards,
+  news, stored news, and mini-program notices validate required fields and
+  documented UTF-8 byte, item-count, character-count, and absolute HTTP(S)
+  URL constraints before network I/O;
+- confidential-message validation now permits `safe=2` only for stored
+  `mpnews`, while ordinary message types continue to accept only `0` or `1`;
+- linked-corporation messages now expose `toall`, `safe`, and typed
+  constructors for every supported payload, enforce recipient limits, and
+  validate exactly one payload whose type matches `msgtype`;
+- school notifications now serialize the documented `to_external_user` wire
+  name, add `toall`, voice, video, file, news, stored-news, ID-translation,
+  and duplicate-check fields, and validate recipient, receive-scope, payload,
+  and four-hour duplicate-window constraints;
+- application-chat messages now use the same payload and confidentiality
+  checks before sending, while ordinary, linked-corporation, and school
+  responses expose invalid-recipient counts and delivery-failure helpers.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
