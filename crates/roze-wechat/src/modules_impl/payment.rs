@@ -722,8 +722,12 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: ProfitSharingBillRequest,
     ) -> Result<BillResponse> {
-        self.get_v3(credentials, "/v3/profitsharing/bills", request.into_query())
-            .await
+        request.validate()?;
+        let response: BillResponse = self
+            .get_v3(credentials, "/v3/profitsharing/bills", request.into_query())
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn download_profit_sharing_bill_bytes(
@@ -1367,8 +1371,12 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: BillRequest,
     ) -> Result<BillResponse> {
-        self.get_v3(credentials, "/v3/bill/tradebill", request.into_query())
-            .await
+        request.validate_trade()?;
+        let response: BillResponse = self
+            .get_v3(credentials, "/v3/bill/tradebill", request.into_query())
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn fund_flow_bill(
@@ -1376,12 +1384,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: BillRequest,
     ) -> Result<BillResponse> {
-        self.get_v3(
-            credentials,
-            "/v3/bill/fundflowbill",
-            request.into_fund_flow_query(),
-        )
-        .await
+        request.validate_fund_flow()?;
+        let response: BillResponse = self
+            .get_v3(
+                credentials,
+                "/v3/bill/fundflowbill",
+                request.into_fund_flow_query(),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn fund_flow_bill_with_request(
@@ -1389,8 +1401,12 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: FundFlowBillRequest,
     ) -> Result<BillResponse> {
-        self.get_v3(credentials, "/v3/bill/fundflowbill", request.into_query())
-            .await
+        request.validate()?;
+        let response: BillResponse = self
+            .get_v3(credentials, "/v3/bill/fundflowbill", request.into_query())
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn download_bill_bytes(
@@ -1398,6 +1414,7 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PaymentBillDownloadRequest,
     ) -> Result<Bytes> {
+        request.validate(false)?;
         let (path, query) = split_payment_download_url(&request.download_url)?;
         let path_query = path_with_query(&path, &query);
         let headers = vec![(
@@ -1465,6 +1482,7 @@ impl Payment {
         destination: &Path,
         max_bytes: Option<u64>,
     ) -> Result<PaymentDownloadedBillFile> {
+        request.validate(true)?;
         let expected_hash = request
             .hash_value
             .as_deref()
@@ -1875,6 +1893,94 @@ fn parse_raw_query(query_text: &str) -> Vec<(String, String)> {
             (key.to_string(), value.to_string())
         })
         .collect()
+}
+
+fn validate_payment_bill_date(value: &str) -> Result<()> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || !bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
+    {
+        return Err(WechatError::Config(
+            "payment bill date must use a valid YYYY-MM-DD calendar date".to_string(),
+        ));
+    }
+    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|_| {
+        WechatError::Config(
+            "payment bill date must use a valid YYYY-MM-DD calendar date".to_string(),
+        )
+    })?;
+    Ok(())
+}
+
+fn validate_payment_trade_bill_type(value: Option<&str>) -> Result<()> {
+    if value.is_none_or(|value| matches!(value, "ALL" | "SUCCESS" | "REFUND")) {
+        return Ok(());
+    }
+    Err(WechatError::Config(
+        "payment trade bill type must be ALL, SUCCESS, or REFUND".to_string(),
+    ))
+}
+
+fn validate_payment_fund_flow_account_type(value: Option<&str>) -> Result<()> {
+    if value.is_none_or(|value| matches!(value, "BASIC" | "OPERATION" | "FEES")) {
+        return Ok(());
+    }
+    Err(WechatError::Config(
+        "payment fund-flow account type must be BASIC, OPERATION, or FEES".to_string(),
+    ))
+}
+
+fn validate_payment_bill_archive_type(value: Option<&str>) -> Result<()> {
+    if value.is_none_or(|value| value == "GZIP") {
+        return Ok(());
+    }
+    Err(WechatError::Config(
+        "payment bill archive type must be GZIP when provided".to_string(),
+    ))
+}
+
+fn validate_payment_download_hash_metadata(
+    hash_type: Option<&str>,
+    hash_value: Option<&str>,
+    required: bool,
+) -> Result<()> {
+    match (hash_type, hash_value) {
+        (None, None) if !required => return Ok(()),
+        (None, None) => {
+            return Err(WechatError::Config(
+                "payment bill response requires hash_type and hash_value".to_string(),
+            ));
+        }
+        (Some(_), None) | (None, Some(_)) => {
+            return Err(WechatError::Config(
+                "payment bill hash_type and hash_value must be provided together".to_string(),
+            ));
+        }
+        (Some(hash_type), Some(hash_value)) => {
+            let expected_len = match hash_type {
+                "SHA1" | "SHA-1" => 40,
+                "SHA256" | "SHA-256" => 64,
+                other => {
+                    return Err(WechatError::Config(format!(
+                        "unsupported payment download hash type: {other}"
+                    )));
+                }
+            };
+            if hash_value.len() != expected_len
+                || !hash_value.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return Err(WechatError::Config(format!(
+                    "payment bill {hash_type} hash must contain {expected_len} hexadecimal characters"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn verify_payment_download_hash(
@@ -3266,6 +3372,15 @@ pub struct ProfitSharingBillRequest {
 }
 
 impl ProfitSharingBillRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_bill_date(&self.bill_date)?;
+        validate_payment_bill_archive_type(self.tar_type.as_deref())?;
+        if let Some(sub_mchid) = self.sub_mchid.as_deref() {
+            validate_payment_identifier(sub_mchid, "profit-sharing bill sub merchant id", 32)?;
+        }
+        Ok(())
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         let mut query = vec![("bill_date".to_string(), self.bill_date)];
         push_optional_query(&mut query, "tar_type", self.tar_type);
@@ -3693,6 +3808,18 @@ pub struct BillRequest {
 }
 
 impl BillRequest {
+    pub fn validate_trade(&self) -> Result<()> {
+        validate_payment_bill_date(&self.bill_date)?;
+        validate_payment_trade_bill_type(self.bill_type.as_deref())?;
+        validate_payment_bill_archive_type(self.tar_type.as_deref())
+    }
+
+    pub fn validate_fund_flow(&self) -> Result<()> {
+        validate_payment_bill_date(&self.bill_date)?;
+        validate_payment_fund_flow_account_type(self.bill_type.as_deref())?;
+        validate_payment_bill_archive_type(self.tar_type.as_deref())
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         let mut query = vec![("bill_date".to_string(), self.bill_date)];
         if let Some(bill_type) = self.bill_type {
@@ -3726,6 +3853,12 @@ pub struct FundFlowBillRequest {
 }
 
 impl FundFlowBillRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_bill_date(&self.bill_date)?;
+        validate_payment_fund_flow_account_type(self.account_type.as_deref())?;
+        validate_payment_bill_archive_type(self.tar_type.as_deref())
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         let mut query = vec![("bill_date".to_string(), self.bill_date)];
         if let Some(account_type) = self.account_type {
@@ -3747,6 +3880,17 @@ pub struct BillResponse {
     pub hash_value: Option<String>,
 }
 
+impl BillResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_https_url(&self.download_url, "payment bill download URL", 4096, true)?;
+        validate_payment_download_hash_metadata(
+            self.hash_type.as_deref(),
+            self.hash_value.as_deref(),
+            true,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentBillDownloadRequest {
     pub download_url: String,
@@ -3754,6 +3898,17 @@ pub struct PaymentBillDownloadRequest {
     pub hash_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hash_value: Option<String>,
+}
+
+impl PaymentBillDownloadRequest {
+    pub fn validate(&self, require_hash: bool) -> Result<()> {
+        validate_https_url(&self.download_url, "payment bill download URL", 4096, true)?;
+        validate_payment_download_hash_metadata(
+            self.hash_type.as_deref(),
+            self.hash_value.as_deref(),
+            require_hash,
+        )
+    }
 }
 
 impl From<BillResponse> for PaymentBillDownloadRequest {
@@ -8512,12 +8667,13 @@ mod tests {
 
     #[test]
     fn builds_bill_query() {
-        let query = BillRequest {
+        let request = BillRequest {
             bill_date: "2026-07-04".to_string(),
             bill_type: Some("ALL".to_string()),
             tar_type: None,
-        }
-        .into_query();
+        };
+        assert!(request.validate_trade().is_ok());
+        let query = request.into_query();
 
         assert_eq!(
             query,
@@ -8530,12 +8686,13 @@ mod tests {
 
     #[test]
     fn builds_fund_flow_bill_queries_with_account_type() {
-        let compatibility_query = BillRequest {
+        let compatibility_request = BillRequest {
             bill_date: "2026-07-04".to_string(),
             bill_type: Some("BASIC".to_string()),
             tar_type: Some("GZIP".to_string()),
-        }
-        .into_fund_flow_query();
+        };
+        assert!(compatibility_request.validate_fund_flow().is_ok());
+        let compatibility_query = compatibility_request.into_fund_flow_query();
         assert_eq!(
             compatibility_query,
             vec![
@@ -8545,12 +8702,13 @@ mod tests {
             ]
         );
 
-        let typed_query = FundFlowBillRequest {
+        let typed_request = FundFlowBillRequest {
             bill_date: "2026-07-04".to_string(),
             account_type: Some("OPERATION".to_string()),
             tar_type: None,
-        }
-        .into_query();
+        };
+        assert!(typed_request.validate().is_ok());
+        let typed_query = typed_request.into_query();
         assert_eq!(
             typed_query,
             vec![
@@ -8565,7 +8723,7 @@ mod tests {
         let response: BillResponse = serde_json::from_value(json!({
             "download_url": "https://api.mch.weixin.qq.com/v3/billdownload/file?token=abc",
             "hash_type": "SHA256",
-            "hash_value": "hash"
+            "hash_value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         }))
         .unwrap();
 
@@ -8574,13 +8732,119 @@ mod tests {
             "https://api.mch.weixin.qq.com/v3/billdownload/file?token=abc"
         );
         assert_eq!(response.hash_type.as_deref(), Some("SHA256"));
+        assert!(response.validate().is_ok());
 
         let request = PaymentBillDownloadRequest {
             download_url: response.download_url,
             hash_type: response.hash_type,
             hash_value: response.hash_value,
         };
-        assert_eq!(request.hash_value.as_deref(), Some("hash"));
+        assert!(request.validate(true).is_ok());
+        assert_eq!(request.hash_value.as_deref().map(str::len), Some(64));
+    }
+
+    #[test]
+    fn validates_payment_bill_query_and_download_contracts() {
+        for invalid in ["", "2026-02-30", "20260704", "2026-7-04"] {
+            assert!(BillRequest {
+                bill_date: invalid.to_string(),
+                bill_type: Some("ALL".to_string()),
+                tar_type: None,
+            }
+            .validate_trade()
+            .is_err());
+        }
+
+        let mut trade = BillRequest {
+            bill_date: "2026-07-04".to_string(),
+            bill_type: Some("UNKNOWN".to_string()),
+            tar_type: None,
+        };
+        assert!(trade.validate_trade().is_err());
+        trade.bill_type = Some("SUCCESS".to_string());
+        trade.tar_type = Some("ZIP".to_string());
+        assert!(trade.validate_trade().is_err());
+
+        let mut fund_flow = FundFlowBillRequest {
+            bill_date: "2026-07-04".to_string(),
+            account_type: Some("UNKNOWN".to_string()),
+            tar_type: None,
+        };
+        assert!(fund_flow.validate().is_err());
+        fund_flow.account_type = Some("FEES".to_string());
+        fund_flow.tar_type = Some("GZIP".to_string());
+        assert!(fund_flow.validate().is_ok());
+
+        let mut profit_sharing = ProfitSharingBillRequest {
+            bill_date: "2026-07-04".to_string(),
+            tar_type: Some("GZIP".to_string()),
+            sub_mchid: Some("1900000109".to_string()),
+        };
+        assert!(profit_sharing.validate().is_ok());
+        profit_sharing.sub_mchid = Some(" ".to_string());
+        assert!(profit_sharing.validate().is_err());
+
+        let valid_hash = "a".repeat(64);
+        let valid = PaymentBillDownloadRequest {
+            download_url: "https://api.mch.weixin.qq.com/v3/billdownload/file?token=abc"
+                .to_string(),
+            hash_type: Some("SHA256".to_string()),
+            hash_value: Some(valid_hash),
+        };
+        assert!(valid.validate(true).is_ok());
+
+        for invalid in [
+            PaymentBillDownloadRequest {
+                download_url: "http://api.mch.weixin.qq.com/file".to_string(),
+                hash_type: Some("SHA256".to_string()),
+                hash_value: Some("a".repeat(64)),
+            },
+            PaymentBillDownloadRequest {
+                download_url: "https://api.mch.weixin.qq.com/file".to_string(),
+                hash_type: Some("MD5".to_string()),
+                hash_value: Some("a".repeat(32)),
+            },
+            PaymentBillDownloadRequest {
+                download_url: "https://api.mch.weixin.qq.com/file".to_string(),
+                hash_type: Some("SHA256".to_string()),
+                hash_value: None,
+            },
+            PaymentBillDownloadRequest {
+                download_url: "https://api.mch.weixin.qq.com/file".to_string(),
+                hash_type: Some("SHA1".to_string()),
+                hash_value: Some("not-a-valid-hash".to_string()),
+            },
+        ] {
+            assert!(invalid.validate(false).is_err());
+        }
+
+        let unhashed = PaymentBillDownloadRequest {
+            download_url: "https://api.mch.weixin.qq.com/file".to_string(),
+            hash_type: None,
+            hash_value: None,
+        };
+        assert!(unhashed.validate(false).is_ok());
+        assert!(unhashed.validate(true).is_err());
+
+        for value in [
+            json!({
+                "download_url": "http://api.mch.weixin.qq.com/file",
+                "hash_type": "SHA256",
+                "hash_value": "a".repeat(64)
+            }),
+            json!({
+                "download_url": "https://api.mch.weixin.qq.com/file",
+                "hash_type": "SHA256"
+            }),
+            json!({
+                "download_url": "https://api.mch.weixin.qq.com/file",
+                "hash_type": "SHA256",
+                "hash_value": "invalid"
+            }),
+        ] {
+            let response: BillResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
     }
 
     #[test]

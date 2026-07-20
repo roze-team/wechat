@@ -2479,6 +2479,21 @@ Implemented on 2026-07-20 in Payment bill download and statement depth:
   errors instead of panicking in debug builds or wrapping in release builds;
 - summary count reconciliation now uses checked `usize` to `i64` conversion.
 
+Implemented on 2026-07-21 in Payment bill query and download contracts:
+
+- trade, fund-flow, and profit-sharing bill queries now reject malformed
+  calendar dates, unsupported trade/account/archive types, and invalid
+  profit-sharing sub-merchant identities before signed network I/O;
+- trade and fund-flow requests distinguish the upstream `bill_type` and
+  `account_type` value sets while retaining the compatibility request shape;
+- bill query responses now require an absolute HTTPS download URL together
+  with a supported SHA-1/SHA-256 digest of the exact hexadecimal length before
+  they can enter a download workflow;
+- direct download requests validate URL and paired hash metadata before
+  allocating files or sending signed requests, while the compatibility bytes
+  path still permits explicitly unhashed caller-provided URLs and atomic file
+  downloads continue to require integrity metadata.
+
 Implemented on 2026-07-20 in Payment notification and order verification depth:
 
 - notification envelopes now expose forward-compatible typed transaction,
