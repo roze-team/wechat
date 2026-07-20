@@ -23862,15 +23862,48 @@ impl ExternalCustomerTransferResponse {
             .filter(|customer| customer.is_failed())
             .count()
     }
+
+    pub fn accepted_count(&self) -> usize {
+        self.customer
+            .iter()
+            .filter(|customer| customer.is_accepted())
+            .count()
+    }
+
+    pub fn rejected_count(&self) -> usize {
+        self.customer
+            .iter()
+            .filter(|customer| customer.is_rejected())
+            .count()
+    }
+
+    pub fn rejected_transfers(&self) -> impl Iterator<Item = &ExternalCustomerTransferRecord> {
+        self.customer
+            .iter()
+            .filter(|customer| customer.is_rejected())
+    }
+
+    pub fn validate_all_transfers_accepted(&self) -> Result<()> {
+        self.validate_transfer()?;
+        if let Some(customer) = self.rejected_transfers().next() {
+            let external_userid = customer.external_userid.as_deref().unwrap_or("unknown");
+            let code = customer.errcode.unwrap_or(-1);
+            return Err(WechatError::Api {
+                code,
+                message: format!("external-customer transfer was rejected for {external_userid}"),
+            });
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalCustomerTransferRecord {
     #[serde(default)]
     pub external_userid: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
     pub status: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub takeover_time: Option<i64>,
@@ -24000,6 +24033,45 @@ impl ExternalCustomerTransferRecord {
 
     pub fn is_failed(&self) -> bool {
         self.status_kind().is_some_and(|status| status.is_failure())
+    }
+
+    pub fn is_accepted(&self) -> bool {
+        self.errcode == Some(0)
+    }
+
+    pub fn is_rejected(&self) -> bool {
+        self.errcode.is_some_and(|code| code != 0)
+    }
+}
+
+fn deserialize_work_optional_i64<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(value)) => value
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| serde::de::Error::custom("work integer value is out of range")),
+        Some(Value::String(value)) => {
+            let value = value.trim();
+            if value.is_empty() {
+                return Err(serde::de::Error::custom(
+                    "work integer string must not be empty",
+                ));
+            }
+            value.parse::<i64>().map(Some).map_err(|error| {
+                serde::de::Error::custom(format!(
+                    "work integer string must contain a signed integer: {error}"
+                ))
+            })
+        }
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "work integer value must be a number or numeric string, got {other}"
+        ))),
     }
 }
 
@@ -52816,6 +52888,43 @@ mod tests {
         assert!(receipt.validate_transfer().is_ok());
         assert!(receipt.find("external").is_some());
 
+        let mixed_receipts: ExternalCustomerTransferResponse = serde_json::from_value(json!({
+            "customer": [{
+                "external_userid": "accepted",
+                "errcode": "0"
+            }, {
+                "external_userid": "rejected",
+                "errcode": "40096"
+            }]
+        }))
+        .unwrap();
+        assert!(mixed_receipts.validate_transfer().is_ok());
+        assert_eq!(mixed_receipts.accepted_count(), 1);
+        assert_eq!(mixed_receipts.rejected_count(), 1);
+        assert_eq!(
+            mixed_receipts
+                .rejected_transfers()
+                .next()
+                .and_then(|customer| customer.external_userid.as_deref()),
+            Some("rejected")
+        );
+        assert!(matches!(
+            mixed_receipts.validate_all_transfers_accepted(),
+            Err(WechatError::Api {
+                code: 40096,
+                message
+            }) if message.contains("rejected")
+        ));
+
+        let accepted_receipts: ExternalCustomerTransferResponse = serde_json::from_value(json!({
+            "customer": [{
+                "external_userid": "accepted",
+                "errcode": 0
+            }]
+        }))
+        .unwrap();
+        assert!(accepted_receipts.validate_all_transfers_accepted().is_ok());
+
         let api_error: ExternalCustomerTransferResponse =
             serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid" })).unwrap();
         assert!(matches!(
@@ -52841,6 +52950,36 @@ mod tests {
         }))
         .unwrap();
         assert!(duplicate_result.validate_result().is_err());
+
+        let string_status: ExternalCustomerTransferResponse = serde_json::from_value(json!({
+            "customer": [{
+                "external_userid": "external",
+                "status": "1",
+                "takeover_time": 100
+            }]
+        }))
+        .unwrap();
+        assert!(string_status.validate_result().is_ok());
+        assert_eq!(string_status.completed_count(), 1);
+
+        assert!(
+            serde_json::from_value::<ExternalCustomerTransferResponse>(json!({
+                "customer": [{
+                    "external_userid": "external",
+                    "status": "completed"
+                }]
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<ExternalCustomerTransferResponse>(json!({
+                "customer": [{
+                    "external_userid": "external",
+                    "errcode": " "
+                }]
+            }))
+            .is_err()
+        );
 
         let completed_without_time: ExternalCustomerTransferResponse =
             serde_json::from_value(json!({

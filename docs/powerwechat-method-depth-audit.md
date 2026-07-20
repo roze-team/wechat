@@ -1,6 +1,6 @@
 # PowerWeChat Method-Depth Audit
 
-Audit date: 2026-07-20.
+Audit date: 2026-07-21.
 
 The submodule-level coverage matrix is currently green. This means every
 PowerWeChat product submodule has an explicit Roze WeChat boundary and tested
@@ -65,6 +65,18 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    exact endpoint coverage is now green against the current PowerWeChat scan.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and
    component/base authorization helpers.
+
+Implemented on 2026-07-21 in Work external-customer transfer receipt depth:
+
+- Transfer receipt and polling records now accept both JSON integers and the
+  numeric strings exposed by PowerWeChat's transfer DTOs for per-customer
+  `errcode` and `status`, while rejecting blank, non-integral, and out-of-range
+  values during deserialization.
+- Batch transfer responses expose accepted/rejected counts and a rejected-item
+  iterator so reconciliation workers can retain every per-customer outcome.
+- A checked all-accepted helper validates the outer WeCom response and receipt
+  structure before converting the first partial rejection into a typed API
+  error containing the affected external customer identity.
 
 Implemented on 2026-07-21 in Work group-robot message depth:
 
