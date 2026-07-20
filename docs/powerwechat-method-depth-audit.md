@@ -78,6 +78,18 @@ Implemented on 2026-07-21 in Work external-customer transfer receipt depth:
   structure before converting the first partial rejection into a typed API
   error containing the affected external customer identity.
 
+Implemented on 2026-07-21 in Work account-service Channels entry depth:
+
+- Customer `enter_session_context.wechat_channels` is now a typed response DTO
+  instead of raw JSON, covering the video-account nickname, shop nickname,
+  entry scene, and forward-compatible extension fields.
+- Known scenes distinguish video-account profile, live product list, product
+  showcase, shop product detail, and shop order entries, with semantic scene,
+  display-name, and shop-entry helpers.
+- Response validation requires the video-account nickname for scenes 1-3 and
+  shop nickname for scenes 4-5, rejects missing/nonpositive scenes and unsafe
+  names, while retaining unknown future positive scene codes.
+
 Implemented on 2026-07-21 in Work group-robot message depth:
 
 - The group-robot send path now validates webhook keys, request payloads, and

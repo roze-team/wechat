@@ -28560,7 +28560,7 @@ pub struct WorkAccountServiceEnterSessionContext {
     #[serde(default)]
     pub scene_param: Option<String>,
     #[serde(default)]
-    pub wechat_channels: Option<Value>,
+    pub wechat_channels: Option<WorkAccountServiceWechatChannelsContext>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -28573,16 +28573,102 @@ impl WorkAccountServiceEnterSessionContext {
         if let Some(scene_param) = &self.scene_param {
             validate_work_account_service_text("entry scene parameter", scene_param, 256)?;
         }
-        if self
-            .wechat_channels
-            .as_ref()
-            .is_some_and(|value| !value.is_object())
-        {
-            return Err(WechatError::Config(
-                "work account-service Channels entry context must be an object".to_string(),
-            ));
+        if let Some(channels) = &self.wechat_channels {
+            channels.validate()?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceWechatChannelsContext {
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub shop_nickname: Option<String>,
+    #[serde(default)]
+    pub scene: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAccountServiceWechatChannelsSceneKind {
+    ChannelsProfile,
+    LiveProductList,
+    ProductShowcase,
+    ShopProductDetail,
+    ShopOrder,
+    Other(i64),
+}
+
+impl From<i64> for WorkAccountServiceWechatChannelsSceneKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::ChannelsProfile,
+            2 => Self::LiveProductList,
+            3 => Self::ProductShowcase,
+            4 => Self::ShopProductDetail,
+            5 => Self::ShopOrder,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkAccountServiceWechatChannelsSceneKind {
+    pub fn is_shop_entry(self) -> bool {
+        matches!(self, Self::ShopProductDetail | Self::ShopOrder)
+    }
+}
+
+impl WorkAccountServiceWechatChannelsContext {
+    pub fn validate(&self) -> Result<()> {
+        let scene = self.scene.ok_or_else(|| {
+            WechatError::Config(
+                "work account-service Channels entry context requires scene".to_string(),
+            )
+        })?;
+        if scene <= 0 {
+            return Err(WechatError::Config(
+                "work account-service Channels entry scene must be positive".to_string(),
+            ));
+        }
+        if let Some(nickname) = self.nickname.as_deref() {
+            validate_work_account_service_text("Channels nickname", nickname, 64)?;
+        }
+        if let Some(shop_nickname) = self.shop_nickname.as_deref() {
+            validate_work_account_service_text("Channels shop nickname", shop_nickname, 64)?;
+        }
+        match self.scene_kind() {
+            Some(
+                WorkAccountServiceWechatChannelsSceneKind::ChannelsProfile
+                | WorkAccountServiceWechatChannelsSceneKind::LiveProductList
+                | WorkAccountServiceWechatChannelsSceneKind::ProductShowcase,
+            ) if self.nickname.is_none() => Err(WechatError::Config(
+                "work account-service Channels entry scene requires nickname".to_string(),
+            )),
+            Some(
+                WorkAccountServiceWechatChannelsSceneKind::ShopProductDetail
+                | WorkAccountServiceWechatChannelsSceneKind::ShopOrder,
+            ) if self.shop_nickname.is_none() => Err(WechatError::Config(
+                "work account-service Channels shop entry scene requires shop_nickname".to_string(),
+            )),
+            _ => Ok(()),
+        }
+    }
+
+    pub fn scene_kind(&self) -> Option<WorkAccountServiceWechatChannelsSceneKind> {
+        self.scene
+            .map(WorkAccountServiceWechatChannelsSceneKind::from)
+    }
+
+    pub fn display_name(&self) -> Option<&str> {
+        self.nickname.as_deref().or(self.shop_nickname.as_deref())
+    }
+
+    pub fn is_shop_entry(&self) -> bool {
+        self.scene_kind()
+            .is_some_and(WorkAccountServiceWechatChannelsSceneKind::is_shop_entry)
     }
 }
 
@@ -64301,12 +64387,31 @@ mod tests {
             "customer_list": [{
                 "external_userid": "external",
                 "gender": 99,
-                "avatar": "https://example.com/customer.png"
+                "avatar": "https://example.com/customer.png",
+                "enter_session_context": {
+                    "wechat_channels": {
+                        "nickname": "Roze Live",
+                        "scene": 2,
+                        "source_id": "live-1"
+                    }
+                }
             }],
             "invalid_external_userid": ["invalid"]
         }))
         .unwrap();
         assert!(customers.validate().is_ok());
+        let channels = customers.customer_list[0]
+            .enter_session_context
+            .as_ref()
+            .and_then(|context| context.wechat_channels.as_ref())
+            .unwrap();
+        assert_eq!(channels.display_name(), Some("Roze Live"));
+        assert_eq!(
+            channels.scene_kind(),
+            Some(WorkAccountServiceWechatChannelsSceneKind::LiveProductList)
+        );
+        assert!(!channels.is_shop_entry());
+        assert_eq!(channels.extra["source_id"], "live-1");
         let contradictory_customer: WorkAccountServiceCustomerBatchGetResponse =
             serde_json::from_value(json!({
                 "customer_list": [{ "external_userid": "external" }],
@@ -64314,6 +64419,38 @@ mod tests {
             }))
             .unwrap();
         assert!(contradictory_customer.validate().is_err());
+        for invalid_channels in [
+            json!({ "scene": 1 }),
+            json!({ "scene": 4, "nickname": "Channel" }),
+            json!({ "scene": 0, "nickname": "Channel" }),
+            json!({ "scene": 1, "nickname": " " }),
+        ] {
+            let customer: WorkAccountServiceCustomerBatchGetResponse =
+                serde_json::from_value(json!({
+                    "customer_list": [{
+                        "external_userid": "external",
+                        "enter_session_context": {
+                            "wechat_channels": invalid_channels
+                        }
+                    }]
+                }))
+                .unwrap();
+            assert!(customer.validate().is_err());
+        }
+        let future_channels: WorkAccountServiceCustomerBatchGetResponse =
+            serde_json::from_value(json!({
+                "customer_list": [{
+                    "external_userid": "external",
+                    "enter_session_context": {
+                        "wechat_channels": {
+                            "scene": 99,
+                            "future_entry": true
+                        }
+                    }
+                }]
+            }))
+            .unwrap();
+        assert!(future_channels.validate().is_ok());
         assert!(
             serde_json::from_value::<WorkAccountServiceCustomerUpgradeServiceConfigResponse>(
                 json!({ "member_range": "invalid" })
@@ -64488,6 +64625,11 @@ mod tests {
                 "enter_session_context": {
                     "scene": "scene",
                     "scene_param": "param",
+                    "wechat_channels": {
+                        "shop_nickname": "Roze Shop",
+                        "scene": 4,
+                        "channel_revision": 2
+                    },
                     "context_extra": "retained"
                 },
                 "customer_extra": "retained"
@@ -64515,6 +64657,18 @@ mod tests {
                 .as_deref(),
             Some("scene")
         );
+        let channels = customers.customer_list[0]
+            .enter_session_context
+            .as_ref()
+            .and_then(|context| context.wechat_channels.as_ref())
+            .unwrap();
+        assert_eq!(channels.display_name(), Some("Roze Shop"));
+        assert_eq!(
+            channels.scene_kind(),
+            Some(WorkAccountServiceWechatChannelsSceneKind::ShopProductDetail)
+        );
+        assert!(channels.is_shop_entry());
+        assert_eq!(channels.extra["channel_revision"], 2);
         assert_eq!(
             customers.customer_list[0].extra["customer_extra"],
             "retained"
