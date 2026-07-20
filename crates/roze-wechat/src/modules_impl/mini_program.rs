@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use crate::{
     config::Platform,
     crypto,
-    error::Result,
+    error::{Result, WechatError},
     modules::{DomainModule, PlatformClient},
     types::{StableAccessTokenRequest, StableAccessTokenResponse},
     Client,
@@ -386,6 +386,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: LiveRoomRequest,
     ) -> Result<MiniProgramCreateLiveRoomResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxaapi/broadcast/room/create",
@@ -400,6 +401,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: LiveInfoRequest,
     ) -> Result<MiniProgramLiveInfoResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/business/getliveinfo",
@@ -416,6 +418,8 @@ impl MiniProgram {
         start: i64,
         limit: i64,
     ) -> Result<MiniProgramLiveReplayResponse> {
+        validate_live_positive("room id", room_id)?;
+        validate_live_page(start, limit, 100)?;
         self.inner
             .post(
                 "wxa/business/getliveinfo",
@@ -435,6 +439,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         room_id: i64,
     ) -> Result<WechatStatusResponse> {
+        validate_live_positive("room id", room_id)?;
         self.inner
             .post(
                 "wxaapi/broadcast/room/deleteroom",
@@ -449,6 +454,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         goods_ids: Vec<i64>,
     ) -> Result<MiniProgramLiveGoodsWarehouseResponse> {
+        validate_live_positive_ids("goods id", &goods_ids, 100)?;
         self.inner
             .post(
                 "wxa/business/getgoodswarehouse",
@@ -464,6 +470,7 @@ impl MiniProgram {
         limit: i64,
         page_break: i64,
     ) -> Result<MiniProgramLiveFollowersResponse> {
+        validate_live_page(page_break, limit, 1_000)?;
         self.inner
             .post(
                 "wxa/business/get_wxa_followers",
@@ -479,11 +486,491 @@ impl MiniProgram {
         room_id: i64,
         user_openid: Vec<String>,
     ) -> Result<WechatStatusResponse> {
+        validate_live_positive("room id", room_id)?;
+        validate_live_unique_strings("follower openid", &user_openid, 200)?;
         self.inner
             .post(
                 "wxa/business/push_message",
                 Some(access_token.into()),
                 json!({ "room_id": room_id, "user_openid": user_openid }),
+            )
+            .await
+    }
+
+    pub async fn add_live_room_goods(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveRoomAddGoodsRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/addgoods",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn edit_live_room(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveRoomEditRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/editroom",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_live_push_url(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+    ) -> Result<MiniProgramLivePushUrlResponse> {
+        validate_live_positive("room id", room_id)?;
+        self.inner
+            .get_with_query(
+                "wxaapi/broadcast/room/getpushurl",
+                Some(access_token.into()),
+                vec![("roomId".to_string(), room_id.to_string())],
+            )
+            .await
+    }
+
+    pub async fn get_live_shared_code(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        params: impl Into<String>,
+    ) -> Result<MiniProgramLiveSharedCodeResponse> {
+        validate_live_positive("room id", room_id)?;
+        let params = params.into();
+        self.inner
+            .get_with_query(
+                "wxaapi/broadcast/room/getsharedcode",
+                Some(access_token.into()),
+                vec![
+                    ("roomId".to_string(), room_id.to_string()),
+                    ("params".to_string(), params),
+                ],
+            )
+            .await
+    }
+
+    pub async fn add_live_assistants(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveAssistantAddRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/addassistant",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_live_assistant(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveAssistantModifyRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/modifyassistant",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn remove_live_assistant(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveAssistantRemoveRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/removeassistant",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_live_assistants(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+    ) -> Result<MiniProgramLiveAssistantListResponse> {
+        validate_live_positive("room id", room_id)?;
+        self.inner
+            .get_with_query(
+                "wxaapi/broadcast/room/getassistantlist",
+                Some(access_token.into()),
+                vec![("roomId".to_string(), room_id.to_string())],
+            )
+            .await
+    }
+
+    pub async fn add_live_sub_anchor(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveSubAnchorRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/addsubanchor",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn modify_live_sub_anchor(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveSubAnchorRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/modifysubanchor",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn delete_live_sub_anchor(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_positive("room id", room_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/deletesubanchor",
+                Some(access_token.into()),
+                json!({ "roomId": room_id }),
+            )
+            .await
+    }
+
+    pub async fn get_live_sub_anchor(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+    ) -> Result<MiniProgramLiveSubAnchorResponse> {
+        validate_live_positive("room id", room_id)?;
+        self.inner
+            .get_with_query(
+                "wxaapi/broadcast/room/getsubanchor",
+                Some(access_token.into()),
+                vec![("roomId".to_string(), room_id.to_string())],
+            )
+            .await
+    }
+
+    pub async fn update_live_feed_public(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        is_feeds_public: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_room_flag("feed-public", room_id, is_feeds_public)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/updatefeedpublic",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "isFeedsPublic": is_feeds_public }),
+            )
+            .await
+    }
+
+    pub async fn update_live_replay(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        close_replay: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_room_flag("close-replay", room_id, close_replay)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/updatereplay",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "closeReplay": close_replay }),
+            )
+            .await
+    }
+
+    pub async fn update_live_customer_service(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        close_kf: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_room_flag("close-customer-service", room_id, close_kf)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/updatekf",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "closeKf": close_kf }),
+            )
+            .await
+    }
+
+    pub async fn update_live_comment(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        ban_comment: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_room_flag("ban-comment", room_id, ban_comment)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/room/updatecomment",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "banComment": ban_comment }),
+            )
+            .await
+    }
+
+    pub async fn update_live_goods_sale(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        goods_id: i64,
+        on_sale: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_positive("room id", room_id)?;
+        validate_live_positive("goods id", goods_id)?;
+        validate_live_flag("goods on-sale", on_sale)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/onsale",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "goodsId": goods_id, "onSale": on_sale }),
+            )
+            .await
+    }
+
+    pub async fn delete_live_goods_from_room(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        goods_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_room_goods_ids(room_id, goods_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/deleteInRoom",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "goodsId": goods_id }),
+            )
+            .await
+    }
+
+    pub async fn push_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        goods_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_room_goods_ids(room_id, goods_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/push",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "goodsId": goods_id }),
+            )
+            .await
+    }
+
+    pub async fn sort_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        goods_ids: Vec<i64>,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_positive("room id", room_id)?;
+        validate_live_positive_ids("goods id", &goods_ids, 100)?;
+        let goods = goods_ids
+            .into_iter()
+            .map(|goods_id| json!({ "goodsId": goods_id }))
+            .collect::<Vec<_>>();
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/sort",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "goods": goods }),
+            )
+            .await
+    }
+
+    pub async fn get_live_goods_video(
+        &self,
+        access_token: impl Into<String>,
+        room_id: i64,
+        goods_id: i64,
+    ) -> Result<MiniProgramLiveGoodsVideoResponse> {
+        validate_live_room_goods_ids(room_id, goods_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/getVideo",
+                Some(access_token.into()),
+                json!({ "roomId": room_id, "goodsId": goods_id }),
+            )
+            .await
+    }
+
+    pub async fn add_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveGoodsMutationRequest,
+    ) -> Result<MiniProgramLiveGoodsMutationResponse> {
+        request.validate_create()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/add",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn reset_live_goods_audit(
+        &self,
+        access_token: impl Into<String>,
+        audit_id: i64,
+        goods_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_positive("audit id", audit_id)?;
+        validate_live_positive("goods id", goods_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/resetaudit",
+                Some(access_token.into()),
+                json!({ "auditId": audit_id, "goodsId": goods_id }),
+            )
+            .await
+    }
+
+    pub async fn audit_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        goods_id: i64,
+    ) -> Result<MiniProgramLiveGoodsAuditResponse> {
+        validate_live_positive("goods id", goods_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/audit",
+                Some(access_token.into()),
+                json!({ "goodsId": goods_id }),
+            )
+            .await
+    }
+
+    pub async fn delete_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        goods_id: i64,
+    ) -> Result<WechatStatusResponse> {
+        validate_live_positive("goods id", goods_id)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/delete",
+                Some(access_token.into()),
+                json!({ "goodsId": goods_id }),
+            )
+            .await
+    }
+
+    pub async fn update_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveGoodsMutationRequest,
+    ) -> Result<WechatStatusResponse> {
+        request.validate_update()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/goods/update",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn list_live_goods(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveGoodsListRequest,
+    ) -> Result<MiniProgramLiveGoodsListResponse> {
+        request.validate()?;
+        self.inner
+            .get_with_query(
+                "wxaapi/broadcast/goods/getapproved",
+                Some(access_token.into()),
+                request.query(),
+            )
+            .await
+    }
+
+    pub async fn add_live_role(
+        &self,
+        access_token: impl Into<String>,
+        username: impl Into<String>,
+        role: i64,
+    ) -> Result<WechatStatusResponse> {
+        let username = username.into();
+        validate_live_role(&username, role)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/role/addrole",
+                Some(access_token.into()),
+                json!({ "username": username, "role": role }),
+            )
+            .await
+    }
+
+    pub async fn delete_live_role(
+        &self,
+        access_token: impl Into<String>,
+        username: impl Into<String>,
+        role: i64,
+    ) -> Result<WechatStatusResponse> {
+        let username = username.into();
+        validate_live_role(&username, role)?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/role/deleterole",
+                Some(access_token.into()),
+                json!({ "username": username, "role": role }),
+            )
+            .await
+    }
+
+    pub async fn list_live_roles(
+        &self,
+        access_token: impl Into<String>,
+        request: MiniProgramLiveRoleListRequest,
+    ) -> Result<MiniProgramLiveRoleListResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/broadcast/role/getrolelist",
+                Some(access_token.into()),
+                request,
             )
             .await
     }
@@ -5736,6 +6223,151 @@ pub struct SubscribeMessageRequest {
     pub lang: Option<String>,
 }
 
+fn validate_live_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program live {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_live_optional_non_empty(kind: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_live_required(kind, value)?;
+    }
+    Ok(())
+}
+
+fn validate_live_positive(kind: &str, value: i64) -> Result<()> {
+    if value <= 0 {
+        return Err(WechatError::Config(format!(
+            "mini-program live {kind} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_live_flag(kind: &str, value: i64) -> Result<()> {
+    if !matches!(value, 0 | 1) {
+        return Err(WechatError::Config(format!(
+            "mini-program live {kind} flag must be 0 or 1"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_live_room_flag(kind: &str, room_id: i64, value: i64) -> Result<()> {
+    validate_live_positive("room id", room_id)?;
+    validate_live_flag(kind, value)
+}
+
+fn validate_live_page(offset: i64, limit: i64, maximum: i64) -> Result<()> {
+    if offset < 0 {
+        return Err(WechatError::Config(
+            "mini-program live pagination offset cannot be negative".to_string(),
+        ));
+    }
+    if !(1..=maximum).contains(&limit) {
+        return Err(WechatError::Config(format!(
+            "mini-program live pagination limit must be between 1 and {maximum}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_live_positive_ids(kind: &str, values: &[i64], maximum: usize) -> Result<()> {
+    if values.is_empty() || values.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program live {kind} list must contain between 1 and {maximum} entries"
+        )));
+    }
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_live_positive(kind, *value)?;
+        if !seen.insert(*value) {
+            return Err(WechatError::Config(format!(
+                "mini-program live {kind} values must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_live_unique_strings(kind: &str, values: &[String], maximum: usize) -> Result<()> {
+    if values.is_empty() || values.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program live {kind} list must contain between 1 and {maximum} entries"
+        )));
+    }
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_live_required(kind, value)?;
+        if !seen.insert(value.trim()) {
+            return Err(WechatError::Config(format!(
+                "mini-program live {kind} values must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_live_room_goods_ids(room_id: i64, goods_id: i64) -> Result<()> {
+    validate_live_positive("room id", room_id)?;
+    validate_live_positive("goods id", goods_id)
+}
+
+fn validate_live_role(username: &str, role: i64) -> Result<()> {
+    validate_live_required("role username", username)?;
+    validate_live_positive("role", role)
+}
+
+fn validate_live_http_url(kind: &str, value: &str) -> Result<()> {
+    let url = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("mini-program live {kind} is invalid: {error}"))
+    })?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "mini-program live {kind} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_live_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program live operation failed")
+                .to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn deserialize_live_optional_i64<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(value)) => value
+            .as_i64()
+            .ok_or_else(|| serde::de::Error::custom("live numeric value is outside i64"))
+            .map(Some),
+        Some(Value::String(value)) => value
+            .parse::<i64>()
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "live numeric value must be a number or string, got {other}"
+        ))),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveRoomRequest {
     pub name: String,
@@ -5749,6 +6381,18 @@ pub struct LiveRoomRequest {
     pub anchor_name: String,
     #[serde(rename = "anchorWechat")]
     pub anchor_wechat: String,
+    #[serde(
+        default,
+        rename = "subAnchorWechat",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sub_anchor_wechat: Option<String>,
+    #[serde(
+        default,
+        rename = "createrWechat",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub creator_wechat: Option<String>,
     #[serde(rename = "shareImg")]
     pub share_img: String,
     #[serde(rename = "type")]
@@ -5773,12 +6417,412 @@ pub struct LiveRoomRequest {
     #[serde(rename = "closeKf")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub close_kf: Option<i64>,
+    #[serde(
+        default,
+        rename = "isFeedsPublic",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_feeds_public: Option<i64>,
+}
+
+impl LiveRoomRequest {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("room name", self.name.as_str()),
+            ("cover image media id", self.cover_img.as_str()),
+            ("anchor name", self.anchor_name.as_str()),
+            ("anchor WeChat id", self.anchor_wechat.as_str()),
+            ("share image media id", self.share_img.as_str()),
+        ] {
+            validate_live_required(kind, value)?;
+        }
+        validate_live_optional_non_empty(
+            "sub-anchor WeChat id",
+            self.sub_anchor_wechat.as_deref(),
+        )?;
+        validate_live_optional_non_empty("creator WeChat id", self.creator_wechat.as_deref())?;
+        validate_live_optional_non_empty("feeds image media id", self.feeds_img.as_deref())?;
+        if self.start_time <= 0 || self.end_time <= self.start_time {
+            return Err(WechatError::Config(
+                "mini-program live room requires a positive ordered time range".to_string(),
+            ));
+        }
+        if !matches!(self.type_id, 0 | 1) {
+            return Err(WechatError::Config(
+                "mini-program live room type must be 0 or 1".to_string(),
+            ));
+        }
+        if !matches!(self.screen_type, 0 | 1) {
+            return Err(WechatError::Config(
+                "mini-program live room screen type must be 0 or 1".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("close-like", Some(self.close_like)),
+            ("close-goods", Some(self.close_goods)),
+            ("close-comment", Some(self.close_comment)),
+            ("close-replay", self.close_replay),
+            ("close-share", self.close_share),
+            ("close-customer-service", self.close_kf),
+            ("feed-public", self.is_feeds_public),
+        ] {
+            if let Some(value) = value {
+                validate_live_flag(kind, value)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveInfoRequest {
     pub start: i64,
     pub limit: i64,
+}
+
+impl LiveInfoRequest {
+    pub fn first_page(limit: i64) -> Result<Self> {
+        let request = Self { start: 0, limit };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_live_page(self.start, self.limit, 100)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoomEditRequest {
+    pub id: i64,
+    pub name: String,
+    #[serde(rename = "coverImg")]
+    pub cover_img: String,
+    #[serde(rename = "startTime")]
+    pub start_time: i64,
+    #[serde(rename = "endTime")]
+    pub end_time: i64,
+    #[serde(rename = "anchorName")]
+    pub anchor_name: String,
+    #[serde(rename = "anchorWechat")]
+    pub anchor_wechat: String,
+    #[serde(rename = "shareImg")]
+    pub share_img: String,
+    #[serde(rename = "closeLike")]
+    pub close_like: i64,
+    #[serde(rename = "closeGoods")]
+    pub close_goods: i64,
+    #[serde(rename = "closeComment")]
+    pub close_comment: i64,
+    #[serde(rename = "isFeedsPublic")]
+    pub is_feeds_public: i64,
+    #[serde(rename = "closeReplay")]
+    pub close_replay: i64,
+    #[serde(rename = "closeShare")]
+    pub close_share: i64,
+    #[serde(rename = "closeKf")]
+    pub close_kf: i64,
+    #[serde(rename = "feedsImg")]
+    pub feeds_img: String,
+}
+
+impl MiniProgramLiveRoomEditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("room id", self.id)?;
+        for (kind, value) in [
+            ("room name", self.name.as_str()),
+            ("cover image media id", self.cover_img.as_str()),
+            ("anchor name", self.anchor_name.as_str()),
+            ("anchor WeChat id", self.anchor_wechat.as_str()),
+            ("share image media id", self.share_img.as_str()),
+            ("feeds image media id", self.feeds_img.as_str()),
+        ] {
+            validate_live_required(kind, value)?;
+        }
+        if self.start_time <= 0 || self.end_time <= self.start_time {
+            return Err(WechatError::Config(
+                "mini-program live room edit requires a positive ordered time range".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("close-like", self.close_like),
+            ("close-goods", self.close_goods),
+            ("close-comment", self.close_comment),
+            ("feed-public", self.is_feeds_public),
+            ("close-replay", self.close_replay),
+            ("close-share", self.close_share),
+            ("close-customer-service", self.close_kf),
+        ] {
+            validate_live_flag(kind, value)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoomAddGoodsRequest {
+    #[serde(rename = "roomId")]
+    pub room_id: i64,
+    pub ids: Vec<i64>,
+}
+
+impl MiniProgramLiveRoomAddGoodsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("room id", self.room_id)?;
+        validate_live_positive_ids("goods id", &self.ids, 100)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveAssistantUser {
+    pub username: String,
+    pub nickname: String,
+}
+
+impl MiniProgramLiveAssistantUser {
+    fn validate(&self) -> Result<()> {
+        validate_live_required("assistant username", &self.username)?;
+        validate_live_required("assistant nickname", &self.nickname)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveAssistantAddRequest {
+    #[serde(rename = "roomId")]
+    pub room_id: i64,
+    pub users: Vec<MiniProgramLiveAssistantUser>,
+}
+
+impl MiniProgramLiveAssistantAddRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("room id", self.room_id)?;
+        if self.users.is_empty() || self.users.len() > 10 {
+            return Err(WechatError::Config(
+                "mini-program live assistant list must contain between 1 and 10 users".to_string(),
+            ));
+        }
+        let mut usernames = std::collections::HashSet::with_capacity(self.users.len());
+        for user in &self.users {
+            user.validate()?;
+            if !usernames.insert(user.username.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program live assistant usernames must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveAssistantModifyRequest {
+    #[serde(rename = "roomId")]
+    pub room_id: i64,
+    pub username: String,
+    pub nickname: String,
+}
+
+impl MiniProgramLiveAssistantModifyRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("room id", self.room_id)?;
+        validate_live_required("assistant username", &self.username)?;
+        validate_live_required("assistant nickname", &self.nickname)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveAssistantRemoveRequest {
+    #[serde(rename = "roomId")]
+    pub room_id: i64,
+    pub username: String,
+}
+
+impl MiniProgramLiveAssistantRemoveRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("room id", self.room_id)?;
+        validate_live_required("assistant username", &self.username)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveSubAnchorRequest {
+    #[serde(rename = "roomId")]
+    pub room_id: i64,
+    pub username: String,
+}
+
+impl MiniProgramLiveSubAnchorRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("room id", self.room_id)?;
+        validate_live_required("sub-anchor username", &self.username)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsMutationRequest {
+    #[serde(rename = "goodsInfo")]
+    pub goods_info: MiniProgramLiveGoodsMutation,
+}
+
+impl MiniProgramLiveGoodsMutationRequest {
+    pub fn validate_create(&self) -> Result<()> {
+        self.goods_info.validate(true)
+    }
+
+    pub fn validate_update(&self) -> Result<()> {
+        self.goods_info.validate(false)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsMutation {
+    #[serde(default, rename = "goodsId", skip_serializing_if = "Option::is_none")]
+    pub goods_id: Option<i64>,
+    #[serde(
+        default,
+        rename = "coverImgUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cover_img_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, rename = "priceType", skip_serializing_if = "Option::is_none")]
+    pub price_type: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub price: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub price2: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(
+        default,
+        rename = "thirdPartyAppid",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub third_party_appid: Option<String>,
+}
+
+impl MiniProgramLiveGoodsMutation {
+    fn validate(&self, creating: bool) -> Result<()> {
+        if creating && self.goods_id.is_some() {
+            return Err(WechatError::Config(
+                "mini-program live goods creation must not include goods id".to_string(),
+            ));
+        }
+        if creating {
+            for (kind, value) in [
+                ("goods cover image URL", self.cover_img_url.as_deref()),
+                ("goods name", self.name.as_deref()),
+                ("goods page path", self.url.as_deref()),
+            ] {
+                let value = value.ok_or_else(|| {
+                    WechatError::Config(format!("mini-program live {kind} is required"))
+                })?;
+                validate_live_required(kind, value)?;
+            }
+        } else {
+            validate_live_positive(
+                "goods id",
+                self.goods_id.ok_or_else(|| {
+                    WechatError::Config(
+                        "mini-program live goods update requires goods id".to_string(),
+                    )
+                })?,
+            )?;
+            if self.cover_img_url.is_none()
+                && self.name.is_none()
+                && self.price_type.is_none()
+                && self.price.is_none()
+                && self.price2.is_none()
+                && self.url.is_none()
+                && self.third_party_appid.is_none()
+            {
+                return Err(WechatError::Config(
+                    "mini-program live goods update requires at least one changed field"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_live_optional_non_empty("goods cover image URL", self.cover_img_url.as_deref())?;
+        validate_live_optional_non_empty("goods name", self.name.as_deref())?;
+        validate_live_optional_non_empty("goods page path", self.url.as_deref())?;
+        validate_live_optional_non_empty(
+            "goods third-party appid",
+            self.third_party_appid.as_deref(),
+        )?;
+        if let Some(price_type) = self.price_type {
+            if !matches!(price_type, 1..=3) {
+                return Err(WechatError::Config(
+                    "mini-program live goods price type must be 1, 2, or 3".to_string(),
+                ));
+            }
+        } else if creating {
+            return Err(WechatError::Config(
+                "mini-program live goods price type is required".to_string(),
+            ));
+        }
+        for price in [self.price, self.price2].into_iter().flatten() {
+            if !price.is_finite() || price < 0.0 {
+                return Err(WechatError::Config(
+                    "mini-program live goods prices must be finite and non-negative".to_string(),
+                ));
+            }
+        }
+        if creating && self.price.is_none() {
+            return Err(WechatError::Config(
+                "mini-program live goods price is required".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsListRequest {
+    pub offset: i64,
+    pub count: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<i64>,
+}
+
+impl MiniProgramLiveGoodsListRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_page(self.offset, self.count, 100)?;
+        if self.status.is_some_and(|status| !(0..=3).contains(&status)) {
+            return Err(WechatError::Config(
+                "mini-program live goods status must be between 0 and 3".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn query(&self) -> Vec<(String, String)> {
+        let mut query = vec![
+            ("offset".to_string(), self.offset.to_string()),
+            ("count".to_string(), self.count.to_string()),
+        ];
+        if let Some(status) = self.status {
+            query.push(("status".to_string(), status.to_string()));
+        }
+        query
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoleListRequest {
+    pub role: i64,
+    pub offset: i64,
+    pub limit: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keyword: Option<String>,
+}
+
+impl MiniProgramLiveRoleListRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_positive("role", self.role)?;
+        validate_live_page(self.offset, self.limit, 100)?;
+        validate_live_optional_non_empty("role keyword", self.keyword.as_deref())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5789,8 +6833,26 @@ pub struct MiniProgramCreateLiveRoomResponse {
     pub errmsg: Option<String>,
     #[serde(default, rename = "roomId")]
     pub room_id: Option<i64>,
+    #[serde(default)]
+    pub qrcode_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl MiniProgramCreateLiveRoomResponse {
+    pub fn require_room_id(&self) -> Result<i64> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let room_id = self.room_id.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program live create-room response is missing room id".to_string(),
+            )
+        })?;
+        validate_live_positive("room id", room_id)?;
+        if let Some(url) = self.qrcode_url.as_deref() {
+            validate_live_http_url("room QR-code URL", url)?;
+        }
+        Ok(room_id)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5805,6 +6867,63 @@ pub struct MiniProgramLiveInfoResponse {
     pub total: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl MiniProgramLiveInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.total.is_some_and(|total| total < 0) {
+            return Err(WechatError::Config(
+                "mini-program live room total cannot be negative".to_string(),
+            ));
+        }
+        if self.total.is_some_and(|total| {
+            i64::try_from(self.room_info.len()).is_ok_and(|count| count > total)
+        }) {
+            return Err(WechatError::Config(
+                "mini-program live decoded room count cannot exceed total".to_string(),
+            ));
+        }
+        let mut room_ids = std::collections::HashSet::with_capacity(self.room_info.len());
+        for room in &self.room_info {
+            room.validate()?;
+            let room_id = room.require_room_id()?;
+            if !room_ids.insert(room_id) {
+                return Err(WechatError::Config(
+                    "mini-program live room list contains duplicate room ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find_room(&self, room_id: i64) -> Option<&MiniProgramLiveRoomInfo> {
+        self.room_info
+            .iter()
+            .find(|room| room.roomid == Some(room_id))
+    }
+
+    pub fn next_start(&self, current_start: i64) -> Result<Option<i64>> {
+        self.validate()?;
+        if current_start < 0 {
+            return Err(WechatError::Config(
+                "mini-program live current start cannot be negative".to_string(),
+            ));
+        }
+        let count = i64::try_from(self.room_info.len()).map_err(|_| {
+            WechatError::Config("mini-program live room page count exceeds i64".to_string())
+        })?;
+        let next = current_start.checked_add(count).ok_or_else(|| {
+            WechatError::Config("mini-program live next room offset overflowed".to_string())
+        })?;
+        match self.total {
+            Some(total) if next < total && count == 0 => Err(WechatError::Config(
+                "mini-program live room pagination cannot advance an empty page".to_string(),
+            )),
+            Some(total) if next < total => Ok(Some(next)),
+            _ => Ok(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5866,6 +6985,61 @@ impl MiniProgramLiveRoomInfo {
     pub fn live_status_kind(&self) -> Option<MiniProgramLiveStatusKind> {
         self.live_status.map(MiniProgramLiveStatusKind::from)
     }
+
+    pub fn require_room_id(&self) -> Result<i64> {
+        let room_id = self.roomid.ok_or_else(|| {
+            WechatError::Config("mini-program live room is missing room id".to_string())
+        })?;
+        validate_live_positive("room id", room_id)?;
+        Ok(room_id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_room_id()?;
+        validate_live_optional_non_empty("room name", self.name.as_deref())?;
+        validate_live_optional_non_empty("room anchor name", self.anchor_name.as_deref())?;
+        validate_live_optional_non_empty("room anchor WeChat id", self.anchor_wechat.as_deref())?;
+        if self.start_time.is_some_and(|time| time < 0)
+            || self.end_time.is_some_and(|time| time < 0)
+            || self
+                .start_time
+                .zip(self.end_time)
+                .is_some_and(|(start, end)| end < start)
+        {
+            return Err(WechatError::Config(
+                "mini-program live room timestamps are inconsistent".to_string(),
+            ));
+        }
+        if self.total.is_some_and(|total| total < 0) {
+            return Err(WechatError::Config(
+                "mini-program live room goods total cannot be negative".to_string(),
+            ));
+        }
+        let mut goods_ids = std::collections::HashSet::with_capacity(self.goods.len());
+        for goods in &self.goods {
+            goods.validate()?;
+            let goods_id = goods.require_goods_id()?;
+            if !goods_ids.insert(goods_id) {
+                return Err(WechatError::Config(
+                    "mini-program live room contains duplicate goods ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniProgramLiveStatusKind {
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Ended | Self::Forbidden | Self::Abnormal | Self::Expired
+        )
+    }
+
+    pub fn needs_attention(self) -> bool {
+        matches!(self, Self::Forbidden | Self::Abnormal | Self::Expired)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5911,6 +7085,30 @@ impl MiniProgramLiveRoomGoods {
     pub fn price_type_kind(&self) -> Option<MiniProgramLiveGoodsPriceType> {
         self.price_type.map(MiniProgramLiveGoodsPriceType::from)
     }
+
+    pub fn require_goods_id(&self) -> Result<i64> {
+        let goods_id = self.goods_id.ok_or_else(|| {
+            WechatError::Config("mini-program live room goods is missing goods id".to_string())
+        })?;
+        validate_live_positive("goods id", goods_id)?;
+        Ok(goods_id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_goods_id()?;
+        validate_live_optional_non_empty("room goods name", self.name.as_deref())?;
+        validate_live_optional_non_empty("room goods path", self.url.as_deref())?;
+        if [self.price, self.price2]
+            .into_iter()
+            .flatten()
+            .any(|price| price < 0)
+        {
+            return Err(WechatError::Config(
+                "mini-program live room goods prices cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5937,6 +7135,54 @@ pub struct MiniProgramLiveReplay {
     pub media_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl MiniProgramLiveReplay {
+    pub fn validate(&self) -> Result<()> {
+        validate_live_optional_non_empty("replay create time", self.create_time.as_deref())?;
+        validate_live_optional_non_empty("replay expire time", self.expire_time.as_deref())?;
+        if let Some(url) = self.media_url.as_deref() {
+            validate_live_http_url("replay media URL", url)?;
+        }
+        Ok(())
+    }
+}
+
+impl MiniProgramLiveReplayResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.total.is_some_and(|total| total < 0) {
+            return Err(WechatError::Config(
+                "mini-program live replay total cannot be negative".to_string(),
+            ));
+        }
+        for replay in &self.live_replay {
+            replay.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn next_start(&self, current_start: i64) -> Result<Option<i64>> {
+        self.validate()?;
+        if current_start < 0 {
+            return Err(WechatError::Config(
+                "mini-program live replay start cannot be negative".to_string(),
+            ));
+        }
+        let count = i64::try_from(self.live_replay.len()).map_err(|_| {
+            WechatError::Config("mini-program live replay page count exceeds i64".to_string())
+        })?;
+        let next = current_start.checked_add(count).ok_or_else(|| {
+            WechatError::Config("mini-program live next replay offset overflowed".to_string())
+        })?;
+        match self.total {
+            Some(total) if next < total && count == 0 => Err(WechatError::Config(
+                "mini-program live replay pagination cannot advance an empty page".to_string(),
+            )),
+            Some(total) if next < total => Ok(Some(next)),
+            _ => Ok(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6003,6 +7249,64 @@ impl MiniProgramLiveWarehouseGoods {
         self.audit_status
             .map(MiniProgramLiveGoodsAuditStatusKind::from)
     }
+
+    pub fn require_goods_id(&self) -> Result<i64> {
+        let goods_id = self.goods_id.ok_or_else(|| {
+            WechatError::Config("mini-program live warehouse goods is missing goods id".to_string())
+        })?;
+        validate_live_positive("goods id", goods_id)?;
+        Ok(goods_id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_goods_id()?;
+        validate_live_optional_non_empty("warehouse goods name", self.name.as_deref())?;
+        validate_live_optional_non_empty("warehouse goods path", self.url.as_deref())?;
+        if [self.price, self.price2]
+            .into_iter()
+            .flatten()
+            .any(|price| price < 0)
+        {
+            return Err(WechatError::Config(
+                "mini-program live warehouse goods prices cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn is_approved(&self) -> bool {
+        self.audit_status_kind() == Some(MiniProgramLiveGoodsAuditStatusKind::Approved)
+    }
+}
+
+impl MiniProgramLiveGoodsWarehouseResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut goods_ids = std::collections::HashSet::with_capacity(self.goods.len());
+        for goods in &self.goods {
+            goods.validate()?;
+            let goods_id = goods.require_goods_id()?;
+            if !goods_ids.insert(goods_id) {
+                return Err(WechatError::Config(
+                    "mini-program live warehouse contains duplicate goods ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, goods_id: i64) -> Option<&MiniProgramLiveWarehouseGoods> {
+        self.goods
+            .iter()
+            .find(|goods| goods.goods_id == Some(goods_id))
+    }
+
+    pub fn approved(&self) -> Vec<&MiniProgramLiveWarehouseGoods> {
+        self.goods
+            .iter()
+            .filter(|goods| goods.is_approved())
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6013,7 +7317,7 @@ pub struct MiniProgramLiveFollowersResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub followers: Vec<MiniProgramLiveFollower>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_live_optional_i64")]
     pub page_break: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -6031,6 +7335,398 @@ pub struct MiniProgramLiveFollower {
     pub subscribe_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl MiniProgramLiveFollowersResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.page_break.is_some_and(|page_break| page_break < 0) {
+            return Err(WechatError::Config(
+                "mini-program live follower page break cannot be negative".to_string(),
+            ));
+        }
+        let mut openids = std::collections::HashSet::with_capacity(self.followers.len());
+        for follower in &self.followers {
+            let openid = follower.openid.as_deref().ok_or_else(|| {
+                WechatError::Config("mini-program live follower is missing openid".to_string())
+            })?;
+            validate_live_required("follower openid", openid)?;
+            if follower.subscribe_time.is_some_and(|time| time < 0) {
+                return Err(WechatError::Config(
+                    "mini-program live follower subscribe time cannot be negative".to_string(),
+                ));
+            }
+            if !openids.insert(openid.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program live follower list contains duplicate openids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_page_break(&self) -> Result<Option<i64>> {
+        self.validate()?;
+        Ok(self.page_break.filter(|page_break| *page_break > 0))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLivePushUrlResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "pushAddr")]
+    pub push_addr: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLivePushUrlResponse {
+    pub fn require_push_address(&self) -> Result<&str> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let address = self.push_addr.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program live push-url response is missing push address".to_string(),
+            )
+        })?;
+        validate_live_required("push address", address)?;
+        Ok(address)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveSharedCodeResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "cdnUrl")]
+    pub cdn_url: Option<String>,
+    #[serde(default, rename = "pagePath")]
+    pub page_path: Option<String>,
+    #[serde(default, rename = "posterUrl")]
+    pub poster_url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveSharedCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, value) in [
+            ("shared-code CDN URL", self.cdn_url.as_deref()),
+            ("shared-code poster URL", self.poster_url.as_deref()),
+        ] {
+            let value = value.ok_or_else(|| {
+                WechatError::Config(format!("mini-program live {kind} is missing"))
+            })?;
+            validate_live_http_url(kind, value)?;
+        }
+        let page_path = self.page_path.as_deref().ok_or_else(|| {
+            WechatError::Config("mini-program live shared-code page path is missing".to_string())
+        })?;
+        validate_live_required("shared-code page path", page_path)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveAssistantListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<MiniProgramLiveAssistant>,
+    #[serde(default)]
+    pub count: Option<i64>,
+    #[serde(default, rename = "maxCount")]
+    pub max_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveAssistant {
+    #[serde(default)]
+    pub timestamp: Option<i64>,
+    #[serde(default)]
+    pub headimg: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub alias: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveAssistantListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        if [self.count, self.max_count]
+            .into_iter()
+            .flatten()
+            .any(|count| count < 0)
+        {
+            return Err(WechatError::Config(
+                "mini-program live assistant counts cannot be negative".to_string(),
+            ));
+        }
+        let actual = i64::try_from(self.list.len()).map_err(|_| {
+            WechatError::Config("mini-program live assistant count exceeds i64".to_string())
+        })?;
+        if self.count.is_some_and(|count| count != actual) {
+            return Err(WechatError::Config(
+                "mini-program live assistant count does not match decoded list".to_string(),
+            ));
+        }
+        if self
+            .count
+            .zip(self.max_count)
+            .is_some_and(|(count, maximum)| count > maximum)
+        {
+            return Err(WechatError::Config(
+                "mini-program live assistant count exceeds maximum".to_string(),
+            ));
+        }
+        for assistant in &self.list {
+            if assistant.timestamp.is_some_and(|time| time < 0) {
+                return Err(WechatError::Config(
+                    "mini-program live assistant timestamp cannot be negative".to_string(),
+                ));
+            }
+            if assistant.openid.is_none() && assistant.username.is_none() {
+                return Err(WechatError::Config(
+                    "mini-program live assistant requires openid or username".to_string(),
+                ));
+            }
+            validate_live_optional_non_empty("assistant openid", assistant.openid.as_deref())?;
+            validate_live_optional_non_empty("assistant username", assistant.username.as_deref())?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveSubAnchorResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveSubAnchorResponse {
+    pub fn require_username(&self) -> Result<&str> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let username = self.username.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "mini-program live sub-anchor response is missing username".to_string(),
+            )
+        })?;
+        validate_live_required("sub-anchor username", username)?;
+        Ok(username)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsVideoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveGoodsVideoResponse {
+    pub fn require_url(&self) -> Result<&str> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let url = self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("mini-program live goods video URL is missing".to_string())
+        })?;
+        validate_live_http_url("goods video URL", url)?;
+        Ok(url)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsMutationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(
+        default,
+        rename = "goodsId",
+        deserialize_with = "deserialize_live_optional_i64"
+    )]
+    pub goods_id: Option<i64>,
+    #[serde(default, rename = "auditId")]
+    pub audit_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveGoodsMutationResponse {
+    pub fn require_ids(&self) -> Result<(i64, i64)> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let goods_id = self.goods_id.ok_or_else(|| {
+            WechatError::Config("mini-program live goods response is missing goods id".to_string())
+        })?;
+        let audit_id = self.audit_id.ok_or_else(|| {
+            WechatError::Config("mini-program live goods response is missing audit id".to_string())
+        })?;
+        validate_live_positive("goods id", goods_id)?;
+        validate_live_positive("audit id", audit_id)?;
+        Ok((goods_id, audit_id))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsAuditResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default, rename = "auditId")]
+    pub audit_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveGoodsAuditResponse {
+    pub fn require_audit_id(&self) -> Result<i64> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        let audit_id = self.audit_id.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program live goods-audit response is missing audit id".to_string(),
+            )
+        })?;
+        validate_live_positive("audit id", audit_id)?;
+        Ok(audit_id)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveGoodsListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub goods: Vec<MiniProgramLiveWarehouseGoods>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveGoodsListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.total.is_some_and(|total| total < 0) {
+            return Err(WechatError::Config(
+                "mini-program live goods total cannot be negative".to_string(),
+            ));
+        }
+        let warehouse = MiniProgramLiveGoodsWarehouseResponse {
+            errcode: Some(0),
+            errmsg: None,
+            goods: self.goods.clone(),
+            extra: Value::Null,
+        };
+        warehouse.validate()
+    }
+
+    pub fn next_offset(&self, current_offset: i64) -> Result<Option<i64>> {
+        self.validate()?;
+        if current_offset < 0 {
+            return Err(WechatError::Config(
+                "mini-program live goods offset cannot be negative".to_string(),
+            ));
+        }
+        let count = i64::try_from(self.goods.len()).map_err(|_| {
+            WechatError::Config("mini-program live goods page count exceeds i64".to_string())
+        })?;
+        let next = current_offset.checked_add(count).ok_or_else(|| {
+            WechatError::Config("mini-program live goods next offset overflowed".to_string())
+        })?;
+        match self.total {
+            Some(total) if next < total && count == 0 => Err(WechatError::Config(
+                "mini-program live goods pagination cannot advance an empty page".to_string(),
+            )),
+            Some(total) if next < total => Ok(Some(next)),
+            _ => Ok(None),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoleListResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total: Option<i64>,
+    #[serde(default)]
+    pub list: Vec<MiniProgramLiveRoleMember>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniProgramLiveRoleMember {
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub role: Option<i64>,
+    #[serde(default)]
+    pub headimg: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl MiniProgramLiveRoleListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_live_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.total.is_some_and(|total| total < 0) {
+            return Err(WechatError::Config(
+                "mini-program live role total cannot be negative".to_string(),
+            ));
+        }
+        let mut usernames = std::collections::HashSet::with_capacity(self.list.len());
+        for member in &self.list {
+            let username = member.username.as_deref().ok_or_else(|| {
+                WechatError::Config("mini-program live role member is missing username".to_string())
+            })?;
+            validate_live_required("role username", username)?;
+            if member.role.is_some_and(|role| role <= 0) {
+                return Err(WechatError::Config(
+                    "mini-program live role member role must be positive".to_string(),
+                ));
+            }
+            if !usernames.insert(username.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program live role list contains duplicate usernames".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8447,6 +10143,8 @@ mod tests {
             end_time: 1_800_003_600,
             anchor_name: "host".to_string(),
             anchor_wechat: "host-wechat".to_string(),
+            sub_anchor_wechat: Some("co-host-wechat".to_string()),
+            creator_wechat: Some("creator-wechat".to_string()),
             share_img: "media-share".to_string(),
             type_id: 1,
             screen_type: 0,
@@ -8457,6 +10155,7 @@ mod tests {
             close_replay: Some(1),
             close_share: None,
             close_kf: None,
+            is_feeds_public: Some(1),
         })
         .unwrap();
 
@@ -8466,6 +10165,8 @@ mod tests {
         assert_eq!(value["endTime"], 1_800_003_600);
         assert_eq!(value["anchorName"], "host");
         assert_eq!(value["anchorWechat"], "host-wechat");
+        assert_eq!(value["subAnchorWechat"], "co-host-wechat");
+        assert_eq!(value["createrWechat"], "creator-wechat");
         assert_eq!(value["shareImg"], "media-share");
         assert_eq!(value["type"], 1);
         assert_eq!(value["screenType"], 0);
@@ -8473,6 +10174,7 @@ mod tests {
         assert_eq!(value["closeGoods"], 0);
         assert_eq!(value["closeComment"], 0);
         assert_eq!(value["closeReplay"], 1);
+        assert_eq!(value["isFeedsPublic"], 1);
         assert!(value.get("feedsImg").is_none());
     }
 
@@ -8493,6 +10195,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(create.room_id, Some(1000));
+        assert_eq!(create.require_room_id().unwrap(), 1000);
         assert_eq!(create.extra["request_id"], "create-live");
 
         let info: MiniProgramLiveInfoResponse = serde_json::from_value(json!({
@@ -8539,6 +10242,9 @@ mod tests {
             Some(MiniProgramLiveGoodsPriceType::Fixed)
         );
         assert_eq!(info.room_info[0].goods[0].extra["goods_extra"], "retained");
+        assert!(info.validate().is_ok());
+        assert!(info.find_room(1000).is_some());
+        assert_eq!(info.next_start(0).unwrap(), None);
 
         let replay: MiniProgramLiveReplayResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -8558,6 +10264,8 @@ mod tests {
         );
         assert_eq!(replay.extra["request_id"], "replay");
         assert_eq!(replay.live_replay[0].extra["duration"], 3600);
+        assert!(replay.validate().is_ok());
+        assert_eq!(replay.next_start(0).unwrap(), None);
 
         let goods: MiniProgramLiveGoodsWarehouseResponse = serde_json::from_value(json!({
             "request_id": "warehouse",
@@ -8586,6 +10294,9 @@ mod tests {
         );
         assert_eq!(goods.extra["request_id"], "warehouse");
         assert_eq!(goods.goods[0].extra["audit_reason"], "ok");
+        assert!(goods.validate().is_ok());
+        assert!(goods.find(100).unwrap().is_approved());
+        assert_eq!(goods.approved().len(), 1);
         assert_eq!(
             MiniProgramLiveStatusKind::from(199),
             MiniProgramLiveStatusKind::Other(199)
@@ -8598,6 +10309,8 @@ mod tests {
             MiniProgramLiveGoodsAuditStatusKind::from(9),
             MiniProgramLiveGoodsAuditStatusKind::Other(9)
         );
+        assert!(MiniProgramLiveStatusKind::Ended.is_terminal());
+        assert!(MiniProgramLiveStatusKind::Abnormal.needs_attention());
 
         let followers: MiniProgramLiveFollowersResponse = serde_json::from_value(json!({
             "followers": [{
@@ -8607,7 +10320,7 @@ mod tests {
                 "subscribeTime": 1_800_000_000,
                 "source": "share"
             }],
-            "page_break": 10,
+            "page_break": "10",
             "request_id": "followers"
         }))
         .unwrap();
@@ -8615,6 +10328,259 @@ mod tests {
         assert_eq!(followers.followers[0].subscribe_time, Some(1_800_000_000));
         assert_eq!(followers.followers[0].extra["source"], "share");
         assert_eq!(followers.page_break.unwrap(), 10);
+        assert!(followers.validate().is_ok());
+        assert_eq!(followers.next_page_break().unwrap(), Some(10));
         assert_eq!(followers.extra["request_id"], "followers");
+    }
+
+    #[test]
+    fn serializes_live_broadcast_lifecycle_requests() {
+        let edit_room = MiniProgramLiveRoomEditRequest {
+            id: 100,
+            name: "Launch".to_string(),
+            cover_img: "cover-media".to_string(),
+            start_time: 1_800_000_000,
+            end_time: 1_800_003_600,
+            anchor_name: "Host".to_string(),
+            anchor_wechat: "host-wechat".to_string(),
+            share_img: "share-media".to_string(),
+            close_like: 0,
+            close_goods: 0,
+            close_comment: 0,
+            is_feeds_public: 1,
+            close_replay: 0,
+            close_share: 0,
+            close_kf: 0,
+            feeds_img: "feeds-media".to_string(),
+        };
+        assert!(edit_room.validate().is_ok());
+        let value = serde_json::to_value(edit_room).unwrap();
+        assert_eq!(value["id"], 100);
+        assert_eq!(value["isFeedsPublic"], 1);
+        assert!(value.get("type").is_none());
+        assert!(value.get("screenType").is_none());
+
+        let add_goods = MiniProgramLiveRoomAddGoodsRequest {
+            room_id: 100,
+            ids: vec![10, 20],
+        };
+        assert!(add_goods.validate().is_ok());
+        let value = serde_json::to_value(add_goods).unwrap();
+        assert_eq!(value["roomId"], 100);
+        assert_eq!(value["ids"], json!([10, 20]));
+
+        let assistants = MiniProgramLiveAssistantAddRequest {
+            room_id: 100,
+            users: vec![MiniProgramLiveAssistantUser {
+                username: "assistant-wechat".to_string(),
+                nickname: "Assistant".to_string(),
+            }],
+        };
+        assert!(assistants.validate().is_ok());
+        let value = serde_json::to_value(assistants).unwrap();
+        assert_eq!(value["roomId"], 100);
+        assert_eq!(value["users"][0]["username"], "assistant-wechat");
+
+        let sub_anchor = MiniProgramLiveSubAnchorRequest {
+            room_id: 100,
+            username: "co-host".to_string(),
+        };
+        assert!(sub_anchor.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(sub_anchor).unwrap()["roomId"],
+            json!(100)
+        );
+
+        let create_goods = MiniProgramLiveGoodsMutationRequest {
+            goods_info: MiniProgramLiveGoodsMutation {
+                goods_id: None,
+                cover_img_url: Some("media-id".to_string()),
+                name: Some("Coffee".to_string()),
+                price_type: Some(1),
+                price: Some(10.0),
+                price2: Some(0.0),
+                url: Some("pages/goods/coffee".to_string()),
+                third_party_appid: None,
+            },
+        };
+        assert!(create_goods.validate_create().is_ok());
+        let value = serde_json::to_value(create_goods).unwrap();
+        assert_eq!(value["goodsInfo"]["coverImgUrl"], "media-id");
+        assert_eq!(value["goodsInfo"]["priceType"], 1);
+
+        let update_goods = MiniProgramLiveGoodsMutationRequest {
+            goods_info: MiniProgramLiveGoodsMutation {
+                goods_id: Some(10),
+                cover_img_url: None,
+                name: Some("Coffee beans".to_string()),
+                price_type: None,
+                price: None,
+                price2: None,
+                url: None,
+                third_party_appid: None,
+            },
+        };
+        assert!(update_goods.validate_update().is_ok());
+        let value = serde_json::to_value(update_goods).unwrap();
+        assert_eq!(value["goodsInfo"]["goodsId"], 10);
+        assert!(value["goodsInfo"].get("price").is_none());
+
+        let goods_list = MiniProgramLiveGoodsListRequest {
+            offset: 0,
+            count: 20,
+            status: Some(2),
+        };
+        assert!(goods_list.validate().is_ok());
+        assert_eq!(
+            goods_list.query(),
+            vec![
+                ("offset".to_string(), "0".to_string()),
+                ("count".to_string(), "20".to_string()),
+                ("status".to_string(), "2".to_string())
+            ]
+        );
+
+        let roles = MiniProgramLiveRoleListRequest {
+            role: 2,
+            offset: 0,
+            limit: 20,
+            keyword: Some("host".to_string()),
+        };
+        assert!(roles.validate().is_ok());
+        let value = serde_json::to_value(roles).unwrap();
+        assert_eq!(value["role"], 2);
+        assert_eq!(value["keyword"], "host");
+    }
+
+    #[test]
+    fn validates_live_broadcast_lifecycle_responses() {
+        let push: MiniProgramLivePushUrlResponse =
+            serde_json::from_value(json!({ "pushAddr": "rtmp://push.example.com/live" })).unwrap();
+        assert_eq!(
+            push.require_push_address().unwrap(),
+            "rtmp://push.example.com/live"
+        );
+
+        let shared: MiniProgramLiveSharedCodeResponse = serde_json::from_value(json!({
+            "cdnUrl": "https://example.com/code.png",
+            "pagePath": "plugin-private://wx2b03c6e691cd7370/pages/live-player-plugin",
+            "posterUrl": "https://example.com/poster.png"
+        }))
+        .unwrap();
+        assert!(shared.validate().is_ok());
+
+        let assistants: MiniProgramLiveAssistantListResponse = serde_json::from_value(json!({
+            "count": 1,
+            "maxCount": 10,
+            "list": [{
+                "timestamp": 1_800_000_000,
+                "openid": "assistant-openid",
+                "nickname": "Assistant"
+            }]
+        }))
+        .unwrap();
+        assert!(assistants.validate().is_ok());
+
+        let sub_anchor: MiniProgramLiveSubAnchorResponse =
+            serde_json::from_value(json!({ "username": "co-host" })).unwrap();
+        assert_eq!(sub_anchor.require_username().unwrap(), "co-host");
+
+        let video: MiniProgramLiveGoodsVideoResponse = serde_json::from_value(json!({
+            "url": "https://example.com/goods.mp4"
+        }))
+        .unwrap();
+        assert_eq!(
+            video.require_url().unwrap(),
+            "https://example.com/goods.mp4"
+        );
+
+        let added: MiniProgramLiveGoodsMutationResponse =
+            serde_json::from_value(json!({ "goodsId": "10", "auditId": 20 })).unwrap();
+        assert_eq!(added.require_ids().unwrap(), (10, 20));
+
+        let audited: MiniProgramLiveGoodsAuditResponse =
+            serde_json::from_value(json!({ "auditId": 21 })).unwrap();
+        assert_eq!(audited.require_audit_id().unwrap(), 21);
+
+        let goods: MiniProgramLiveGoodsListResponse = serde_json::from_value(json!({
+            "total": 2,
+            "goods": [{
+                "goodsId": 10,
+                "name": "Coffee",
+                "priceType": 1,
+                "price": 10,
+                "auditStatus": 2
+            }]
+        }))
+        .unwrap();
+        assert!(goods.validate().is_ok());
+        assert_eq!(goods.next_offset(0).unwrap(), Some(1));
+
+        let roles: MiniProgramLiveRoleListResponse = serde_json::from_value(json!({
+            "total": 1,
+            "list": [{ "username": "host", "role": 2 }]
+        }))
+        .unwrap();
+        assert!(roles.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_inconsistent_live_broadcast_contracts() {
+        assert!(LiveInfoRequest {
+            start: -1,
+            limit: 20
+        }
+        .validate()
+        .is_err());
+        assert!(MiniProgramLiveRoomAddGoodsRequest {
+            room_id: 1,
+            ids: vec![10, 10],
+        }
+        .validate()
+        .is_err());
+        assert!(MiniProgramLiveAssistantAddRequest {
+            room_id: 1,
+            users: Vec::new(),
+        }
+        .validate()
+        .is_err());
+        assert!(MiniProgramLiveGoodsMutationRequest {
+            goods_info: MiniProgramLiveGoodsMutation {
+                goods_id: None,
+                cover_img_url: None,
+                name: None,
+                price_type: Some(9),
+                price: Some(f64::NAN),
+                price2: None,
+                url: None,
+                third_party_appid: None,
+            },
+        }
+        .validate_create()
+        .is_err());
+
+        let duplicate_rooms: MiniProgramLiveInfoResponse = serde_json::from_value(json!({
+            "total": 2,
+            "room_info": [{ "roomid": 1 }, { "roomid": 1 }]
+        }))
+        .unwrap();
+        assert!(duplicate_rooms.validate().is_err());
+
+        let duplicate_followers: MiniProgramLiveFollowersResponse = serde_json::from_value(json!({
+            "followers": [{ "openid": "viewer" }, { "openid": "viewer" }]
+        }))
+        .unwrap();
+        assert!(duplicate_followers.validate().is_err());
+
+        let stalled_goods: MiniProgramLiveGoodsListResponse =
+            serde_json::from_value(json!({ "total": 2, "goods": [] })).unwrap();
+        assert!(stalled_goods.next_offset(0).is_err());
+
+        let api_error: MiniProgramLiveGoodsAuditResponse =
+            serde_json::from_value(json!({ "errcode": 1, "errmsg": "failed" })).unwrap();
+        assert!(matches!(
+            api_error.require_audit_id(),
+            Err(WechatError::Api { .. })
+        ));
     }
 }

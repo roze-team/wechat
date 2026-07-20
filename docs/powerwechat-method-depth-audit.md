@@ -1,6 +1,6 @@
 # PowerWeChat Method-Depth Audit
 
-Audit date: 2026-07-18.
+Audit date: 2026-07-20.
 
 The submodule-level coverage matrix is currently green. This means every
 PowerWeChat product submodule has an explicit Roze WeChat boundary and tested
@@ -17,7 +17,7 @@ but these areas should be expanded for stricter production parity.
 | Work | 363 | 370 | high |
 | Payment | 165 | 110 | high |
 | Open Platform | 76 | 69 | medium |
-| Mini Program | 214 | 178 | medium |
+| Mini Program | 214 | 208 | low |
 | Official Account | 283 | 244 | medium |
 | Open Work | 57 | 43 | medium |
 | Basic Service | 33 | 24 | low |
@@ -48,8 +48,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 
 4. Mini Program depth:
    exact endpoint coverage is now green after filtering scanner-only
-   documentation paths. Continue DTO normalization across `liveBroadcast`,
-   `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
+   documentation paths. `liveBroadcast` now has one-to-one PowerWeChat method
+   coverage and production request/response guards. Continue DTO normalization
+   across `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
    `dataCube`, `operation`, and `wxa`.
 
 5. Official Account depth:
@@ -678,6 +679,31 @@ Implemented on 2026-07-17 in Roze WeChat Mini Program response depth:
   for pending shipment, shipped, confirmed received, completed, and refunded
   states while retaining raw `order_state`.
 
+Implemented on 2026-07-20 in Mini Program liveBroadcast lifecycle depth:
+
+- all 37 methods in the current PowerWeChat `liveBroadcast` client now have
+  dedicated Rust wrappers, including room editing, push/share URLs,
+  assistants, sub-anchors, room feature switches, room-goods operations,
+  warehouse add/update/delete/audit, approved-goods listing, roles, followers,
+  and event push;
+- create/edit room requests use distinct wire contracts and validate required
+  media/member fields, ordered positive schedules, room modes, and all 0/1
+  feature flags before network I/O;
+- goods, assistant, follower, role, sort, and message batches enforce positive
+  IDs, nonblank identities, bounded collection sizes, and uniqueness; goods
+  creation/update distinguish required create fields from nonempty patches and
+  reject invalid/non-finite prices;
+- live-info, replay, goods, and follower pagination expose checked next-page
+  helpers that detect negative offsets, integer overflow, and stalled
+  non-terminal pages;
+- room, goods warehouse, assistant, role, follower, shared-code, push-address,
+  video, create, and audit responses validate API errors and required
+  identities, reject inconsistent totals/duplicates, and retain extension
+  fields for forward compatibility;
+- room status helpers distinguish terminal and operator-attention states,
+  while goods audit helpers expose approved inventory without treating future
+  numeric values as approved.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -887,9 +913,8 @@ Recommended implementation order:
    partner flows, statement variants, and typed response normalization.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
-3. Mini Program DTO/method-depth review for `liveBroadcast`,
-   `industry/miniDrama/vod`, `express`, `immediateDelivery`, `b2b`,
-   `dataCube`, `operation`, and `wxa`.
+3. Mini Program DTO/method-depth review for `industry/miniDrama/vod`,
+   `express`, `immediateDelivery`, `b2b`, `dataCube`, `operation`, and `wxa`.
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
