@@ -1724,6 +1724,24 @@ Implemented on 2026-07-20 in Work OA approval depth:
   approval and approval-node status codes expose forward-compatible semantic
   enums with terminal and approved-state helpers.
 
+Implemented on 2026-07-20 in Work OA approval response contracts:
+
+- template detail, application submission, modern list/detail, legacy data,
+  template create/copy, and template update responses now validate API success
+  before leaving the HTTP boundary;
+- template responses require localized names, valid typed content, and usable
+  template ids, while application submission responses require a usable
+  approval number and expose checked identity accessors;
+- modern lists enforce the 100-row response boundary, unique nonblank approval
+  numbers, and nonblank continuation cursors; details require stable approval,
+  template, applicant, timestamp, content, record, comment, process-node, and
+  batch-applicant identities while keeping future positive status codes and
+  accepting empty values only for optional response controls;
+- legacy data requires non-negative consistent count/total/continuation
+  metadata, unique positive approval numbers, valid applicant and field
+  identities, positive times, finite non-negative expense amounts, and ordered
+  leave intervals; both modern and legacy responses retain unknown fields.
+
 Implemented on 2026-07-20 in Work OA vacation depth:
 
 - member quota reads now reject blank user ids, and quota mutations validate

@@ -3994,13 +3994,16 @@ impl Work {
     ) -> Result<WorkApprovalTemplateDetailResponse> {
         let template_id = template_id.into();
         validate_work_approval_identifier("template id", &template_id)?;
-        self.inner
+        let response: WorkApprovalTemplateDetailResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/gettemplatedetail",
                 Some(access_token.into()),
                 json!({ "template_id": template_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_approval_apply_event(
@@ -4009,9 +4012,12 @@ impl Work {
         request: WorkApprovalApplyEventRequest,
     ) -> Result<WorkApprovalApplyEventResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkApprovalApplyEventResponse = self
+            .inner
             .post("cgi-bin/oa/applyevent", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_approval_info(
@@ -4020,13 +4026,16 @@ impl Work {
         request: WorkApprovalInfoRequest,
     ) -> Result<WorkApprovalInfoResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkApprovalInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/getapprovalinfo",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_approval_detail(
@@ -4036,13 +4045,16 @@ impl Work {
     ) -> Result<WorkApprovalDetailResponse> {
         let sp_no = sp_no.into();
         validate_work_approval_identifier("approval number", &sp_no)?;
-        self.inner
+        let response: WorkApprovalDetailResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/getapprovaldetail",
                 Some(access_token.into()),
                 json!({ "sp_no": sp_no }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_approval_data(
@@ -4051,13 +4063,16 @@ impl Work {
         request: WorkApprovalDataRequest,
     ) -> Result<WorkApprovalDataResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkApprovalDataResponse = self
+            .inner
             .post(
                 "cgi-bin/corp/getapprovaldata",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_approval_template(
@@ -4066,13 +4081,16 @@ impl Work {
         request: WorkApprovalCreateTemplateRequest,
     ) -> Result<WorkApprovalCreateTemplateResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkApprovalCreateTemplateResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/approval/create_template",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_approval_template(
@@ -4081,13 +4099,16 @@ impl Work {
         request: WorkApprovalUpdateTemplateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/approval/update_template",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work OA update approval template")?;
+        Ok(response)
     }
 
     pub async fn copy_approval_template(
@@ -4097,13 +4118,16 @@ impl Work {
     ) -> Result<WorkApprovalCopyTemplateResponse> {
         let open_template_id = open_template_id.into();
         validate_work_approval_identifier("open template id", &open_template_id)?;
-        self.inner
+        let response: WorkApprovalCopyTemplateResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/approval/copytemplate",
                 Some(access_token.into()),
                 json!({ "open_template_id": open_template_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_calendar(
@@ -25275,6 +25299,38 @@ pub struct WorkApprovalTemplateDetailResponse {
     pub extra: Value,
 }
 
+impl WorkApprovalTemplateDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA approval template detail",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_approval_localized_texts(
+            "template response name",
+            &self.template_names,
+            None,
+        )?;
+        self.template_content
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work approval template detail response requires template_content".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_content(&self) -> Result<&WorkApprovalTemplateContent> {
+        self.validate()?;
+        self.template_content.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "work approval template detail response requires template_content".to_string(),
+            )
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalLocalizedText {
     pub text: String,
@@ -25481,6 +25537,27 @@ pub struct WorkApprovalApplyEventResponse {
     pub extra: Value,
 }
 
+impl WorkApprovalApplyEventResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA approval apply event",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let sp_no = self.sp_no.as_deref().ok_or_else(|| {
+            WechatError::Config("work approval apply-event response requires sp_no".to_string())
+        })?;
+        validate_work_approval_identifier("approval number", sp_no)
+    }
+
+    pub fn require_approval_number(&self) -> Result<&str> {
+        self.validate()?;
+        self.sp_no.as_deref().ok_or_else(|| {
+            WechatError::Config("work approval apply-event response requires sp_no".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalApplyEventRequest {
     pub creator_userid: String,
@@ -25613,6 +25690,30 @@ impl WorkApprovalApplyData {
         }
         Ok(())
     }
+
+    fn validate_response(&self) -> Result<()> {
+        if self.contents.is_empty() {
+            return Err(WechatError::Config(
+                "work approval response contents cannot be empty".to_string(),
+            ));
+        }
+        let mut control_ids = std::collections::HashSet::with_capacity(self.contents.len());
+        let mut file_count = 0;
+        for content in &self.contents {
+            content.validate_response(&mut file_count)?;
+            if !control_ids.insert(content.id.as_str()) {
+                return Err(WechatError::Config(
+                    "work approval response control ids must be unique".to_string(),
+                ));
+            }
+        }
+        if file_count > 6 {
+            return Err(WechatError::Config(
+                "work approval response cannot contain more than 6 files".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25646,6 +25747,30 @@ impl WorkApprovalContent {
         }
         if !self.title.is_empty() {
             validate_work_approval_localized_texts("application control title", &self.title, None)?;
+        }
+        self.value.validate(file_count)
+    }
+
+    fn validate_response(&self, file_count: &mut usize) -> Result<()> {
+        validate_work_approval_identifier("response control type", &self.control)?;
+        validate_work_approval_identifier("response control id", &self.id)?;
+        if self.display.is_some_and(|value| !matches!(value, 0 | 1))
+            || self.require.is_some_and(|value| !matches!(value, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "work approval response display and required flags must be 0 or 1".to_string(),
+            ));
+        }
+        if !self.title.is_empty() {
+            validate_work_approval_localized_texts("response control title", &self.title, None)?;
+        }
+        if !self.value.has_payload() {
+            if self.require == Some(1) {
+                return Err(WechatError::Config(
+                    "work approval required response control cannot be empty".to_string(),
+                ));
+            }
+            return Ok(());
         }
         self.value.validate(file_count)
     }
@@ -25687,22 +25812,7 @@ pub struct WorkApprovalControlValue {
 
 impl WorkApprovalControlValue {
     fn validate(&self, file_count: &mut usize) -> Result<()> {
-        let has_payload = self.text.is_some()
-            || self.new_number.is_some()
-            || self.new_money.is_some()
-            || self.date.is_some()
-            || self.date_range.is_some()
-            || self.selector.is_some()
-            || !self.members.is_empty()
-            || !self.departments.is_empty()
-            || !self.files.is_empty()
-            || !self.children.is_empty()
-            || !self.related_approval.is_empty()
-            || !self.tips.is_empty()
-            || !self.stat_field.is_empty()
-            || !self.sum_field.is_empty()
-            || !self.extra.is_null();
-        if !has_payload {
+        if !self.has_payload() {
             return Err(WechatError::Config(
                 "work approval control value cannot be empty".to_string(),
             ));
@@ -25745,6 +25855,24 @@ impl WorkApprovalControlValue {
             validate_work_approval_localized_texts("control tips", &self.tips, None)?;
         }
         Ok(())
+    }
+
+    fn has_payload(&self) -> bool {
+        self.text.is_some()
+            || self.new_number.is_some()
+            || self.new_money.is_some()
+            || self.date.is_some()
+            || self.date_range.is_some()
+            || self.selector.is_some()
+            || !self.members.is_empty()
+            || !self.departments.is_empty()
+            || !self.files.is_empty()
+            || !self.children.is_empty()
+            || !self.related_approval.is_empty()
+            || !self.tips.is_empty()
+            || !self.stat_field.is_empty()
+            || !self.sum_field.is_empty()
+            || !self.extra.is_null()
     }
 }
 
@@ -26012,16 +26140,43 @@ pub struct WorkApprovalInfoResponse {
 }
 
 impl WorkApprovalInfoResponse {
-    pub fn has_more(&self) -> bool {
-        self.new_next_cursor
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA approval list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.sp_no_list.len() > 100 {
+            return Err(WechatError::Config(
+                "work approval list response cannot contain more than 100 approval numbers"
+                    .to_string(),
+            ));
+        }
+        validate_work_approval_string_list("approval number", &self.sp_no_list)?;
+        if self
+            .new_next_cursor
             .as_deref()
-            .is_some_and(|cursor| !cursor.is_empty())
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work approval list response cursor cannot be blank".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
     }
 
     pub fn next_cursor(&self) -> Option<&str> {
         self.new_next_cursor
             .as_deref()
-            .filter(|cursor| !cursor.is_empty())
+            .filter(|cursor| !cursor.trim().is_empty())
+    }
+
+    pub fn contains(&self, sp_no: &str) -> bool {
+        self.sp_no_list.iter().any(|value| value == sp_no)
     }
 }
 
@@ -26035,6 +26190,31 @@ pub struct WorkApprovalDetailResponse {
     pub info: Option<WorkApprovalDetail>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkApprovalDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA approval detail",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work approval detail response requires approval info".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_info(&self) -> Result<&WorkApprovalDetail> {
+        self.validate()?;
+        self.info.as_ref().ok_or_else(|| {
+            WechatError::Config("work approval detail response requires approval info".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26104,6 +26284,37 @@ impl WorkApprovalStatusKind {
 }
 
 impl WorkApprovalDetail {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_approval_identifier("approval number", &self.sp_no)?;
+        validate_work_approval_identifier("approval name", &self.sp_name)?;
+        validate_work_approval_status("approval status", self.sp_status)?;
+        validate_work_approval_identifier("template id", &self.template_id)?;
+        if self.apply_time <= 0 {
+            return Err(WechatError::Config(
+                "work approval apply time must be positive".to_string(),
+            ));
+        }
+        self.applyer.validate()?;
+        for record in &self.sp_record {
+            record.validate()?;
+        }
+        validate_work_approval_users("notifier", &self.notifyer)?;
+        self.apply_data.validate_response()?;
+        let mut comment_ids = std::collections::HashSet::with_capacity(self.comments.len());
+        for comment in &self.comments {
+            comment.validate()?;
+            if !comment_ids.insert(comment.comment_id.as_str()) {
+                return Err(WechatError::Config(
+                    "work approval comments cannot contain duplicate ids".to_string(),
+                ));
+            }
+        }
+        if let Some(process_list) = &self.process_list {
+            process_list.validate()?;
+        }
+        validate_work_approval_users("batch applicant", &self.batch_applyer)
+    }
+
     pub fn status_kind(&self) -> WorkApprovalStatusKind {
         WorkApprovalStatusKind::from_code(self.sp_status)
     }
@@ -26120,6 +26331,38 @@ pub struct WorkApprovalUser {
     pub partyid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkApprovalUser {
+    fn validate(&self) -> Result<()> {
+        validate_work_approval_identifier("user id", &self.userid)?;
+        if let Some(partyid) = self.partyid.as_deref() {
+            validate_work_approval_identifier("department id", partyid)?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_work_approval_users(label: &str, users: &[WorkApprovalUser]) -> Result<()> {
+    let mut userids = std::collections::HashSet::with_capacity(users.len());
+    for user in users {
+        user.validate()?;
+        if !userids.insert(user.userid.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work approval {label} users must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_approval_status(label: &str, status: i64) -> Result<()> {
+    if status <= 0 {
+        return Err(WechatError::Config(format!(
+            "work approval {label} must be positive"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26154,6 +26397,19 @@ impl WorkApprovalNodeStatusKind {
 }
 
 impl WorkApprovalRecord {
+    fn validate(&self) -> Result<()> {
+        validate_work_approval_status("record status", self.sp_status)?;
+        if self.approverattr <= 0 {
+            return Err(WechatError::Config(
+                "work approval record approver attribute must be positive".to_string(),
+            ));
+        }
+        for detail in &self.details {
+            detail.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> WorkApprovalNodeStatusKind {
         WorkApprovalNodeStatusKind::from_code(self.sp_status)
     }
@@ -26174,6 +26430,17 @@ pub struct WorkApprovalRecordDetail {
 }
 
 impl WorkApprovalRecordDetail {
+    fn validate(&self) -> Result<()> {
+        self.approver.validate()?;
+        validate_work_approval_status("record-detail status", self.sp_status)?;
+        if self.sptime.is_some_and(|sptime| sptime <= 0) {
+            return Err(WechatError::Config(
+                "work approval record-detail time must be positive".to_string(),
+            ));
+        }
+        validate_work_approval_string_list("record-detail media id", &self.media_id)
+    }
+
     pub fn status_kind(&self) -> WorkApprovalNodeStatusKind {
         WorkApprovalNodeStatusKind::from_code(self.sp_status)
     }
@@ -26191,12 +26458,34 @@ pub struct WorkApprovalComment {
     pub extra: Value,
 }
 
+impl WorkApprovalComment {
+    fn validate(&self) -> Result<()> {
+        self.comment_user_info.validate()?;
+        if self.comment_time <= 0 {
+            return Err(WechatError::Config(
+                "work approval comment time must be positive".to_string(),
+            ));
+        }
+        validate_work_approval_identifier("comment id", &self.comment_id)?;
+        validate_work_approval_string_list("comment media id", &self.media_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalProcessList {
     #[serde(default)]
     pub node_list: Vec<WorkApprovalProcessNode>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkApprovalProcessList {
+    fn validate(&self) -> Result<()> {
+        for node in &self.node_list {
+            node.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26212,6 +26501,33 @@ pub struct WorkApprovalProcessNode {
     pub extra: Value,
 }
 
+impl WorkApprovalProcessNode {
+    fn validate(&self) -> Result<()> {
+        if self.node_type <= 0 {
+            return Err(WechatError::Config(
+                "work approval process node type must be positive".to_string(),
+            ));
+        }
+        if self.sp_status.is_some_and(|status| status < 0)
+            || self.apv_rel.is_some_and(|relation| relation < 0)
+        {
+            return Err(WechatError::Config(
+                "work approval process node status and relation cannot be negative".to_string(),
+            ));
+        }
+        let mut userids = std::collections::HashSet::with_capacity(self.sub_node_list.len());
+        for sub_node in &self.sub_node_list {
+            sub_node.validate()?;
+            if !userids.insert(sub_node.userid.as_str()) {
+                return Err(WechatError::Config(
+                    "work approval process subnodes cannot repeat users".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalProcessSubNode {
     pub userid: String,
@@ -26225,6 +26541,23 @@ pub struct WorkApprovalProcessSubNode {
     pub media_ids: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkApprovalProcessSubNode {
+    fn validate(&self) -> Result<()> {
+        validate_work_approval_identifier("process subnode userid", &self.userid)?;
+        if self.sp_yj.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "work approval process subnode opinion cannot be negative".to_string(),
+            ));
+        }
+        if self.sptime.is_some_and(|sptime| sptime <= 0) {
+            return Err(WechatError::Config(
+                "work approval process subnode time must be positive".to_string(),
+            ));
+        }
+        validate_work_approval_string_list("process subnode media id", &self.media_ids)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26278,8 +26611,46 @@ pub struct WorkApprovalDataResponse {
 }
 
 impl WorkApprovalDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA legacy approval data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let count = self.count.ok_or_else(|| {
+            WechatError::Config("work approval legacy response requires count".to_string())
+        })?;
+        let total = self.total.ok_or_else(|| {
+            WechatError::Config("work approval legacy response requires total".to_string())
+        })?;
+        if count < 0 || total < count || count as usize != self.data.len() {
+            return Err(WechatError::Config(
+                "work approval legacy response requires data length = count <= total".to_string(),
+            ));
+        }
+        if self.next_spnum.is_some_and(|next| next < 0) {
+            return Err(WechatError::Config(
+                "work approval legacy next approval number cannot be negative".to_string(),
+            ));
+        }
+        let mut approval_numbers = std::collections::HashSet::with_capacity(self.data.len());
+        for record in &self.data {
+            record.validate()?;
+            if !approval_numbers.insert(record.sp_num) {
+                return Err(WechatError::Config(
+                    "work approval legacy response cannot repeat approval numbers".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn next_page_number(&self) -> Option<i64> {
         self.next_spnum.filter(|next| *next > 0)
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_page_number().is_some()
     }
 }
 
@@ -26311,6 +26682,30 @@ pub struct WorkLegacyApprovalRecord {
 }
 
 impl WorkLegacyApprovalRecord {
+    fn validate(&self) -> Result<()> {
+        validate_work_approval_identifier("legacy approval name", &self.spname)?;
+        validate_work_approval_identifier("legacy applicant name", &self.apply_name)?;
+        validate_work_approval_identifier("legacy applicant organization", &self.apply_org)?;
+        validate_work_approval_status("legacy approval status", self.sp_status)?;
+        if self.sp_num <= 0 || self.apply_time <= 0 {
+            return Err(WechatError::Config(
+                "work approval legacy number and apply time must be positive".to_string(),
+            ));
+        }
+        validate_work_approval_identifier("legacy applicant userid", &self.apply_user_id)?;
+        validate_work_approval_string_list("legacy approval media id", &self.mediaids)?;
+        if let Some(expense) = &self.expense {
+            expense.validate()?;
+        }
+        if let Some(leave) = &self.leave {
+            leave.validate()?;
+        }
+        for field in &self.apply_data {
+            field.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> WorkApprovalStatusKind {
         WorkApprovalStatusKind::from_code(self.sp_status)
     }
@@ -26327,6 +26722,20 @@ pub struct WorkLegacyApprovalExpense {
     pub extra: Value,
 }
 
+impl WorkLegacyApprovalExpense {
+    fn validate(&self) -> Result<()> {
+        if self.expense_type <= 0 {
+            return Err(WechatError::Config(
+                "work approval legacy expense type must be positive".to_string(),
+            ));
+        }
+        for item in &self.item {
+            item.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLegacyApprovalExpenseItem {
     pub expenseitem_type: i64,
@@ -26336,6 +26745,19 @@ pub struct WorkLegacyApprovalExpenseItem {
     pub reason: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLegacyApprovalExpenseItem {
+    fn validate(&self) -> Result<()> {
+        if self.expenseitem_type <= 0 || self.time <= 0 || !self.sums.is_finite() || self.sums < 0.0
+        {
+            return Err(WechatError::Config(
+                "work approval legacy expense item requires positive type/time and finite non-negative amount"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26358,6 +26780,23 @@ pub struct WorkLegacyApprovalLeave {
     pub extra: Value,
 }
 
+impl WorkLegacyApprovalLeave {
+    fn validate(&self) -> Result<()> {
+        if self.timeunit < 0
+            || self.leave_type < 0
+            || self.start_time <= 0
+            || self.end_time <= self.start_time
+            || self.duration <= 0
+        {
+            return Err(WechatError::Config(
+                "work approval legacy leave requires non-negative types and positive ordered duration"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLegacyApprovalField {
     pub id: String,
@@ -26367,6 +26806,14 @@ pub struct WorkLegacyApprovalField {
     pub title: String,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLegacyApprovalField {
+    fn validate(&self) -> Result<()> {
+        validate_work_approval_identifier("legacy field id", &self.id)?;
+        validate_work_approval_identifier("legacy field type", &self.field_type)?;
+        validate_work_approval_identifier("legacy field title", &self.title)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26723,6 +27170,24 @@ pub struct WorkApprovalCreateTemplateResponse {
     pub extra: Value,
 }
 
+impl WorkApprovalCreateTemplateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_approval_template_id_response(
+            "work OA approval template create",
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.template_id.as_deref(),
+        )
+    }
+
+    pub fn require_template_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.template_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work approval template response requires template_id".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkApprovalCopyTemplateResponse {
     #[serde(default)]
@@ -26733,6 +27198,37 @@ pub struct WorkApprovalCopyTemplateResponse {
     pub template_id: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkApprovalCopyTemplateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_approval_template_id_response(
+            "work OA approval template copy",
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.template_id.as_deref(),
+        )
+    }
+
+    pub fn require_template_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.template_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work approval template response requires template_id".to_string())
+        })
+    }
+}
+
+fn validate_work_approval_template_id_response(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+    template_id: Option<&str>,
+) -> Result<()> {
+    validate_work_response_success(operation, errcode, errmsg)?;
+    let template_id = template_id.ok_or_else(|| {
+        WechatError::Config("work approval template response requires template_id".to_string())
+    })?;
+    validate_work_approval_identifier("template id", template_id)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43841,6 +44337,152 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_approval_response_contracts() {
+        let api_error: WorkApprovalInfoResponse = serde_json::from_value(json!({
+            "errcode": 301025,
+            "errmsg": "approval unavailable"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 301025, .. })
+        ));
+
+        let missing_template_content: WorkApprovalTemplateDetailResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "template_names": [{ "text": "Leave", "lang": "en" }]
+            }))
+            .unwrap();
+        assert!(missing_template_content.validate().is_err());
+
+        let missing_approval_number: WorkApprovalApplyEventResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_approval_number.validate().is_err());
+
+        let duplicate_numbers: WorkApprovalInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "sp_no_list": ["approval-1", "approval-1"]
+        }))
+        .unwrap();
+        assert!(duplicate_numbers.validate().is_err());
+
+        let blank_cursor: WorkApprovalInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "sp_no_list": [],
+            "new_next_cursor": " "
+        }))
+        .unwrap();
+        assert!(blank_cursor.validate().is_err());
+
+        let valid_detail: WorkApprovalDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "info": {
+                "sp_no": "approval-1",
+                "sp_name": "Leave",
+                "sp_status": 1,
+                "template_id": "template-1",
+                "apply_time": 1_800_000_000,
+                "applyer": { "userid": "member" },
+                "apply_data": {
+                    "contents": [{
+                        "control": "Text",
+                        "id": "Text-1",
+                        "value": { "text": "reason" }
+                    }]
+                }
+            }
+        }))
+        .unwrap();
+        valid_detail.validate().unwrap();
+
+        let mut optional_empty_detail = valid_detail.clone();
+        optional_empty_detail
+            .info
+            .as_mut()
+            .unwrap()
+            .apply_data
+            .contents
+            .push(WorkApprovalContent {
+                control: "Text".to_string(),
+                id: "Text-2".to_string(),
+                title: Vec::new(),
+                value: WorkApprovalControlValue::default(),
+                display: Some(1),
+                require: Some(0),
+                extra: Value::Null,
+            });
+        optional_empty_detail.validate().unwrap();
+        optional_empty_detail
+            .info
+            .as_mut()
+            .unwrap()
+            .apply_data
+            .contents[1]
+            .require = Some(1);
+        assert!(optional_empty_detail.validate().is_err());
+
+        let mut invalid_detail = valid_detail.clone();
+        invalid_detail.info.as_mut().unwrap().sp_status = 0;
+        assert!(invalid_detail.validate().is_err());
+
+        let mut duplicate_comments = valid_detail;
+        duplicate_comments.info.as_mut().unwrap().comments = vec![
+            WorkApprovalComment {
+                comment_user_info: WorkApprovalUser {
+                    userid: "manager".to_string(),
+                    partyid: None,
+                    extra: Value::Null,
+                },
+                comment_time: 1_800_000_100,
+                comment_content: "first".to_string(),
+                comment_id: "comment-1".to_string(),
+                media_id: Vec::new(),
+                extra: Value::Null,
+            },
+            WorkApprovalComment {
+                comment_user_info: WorkApprovalUser {
+                    userid: "auditor".to_string(),
+                    partyid: None,
+                    extra: Value::Null,
+                },
+                comment_time: 1_800_000_200,
+                comment_content: "second".to_string(),
+                comment_id: "comment-1".to_string(),
+                media_id: Vec::new(),
+                extra: Value::Null,
+            },
+        ];
+        assert!(duplicate_comments.validate().is_err());
+
+        let valid_legacy: WorkApprovalDataResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "count": 1,
+            "total": 2,
+            "next_spnum": 2,
+            "data": [{
+                "spname": "Expense",
+                "apply_name": "Alice",
+                "apply_org": "Finance",
+                "sp_status": 2,
+                "sp_num": 1,
+                "apply_time": 1_800_000_000,
+                "apply_user_id": "alice"
+            }]
+        }))
+        .unwrap();
+        valid_legacy.validate().unwrap();
+
+        let mut invalid_count = valid_legacy;
+        invalid_count.count = Some(2);
+        assert!(invalid_count.validate().is_err());
+
+        let missing_template_id: WorkApprovalCopyTemplateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_template_id.validate().is_err());
+    }
+
+    #[test]
     fn validates_work_oa_journal_queries_and_exports() {
         let first_page =
             WorkJournalRecordListRequest::first_page(1_800_000_000, 1_800_086_400, 100);
@@ -43943,6 +44585,8 @@ mod tests {
             "template_id": "template-1"
         }))
         .unwrap();
+        approval.validate().unwrap();
+        assert_eq!(approval.require_template_id().unwrap(), "template-1");
         assert_eq!(approval.template_id.as_deref(), Some("template-1"));
 
         let records: WorkJournalRecordListResponse = serde_json::from_value(json!({
@@ -44829,6 +45473,8 @@ mod tests {
             "template_version": 2
         }))
         .unwrap();
+        template.validate().unwrap();
+        assert_eq!(template.require_content().unwrap().controls.len(), 1);
         assert_eq!(template.template_names[0].text, "Leave");
         let template_content = template
             .template_content
@@ -44852,6 +45498,8 @@ mod tests {
             "request_id": "approval-apply"
         }))
         .unwrap();
+        apply.validate().unwrap();
+        assert_eq!(apply.require_approval_number().unwrap(), "202607160001");
         assert_eq!(apply.sp_no.as_deref(), Some("202607160001"));
         assert_eq!(apply.extra["request_id"], "approval-apply");
 
@@ -44861,6 +45509,8 @@ mod tests {
             "total": 1
         }))
         .unwrap();
+        info.validate().unwrap();
+        assert!(info.contains("202607160001"));
         assert_eq!(info.sp_no_list[0], "202607160001");
         assert_eq!(info.extra["total"], 1);
         assert!(info.has_more());
@@ -44939,6 +45589,8 @@ mod tests {
             "trace_id": "approval-detail"
         }))
         .unwrap();
+        detail.validate().unwrap();
+        assert_eq!(detail.require_info().unwrap().sp_no, "202607160001");
         assert_eq!(detail.extra["trace_id"], "approval-detail");
         let detail = detail.info.expect("approval detail");
         assert_eq!(detail.sp_no, "202607160001");
@@ -45010,6 +45662,8 @@ mod tests {
             "has_more": true
         }))
         .unwrap();
+        data.validate().unwrap();
+        assert!(data.has_more());
         assert_eq!(data.next_spnum, Some(2));
         assert_eq!(data.data[0].spname, "Expense");
         assert_eq!(
