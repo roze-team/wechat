@@ -1698,6 +1698,18 @@ Implemented on 2026-07-20 in Work OA living depth:
 - member live-list pagination exposes a first-page constructor and enforces
   the 1-to-100 row boundary, while list and watch-stat responses expose
   explicit continuation helpers;
+- all nine living operations now validate successful Work API envelopes at
+  the HTTP boundary, including mutation status responses and required payloads;
+- create, viewing-code, and share responses accept both numeric and string
+  wire representations used by PowerWeChat and Enterprise WeChat while
+  exposing checked string accessors;
+- live lists reject blank, duplicate, or oversized ID pages; detail responses
+  reject impossible negative counters, timestamps, and non-binary replay flags;
+- watch-stat responses validate continuation keys, required statistics,
+  viewer identities, non-negative watch times, binary interaction flags, and
+  duplicate viewers, and expose checked aggregate viewer counts;
+- share-attribution responses require a live ID and at least one internal or
+  external viewer identity while retaining inviter and unknown extension data;
 - live type, lifecycle status, replay status, and external-viewer type now
   expose forward-compatible semantic enums and terminal/replay helpers;
 - external watch-stat records now retain inviter member and external-contact

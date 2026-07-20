@@ -5463,9 +5463,12 @@ impl Work {
         request: WorkLivingCreateRequest,
     ) -> Result<WorkLivingCreateResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkLivingCreateResponse = self
+            .inner
             .post("cgi-bin/living/create", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn modify_living(
@@ -5474,9 +5477,12 @@ impl Work {
         request: WorkLivingModifyRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/living/modify", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work OA modify living")?;
+        Ok(response)
     }
 
     pub async fn cancel_living(
@@ -5486,13 +5492,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let living_id = living_id.into();
         validate_work_living_identifier("id", &living_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/living/cancel",
                 Some(access_token.into()),
                 json!({ "livingid": living_id }),
             )
-            .await
+            .await?;
+        response.validate_for("work OA cancel living")?;
+        Ok(response)
     }
 
     pub async fn delete_living_replay_data(
@@ -5502,13 +5511,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let living_id = living_id.into();
         validate_work_living_identifier("id", &living_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/living/delete_replay_data",
                 Some(access_token.into()),
                 json!({ "livingid": living_id }),
             )
-            .await
+            .await?;
+        response.validate_for("work OA delete living replay")?;
+        Ok(response)
     }
 
     pub async fn get_living_code(
@@ -5521,13 +5533,16 @@ impl Work {
         let open_id = open_id.into();
         validate_work_living_identifier("id", &living_id)?;
         validate_work_living_identifier("viewer openid", &open_id)?;
-        self.inner
+        let response: WorkLivingCodeResponse = self
+            .inner
             .post(
                 "cgi-bin/living/get_living_code",
                 Some(access_token.into()),
                 json!({ "livingid": living_id, "openid": open_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_user_all_living_ids(
@@ -5536,13 +5551,16 @@ impl Work {
         request: WorkLivingGetUserAllLivingIdRequest,
     ) -> Result<WorkLivingGetUserAllLivingIdResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkLivingGetUserAllLivingIdResponse = self
+            .inner
             .post(
                 "cgi-bin/living/get_user_all_livingid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_living_info(
@@ -5552,13 +5570,16 @@ impl Work {
     ) -> Result<WorkLivingInfoResponse> {
         let living_id = living_id.into();
         validate_work_living_identifier("id", &living_id)?;
-        self.inner
+        let response: WorkLivingInfoResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/living/get_living_info",
                 Some(access_token.into()),
                 vec![("livingid".to_string(), living_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_living_watch_stat(
@@ -5569,13 +5590,16 @@ impl Work {
     ) -> Result<WorkLivingWatchStatResponse> {
         let living_id = living_id.into();
         validate_work_living_identifier("id", &living_id)?;
-        self.inner
+        let response: WorkLivingWatchStatResponse = self
+            .inner
             .post(
                 "cgi-bin/living/get_watch_stat",
                 Some(access_token.into()),
                 json!({ "livingid": living_id, "next_key": next_key.into() }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_living_share_info(
@@ -5585,13 +5609,16 @@ impl Work {
     ) -> Result<WorkLivingShareInfoResponse> {
         let ww_share_code = ww_share_code.into();
         validate_work_living_identifier("share code", &ww_share_code)?;
-        self.inner
+        let response: WorkLivingShareInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/living/get_living_share_info",
                 Some(access_token.into()),
                 json!({ "ww_share_code": ww_share_code }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn oa_wedrive(&self) -> DomainModule {
@@ -33646,10 +33673,37 @@ pub struct WorkLivingCreateResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub livingid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLivingCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA create living",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.living_id().ok_or_else(|| {
+            WechatError::Config("work living create response requires livingid".to_string())
+        })?;
+        Ok(())
+    }
+
+    pub fn living_id(&self) -> Option<&str> {
+        self.livingid
+            .as_deref()
+            .filter(|living_id| !living_id.trim().is_empty())
+    }
+
+    pub fn require_living_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.living_id().ok_or_else(|| {
+            WechatError::Config("work living create response requires livingid".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33658,10 +33712,37 @@ pub struct WorkLivingCodeResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub living_code: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLivingCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA get living code",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.living_code().ok_or_else(|| {
+            WechatError::Config("work living code response requires living_code".to_string())
+        })?;
+        Ok(())
+    }
+
+    pub fn living_code(&self) -> Option<&str> {
+        self.living_code
+            .as_deref()
+            .filter(|living_code| !living_code.trim().is_empty())
+    }
+
+    pub fn require_living_code(&self) -> Result<&str> {
+        self.validate()?;
+        self.living_code().ok_or_else(|| {
+            WechatError::Config("work living code response requires living_code".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33679,10 +33760,36 @@ pub struct WorkLivingGetUserAllLivingIdResponse {
 }
 
 impl WorkLivingGetUserAllLivingIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA list member living ids",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.livingid_list.len() > 100 {
+            return Err(WechatError::Config(
+                "work living id list response cannot contain more than 100 ids".to_string(),
+            ));
+        }
+        for living_id in &self.livingid_list {
+            validate_work_living_identifier("id", living_id)?;
+        }
+        if has_duplicate_strings(&self.livingid_list) {
+            return Err(WechatError::Config(
+                "work living id list response cannot contain duplicate ids".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
         self.next_cursor
             .as_deref()
-            .is_some_and(|cursor| !cursor.is_empty())
+            .filter(|cursor| !cursor.trim().is_empty())
     }
 }
 
@@ -33800,6 +33907,48 @@ pub struct WorkLivingInfo {
 }
 
 impl WorkLivingInfo {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("anchor user id", self.anchor_userid.as_deref()),
+            ("theme", self.theme.as_deref()),
+            ("push stream url", self.push_stream_url.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_living_identifier(label, value)?;
+            }
+        }
+        for (label, value) in [
+            ("start time", self.living_start),
+            ("duration", self.living_duration),
+            ("reserve duration", self.reserve_living_duration),
+            ("reserve start", self.reserve_start),
+        ] {
+            if value.is_some_and(|value| value <= 0) {
+                return Err(WechatError::Config(format!(
+                    "work living response {label} must be positive"
+                )));
+            }
+        }
+        for (label, value) in [
+            ("type", self.living_type),
+            ("status", self.status),
+            ("replay status", self.replay_status),
+            ("main department", self.main_department),
+            ("viewer count", self.viewer_num),
+            ("online count", self.online_count),
+            ("mic count", self.mic_num),
+            ("subscriber count", self.subscribe_count),
+            ("comment count", self.comment_num),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "work living response {label} cannot be negative"
+                )));
+            }
+        }
+        validate_work_living_binary_response("open replay", self.open_replay)
+    }
+
     pub fn living_type_kind(&self) -> Option<WorkLivingTypeKind> {
         self.living_type.map(WorkLivingTypeKind::from_code)
     }
@@ -33835,6 +33984,29 @@ pub struct WorkLivingInfoResponse {
     pub extra: Value,
 }
 
+impl WorkLivingInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA get living info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.living_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work living info response requires living_info".to_string())
+            })?
+            .validate()
+    }
+
+    pub fn require_info(&self) -> Result<&WorkLivingInfo> {
+        self.validate()?;
+        self.living_info.as_ref().ok_or_else(|| {
+            WechatError::Config("work living info response requires living_info".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLivingInternalViewer {
     pub userid: String,
@@ -33843,6 +34015,18 @@ pub struct WorkLivingInternalViewer {
     pub is_mic: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLivingInternalViewer {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_living_identifier("internal viewer user id", &self.userid)?;
+        validate_work_living_non_negative_response("internal viewer watch time", self.watch_time)?;
+        validate_work_living_binary_response(
+            "internal viewer comment flag",
+            Some(self.is_comment),
+        )?;
+        validate_work_living_binary_response("internal viewer mic flag", Some(self.is_mic))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33880,6 +34064,33 @@ impl WorkLivingExternalViewerTypeKind {
 }
 
 impl WorkLivingExternalViewer {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_living_identifier("external viewer user id", &self.external_userid)?;
+        if self.viewer_type <= 0 {
+            return Err(WechatError::Config(
+                "work living external viewer type must be positive".to_string(),
+            ));
+        }
+        validate_work_living_non_negative_response("external viewer watch time", self.watch_time)?;
+        validate_work_living_binary_response(
+            "external viewer comment flag",
+            Some(self.is_comment),
+        )?;
+        validate_work_living_binary_response("external viewer mic flag", Some(self.is_mic))?;
+        for (label, value) in [
+            ("inviter user id", self.invitor_userid.as_deref()),
+            (
+                "inviter external user id",
+                self.invitor_external_userid.as_deref(),
+            ),
+        ] {
+            if let Some(value) = value {
+                validate_work_living_identifier(label, value)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn viewer_type_kind(&self) -> WorkLivingExternalViewerTypeKind {
         WorkLivingExternalViewerTypeKind::from_code(self.viewer_type)
     }
@@ -33893,6 +34104,42 @@ pub struct WorkLivingWatchStatInfo {
     pub external_users: Vec<WorkLivingExternalViewer>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLivingWatchStatInfo {
+    pub fn validate(&self) -> Result<()> {
+        for viewer in &self.users {
+            viewer.validate()?;
+        }
+        for viewer in &self.external_users {
+            viewer.validate()?;
+        }
+        let user_ids = self
+            .users
+            .iter()
+            .map(|viewer| viewer.userid.clone())
+            .collect::<Vec<_>>();
+        if has_duplicate_strings(&user_ids) {
+            return Err(WechatError::Config(
+                "work living watch-stat response cannot repeat internal viewers".to_string(),
+            ));
+        }
+        let external_user_ids = self
+            .external_users
+            .iter()
+            .map(|viewer| viewer.external_userid.clone())
+            .collect::<Vec<_>>();
+        if has_duplicate_strings(&external_user_ids) {
+            return Err(WechatError::Config(
+                "work living watch-stat response cannot repeat external viewers".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn viewer_count(&self) -> usize {
+        self.users.len() + self.external_users.len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33912,6 +34159,33 @@ pub struct WorkLivingWatchStatResponse {
 }
 
 impl WorkLivingWatchStatResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA get living watch statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.ending.is_some_and(|ending| !matches!(ending, 0 | 1)) {
+            return Err(WechatError::Config(
+                "work living watch-stat ending flag must be 0 or 1".to_string(),
+            ));
+        }
+        if self.has_more() && self.next_page_key().is_none() {
+            return Err(WechatError::Config(
+                "work living watch-stat response requires next_key when more data exists"
+                    .to_string(),
+            ));
+        }
+        self.stat_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work living watch-stat response requires stat_info".to_string(),
+                )
+            })?
+            .validate()
+    }
+
     pub fn is_complete(&self) -> bool {
         self.ending == Some(1)
     }
@@ -33924,7 +34198,14 @@ impl WorkLivingWatchStatResponse {
         self.has_more()
             .then_some(self.next_key.as_deref())
             .flatten()
-            .filter(|key| !key.is_empty())
+            .filter(|key| !key.trim().is_empty())
+    }
+
+    pub fn require_statistics(&self) -> Result<&WorkLivingWatchStatInfo> {
+        self.validate()?;
+        self.stat_info.as_ref().ok_or_else(|| {
+            WechatError::Config("work living watch-stat response requires stat_info".to_string())
+        })
     }
 }
 
@@ -33934,7 +34215,7 @@ pub struct WorkLivingShareInfoResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub livingid: Option<String>,
     #[serde(default)]
     pub viewer_userid: Option<String>,
@@ -33946,6 +34227,97 @@ pub struct WorkLivingShareInfoResponse {
     pub invitor_external_userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkLivingShareInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA get living share info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.living_id().ok_or_else(|| {
+            WechatError::Config("work living share response requires livingid".to_string())
+        })?;
+        if self.viewer_user_id().is_none() && self.viewer_external_user_id().is_none() {
+            return Err(WechatError::Config(
+                "work living share response requires a viewer identity".to_string(),
+            ));
+        }
+        for (label, value) in [
+            ("inviter user id", self.invitor_userid.as_deref()),
+            (
+                "inviter external user id",
+                self.invitor_external_userid.as_deref(),
+            ),
+        ] {
+            if value.is_some_and(|value| value.trim().is_empty()) {
+                return Err(WechatError::Config(format!(
+                    "work living share response {label} cannot be blank"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn living_id(&self) -> Option<&str> {
+        self.livingid
+            .as_deref()
+            .filter(|living_id| !living_id.trim().is_empty())
+    }
+
+    pub fn viewer_user_id(&self) -> Option<&str> {
+        self.viewer_userid
+            .as_deref()
+            .filter(|user_id| !user_id.trim().is_empty())
+    }
+
+    pub fn viewer_external_user_id(&self) -> Option<&str> {
+        self.viewer_external_userid
+            .as_deref()
+            .filter(|user_id| !user_id.trim().is_empty())
+    }
+
+    pub fn require_living_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.living_id().ok_or_else(|| {
+            WechatError::Config("work living share response requires livingid".to_string())
+        })
+    }
+}
+
+fn deserialize_work_optional_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value)),
+        Some(Value::Number(value)) => Ok(Some(value.to_string())),
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "work string value must be a string or number, got {other}"
+        ))),
+    }
+}
+
+fn validate_work_living_non_negative_response(label: &str, value: i64) -> Result<()> {
+    if value < 0 {
+        return Err(WechatError::Config(format!(
+            "work living {label} cannot be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_living_binary_response(label: &str, value: Option<i64>) -> Result<()> {
+    if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+        return Err(WechatError::Config(format!(
+            "work living {label} must be 0 or 1"
+        )));
+    }
+    Ok(())
 }
 
 fn validate_work_living_identifier(label: &str, value: &str) -> Result<()> {
@@ -47810,6 +48182,127 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_living_response_contracts() {
+        let created: WorkLivingCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "livingid": 123456789 })).unwrap();
+        assert_eq!(created.require_living_id().unwrap(), "123456789");
+
+        let code: WorkLivingCodeResponse =
+            serde_json::from_value(json!({ "living_code": 987654321 })).unwrap();
+        assert_eq!(code.require_living_code().unwrap(), "987654321");
+
+        let api_error: WorkLivingCreateResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid livingid"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+        let missing_id: WorkLivingCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.validate().is_err());
+
+        let list: WorkLivingGetUserAllLivingIdResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "next_cursor": " next-page ",
+            "livingid_list": ["living-1", "living-2"]
+        }))
+        .unwrap();
+        assert!(list.validate().is_ok());
+        assert!(list.has_more());
+        assert_eq!(list.next_cursor(), Some(" next-page "));
+        let duplicate_list: WorkLivingGetUserAllLivingIdResponse = serde_json::from_value(json!({
+            "livingid_list": ["living-1", "living-1"]
+        }))
+        .unwrap();
+        assert!(duplicate_list.validate().is_err());
+
+        let info: WorkLivingInfoResponse = serde_json::from_value(json!({
+            "living_info": {
+                "anchor_userid": "anchor",
+                "living_start": 1_800_000_000,
+                "living_duration": 3600,
+                "type": 99,
+                "status": 99,
+                "replay_status": 99,
+                "viewer_num": 0,
+                "open_replay": 1
+            }
+        }))
+        .unwrap();
+        assert!(info.validate().is_ok());
+        assert_eq!(
+            info.require_info().unwrap().status_kind(),
+            Some(WorkLivingStatusKind::Other)
+        );
+        let negative_count: WorkLivingInfoResponse = serde_json::from_value(json!({
+            "living_info": { "viewer_num": -1 }
+        }))
+        .unwrap();
+        assert!(negative_count.validate().is_err());
+        let missing_info: WorkLivingInfoResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_info.validate().is_err());
+
+        let statistics: WorkLivingWatchStatResponse = serde_json::from_value(json!({
+            "ending": 0,
+            "next_key": "next",
+            "stat_info": {
+                "users": [{
+                    "userid": "viewer",
+                    "watch_time": 60,
+                    "is_comment": 1,
+                    "is_mic": 0
+                }],
+                "external_users": [{
+                    "external_userid": "external-viewer",
+                    "type": 3,
+                    "name": "External",
+                    "watch_time": 30,
+                    "is_comment": 0,
+                    "is_mic": 1
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(statistics.validate().is_ok());
+        assert_eq!(statistics.require_statistics().unwrap().viewer_count(), 2);
+        let missing_key: WorkLivingWatchStatResponse = serde_json::from_value(json!({
+            "ending": 0,
+            "stat_info": {}
+        }))
+        .unwrap();
+        assert!(missing_key.validate().is_err());
+        let invalid_flag: WorkLivingWatchStatResponse = serde_json::from_value(json!({
+            "ending": 1,
+            "stat_info": {
+                "users": [{
+                    "userid": "viewer",
+                    "watch_time": 0,
+                    "is_comment": 2,
+                    "is_mic": 0
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(invalid_flag.validate().is_err());
+
+        let share: WorkLivingShareInfoResponse = serde_json::from_value(json!({
+            "livingid": 123456789,
+            "viewer_external_userid": "external-viewer"
+        }))
+        .unwrap();
+        assert!(share.validate().is_ok());
+        assert_eq!(share.require_living_id().unwrap(), "123456789");
+        assert_eq!(share.viewer_external_user_id(), Some("external-viewer"));
+        let missing_viewer: WorkLivingShareInfoResponse =
+            serde_json::from_value(json!({ "livingid": "living-1" })).unwrap();
+        assert!(missing_viewer.validate().is_err());
+    }
+
+    #[test]
     fn deserializes_work_oa_living_and_wedrive_responses() {
         let living: WorkLivingCreateResponse = serde_json::from_value(json!({
             "livingid": "living-100",
@@ -47818,6 +48311,7 @@ mod tests {
         .unwrap();
         assert_eq!(living.livingid.as_deref(), Some("living-100"));
         assert_eq!(living.extra["request_id"], "living-create");
+        assert!(living.validate().is_ok());
 
         let code: WorkLivingCodeResponse = serde_json::from_value(json!({
             "living_code": "living-code-200",
@@ -47826,6 +48320,7 @@ mod tests {
         .unwrap();
         assert_eq!(code.living_code.as_deref(), Some("living-code-200"));
         assert_eq!(code.extra["expire_time"], 1_800_003_600);
+        assert!(code.validate().is_ok());
 
         let ids: WorkLivingGetUserAllLivingIdResponse = serde_json::from_value(json!({
             "next_cursor": "next",
@@ -47837,6 +48332,7 @@ mod tests {
         assert_eq!(ids.livingid_list[0], "living-1");
         assert!(ids.has_more());
         assert_eq!(ids.extra["total"], 1);
+        assert!(ids.validate().is_ok());
 
         let info: WorkLivingInfoResponse = serde_json::from_value(json!({
             "trace_id": "living-info",
@@ -47864,6 +48360,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(info.extra["trace_id"], "living-info");
+        assert!(info.validate().is_ok());
         let info = info.living_info.unwrap();
         assert_eq!(info.theme.as_deref(), Some("Launch"));
         assert_eq!(info.living_type, Some(1));
@@ -47915,6 +48412,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(stat.ending, Some(0));
+        assert!(stat.validate().is_ok());
         assert!(stat.has_more());
         assert!(!stat.is_complete());
         assert_eq!(stat.next_page_key(), Some("next"));
@@ -47949,6 +48447,7 @@ mod tests {
         .unwrap();
         assert_eq!(share_info.viewer_userid.as_deref(), Some("viewer"));
         assert_eq!(share_info.extra["share_channel"], "timeline");
+        assert!(share_info.validate().is_ok());
 
         let space_create: WorkWeDriveSpaceCreateResponse =
             serde_json::from_value(json!({ "spaceid": "space", "request_id": "space-create" }))
