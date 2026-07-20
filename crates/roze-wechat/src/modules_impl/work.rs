@@ -1892,6 +1892,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactInterceptRuleAddRequest,
     ) -> Result<ExternalContactInterceptRuleAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_intercept_rule",
@@ -1906,6 +1907,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactInterceptRuleUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/update_intercept_rule",
@@ -1920,11 +1922,13 @@ impl Work {
         access_token: impl Into<String>,
         rule_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let rule_id = rule_id.into();
+        validate_external_contact_intercept_rule_id(&rule_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/del_intercept_rule",
                 Some(access_token.into()),
-                json!({ "rule_id": rule_id.into() }),
+                json!({ "rule_id": rule_id }),
             )
             .await
     }
@@ -1946,11 +1950,13 @@ impl Work {
         access_token: impl Into<String>,
         rule_id: impl Into<String>,
     ) -> Result<ExternalContactInterceptRuleResponse> {
+        let rule_id = rule_id.into();
+        validate_external_contact_intercept_rule_id(&rule_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_intercept_rule",
                 Some(access_token.into()),
-                json!({ "rule_id": rule_id.into() }),
+                json!({ "rule_id": rule_id }),
             )
             .await
     }
@@ -13615,6 +13621,31 @@ pub struct ExternalContactInterceptRuleRange {
     pub extra: Value,
 }
 
+impl ExternalContactInterceptRuleRange {
+    pub fn new(
+        users: impl IntoIterator<Item = impl Into<String>>,
+        departments: impl IntoIterator<Item = i64>,
+    ) -> Self {
+        Self {
+            user_list: users.into_iter().map(Into::into).collect(),
+            department_list: departments.into_iter().collect(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn principal_count(&self) -> usize {
+        self.user_list.len() + self.department_list.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.user_list.is_empty() && self.department_list.is_empty()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_intercept_range(self, true)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactInterceptRuleAddRequest {
     pub rule_name: String,
@@ -13625,12 +13656,57 @@ pub struct ExternalContactInterceptRuleAddRequest {
     pub applicable_range: ExternalContactInterceptRuleRange,
 }
 
+impl ExternalContactInterceptRuleAddRequest {
+    pub fn new(
+        rule_name: impl Into<String>,
+        words: impl IntoIterator<Item = impl Into<String>>,
+        intercept_type: ExternalContactInterceptTypeKind,
+        applicable_range: ExternalContactInterceptRuleRange,
+    ) -> Self {
+        Self {
+            rule_name: rule_name.into(),
+            word_list: words.into_iter().map(Into::into).collect(),
+            semantics_list: Vec::new(),
+            intercept_type: intercept_type.as_code(),
+            applicable_range,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_intercept_rule_name(&self.rule_name)?;
+        validate_external_contact_intercept_words(&self.word_list, true)?;
+        validate_external_contact_intercept_semantics(&self.semantics_list)?;
+        validate_external_contact_intercept_type(self.intercept_type)?;
+        self.applicable_range.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactInterceptRuleExtraRule {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub semantics_list: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactInterceptRuleExtraRule {
+    pub fn new(semantics: impl IntoIterator<Item = ExternalContactInterceptSemanticKind>) -> Self {
+        Self {
+            semantics_list: semantics.into_iter().map(|kind| kind.as_code()).collect(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn clear() -> Self {
+        Self {
+            semantics_list: Vec::new(),
+            extra: Value::Null,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_intercept_semantics(&self.semantics_list)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13650,6 +13726,56 @@ pub struct ExternalContactInterceptRuleUpdateRequest {
     pub remove_applicable_range: Option<ExternalContactInterceptRuleRange>,
 }
 
+impl ExternalContactInterceptRuleUpdateRequest {
+    pub fn new(rule_id: impl Into<String>) -> Self {
+        Self {
+            rule_id: rule_id.into(),
+            rule_name: None,
+            word_list: Vec::new(),
+            extra_rule: None,
+            intercept_type: None,
+            add_applicable_range: None,
+            remove_applicable_range: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_intercept_rule_id(&self.rule_id)?;
+        if self.rule_name.is_none()
+            && self.word_list.is_empty()
+            && self.extra_rule.is_none()
+            && self.intercept_type.is_none()
+            && self.add_applicable_range.is_none()
+            && self.remove_applicable_range.is_none()
+        {
+            return Err(WechatError::Config(
+                "external-contact intercept-rule update requires at least one changed field"
+                    .to_string(),
+            ));
+        }
+        if let Some(rule_name) = &self.rule_name {
+            validate_external_contact_intercept_rule_name(rule_name)?;
+        }
+        validate_external_contact_intercept_words(&self.word_list, false)?;
+        if let Some(extra_rule) = &self.extra_rule {
+            extra_rule.validate()?;
+        }
+        if let Some(intercept_type) = self.intercept_type {
+            validate_external_contact_intercept_type(intercept_type)?;
+        }
+        if let Some(range) = &self.add_applicable_range {
+            range.validate()?;
+        }
+        if let Some(range) = &self.remove_applicable_range {
+            range.validate()?;
+        }
+        validate_external_contact_intercept_range_overlap(
+            self.add_applicable_range.as_ref(),
+            self.remove_applicable_range.as_ref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactInterceptRuleAddResponse {
     #[serde(default)]
@@ -13660,6 +13786,14 @@ pub struct ExternalContactInterceptRuleAddResponse {
     pub rule_id: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactInterceptRuleAddResponse {
+    pub fn has_rule_id(&self) -> bool {
+        self.rule_id
+            .as_deref()
+            .is_some_and(|rule_id| !rule_id.trim().is_empty())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13674,6 +13808,15 @@ pub struct ExternalContactInterceptRuleListResponse {
     pub extra: Value,
 }
 
+impl ExternalContactInterceptRuleListResponse {
+    pub fn identified_rule_count(&self) -> usize {
+        self.rule_list
+            .iter()
+            .filter(|rule| rule.has_identity())
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactInterceptRuleSummary {
     #[serde(default)]
@@ -13684,6 +13827,14 @@ pub struct ExternalContactInterceptRuleSummary {
     pub create_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactInterceptRuleSummary {
+    pub fn has_identity(&self) -> bool {
+        self.rule_id
+            .as_deref()
+            .is_some_and(|rule_id| !rule_id.trim().is_empty())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13698,6 +13849,14 @@ pub struct ExternalContactInterceptRuleResponse {
     pub extra: Value,
 }
 
+impl ExternalContactInterceptRuleResponse {
+    pub fn has_rule(&self) -> bool {
+        self.rule
+            .as_ref()
+            .is_some_and(ExternalContactInterceptRule::has_identity)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactInterceptRule {
     #[serde(default)]
@@ -13709,6 +13868,8 @@ pub struct ExternalContactInterceptRule {
     #[serde(default)]
     pub semantics_list: Vec<i64>,
     #[serde(default)]
+    pub extra_rule: Option<ExternalContactInterceptRuleExtraRule>,
+    #[serde(default)]
     pub intercept_type: Option<i64>,
     #[serde(default)]
     pub applicable_range: Option<ExternalContactInterceptRuleRange>,
@@ -13719,6 +13880,12 @@ pub struct ExternalContactInterceptRule {
 }
 
 impl ExternalContactInterceptRule {
+    pub fn has_identity(&self) -> bool {
+        self.rule_id
+            .as_deref()
+            .is_some_and(|rule_id| !rule_id.trim().is_empty())
+    }
+
     pub fn intercept_type_kind(&self) -> Option<ExternalContactInterceptTypeKind> {
         self.intercept_type
             .map(ExternalContactInterceptTypeKind::from)
@@ -13727,10 +13894,19 @@ impl ExternalContactInterceptRule {
     pub fn semantic_kinds(
         &self,
     ) -> impl ExactSizeIterator<Item = ExternalContactInterceptSemanticKind> + '_ {
-        self.semantics_list
+        self.extra_rule
+            .as_ref()
+            .map(|extra_rule| extra_rule.semantics_list.as_slice())
+            .unwrap_or(&self.semantics_list)
             .iter()
             .copied()
             .map(ExternalContactInterceptSemanticKind::from)
+    }
+
+    pub fn principal_count(&self) -> usize {
+        self.applicable_range
+            .as_ref()
+            .map_or(0, ExternalContactInterceptRuleRange::principal_count)
     }
 }
 
@@ -13739,6 +13915,16 @@ pub enum ExternalContactInterceptTypeKind {
     WarnAndBlock,
     WarnOnly,
     Other(i64),
+}
+
+impl ExternalContactInterceptTypeKind {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::WarnAndBlock => 1,
+            Self::WarnOnly => 2,
+            Self::Other(code) => code,
+        }
+    }
 }
 
 impl From<i64> for ExternalContactInterceptTypeKind {
@@ -13759,6 +13945,17 @@ pub enum ExternalContactInterceptSemanticKind {
     Other(i64),
 }
 
+impl ExternalContactInterceptSemanticKind {
+    pub const fn as_code(self) -> i64 {
+        match self {
+            Self::Mobile => 1,
+            Self::Email => 2,
+            Self::RedPacket => 3,
+            Self::Other(code) => code,
+        }
+    }
+}
+
 impl From<i64> for ExternalContactInterceptSemanticKind {
     fn from(value: i64) -> Self {
         match value {
@@ -13768,6 +13965,141 @@ impl From<i64> for ExternalContactInterceptSemanticKind {
             other => Self::Other(other),
         }
     }
+}
+
+fn validate_external_contact_intercept_rule_id(rule_id: &str) -> Result<()> {
+    validate_external_contact_identifier("intercept-rule id", rule_id)
+}
+
+fn validate_external_contact_intercept_rule_name(rule_name: &str) -> Result<()> {
+    let character_count = rule_name.chars().count();
+    if rule_name.trim().is_empty() || character_count > 20 {
+        return Err(WechatError::Config(
+            "external-contact intercept-rule name must contain 1 to 20 characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_intercept_words(words: &[String], required: bool) -> Result<()> {
+    if required && words.is_empty() {
+        return Err(WechatError::Config(
+            "external-contact intercept rule requires at least one sensitive word".to_string(),
+        ));
+    }
+    if words.len() > 300 {
+        return Err(WechatError::Config(
+            "external-contact intercept rule cannot contain more than 300 sensitive words"
+                .to_string(),
+        ));
+    }
+    if words.iter().any(|word| {
+        let character_count = word.chars().count();
+        word.trim().is_empty() || character_count > 32
+    }) || has_duplicate_strings(words)
+    {
+        return Err(WechatError::Config(
+            "external-contact sensitive words must be unique and contain 1 to 32 characters"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_intercept_semantics(semantics: &[i64]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(semantics.len());
+    if semantics
+        .iter()
+        .any(|semantic| !matches!(*semantic, 1..=3) || !seen.insert(*semantic))
+    {
+        return Err(WechatError::Config(
+            "external-contact intercept semantics must be unique values from 1 to 3".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_intercept_type(intercept_type: i64) -> Result<()> {
+    if !matches!(intercept_type, 1 | 2) {
+        return Err(WechatError::Config(
+            "external-contact intercept type must be 1 or 2".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_intercept_range(
+    range: &ExternalContactInterceptRuleRange,
+    required: bool,
+) -> Result<()> {
+    let principal_count = range.principal_count();
+    if required && principal_count == 0 {
+        return Err(WechatError::Config(
+            "external-contact intercept range requires at least one user or department".to_string(),
+        ));
+    }
+    if range.user_list.len() > 1_000 || range.department_list.len() > 1_000 {
+        return Err(WechatError::Config(
+            "external-contact intercept range cannot exceed 1000 users or departments per collection"
+                .to_string(),
+        ));
+    }
+    if range
+        .user_list
+        .iter()
+        .any(|userid| userid.trim().is_empty())
+        || has_duplicate_strings(&range.user_list)
+    {
+        return Err(WechatError::Config(
+            "external-contact intercept range user ids must be non-empty and unique".to_string(),
+        ));
+    }
+    let mut departments = std::collections::HashSet::with_capacity(range.department_list.len());
+    if range
+        .department_list
+        .iter()
+        .any(|department| *department <= 0 || !departments.insert(*department))
+    {
+        return Err(WechatError::Config(
+            "external-contact intercept range department ids must be positive and unique"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_intercept_range_overlap(
+    added: Option<&ExternalContactInterceptRuleRange>,
+    removed: Option<&ExternalContactInterceptRuleRange>,
+) -> Result<()> {
+    let (Some(added), Some(removed)) = (added, removed) else {
+        return Ok(());
+    };
+    let removed_users = removed
+        .user_list
+        .iter()
+        .map(String::as_str)
+        .collect::<std::collections::HashSet<_>>();
+    let removed_departments = removed
+        .department_list
+        .iter()
+        .copied()
+        .collect::<std::collections::HashSet<_>>();
+    if added
+        .user_list
+        .iter()
+        .any(|userid| removed_users.contains(userid.as_str()))
+        || added
+            .department_list
+            .iter()
+            .any(|department| removed_departments.contains(department))
+    {
+        return Err(WechatError::Config(
+            "external-contact intercept ranges cannot add and remove the same principal"
+                .to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32984,50 +33316,46 @@ mod tests {
 
     #[test]
     fn serializes_external_contact_intercept_rule_lifecycle() {
-        let add = serde_json::to_value(ExternalContactInterceptRuleAddRequest {
-            rule_name: "No private contact".to_string(),
-            word_list: vec!["private-account".to_string()],
-            semantics_list: vec![1, 2],
-            intercept_type: 1,
-            applicable_range: ExternalContactInterceptRuleRange {
-                user_list: vec!["user".to_string()],
-                department_list: vec![2],
-                extra: Value::Null,
-            },
-        })
-        .unwrap();
+        let mut add_request = ExternalContactInterceptRuleAddRequest::new(
+            "No private contact",
+            ["private-account"],
+            ExternalContactInterceptTypeKind::WarnAndBlock,
+            ExternalContactInterceptRuleRange::new(["user"], [2]),
+        );
+        add_request.semantics_list = vec![1, 2];
+        add_request.validate().unwrap();
+        let add = serde_json::to_value(add_request).unwrap();
         assert_eq!(add["rule_name"], "No private contact");
         assert_eq!(add["word_list"][0], "private-account");
         assert_eq!(add["semantics_list"][1], 2);
         assert_eq!(add["applicable_range"]["user_list"][0], "user");
         assert_eq!(add["applicable_range"]["department_list"][0], 2);
 
-        let update = serde_json::to_value(ExternalContactInterceptRuleUpdateRequest {
-            rule_id: "rule".to_string(),
-            rule_name: None,
-            word_list: vec!["new-word".to_string()],
-            extra_rule: Some(ExternalContactInterceptRuleExtraRule {
-                semantics_list: vec![3],
-                extra: Value::Null,
-            }),
-            intercept_type: Some(2),
-            add_applicable_range: Some(ExternalContactInterceptRuleRange {
-                user_list: vec!["new-user".to_string()],
-                department_list: Vec::new(),
-                extra: Value::Null,
-            }),
-            remove_applicable_range: Some(ExternalContactInterceptRuleRange {
-                user_list: Vec::new(),
-                department_list: vec![2],
-                extra: Value::Null,
-            }),
-        })
-        .unwrap();
+        let mut update_request = ExternalContactInterceptRuleUpdateRequest::new("rule");
+        update_request.word_list = vec!["new-word".to_string()];
+        update_request.extra_rule = Some(ExternalContactInterceptRuleExtraRule::new([
+            ExternalContactInterceptSemanticKind::RedPacket,
+        ]));
+        update_request.intercept_type = Some(ExternalContactInterceptTypeKind::WarnOnly.as_code());
+        update_request.add_applicable_range =
+            Some(ExternalContactInterceptRuleRange::new(["new-user"], []));
+        update_request.remove_applicable_range = Some(ExternalContactInterceptRuleRange::new(
+            Vec::<String>::new(),
+            [2],
+        ));
+        update_request.validate().unwrap();
+        let update = serde_json::to_value(update_request).unwrap();
         assert_eq!(update["rule_id"], "rule");
         assert!(update.get("rule_name").is_none());
         assert_eq!(update["extra_rule"]["semantics_list"][0], 3);
         assert_eq!(update["add_applicable_range"]["user_list"][0], "new-user");
         assert_eq!(update["remove_applicable_range"]["department_list"][0], 2);
+
+        let mut clear_semantics = ExternalContactInterceptRuleUpdateRequest::new("rule");
+        clear_semantics.extra_rule = Some(ExternalContactInterceptRuleExtraRule::clear());
+        clear_semantics.validate().unwrap();
+        let clear_semantics = serde_json::to_value(clear_semantics).unwrap();
+        assert_eq!(clear_semantics["extra_rule"]["semantics_list"], json!([]));
 
         let added: ExternalContactInterceptRuleAddResponse = serde_json::from_value(json!({
             "rule_id": "rule",
@@ -33035,6 +33363,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(added.rule_id.as_deref(), Some("rule"));
+        assert!(added.has_rule_id());
         assert_eq!(added.extra["request_id"], "rule-add");
 
         let list: ExternalContactInterceptRuleListResponse = serde_json::from_value(json!({
@@ -33052,6 +33381,8 @@ mod tests {
             list.rule_list[0].rule_name.as_deref(),
             Some("No private contact")
         );
+        assert_eq!(list.identified_rule_count(), 1);
+        assert!(list.rule_list[0].has_identity());
         assert_eq!(list.rule_list[0].extra["owner"], "admin");
         assert_eq!(list.extra["rule_total"], 1);
 
@@ -33060,7 +33391,10 @@ mod tests {
                 "rule_id": "rule",
                 "rule_name": "No private contact",
                 "word_list": ["private-account"],
-                "semantics_list": [1, 2, 3, 9],
+                "extra_rule": {
+                    "semantics_list": [1, 2, 3, 9],
+                    "semantic_version": 2
+                },
                 "intercept_type": 1,
                 "applicable_range": {
                     "user_list": ["user"],
@@ -33074,7 +33408,10 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(detail.extra["request_id"], "rule-detail");
-        let rule = detail.rule.expect("rule");
+        assert!(detail.has_rule());
+        let rule = detail.rule.as_ref().expect("rule");
+        assert!(rule.has_identity());
+        assert_eq!(rule.principal_count(), 2);
         assert_eq!(
             rule.intercept_type_kind(),
             Some(ExternalContactInterceptTypeKind::WarnAndBlock)
@@ -33089,6 +33426,10 @@ mod tests {
             ]
         );
         assert_eq!(
+            rule.extra_rule.as_ref().unwrap().extra["semantic_version"],
+            2
+        );
+        assert_eq!(
             rule.applicable_range.as_ref().unwrap().extra["range_version"],
             2
         );
@@ -33097,6 +33438,80 @@ mod tests {
             ExternalContactInterceptTypeKind::from(9),
             ExternalContactInterceptTypeKind::Other(9)
         );
+
+        let oversized_name = ExternalContactInterceptRuleAddRequest::new(
+            "规".repeat(21),
+            ["word"],
+            ExternalContactInterceptTypeKind::WarnOnly,
+            ExternalContactInterceptRuleRange::new(["user"], []),
+        );
+        assert!(oversized_name.validate().is_err());
+        let missing_words = ExternalContactInterceptRuleAddRequest::new(
+            "rule",
+            Vec::<String>::new(),
+            ExternalContactInterceptTypeKind::WarnOnly,
+            ExternalContactInterceptRuleRange::new(["user"], []),
+        );
+        assert!(missing_words.validate().is_err());
+        let oversized_word = ExternalContactInterceptRuleAddRequest::new(
+            "rule",
+            ["词".repeat(33)],
+            ExternalContactInterceptTypeKind::WarnOnly,
+            ExternalContactInterceptRuleRange::new(["user"], []),
+        );
+        assert!(oversized_word.validate().is_err());
+        let duplicate_words = ExternalContactInterceptRuleAddRequest::new(
+            "rule",
+            ["word", "word"],
+            ExternalContactInterceptTypeKind::WarnOnly,
+            ExternalContactInterceptRuleRange::new(["user"], []),
+        );
+        assert!(duplicate_words.validate().is_err());
+        let mut invalid_semantics = ExternalContactInterceptRuleAddRequest::new(
+            "rule",
+            ["word"],
+            ExternalContactInterceptTypeKind::WarnOnly,
+            ExternalContactInterceptRuleRange::new(["user"], []),
+        );
+        invalid_semantics.semantics_list = vec![1, 4];
+        assert!(invalid_semantics.validate().is_err());
+        let invalid_type = ExternalContactInterceptRuleAddRequest::new(
+            "rule",
+            ["word"],
+            ExternalContactInterceptTypeKind::Other(3),
+            ExternalContactInterceptRuleRange::new(["user"], []),
+        );
+        assert!(invalid_type.validate().is_err());
+        let empty_range = ExternalContactInterceptRuleAddRequest::new(
+            "rule",
+            ["word"],
+            ExternalContactInterceptTypeKind::WarnOnly,
+            ExternalContactInterceptRuleRange::new(Vec::<String>::new(), []),
+        );
+        assert!(empty_range.validate().is_err());
+        let oversized_range = ExternalContactInterceptRuleRange::new(
+            (0..1_001).map(|index| format!("user-{index}")),
+            [],
+        );
+        assert!(oversized_range.validate().is_err());
+        assert!(ExternalContactInterceptRuleRange::new(["user", "user"], [])
+            .validate()
+            .is_err());
+        assert!(
+            ExternalContactInterceptRuleRange::new(Vec::<String>::new(), [0])
+                .validate()
+                .is_err()
+        );
+        assert!(ExternalContactInterceptRuleUpdateRequest::new("rule")
+            .validate()
+            .is_err());
+        let mut overlapping_update = ExternalContactInterceptRuleUpdateRequest::new("rule");
+        overlapping_update.add_applicable_range =
+            Some(ExternalContactInterceptRuleRange::new(["user"], [2]));
+        overlapping_update.remove_applicable_range =
+            Some(ExternalContactInterceptRuleRange::new(["user"], [3]));
+        assert!(overlapping_update.validate().is_err());
+        assert!(validate_external_contact_intercept_rule_id(" ").is_err());
     }
 
     #[test]

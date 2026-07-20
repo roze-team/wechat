@@ -1584,6 +1584,26 @@ Implemented on 2026-07-20 in Work external-contact product-album depth:
   while optional image payloads and flattened extension fields preserve
   forward compatibility with future attachment and response fields.
 
+Implemented on 2026-07-20 in Work external-contact intercept-rule depth:
+
+- add, update, get, and delete operations now validate rule contracts and
+  identifiers before network I/O, while the parameterless list operation
+  remains unchanged;
+- rule names enforce the 20-character boundary, sensitive-word lists enforce
+  one to 300 unique entries of one to 32 characters, semantic rules accept
+  only the three documented values, and intercept modes accept only warning
+  plus block or warning-only;
+- applicable ranges require at least one principal and cap each user or
+  positive-department collection at 1000 unique entries, while updates reject
+  empty changes or principals present in both add and remove ranges;
+- checked constructors expose semantic enums for intercept modes and
+  phone/email/red-packet rules, including an explicit clear-all semantic rule
+  that serializes the required empty `semantics_list` array;
+- detail responses now read the official nested
+  `extra_rule.semantics_list` shape while retaining compatibility with the
+  historical top-level field, and response helpers expose rule identity,
+  principal totals, and identified-list counts.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
