@@ -1656,6 +1656,28 @@ Implemented on 2026-07-18 in Work OA meeting and meeting-room depth:
 - linked meeting-room booking responses expose conflict detection while all
   response DTOs continue preserving unknown upstream fields.
 
+Implemented on 2026-07-21 in Work OA meeting and meeting-room response
+contracts:
+
+- meeting create, update, cancel, user-list, current detail, and legacy OA
+  detail boundaries now reject upstream API errors and structurally invalid
+  success responses before returning them to callers;
+- create responses require a meeting id, excess-user and meeting-id lists
+  require unique non-empty values, pagination exposes checked cursor helpers,
+  and meeting details validate creator, title, reservation time, optional
+  lifecycle fields, settings, reminders, and typed member/external/device
+  attendees;
+- meeting-room add/edit/delete/list, booking-list, direct booking, linked
+  schedule/meeting booking, cancellation, and booking-detail boundaries now
+  enforce response contracts after every HTTP call;
+- room records require positive unique ids, valid profiles, equipment, and
+  coordinates; booking records validate linked meeting/schedule ids, ordered
+  time ranges, bookers, attendees, and duplicate identities;
+- linked bookings distinguish conflict-only responses from completed bookings,
+  require a booking id when no conflicts exist, and validate unique positive
+  conflict timestamps; checked accessors expose verified meeting, room,
+  booking, schedule, and creator identities.
+
 Implemented on 2026-07-20 in Work OA checkin depth:
 
 - added the missing official hardware-checkin endpoint
