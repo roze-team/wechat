@@ -1342,6 +1342,27 @@ Implemented on 2026-07-20 in Work OA living depth:
 - external watch-stat records now retain inviter member and external-contact
   identities in addition to unknown upstream extension fields.
 
+Implemented on 2026-07-20 in Work OA approval depth:
+
+- template detail/copy, application submission, modern approval-list/detail,
+  legacy approval-data, and template create/update paths now validate required
+  identifiers and request contracts before network I/O;
+- modern list queries expose a first-page constructor and enforce positive
+  ordered timestamps, the 31-day window, 1-to-100 page size, nonblank cursors,
+  supported unique filters, and known approval-status filter values;
+- legacy approval-data queries expose a first-page constructor and enforce
+  the 30-day window plus a non-negative continuation approval number;
+- application submission validates template/custom approver mode, approver
+  relations and unique users, notifier settings, nonempty control values,
+  nested table rows, positive date ranges, localized summaries of at most
+  three 20-character rows, and the six-file aggregate attachment limit;
+- template mutations validate localized names, nonempty unique controls,
+  binary property flags, selector modes/options, and the single
+  vacation-or-attendance control constraint;
+- modern list and legacy data responses expose continuation helpers, while
+  approval and approval-node status codes expose forward-compatible semantic
+  enums with terminal and approved-state helpers.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
