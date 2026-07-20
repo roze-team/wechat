@@ -1403,6 +1403,29 @@ Implemented on 2026-07-20 in Work OA dial and PSTNCC depth:
   semantics for ringing, answering, active calls, timeout, rejection,
   service, balance, rate-limit, line, cancellation, and unknown outcomes.
 
+Implemented on 2026-07-20 in Work OA WeDrive lifecycle depth:
+
+- existing space, file, ACL, sharing, listing, upload, move, rename, delete,
+  download, and information methods now validate their request contracts
+  before network I/O;
+- identifiers and names reject blank or control-character values, while space
+  subtype, sorting, pagination, sharing scope, and permission values enforce
+  their supported ranges;
+- ACL entries enforce matching member/department identities, positive
+  department ids, unique principals, and permissions on member additions
+  while allowing permission-free member removals;
+- file listing exposes first-page and checked next-page helpers, accepts the
+  documented empty parent id for a space root, and enforces non-negative
+  offsets plus the 1-to-100 page boundary;
+- direct uploads reject empty, malformed, and data-URL-prefixed Base64 before
+  sending, while file moves enforce a nonempty unique batch of at most 100
+  file ids;
+- current official WeDrive documentation also exposes APIs beyond the
+  compared PowerWeChat client: chunked upload, file-permission information,
+  file security settings, and professional-edition/capacity information.
+  These remain explicit endpoint-expansion work rather than being counted as
+  completed by the legacy method surface.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

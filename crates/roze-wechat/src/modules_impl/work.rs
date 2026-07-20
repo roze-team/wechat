@@ -5163,6 +5163,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceCreateRequest,
     ) -> Result<WorkWeDriveSpaceCreateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_create",
@@ -5177,6 +5178,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceRenameRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_rename",
@@ -5191,6 +5193,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceIdRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_dismiss",
@@ -5205,6 +5208,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceIdRequest,
     ) -> Result<WorkWeDriveSpaceInfoResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_info",
@@ -5219,11 +5223,13 @@ impl Work {
         access_token: impl Into<String>,
         space_id: impl Into<String>,
     ) -> Result<WorkWeDriveSpaceInfoResponse> {
+        let space_id = space_id.into();
+        validate_work_wedrive_identifier("space id", &space_id)?;
         self.inner
             .post(
                 "cgi-bin/wedrive/new_space_info",
                 Some(access_token.into()),
-                json!({ "spaceid": space_id.into() }),
+                json!({ "spaceid": space_id }),
             )
             .await
     }
@@ -5233,6 +5239,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceAclRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate_for_add()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_acl_add",
@@ -5247,6 +5254,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceAclRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate_for_delete()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_acl_del",
@@ -5261,6 +5269,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceSettingRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_setting",
@@ -5275,6 +5284,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveSpaceIdRequest,
     ) -> Result<WorkWeDriveSpaceShareResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/space_share",
@@ -5289,6 +5299,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileListRequest,
     ) -> Result<WorkWeDriveFileListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_list",
@@ -5303,6 +5314,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileUploadRequest,
     ) -> Result<WorkWeDriveFileUploadResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_upload",
@@ -5317,6 +5329,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileIdRequest,
     ) -> Result<WorkWeDriveFileDownloadResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_download",
@@ -5331,6 +5344,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileCreateRequest,
     ) -> Result<WorkWeDriveFileCreateResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_create",
@@ -5345,6 +5359,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileRenameRequest,
     ) -> Result<WorkWeDriveFileRenameResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_rename",
@@ -5359,6 +5374,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileMoveRequest,
     ) -> Result<WorkWeDriveFileMoveResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_move",
@@ -5373,6 +5389,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileIdRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_delete",
@@ -5387,11 +5404,13 @@ impl Work {
         access_token: impl Into<String>,
         file_id: impl Into<String>,
     ) -> Result<WorkWeDriveFileInfoResponse> {
+        let file_id = file_id.into();
+        validate_work_wedrive_identifier("file id", &file_id)?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_info",
                 Some(access_token.into()),
-                json!({ "fileid": file_id.into() }),
+                json!({ "fileid": file_id }),
             )
             .await
     }
@@ -5401,6 +5420,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileAclRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate_for_add()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_acl_add",
@@ -5415,6 +5435,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileAclRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate_for_delete()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_acl_del",
@@ -5429,6 +5450,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileSettingRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_setting",
@@ -5443,6 +5465,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDriveFileIdRequest,
     ) -> Result<WorkWeDriveFileShareResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_share",
@@ -25992,11 +26015,34 @@ pub struct WorkWeDriveSpaceCreateRequest {
     pub space_sub_type: Option<i64>,
 }
 
+impl WorkWeDriveSpaceCreateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        validate_work_wedrive_name("space name", &self.space_name)?;
+        if !self.auth_info.is_empty() {
+            validate_work_wedrive_auth_info(&self.auth_info, true)?;
+        }
+        if !matches!(self.space_sub_type, None | Some(0 | 1)) {
+            return Err(WechatError::Config(
+                "work WeDrive space subtype must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveSpaceRenameRequest {
     pub userid: String,
     pub spaceid: String,
     pub space_name: String,
+}
+
+impl WorkWeDriveSpaceRenameRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
+        validate_work_wedrive_name("space name", &self.space_name)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26005,12 +26051,38 @@ pub struct WorkWeDriveSpaceIdRequest {
     pub spaceid: String,
 }
 
+impl WorkWeDriveSpaceIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveSpaceAclRequest {
     pub userid: String,
     pub spaceid: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auth_info: Vec<WorkWeDriveAuthInfo>,
+}
+
+impl WorkWeDriveSpaceAclRequest {
+    pub fn validate_for_add(&self) -> Result<()> {
+        self.validate(true)
+    }
+
+    pub fn validate_for_delete(&self) -> Result<()> {
+        self.validate(false)
+    }
+
+    fn validate(&self, require_auth: bool) -> Result<()> {
+        validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
+        if self.auth_info.is_empty() {
+            return Err(WechatError::Config(
+                "work WeDrive space ACL members cannot be empty".to_string(),
+            ));
+        }
+        validate_work_wedrive_auth_info(&self.auth_info, require_auth)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26024,6 +26096,16 @@ pub struct WorkWeDriveSpaceSettingRequest {
     pub share_url_no_approve_default_auth: i64,
 }
 
+impl WorkWeDriveSpaceSettingRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
+        validate_work_wedrive_auth(
+            "default share permission",
+            self.share_url_no_approve_default_auth,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileListRequest {
     pub userid: String,
@@ -26032,6 +26114,63 @@ pub struct WorkWeDriveFileListRequest {
     pub sort_type: i64,
     pub start: i64,
     pub limit: i64,
+}
+
+impl WorkWeDriveFileListRequest {
+    pub fn first_page(
+        userid: impl Into<String>,
+        spaceid: impl Into<String>,
+        fatherid: impl Into<String>,
+        sort_type: i64,
+        limit: i64,
+    ) -> Self {
+        Self {
+            userid: userid.into(),
+            spaceid: spaceid.into(),
+            fatherid: fatherid.into(),
+            sort_type,
+            start: 0,
+            limit,
+        }
+    }
+
+    pub fn next_page(&self, response: &WorkWeDriveFileListResponse) -> Option<Self> {
+        response.next_start().map(|start| Self {
+            start,
+            ..self.clone()
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        if self.spaceid.trim().is_empty() && self.fatherid.trim().is_empty() {
+            return Err(WechatError::Config(
+                "work WeDrive file list requires a space id or parent id".to_string(),
+            ));
+        }
+        if !self.spaceid.trim().is_empty() {
+            validate_work_wedrive_identifier("space id", &self.spaceid)?;
+        }
+        if !self.fatherid.trim().is_empty() {
+            validate_work_wedrive_identifier("parent id", &self.fatherid)?;
+        }
+        if !(1..=3).contains(&self.sort_type) {
+            return Err(WechatError::Config(
+                "work WeDrive file list sort type must be between 1 and 3".to_string(),
+            ));
+        }
+        if self.start < 0 {
+            return Err(WechatError::Config(
+                "work WeDrive file list start must be non-negative".to_string(),
+            ));
+        }
+        if !(1..=100).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "work WeDrive file list limit must be between 1 and 100".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26043,10 +26182,45 @@ pub struct WorkWeDriveFileUploadRequest {
     pub file_base64_content: String,
 }
 
+impl WorkWeDriveFileUploadRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
+        if !self.fatherid.trim().is_empty() {
+            validate_work_wedrive_identifier("parent id", &self.fatherid)?;
+        }
+        validate_work_wedrive_name("file name", &self.file_name)?;
+        let content = self.file_base64_content.trim();
+        if content.is_empty() || content.starts_with("data:") {
+            return Err(WechatError::Config(
+                "work WeDrive upload content must be raw base64 without a data URL prefix"
+                    .to_string(),
+            ));
+        }
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(content)
+            .map_err(|_| {
+                WechatError::Config("work WeDrive upload content must be valid base64".to_string())
+            })?;
+        if decoded.is_empty() {
+            return Err(WechatError::Config(
+                "work WeDrive upload file cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileIdRequest {
     pub userid: String,
     pub fileid: String,
+}
+
+impl WorkWeDriveFileIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        validate_work_wedrive_identifier("file id", &self.fileid)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26058,11 +26232,30 @@ pub struct WorkWeDriveFileCreateRequest {
     pub file_name: String,
 }
 
+impl WorkWeDriveFileCreateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
+        if !self.fatherid.trim().is_empty() {
+            validate_work_wedrive_identifier("parent id", &self.fatherid)?;
+        }
+        validate_work_wedrive_identifier("file type", &self.file_type)?;
+        validate_work_wedrive_name("file name", &self.file_name)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileRenameRequest {
     pub userid: String,
     pub fileid: String,
     pub new_name: String,
+}
+
+impl WorkWeDriveFileRenameRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        validate_work_wedrive_identifier("file id", &self.fileid)?;
+        validate_work_wedrive_name("new file name", &self.new_name)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26073,12 +26266,57 @@ pub struct WorkWeDriveFileMoveRequest {
     pub fileid: Vec<String>,
 }
 
+impl WorkWeDriveFileMoveRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        if !self.fatherid.trim().is_empty() {
+            validate_work_wedrive_identifier("parent id", &self.fatherid)?;
+        }
+        if self.fileid.is_empty() || self.fileid.len() > 100 {
+            return Err(WechatError::Config(
+                "work WeDrive move must contain between 1 and 100 files".to_string(),
+            ));
+        }
+        let mut unique = std::collections::HashSet::with_capacity(self.fileid.len());
+        for fileid in &self.fileid {
+            validate_work_wedrive_identifier("file id", fileid)?;
+            if !unique.insert(fileid.trim()) {
+                return Err(WechatError::Config(
+                    "work WeDrive move file ids must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileAclRequest {
     pub userid: String,
     pub fileid: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auth_info: Vec<WorkWeDriveAuthInfo>,
+}
+
+impl WorkWeDriveFileAclRequest {
+    pub fn validate_for_add(&self) -> Result<()> {
+        self.validate(true)
+    }
+
+    pub fn validate_for_delete(&self) -> Result<()> {
+        self.validate(false)
+    }
+
+    fn validate(&self, require_auth: bool) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        validate_work_wedrive_identifier("file id", &self.fileid)?;
+        if self.auth_info.is_empty() {
+            return Err(WechatError::Config(
+                "work WeDrive file ACL members cannot be empty".to_string(),
+            ));
+        }
+        validate_work_wedrive_auth_info(&self.auth_info, require_auth)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26103,6 +26341,111 @@ pub struct WorkWeDriveFileSettingRequest {
     pub fileid: String,
     pub auth_scope: i64,
     pub auth: i64,
+}
+
+impl WorkWeDriveFileSettingRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("user id", &self.userid)?;
+        validate_work_wedrive_identifier("file id", &self.fileid)?;
+        if !(1..=4).contains(&self.auth_scope) {
+            return Err(WechatError::Config(
+                "work WeDrive file permission scope must be between 1 and 4".to_string(),
+            ));
+        }
+        validate_work_wedrive_auth("file permission", self.auth)
+    }
+}
+
+fn validate_work_wedrive_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} cannot be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_wedrive_name(label: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 255 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} must be 1 to 255 bytes without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_wedrive_operator_and_space(userid: &str, spaceid: &str) -> Result<()> {
+    validate_work_wedrive_identifier("user id", userid)?;
+    validate_work_wedrive_identifier("space id", spaceid)
+}
+
+fn validate_work_wedrive_auth(label: &str, auth: i64) -> Result<()> {
+    if !matches!(auth, 1 | 2 | 4 | 7) {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} must be 1, 2, 4, or 7"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_wedrive_auth_info(
+    auth_info: &[WorkWeDriveAuthInfo],
+    require_auth: bool,
+) -> Result<()> {
+    let mut identities = std::collections::HashSet::with_capacity(auth_info.len());
+    for member in auth_info {
+        let identity = match member.member_type {
+            1 => {
+                let userid = member.userid.as_deref().unwrap_or_default();
+                validate_work_wedrive_identifier("ACL user id", userid)?;
+                if member.departmentid.is_some() {
+                    return Err(WechatError::Config(
+                        "work WeDrive user ACL entry cannot contain a department id".to_string(),
+                    ));
+                }
+                format!("user:{}", userid.trim())
+            }
+            2 => {
+                let departmentid =
+                    member
+                        .departmentid
+                        .filter(|value| *value > 0)
+                        .ok_or_else(|| {
+                            WechatError::Config(
+                        "work WeDrive department ACL entry requires a positive department id"
+                            .to_string(),
+                    )
+                        })?;
+                if member.userid.is_some() {
+                    return Err(WechatError::Config(
+                        "work WeDrive department ACL entry cannot contain a user id".to_string(),
+                    ));
+                }
+                format!("department:{departmentid}")
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "work WeDrive ACL member type must be 1 or 2".to_string(),
+                ));
+            }
+        };
+        if !identities.insert(identity) {
+            return Err(WechatError::Config(
+                "work WeDrive ACL members must be unique".to_string(),
+            ));
+        }
+        match member.auth {
+            Some(auth) => validate_work_wedrive_auth("ACL permission", auth)?,
+            None if require_auth => {
+                return Err(WechatError::Config(
+                    "work WeDrive ACL permission is required when adding a member".to_string(),
+                ));
+            }
+            None => {}
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26211,6 +26554,19 @@ pub struct WorkWeDriveFileListResponse {
     pub file_list: Option<WorkWeDriveFileList>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkWeDriveFileListResponse {
+    pub fn has_more(&self) -> bool {
+        self.has_more.unwrap_or(false)
+    }
+
+    pub fn next_start(&self) -> Option<i64> {
+        self.has_more()
+            .then_some(self.next_start)
+            .flatten()
+            .filter(|start| *start >= 0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36097,6 +36453,116 @@ mod tests {
         })
         .unwrap();
         assert_eq!(file_setting["auth_scope"], 1);
+    }
+
+    #[test]
+    fn validates_work_oa_wedrive_lifecycle() {
+        let member = WorkWeDriveAuthInfo {
+            member_type: 1,
+            userid: Some("member".to_string()),
+            departmentid: None,
+            auth: Some(7),
+            create_time: None,
+            extra: Value::Null,
+        };
+        let space = WorkWeDriveSpaceCreateRequest {
+            userid: "operator".to_string(),
+            space_name: "Production".to_string(),
+            auth_info: vec![member.clone()],
+            space_sub_type: Some(0),
+        };
+        assert!(space.validate().is_ok());
+        assert!(WorkWeDriveSpaceCreateRequest {
+            auth_info: Vec::new(),
+            ..space.clone()
+        }
+        .validate()
+        .is_ok());
+        assert!(WorkWeDriveSpaceCreateRequest {
+            space_sub_type: Some(2),
+            ..space.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDriveSpaceCreateRequest {
+            auth_info: vec![WorkWeDriveAuthInfo {
+                departmentid: Some(10),
+                ..member.clone()
+            }],
+            ..space
+        }
+        .validate()
+        .is_err());
+
+        let list = WorkWeDriveFileListRequest::first_page("operator", "space", "", 1, 100);
+        assert!(list.validate().is_ok());
+        let page = WorkWeDriveFileListResponse {
+            errcode: Some(0),
+            errmsg: Some("ok".to_string()),
+            has_more: Some(true),
+            next_start: Some(100),
+            file_list: None,
+            extra: Value::Null,
+        };
+        assert_eq!(
+            list.next_page(&page).expect("next page").start,
+            page.next_start().expect("next start")
+        );
+        assert!(WorkWeDriveFileListRequest {
+            sort_type: 4,
+            ..list.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDriveFileListRequest { limit: 101, ..list }
+            .validate()
+            .is_err());
+
+        let upload = WorkWeDriveFileUploadRequest {
+            userid: "operator".to_string(),
+            spaceid: "space".to_string(),
+            fatherid: String::new(),
+            file_name: "release.txt".to_string(),
+            file_base64_content: "cmVsZWFzZQ==".to_string(),
+        };
+        assert!(upload.validate().is_ok());
+        assert!(WorkWeDriveFileUploadRequest {
+            file_base64_content: "data:text/plain;base64,cmVsZWFzZQ==".to_string(),
+            ..upload.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDriveFileUploadRequest {
+            file_base64_content: "not base64".to_string(),
+            ..upload
+        }
+        .validate()
+        .is_err());
+
+        let movement = WorkWeDriveFileMoveRequest {
+            userid: "operator".to_string(),
+            fatherid: String::new(),
+            replace: false,
+            fileid: vec!["file-1".to_string(), "file-2".to_string()],
+        };
+        assert!(movement.validate().is_ok());
+        assert!(WorkWeDriveFileMoveRequest {
+            fileid: vec!["file-1".to_string(), "file-1".to_string()],
+            ..movement
+        }
+        .validate()
+        .is_err());
+
+        let acl = WorkWeDriveFileAclRequest {
+            userid: "operator".to_string(),
+            fileid: "file-1".to_string(),
+            auth_info: vec![WorkWeDriveAuthInfo {
+                auth: None,
+                ..member
+            }],
+        };
+        assert!(acl.validate_for_delete().is_ok());
+        assert!(acl.validate_for_add().is_err());
     }
 
     #[test]
