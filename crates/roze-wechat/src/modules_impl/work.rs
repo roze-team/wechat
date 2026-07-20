@@ -10930,6 +10930,9 @@ impl WorkUserRequest {
                 "work user enable must be 0 or 1".to_string(),
             ));
         }
+        if let Some(profile) = &self.external_profile {
+            profile.validate_for_request()?;
+        }
         Ok(())
     }
 }
@@ -11194,6 +11197,16 @@ fn validate_work_user_http_url(label: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_work_user_profile_text(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work user {label} must contain between 1 and {maximum} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
 fn has_duplicate_i64(values: &[i64]) -> bool {
     let mut seen = std::collections::HashSet::new();
     values.iter().any(|value| !seen.insert(*value))
@@ -11332,6 +11345,9 @@ impl WorkUserDetail {
                 "work user response direct leaders must be unique non-empty ids".to_string(),
             ));
         }
+        if let Some(profile) = &self.external_profile {
+            profile.validate_for_response()?;
+        }
         Ok(())
     }
 
@@ -11415,8 +11431,104 @@ pub struct WorkUserExtAttrWeb {
 pub struct WorkUserExternalProfile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_corp_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wechat_channels: Option<WorkUserWechatChannels>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub external_attr: Vec<WorkUserExternalAttribute>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkUserExternalProfile {
+    pub fn validate_for_request(&self) -> Result<()> {
+        self.validate_common()?;
+        if let Some(channels) = &self.wechat_channels {
+            channels.validate_for_request()?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_response(&self) -> Result<()> {
+        self.validate_common()?;
+        if let Some(channels) = &self.wechat_channels {
+            channels.validate_for_response()?;
+        }
+        Ok(())
+    }
+
+    fn validate_common(&self) -> Result<()> {
+        if let Some(name) = &self.external_corp_name {
+            validate_work_user_profile_text("external corporation name", name, 64)?;
+        }
+        if self.external_attr.len() > 10 {
+            return Err(WechatError::Config(
+                "work user external profile cannot contain more than 10 attributes".to_string(),
+            ));
+        }
+        for attribute in &self.external_attr {
+            attribute.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkUserWechatChannels {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nickname: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkUserWechatChannels {
+    pub fn new(nickname: impl Into<String>) -> Self {
+        Self {
+            nickname: Some(nickname.into()),
+            status: None,
+            extra: Value::Null,
+        }
+    }
+
+    pub fn validate_for_request(&self) -> Result<()> {
+        let nickname = self.nickname.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work user request WeChat Channels profile requires nickname".to_string(),
+            )
+        })?;
+        validate_work_user_profile_text("WeChat Channels nickname", nickname, 64)?;
+        if self.status.is_some() {
+            return Err(WechatError::Config(
+                "work user request WeChat Channels profile cannot set status".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_response(&self) -> Result<()> {
+        if let Some(nickname) = &self.nickname {
+            validate_work_user_profile_text("WeChat Channels nickname", nickname, 64)?;
+        }
+        if self.status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "work user response WeChat Channels status cannot be negative".to_string(),
+            ));
+        }
+        if self.nickname.is_none() && self.status.is_none() {
+            return Err(WechatError::Config(
+                "work user response WeChat Channels profile requires nickname or status"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn is_configured(&self) -> bool {
+        self.nickname
+            .as_deref()
+            .is_some_and(|nickname| !nickname.trim().is_empty())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11431,12 +11543,86 @@ pub struct WorkUserExternalAttribute {
     pub web: Option<WorkUserExternalAttributeWeb>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub miniprogram: Option<WorkUserExternalAttributeMiniProgram>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkUserExternalAttribute {
+    pub fn validate(&self) -> Result<()> {
+        let attr_type = self.attr_type.ok_or_else(|| {
+            WechatError::Config("work user external attribute requires type".to_string())
+        })?;
+        let name = self.name.as_deref().ok_or_else(|| {
+            WechatError::Config("work user external attribute requires name".to_string())
+        })?;
+        validate_work_user_profile_text("external attribute name", name, 64)?;
+        let payload_count = usize::from(self.text.is_some())
+            + usize::from(self.web.is_some())
+            + usize::from(self.miniprogram.is_some());
+        if matches!(attr_type, 0..=2) && payload_count != 1 {
+            return Err(WechatError::Config(
+                "work user external attribute requires exactly one payload".to_string(),
+            ));
+        }
+        if !matches!(attr_type, 0..=2) && payload_count > 1 {
+            return Err(WechatError::Config(
+                "work user unknown external attribute cannot contain multiple known payloads"
+                    .to_string(),
+            ));
+        }
+        match attr_type {
+            0 => self
+                .text
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work user text external attribute requires text payload".to_string(),
+                    )
+                })?
+                .validate(),
+            1 => self
+                .web
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work user web external attribute requires web payload".to_string(),
+                    )
+                })?
+                .validate(),
+            2 => self
+                .miniprogram
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work user mini-program external attribute requires miniprogram payload"
+                            .to_string(),
+                    )
+                })?
+                .validate(),
+            _ => Ok(()),
+        }
+    }
+
+    pub fn attribute_kind(&self) -> Option<WorkUserExternalAttributeKind> {
+        self.attr_type.map(WorkUserExternalAttributeKind::from)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExternalAttributeText {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkUserExternalAttributeText {
+    pub fn validate(&self) -> Result<()> {
+        let value = self.value.as_deref().ok_or_else(|| {
+            WechatError::Config("work user text external attribute requires value".to_string())
+        })?;
+        validate_work_user_profile_text("external attribute text", value, 256)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11445,6 +11631,21 @@ pub struct WorkUserExternalAttributeWeb {
     pub url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkUserExternalAttributeWeb {
+    pub fn validate(&self) -> Result<()> {
+        let title = self.title.as_deref().ok_or_else(|| {
+            WechatError::Config("work user web external attribute requires title".to_string())
+        })?;
+        validate_work_user_profile_text("external attribute web title", title, 128)?;
+        let url = self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("work user web external attribute requires URL".to_string())
+        })?;
+        validate_work_user_http_url("external attribute web", url)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11455,6 +11656,50 @@ pub struct WorkUserExternalAttributeMiniProgram {
     pub pagepath: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkUserExternalAttributeMiniProgram {
+    pub fn validate(&self) -> Result<()> {
+        let appid = self.appid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work user mini-program external attribute requires appid".to_string(),
+            )
+        })?;
+        validate_work_user_profile_text("external attribute mini-program appid", appid, 64)?;
+        let pagepath = self.pagepath.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work user mini-program external attribute requires pagepath".to_string(),
+            )
+        })?;
+        validate_work_user_profile_text("external attribute mini-program pagepath", pagepath, 512)?;
+        let title = self.title.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work user mini-program external attribute requires title".to_string(),
+            )
+        })?;
+        validate_work_user_profile_text("external attribute mini-program title", title, 128)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkUserExternalAttributeKind {
+    Text,
+    Web,
+    MiniProgram,
+    Other(i64),
+}
+
+impl From<i64> for WorkUserExternalAttributeKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Text,
+            1 => Self::Web,
+            2 => Self::MiniProgram,
+            other => Self::Other(other),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50811,6 +51056,58 @@ mod tests {
         user.order = vec![10];
         assert!(user.validate_for_create().is_err());
 
+        let mut profile_user = user.clone();
+        profile_user.order = vec![10, 20];
+        profile_user.external_profile = Some(
+            serde_json::from_value(json!({
+                "external_corp_name": "Roze",
+                "wechat_channels": { "nickname": "Roze Shop" },
+                "external_attr": [{
+                    "type": 2,
+                    "name": "Mini Program",
+                    "miniprogram": {
+                        "appid": "wx-app",
+                        "pagepath": "pages/index",
+                        "title": "Store"
+                    }
+                }]
+            }))
+            .unwrap(),
+        );
+        assert!(profile_user.validate_for_create().is_ok());
+        profile_user
+            .external_profile
+            .as_mut()
+            .unwrap()
+            .wechat_channels
+            .as_mut()
+            .unwrap()
+            .status = Some(1);
+        assert!(profile_user.validate_for_create().is_err());
+
+        let mismatched_profile: WorkUserExternalProfile = serde_json::from_value(json!({
+            "external_attr": [{
+                "type": 0,
+                "name": "Website",
+                "web": { "url": "https://example.com", "title": "Home" }
+            }]
+        }))
+        .unwrap();
+        assert!(mismatched_profile.validate_for_request().is_err());
+        let future_profile: WorkUserExternalProfile = serde_json::from_value(json!({
+            "external_attr": [{
+                "type": 99,
+                "name": "Future",
+                "future_payload": { "enabled": true }
+            }]
+        }))
+        .unwrap();
+        assert!(future_profile.validate_for_request().is_ok());
+        assert_eq!(
+            future_profile.external_attr[0].attribute_kind(),
+            Some(WorkUserExternalAttributeKind::Other(99))
+        );
+
         assert!(WorkUserBatchDeleteRequest::new(["user-a", "user-b"])
             .validate()
             .is_ok());
@@ -51065,15 +51362,19 @@ mod tests {
             external_position: None,
             external_profile: Some(WorkUserExternalProfile {
                 external_corp_name: Some("Roze".to_string()),
+                wechat_channels: Some(WorkUserWechatChannels::new("Roze Shop")),
                 external_attr: vec![WorkUserExternalAttribute {
                     attr_type: Some(0),
                     name: Some("site".to_string()),
                     text: Some(WorkUserExternalAttributeText {
                         value: Some("hello".to_string()),
+                        extra: Value::Null,
                     }),
                     web: None,
                     miniprogram: None,
+                    extra: Value::Null,
                 }],
+                extra: Value::Null,
             }),
             extattr: Some(WorkUserExtAttr {
                 attrs: vec![
@@ -51086,6 +51387,10 @@ mod tests {
         assert_eq!(create["userid"], "user");
         assert_eq!(create["department"][0], 1);
         assert_eq!(create["external_profile"]["external_corp_name"], "Roze");
+        assert_eq!(
+            create["external_profile"]["wechat_channels"]["nickname"],
+            "Roze Shop"
+        );
         assert_eq!(
             create["external_profile"]["external_attr"][0]["text"]["value"],
             "hello"
@@ -51189,11 +51494,22 @@ mod tests {
             "external_position": "External",
             "external_profile": {
                 "external_corp_name": "Roze",
+                "wechat_channels": {
+                    "nickname": "Roze Shop",
+                    "status": 1,
+                    "channel_revision": 2
+                },
                 "external_attr": [{
-                    "type": 0,
+                    "type": 1,
                     "name": "Website",
-                    "web": { "url": "https://example.com", "title": "Home" }
-                }]
+                    "web": {
+                        "url": "https://example.com",
+                        "title": "Home",
+                        "web_revision": 3
+                    },
+                    "attribute_revision": 4
+                }],
+                "profile_revision": 5
             },
             "custom_status_text": "busy"
         }))
@@ -51205,6 +51521,26 @@ mod tests {
         assert!(user.user.status_kind().expect("status").can_login());
         assert_eq!(user.user.extra["custom_status_text"], "busy");
         assert!(user.validate().is_ok());
+        assert!(user
+            .user
+            .external_profile
+            .as_ref()
+            .unwrap()
+            .wechat_channels
+            .as_ref()
+            .unwrap()
+            .is_configured());
+        assert_eq!(
+            user.user
+                .external_profile
+                .as_ref()
+                .unwrap()
+                .wechat_channels
+                .as_ref()
+                .unwrap()
+                .extra["channel_revision"],
+            2
+        );
         assert_eq!(
             user.user.external_profile.as_ref().unwrap().external_attr[0]
                 .web
@@ -51213,6 +51549,14 @@ mod tests {
                 .url
                 .as_deref(),
             Some("https://example.com")
+        );
+        assert_eq!(
+            user.user.external_profile.as_ref().unwrap().external_attr[0].attribute_kind(),
+            Some(WorkUserExternalAttributeKind::Web)
+        );
+        assert_eq!(
+            user.user.external_profile.as_ref().unwrap().extra["profile_revision"],
+            5
         );
 
         let simple_list: WorkDepartmentUserSimpleListResponse = serde_json::from_value(json!({
@@ -51343,6 +51687,34 @@ mod tests {
         }))
         .unwrap();
         assert!(invalid_departments.validate().is_err());
+        let invalid_channels: WorkUserDetailResponse = serde_json::from_value(json!({
+            "userid": "user",
+            "external_profile": {
+                "wechat_channels": { "status": -1 }
+            }
+        }))
+        .unwrap();
+        assert!(invalid_channels.validate().is_err());
+        let empty_channels: WorkUserDetailResponse = serde_json::from_value(json!({
+            "userid": "user",
+            "external_profile": {
+                "wechat_channels": {}
+            }
+        }))
+        .unwrap();
+        assert!(empty_channels.validate().is_err());
+        let invalid_external_url: WorkUserDetailResponse = serde_json::from_value(json!({
+            "userid": "user",
+            "external_profile": {
+                "external_attr": [{
+                    "type": 1,
+                    "name": "Website",
+                    "web": { "url": "/relative", "title": "Home" }
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(invalid_external_url.validate().is_err());
 
         let simple_list: WorkDepartmentUserSimpleListResponse = serde_json::from_value(json!({
             "userlist": [

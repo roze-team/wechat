@@ -2596,6 +2596,24 @@ Implemented on 2026-07-21 in Work account-service customer-upgrade depth:
   duplicate/blank ranges, incompatible targets, wording boundaries, and
   forward-compatible nested metadata.
 
+Implemented on 2026-07-21 in Work user external-profile depth:
+
+- member create/update and detail DTOs now include PowerWeChat's typed
+  `wechat_channels` profile with nickname, status, semantic configured-state,
+  and forward-compatible extension fields;
+- request validation requires a bounded nonblank Channels nickname and rejects
+  response-only status injection, while response validation rejects empty
+  profile objects, negative statuses, blank nicknames, and malformed nested
+  data before returning a member;
+- external text, web, and mini-program attributes now require a type, bounded
+  name, exactly one matching payload, required payload fields, and absolute
+  HTTP(S) web URLs; profile attribute counts are capped at the upstream
+  ten-item boundary;
+- unknown future attribute types and nested profile metadata remain
+  forward-compatible, while tests cover typed serialization, extension-field
+  retention, mismatched payloads, relative URLs, empty/negative Channels
+  states, and future attribute kinds.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
