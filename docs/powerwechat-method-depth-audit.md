@@ -1836,6 +1836,23 @@ depth:
 - add/get responses retain template, agent, notification, and future extension
   fields and expose typed notification and attachment-kind helpers.
 
+Implemented on 2026-07-20 in Work external-contact group welcome-template
+response contracts:
+
+- add and get operations now validate successful response DTOs at the HTTP
+  boundary and convert nonzero Work API codes into typed API errors;
+- creation responses require a nonblank bounded template id and expose a
+  checked accessor, preventing a nominally successful but unusable template
+  from entering application state;
+- get responses validate optional template ids, non-negative legacy agent ids,
+  notification values, required content, and the single non-text attachment
+  invariant while reusing existing text, media-id, URL, and byte limits;
+- the current PowerWeChat response shape, which can omit template, agent, and
+  notification metadata, remains supported, while newer response metadata and
+  unknown extension fields continue to round-trip;
+- response helpers now expose content presence and reconstruct the typed
+  attachment for downstream dispatch or inspection.
+
 Implemented on 2026-07-20 in Work external-contact customer-acquisition
 depth:
 

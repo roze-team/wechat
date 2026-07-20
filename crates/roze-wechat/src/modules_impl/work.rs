@@ -1785,13 +1785,16 @@ impl Work {
         request: ExternalGroupWelcomeTemplateRequest,
     ) -> Result<ExternalGroupWelcomeTemplateAddResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalGroupWelcomeTemplateAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn edit_external_group_welcome_template(
@@ -1816,13 +1819,16 @@ impl Work {
     ) -> Result<ExternalGroupWelcomeTemplateResponse> {
         let template_id = template_id.into();
         validate_external_group_welcome_template_id(&template_id)?;
-        self.inner
+        let response: ExternalGroupWelcomeTemplateResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/get",
                 Some(access_token.into()),
                 json!({ "template_id": template_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_external_group_welcome_template(
@@ -14072,6 +14078,31 @@ pub struct ExternalGroupWelcomeTemplateAddResponse {
 }
 
 impl ExternalGroupWelcomeTemplateAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_welcome_template_response_success(
+            "external group welcome-template creation",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let template_id = self.template_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external group welcome-template creation response requires template_id"
+                    .to_string(),
+            )
+        })?;
+        validate_external_group_welcome_template_id(template_id)
+    }
+
+    pub fn require_template_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.template_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external group welcome-template creation response requires template_id"
+                    .to_string(),
+            )
+        })
+    }
+
     pub fn has_template_id(&self) -> bool {
         self.template_id
             .as_deref()
@@ -14108,6 +14139,50 @@ pub struct ExternalGroupWelcomeTemplateResponse {
 }
 
 impl ExternalGroupWelcomeTemplateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_welcome_template_response_success(
+            "external group welcome-template get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(template_id) = self.template_id.as_deref() {
+            validate_external_group_welcome_template_id(template_id)?;
+        }
+        if self.agentid.is_some_and(|agent_id| agent_id < 0) {
+            return Err(WechatError::Config(
+                "external group welcome-template response agent id cannot be negative".to_string(),
+            ));
+        }
+        if self.notify.is_some_and(|notify| !matches!(notify, 0 | 1)) {
+            return Err(WechatError::Config(
+                "external group welcome-template response notify must be 0 or 1".to_string(),
+            ));
+        }
+        if self.text.is_none() && self.attachment_count() == 0 {
+            return Err(WechatError::Config(
+                "external group welcome-template response requires text or one attachment"
+                    .to_string(),
+            ));
+        }
+        if self.attachment_count() > 1 {
+            return Err(WechatError::Config(
+                "external group welcome-template response supports at most one non-text attachment"
+                    .to_string(),
+            ));
+        }
+        if let Some(text) = &self.text {
+            text.validate()?;
+        }
+        if let Some(attachment) = self.attachment() {
+            attachment.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn has_content(&self) -> bool {
+        self.text.is_some() || self.attachment_count() > 0
+    }
+
     pub fn attachment_count(&self) -> usize {
         [
             self.image.is_some(),
@@ -14142,6 +14217,29 @@ impl ExternalGroupWelcomeTemplateResponse {
         self.notify
             .map(ExternalGroupWelcomeTemplateNotifyKind::from)
     }
+
+    pub fn attachment(&self) -> Option<ExternalContactMessageAttachment> {
+        let kind = self.attachment_kind()?;
+        Some(ExternalContactMessageAttachment {
+            msgtype: Some(
+                match kind {
+                    ExternalContactMessageAttachmentKind::Image => "image",
+                    ExternalContactMessageAttachmentKind::Link => "link",
+                    ExternalContactMessageAttachmentKind::MiniProgram => "miniprogram",
+                    ExternalContactMessageAttachmentKind::Video => "video",
+                    ExternalContactMessageAttachmentKind::File => "file",
+                    ExternalContactMessageAttachmentKind::Other => return None,
+                }
+                .to_string(),
+            ),
+            image: self.image.clone(),
+            link: self.link.clone(),
+            miniprogram: self.miniprogram.clone(),
+            video: self.video.clone(),
+            file: self.file.clone(),
+            extra: Value::Null,
+        })
+    }
 }
 
 fn validate_external_group_welcome_template_id(template_id: &str) -> Result<()> {
@@ -14150,6 +14248,20 @@ fn validate_external_group_welcome_template_id(template_id: &str) -> Result<()> 
         return Err(WechatError::Config(
             "external group welcome-template id cannot exceed 128 UTF-8 bytes".to_string(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_external_group_welcome_template_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
     }
     Ok(())
 }
@@ -34745,6 +34857,8 @@ mod tests {
             "request_id": "welcome-add"
         }))
         .unwrap();
+        added.validate().unwrap();
+        assert_eq!(added.require_template_id().unwrap(), "template");
         assert_eq!(added.template_id.as_deref(), Some("template"));
         assert!(added.has_template_id());
         assert_eq!(added.extra["request_id"], "welcome-add");
@@ -34758,6 +34872,12 @@ mod tests {
             "template_source": "api"
         }))
         .unwrap();
+        detail.validate().unwrap();
+        assert!(detail.has_content());
+        assert_eq!(
+            detail.attachment().unwrap().kind(),
+            ExternalContactMessageAttachmentKind::Link
+        );
         assert_eq!(
             detail.attachment_kind(),
             Some(ExternalContactMessageAttachmentKind::Link)
@@ -34852,6 +34972,70 @@ mod tests {
                 .validate()
                 .is_err()
         );
+    }
+
+    #[test]
+    fn rejects_invalid_external_group_welcome_template_responses() {
+        let api_error: ExternalGroupWelcomeTemplateAddResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid parameter"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let missing_id: ExternalGroupWelcomeTemplateAddResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.validate().is_err());
+        let blank_id: ExternalGroupWelcomeTemplateAddResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "template_id": " "
+        }))
+        .unwrap();
+        assert!(blank_id.validate().is_err());
+
+        let power_wechat_shape: ExternalGroupWelcomeTemplateResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "text": { "content": "welcome" }
+            }))
+            .unwrap();
+        power_wechat_shape.validate().unwrap();
+        assert!(power_wechat_shape.template_id.is_none());
+
+        let empty: ExternalGroupWelcomeTemplateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(empty.validate().is_err());
+        let multiple_attachments: ExternalGroupWelcomeTemplateResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "image": { "media_id": "image-media" },
+                "file": { "media_id": "file-media" }
+            }))
+            .unwrap();
+        assert!(multiple_attachments.validate().is_err());
+        let invalid_agent: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "text": { "content": "welcome" },
+            "agentid": -1
+        }))
+        .unwrap();
+        assert!(invalid_agent.validate().is_err());
+        let invalid_notify: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "text": { "content": "welcome" },
+            "notify": 2
+        }))
+        .unwrap();
+        assert!(invalid_notify.validate().is_err());
+        let invalid_link: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "link": { "title": "docs" }
+        }))
+        .unwrap();
+        assert!(invalid_link.validate().is_err());
     }
 
     #[test]
