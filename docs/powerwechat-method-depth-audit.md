@@ -66,6 +66,22 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and
    component/base authorization helpers.
 
+Implemented on 2026-07-21 in Work OAuth/Auth/TFA authentication depth:
+
+- The OAuth and Auth user-info/detail exits plus both modern TFA exits now
+  validate single-use codes, user tickets, request bindings, WeCom API status,
+  and typed response contracts before returning authentication data.
+- User-info responses distinguish member and non-member identities, reject
+  mixed or missing identities, require private-information tickets and expiry
+  values together, and expose checked identity, ticket, and refresh helpers.
+- Sensitive user details now cover the full PowerWeChat field surface,
+  including departments, ordering, leaders, thumbnail avatar, telephone,
+  alias, open userid, main department, status, external position, attributes,
+  and external profile, while retaining forward-compatible extension fields.
+- Checked OAuth URL construction rejects invalid corporation IDs, redirect
+  URLs, scopes, and state values; TFA responses expose a checked userid/code
+  binding that can construct the success request without caller-side copying.
+
 Implemented on 2026-07-21 in Work external-customer transfer receipt depth:
 
 - Transfer receipt and polling records now accept both JSON integers and the

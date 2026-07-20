@@ -7695,18 +7695,28 @@ impl Work {
         format!("{url}#wechat_redirect")
     }
 
+    pub fn try_oauth_authorize_url(request: WorkOauthAuthorizeUrlRequest) -> Result<String> {
+        request.validate()?;
+        Ok(Self::oauth_authorize_url(request))
+    }
+
     pub async fn oauth_user_info(
         &self,
         access_token: impl Into<String>,
         code: impl Into<String>,
     ) -> Result<WorkOauthUserInfoResponse> {
-        self.inner
+        let code = code.into();
+        validate_work_auth_identifier("OAuth code", &code, 512)?;
+        let response: WorkOauthUserInfoResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/user/getuserinfo",
                 Some(access_token.into()),
-                vec![("code".to_string(), code.into())],
+                vec![("code".to_string(), code)],
             )
-            .await
+            .await?;
+        response.validate_for("OAuth")?;
+        Ok(response)
     }
 
     pub async fn auth_user_info(
@@ -7714,13 +7724,18 @@ impl Work {
         access_token: impl Into<String>,
         code: impl Into<String>,
     ) -> Result<WorkOauthUserInfoResponse> {
-        self.inner
+        let code = code.into();
+        validate_work_auth_identifier("authorization code", &code, 512)?;
+        let response: WorkOauthUserInfoResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/auth/getuserinfo",
                 Some(access_token.into()),
-                vec![("code".to_string(), code.into())],
+                vec![("code".to_string(), code)],
             )
-            .await
+            .await?;
+        response.validate_for("authorization")?;
+        Ok(response)
     }
 
     pub async fn oauth_user_detail(
@@ -7728,13 +7743,18 @@ impl Work {
         access_token: impl Into<String>,
         user_ticket: impl Into<String>,
     ) -> Result<WorkOauthUserDetailResponse> {
-        self.inner
+        let user_ticket = user_ticket.into();
+        validate_work_auth_identifier("OAuth user ticket", &user_ticket, 512)?;
+        let response: WorkOauthUserDetailResponse = self
+            .inner
             .post(
                 "cgi-bin/user/getuserdetail",
                 Some(access_token.into()),
-                json!({ "user_ticket": user_ticket.into() }),
+                json!({ "user_ticket": user_ticket }),
             )
-            .await
+            .await?;
+        response.validate_for("OAuth")?;
+        Ok(response)
     }
 
     pub async fn auth_user_detail(
@@ -7742,13 +7762,18 @@ impl Work {
         access_token: impl Into<String>,
         user_ticket: impl Into<String>,
     ) -> Result<WorkOauthUserDetailResponse> {
-        self.inner
+        let user_ticket = user_ticket.into();
+        validate_work_auth_identifier("authorization user ticket", &user_ticket, 512)?;
+        let response: WorkOauthUserDetailResponse = self
+            .inner
             .post(
                 "cgi-bin/auth/getuserdetail",
                 Some(access_token.into()),
-                json!({ "user_ticket": user_ticket.into() }),
+                json!({ "user_ticket": user_ticket }),
             )
-            .await
+            .await?;
+        response.validate_for("authorization")?;
+        Ok(response)
     }
 
     pub async fn get_user_tfa_info(
@@ -7756,13 +7781,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserTfaInfoRequest,
     ) -> Result<WorkUserTfaInfoResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkUserTfaInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/auth/get_tfa_info",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn submit_user_tfa_success(
@@ -7770,9 +7799,13 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUserTfaSuccessRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/user/tfa_succ", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work submit user TFA success")?;
+        Ok(response)
     }
 
     pub fn server(&self) -> DomainModule {
@@ -47920,6 +47953,28 @@ pub struct WorkOauthAuthorizeUrlRequest {
     pub state: Option<String>,
 }
 
+impl WorkOauthAuthorizeUrlRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_auth_identifier("OAuth corporation id", &self.corp_id, 64)?;
+        validate_work_auth_http_url("OAuth redirect", &self.redirect_uri)?;
+        if let Some(scope) = self.scope.as_deref() {
+            if !matches!(
+                scope,
+                "snsapi_base" | "snsapi_userinfo" | "snsapi_privateinfo"
+            ) {
+                return Err(WechatError::Config(
+                    "work OAuth scope must be snsapi_base, snsapi_userinfo, or snsapi_privateinfo"
+                        .to_string(),
+                ));
+            }
+        }
+        if let Some(state) = self.state.as_deref() {
+            validate_work_auth_identifier("OAuth state", state, 128)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkOauthUserInfoResponse {
     #[serde(default)]
@@ -47934,10 +47989,123 @@ pub struct WorkOauthUserInfoResponse {
     pub expires_in: Option<i64>,
     #[serde(default, alias = "OpenId")]
     pub openid: Option<String>,
+    #[serde(default, alias = "DeviceId")]
+    pub deviceid: Option<String>,
     #[serde(default)]
     pub external_userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkOauthIdentityKind {
+    Member,
+    NonMember,
+}
+
+impl WorkOauthUserInfoResponse {
+    pub fn validate_for(&self, flow: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work {flow} user info"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        match (self.userid.as_deref(), self.openid.as_deref()) {
+            (Some(userid), None) => {
+                validate_work_user_id(userid)?;
+                validate_work_auth_identifier("userid", userid, 64)?;
+            }
+            (None, Some(openid)) => validate_work_auth_identifier("openid", openid, 64)?,
+            (Some(_), Some(_)) => {
+                return Err(WechatError::Config(format!(
+                    "work {flow} user-info response cannot contain both userid and openid"
+                )))
+            }
+            (None, None) => {
+                return Err(WechatError::Config(format!(
+                    "work {flow} user-info response requires userid or openid"
+                )))
+            }
+        }
+        if let Some(deviceid) = &self.deviceid {
+            validate_work_auth_identifier("device id", deviceid, 256)?;
+        }
+        if let Some(external_userid) = &self.external_userid {
+            validate_work_auth_identifier("external userid", external_userid, 256)?;
+            if self.openid.is_none() {
+                return Err(WechatError::Config(format!(
+                    "work {flow} user-info response external_userid requires a non-member openid"
+                )));
+            }
+        }
+        match (self.user_ticket.as_deref(), self.expires_in) {
+            (Some(ticket), Some(expires_in)) => {
+                if self.userid.is_none() {
+                    return Err(WechatError::Config(format!(
+                        "work {flow} user-info response user_ticket requires a member userid"
+                    )));
+                }
+                validate_work_auth_identifier("user ticket", ticket, 512)?;
+                if expires_in <= 0 {
+                    return Err(WechatError::Config(format!(
+                        "work {flow} user-info response expires_in must be positive"
+                    )));
+                }
+            }
+            (None, None) => {}
+            _ => {
+                return Err(WechatError::Config(format!(
+                    "work {flow} user-info response must return user_ticket and expires_in together"
+                )))
+            }
+        }
+        Ok(())
+    }
+
+    pub fn identity_kind(&self) -> Option<WorkOauthIdentityKind> {
+        match (self.userid.is_some(), self.openid.is_some()) {
+            (true, false) => Some(WorkOauthIdentityKind::Member),
+            (false, true) => Some(WorkOauthIdentityKind::NonMember),
+            _ => None,
+        }
+    }
+
+    pub fn require_identity(&self, flow: &str) -> Result<(WorkOauthIdentityKind, &str)> {
+        self.validate_for(flow)?;
+        match self.identity_kind().expect("validated OAuth identity") {
+            WorkOauthIdentityKind::Member => Ok((
+                WorkOauthIdentityKind::Member,
+                self.userid.as_deref().expect("validated member userid"),
+            )),
+            WorkOauthIdentityKind::NonMember => Ok((
+                WorkOauthIdentityKind::NonMember,
+                self.openid.as_deref().expect("validated non-member openid"),
+            )),
+        }
+    }
+
+    pub fn require_user_ticket(&self, flow: &str) -> Result<(&str, i64)> {
+        self.validate_for(flow)?;
+        let ticket = self.user_ticket.as_deref().ok_or_else(|| {
+            WechatError::Config(format!(
+                "work {flow} user-info response does not contain a private-information ticket"
+            ))
+        })?;
+        Ok((
+            ticket,
+            self.expires_in.expect("validated user-ticket expiry"),
+        ))
+    }
+
+    pub fn ticket_refresh_after_seconds(&self, flow: &str, safety_margin: i64) -> Result<i64> {
+        let (_, expires_in) = self.require_user_ticket(flow)?;
+        if !(0..expires_in).contains(&safety_margin) {
+            return Err(WechatError::Config(format!(
+                "work {flow} user-ticket safety margin must be non-negative and less than expires_in"
+            )));
+        }
+        Ok(expires_in - safety_margin)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47964,13 +48132,132 @@ pub struct WorkOauthUserDetailResponse {
     pub address: Option<String>,
     #[serde(default)]
     pub name: Option<String>,
+    #[serde(default)]
+    pub department: Vec<i64>,
+    #[serde(default)]
+    pub order: Vec<i64>,
+    #[serde(default)]
+    pub position: Option<String>,
+    #[serde(default)]
+    pub is_leader_in_dept: Vec<i64>,
+    #[serde(default)]
+    pub direct_leader: Vec<String>,
+    #[serde(default)]
+    pub thumb_avatar: Option<String>,
+    #[serde(default)]
+    pub telephone: Option<String>,
+    #[serde(default)]
+    pub alias: Option<String>,
+    #[serde(default)]
+    pub open_userid: Option<String>,
+    #[serde(default)]
+    pub main_department: Option<i64>,
+    #[serde(default)]
+    pub extattr: Option<WorkUserExtAttr>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub external_position: Option<String>,
+    #[serde(default)]
+    pub external_profile: Option<WorkUserExternalProfile>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkOauthUserDetailResponse {
+    pub fn validate_for(&self, flow: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work {flow} user detail"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config(format!("work {flow} user-detail response requires userid"))
+        })?;
+        validate_work_user_id(userid)?;
+        self.to_user_detail().validate_response()?;
+        validate_work_auth_optional_text("user name", self.name.as_deref(), 64)?;
+        validate_work_auth_optional_text("position", self.position.as_deref(), 128)?;
+        validate_work_auth_optional_text("telephone", self.telephone.as_deref(), 64)?;
+        validate_work_auth_optional_text("alias", self.alias.as_deref(), 64)?;
+        validate_work_auth_optional_text("address", self.address.as_deref(), 512)?;
+        validate_work_auth_optional_text(
+            "external position",
+            self.external_position.as_deref(),
+            128,
+        )?;
+        if let Some(gender) = self.gender.as_deref() {
+            if !matches!(gender, "0" | "1" | "2") {
+                return Err(WechatError::Config(format!(
+                    "work {flow} user-detail response gender must be 0, 1, or 2"
+                )));
+            }
+        }
+        if let Some(mobile) = self.mobile.as_deref() {
+            validate_work_mobile(mobile)?;
+        }
+        for email in [self.email.as_deref(), self.biz_mail.as_deref()]
+            .into_iter()
+            .flatten()
+        {
+            validate_work_email(email)?;
+        }
+        for (label, value) in [
+            ("avatar", self.avatar.as_deref()),
+            ("thumbnail avatar", self.thumb_avatar.as_deref()),
+            ("QR code", self.qr_code.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_auth_http_url(label, value)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn require_userid(&self, flow: &str) -> Result<&str> {
+        self.validate_for(flow)?;
+        Ok(self.userid.as_deref().expect("validated OAuth user detail"))
+    }
+
+    pub fn to_user_detail(&self) -> WorkUserDetail {
+        WorkUserDetail {
+            userid: self.userid.clone(),
+            name: self.name.clone(),
+            department: self.department.clone(),
+            order: self.order.clone(),
+            position: self.position.clone(),
+            mobile: self.mobile.clone(),
+            gender: self.gender.clone(),
+            email: self.email.clone(),
+            biz_mail: self.biz_mail.clone(),
+            is_leader_in_dept: self.is_leader_in_dept.clone(),
+            direct_leader: self.direct_leader.clone(),
+            avatar: self.avatar.clone(),
+            thumb_avatar: self.thumb_avatar.clone(),
+            telephone: self.telephone.clone(),
+            alias: self.alias.clone(),
+            address: self.address.clone(),
+            open_userid: self.open_userid.clone(),
+            main_department: self.main_department,
+            status: self.status,
+            qr_code: self.qr_code.clone(),
+            external_position: self.external_position.clone(),
+            external_profile: self.external_profile.clone(),
+            extattr: self.extattr.clone(),
+            extra: self.extra.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserTfaInfoRequest {
     pub code: String,
+}
+
+impl WorkUserTfaInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_auth_identifier("TFA code", &self.code, 512)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47983,14 +48270,106 @@ pub struct WorkUserTfaInfoResponse {
     pub userid: Option<String>,
     #[serde(default)]
     pub tfa_code: Option<String>,
+    #[serde(default)]
+    pub expires_in: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserTfaInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get user TFA info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_user_id(self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work TFA-info response requires userid".to_string())
+        })?)?;
+        validate_work_auth_identifier(
+            "TFA response code",
+            self.tfa_code.as_deref().ok_or_else(|| {
+                WechatError::Config("work TFA-info response requires tfa_code".to_string())
+            })?,
+            512,
+        )?;
+        if self.expires_in.is_some_and(|expires_in| expires_in <= 0) {
+            return Err(WechatError::Config(
+                "work TFA-info response expires_in must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn require_binding(&self) -> Result<(&str, &str)> {
+        self.validate()?;
+        Ok((
+            self.userid.as_deref().expect("validated TFA userid"),
+            self.tfa_code.as_deref().expect("validated TFA code"),
+        ))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserTfaSuccessRequest {
     pub userid: String,
     pub tfa_code: String,
+}
+
+impl WorkUserTfaSuccessRequest {
+    pub fn new(userid: impl Into<String>, tfa_code: impl Into<String>) -> Self {
+        Self {
+            userid: userid.into(),
+            tfa_code: tfa_code.into(),
+        }
+    }
+
+    pub fn from_info(response: &WorkUserTfaInfoResponse) -> Result<Self> {
+        let (userid, tfa_code) = response.require_binding()?;
+        Ok(Self::new(userid, tfa_code))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_id(&self.userid)?;
+        validate_work_auth_identifier("TFA success code", &self.tfa_code, 512)
+    }
+}
+
+fn validate_work_auth_identifier(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work {label} must contain between 1 and {maximum} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_auth_optional_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_auth_identifier(label, value, maximum)?;
+    }
+    Ok(())
+}
+
+fn validate_work_auth_http_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value)
+        .map_err(|error| WechatError::Config(format!("work {label} URL is invalid: {error}")))?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "work {label} URL must be absolute HTTP(S) without credentials or fragments"
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -65937,12 +66316,13 @@ mod tests {
 
     #[test]
     fn builds_work_oauth_url() {
-        let url = Work::oauth_authorize_url(WorkOauthAuthorizeUrlRequest {
+        let url = Work::try_oauth_authorize_url(WorkOauthAuthorizeUrlRequest {
             corp_id: "wwid".to_string(),
             redirect_uri: "https://example.com/cb".to_string(),
             scope: None,
             state: Some("abc".to_string()),
-        });
+        })
+        .unwrap();
 
         assert!(url.contains("appid=wwid"));
         assert!(url.contains("scope=snsapi_base"));
@@ -65953,16 +66333,23 @@ mod tests {
             "UserId": "legacy-user",
             "user_ticket": "ticket",
             "expires_in": 7200,
-            "OpenId": "legacy-openid",
-            "external_userid": "external",
+            "DeviceId": "device",
             "identity_source": "oauth"
         }))
         .unwrap();
         assert_eq!(info.userid.as_deref(), Some("legacy-user"));
         assert_eq!(info.user_ticket.as_deref(), Some("ticket"));
-        assert_eq!(info.openid.as_deref(), Some("legacy-openid"));
-        assert_eq!(info.external_userid.as_deref(), Some("external"));
+        assert_eq!(info.deviceid.as_deref(), Some("device"));
         assert_eq!(info.extra["identity_source"], "oauth");
+        assert_eq!(
+            info.require_identity("OAuth").unwrap(),
+            (WorkOauthIdentityKind::Member, "legacy-user")
+        );
+        assert_eq!(info.require_user_ticket("OAuth").unwrap(), ("ticket", 7200));
+        assert_eq!(
+            info.ticket_refresh_after_seconds("OAuth", 300).unwrap(),
+            6900
+        );
 
         let detail: WorkOauthUserDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -65975,13 +66362,85 @@ mod tests {
             "email": "user@example.com",
             "biz_mail": "user@corp.example",
             "address": "addr",
-            "department": [1, 2]
+            "department": [1, 2],
+            "order": [10, 20],
+            "is_leader_in_dept": [1, 0],
+            "direct_leader": ["leader"],
+            "thumb_avatar": "https://example.com/avatar-thumb.png",
+            "telephone": "+86-21-12345678",
+            "alias": "user-alias",
+            "open_userid": "open-user",
+            "main_department": 1,
+            "status": 1,
+            "external_position": "Consultant"
         }))
         .unwrap();
         assert_eq!(detail.userid.as_deref(), Some("user"));
         assert_eq!(detail.name.as_deref(), Some("User"));
         assert_eq!(detail.mobile.as_deref(), Some("13800000000"));
-        assert_eq!(detail.extra["department"][0], 1);
+        assert_eq!(detail.department[0], 1);
+        assert!(detail.validate_for("OAuth").is_ok());
+        assert_eq!(detail.require_userid("OAuth").unwrap(), "user");
+        let normalized = detail.to_user_detail();
+        assert_eq!(normalized.main_department, Some(1));
+        assert_eq!(normalized.direct_leader, ["leader"]);
+    }
+
+    #[test]
+    fn validates_work_oauth_identity_and_detail_contracts() {
+        let non_member: WorkOauthUserInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "openid": "openid",
+            "external_userid": "external-user",
+            "deviceid": "device"
+        }))
+        .unwrap();
+        assert_eq!(
+            non_member.require_identity("authorization").unwrap(),
+            (WorkOauthIdentityKind::NonMember, "openid")
+        );
+        assert!(non_member.require_user_ticket("authorization").is_err());
+
+        for invalid in [
+            json!({ "errcode": 0 }),
+            json!({ "errcode": 0, "userid": "user", "openid": "openid" }),
+            json!({ "errcode": 0, "userid": "user", "external_userid": "external" }),
+            json!({ "errcode": 0, "userid": "user", "user_ticket": "ticket" }),
+            json!({ "errcode": 0, "openid": "openid", "user_ticket": "ticket", "expires_in": 7200 }),
+            json!({ "errcode": 0, "userid": "user", "user_ticket": "ticket", "expires_in": 0 }),
+            json!({ "errcode": 40029, "errmsg": "invalid code" }),
+        ] {
+            let response: WorkOauthUserInfoResponse = serde_json::from_value(invalid).unwrap();
+            assert!(response.validate_for("OAuth").is_err());
+        }
+
+        assert!(Work::try_oauth_authorize_url(WorkOauthAuthorizeUrlRequest {
+            corp_id: "wwid".to_string(),
+            redirect_uri: "javascript:alert(1)".to_string(),
+            scope: None,
+            state: None,
+        })
+        .is_err());
+        assert!(Work::try_oauth_authorize_url(WorkOauthAuthorizeUrlRequest {
+            corp_id: "wwid".to_string(),
+            redirect_uri: "https://example.com/callback".to_string(),
+            scope: Some("snsapi_unknown".to_string()),
+            state: None,
+        })
+        .is_err());
+
+        for invalid in [
+            json!({ "errcode": 0, "name": "missing user" }),
+            json!({ "errcode": 0, "userid": "user", "gender": "3" }),
+            json!({ "errcode": 0, "userid": "user", "mobile": "abc" }),
+            json!({ "errcode": 0, "userid": "user", "email": "invalid" }),
+            json!({ "errcode": 0, "userid": "user", "avatar": "file:///tmp/avatar" }),
+            json!({ "errcode": 0, "userid": "user", "department": [1], "order": [1, 2] }),
+            json!({ "errcode": 60111, "errmsg": "user not found" }),
+        ] {
+            let response: WorkOauthUserDetailResponse = serde_json::from_value(invalid).unwrap();
+            assert!(response.validate_for("OAuth").is_err());
+        }
     }
 
     #[test]
@@ -66003,13 +66462,15 @@ mod tests {
         assert_eq!(info.errcode, Some(0));
         assert_eq!(info.userid.as_deref(), Some("zhangsan"));
         assert_eq!(info.tfa_code.as_deref(), Some("single-use-tfa-code"));
-        assert_eq!(info.extra["expires_in"], 300);
+        assert_eq!(info.expires_in, Some(300));
+        assert_eq!(
+            info.require_binding().unwrap(),
+            ("zhangsan", "single-use-tfa-code")
+        );
 
-        let success_request = serde_json::to_value(WorkUserTfaSuccessRequest {
-            userid: "zhangsan".to_string(),
-            tfa_code: "single-use-tfa-code".to_string(),
-        })
-        .unwrap();
+        let success = WorkUserTfaSuccessRequest::from_info(&info).unwrap();
+        assert!(success.validate().is_ok());
+        let success_request = serde_json::to_value(success).unwrap();
         assert_eq!(
             success_request,
             json!({
@@ -66017,6 +66478,22 @@ mod tests {
                 "tfa_code": "single-use-tfa-code"
             })
         );
+
+        assert!(WorkUserTfaInfoRequest {
+            code: " \n".to_string(),
+        }
+        .validate()
+        .is_err());
+        for invalid in [
+            json!({ "errcode": 0, "tfa_code": "code" }),
+            json!({ "errcode": 0, "userid": "user" }),
+            json!({ "errcode": 0, "userid": "user", "tfa_code": "code", "expires_in": 0 }),
+            json!({ "errcode": 40029, "errmsg": "invalid code" }),
+        ] {
+            let response: WorkUserTfaInfoResponse = serde_json::from_value(invalid).unwrap();
+            assert!(response.validate().is_err());
+            assert!(WorkUserTfaSuccessRequest::from_info(&response).is_err());
+        }
     }
 
     #[test]
