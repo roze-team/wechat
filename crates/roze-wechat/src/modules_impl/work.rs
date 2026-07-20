@@ -3222,14 +3222,17 @@ impl Work {
             "media",
             work_media_multipart_part(file_name, data, content_type)?,
         );
-        self.inner
+        let response: WorkUploadImageResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/media/uploadimg",
                 Some(access_token.into()),
                 Vec::new(),
                 form,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn upload_temp_media_from_bytes(
@@ -3243,20 +3246,23 @@ impl Work {
         let file_name = file_name.into();
         validate_work_media_type(&media_type, true)?;
         validate_work_temp_media_file(&media_type, &file_name, &data)?;
-        let content_type =
-            work_media_content_type(WorkMediaTypeKind::from_code(&media_type), &file_name)?;
+        let media_kind = WorkMediaTypeKind::from_code(&media_type);
+        let content_type = work_media_content_type(media_kind, &file_name)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
             work_media_multipart_part(file_name, data, content_type)?,
         );
-        self.inner
+        let response: WorkUploadMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/media/upload",
                 Some(access_token.into()),
                 vec![("type".to_string(), media_type)],
                 form,
             )
-            .await
+            .await?;
+        response.validate_for(media_kind)?;
+        Ok(response)
     }
 
     pub async fn upload_temp_image_from_bytes(
@@ -3305,13 +3311,16 @@ impl Work {
         request: WorkMediaUploadByUrlRequest,
     ) -> Result<WorkMediaUploadByUrlResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkMediaUploadByUrlResponse = self
+            .inner
             .post(
                 "cgi-bin/media/upload_by_url",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_temp_media_upload_by_url_result(
@@ -3321,13 +3330,16 @@ impl Work {
     ) -> Result<WorkMediaUploadByUrlResultResponse> {
         let request = WorkMediaUploadByUrlResultRequest::new(job_id);
         request.validate()?;
-        self.inner
+        let response: WorkMediaUploadByUrlResultResponse = self
+            .inner
             .post(
                 "cgi-bin/media/get_upload_by_url_result",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn upload_attachment_from_bytes(
@@ -3344,13 +3356,14 @@ impl Work {
         validate_work_media_type(&media_type, false)?;
         validate_work_media_identifier("attachment type", &attachment_type)?;
         validate_work_media_file(&file_name, &data)?;
-        let content_type =
-            work_media_content_type(WorkMediaTypeKind::from_code(&media_type), &file_name)?;
+        let media_kind = WorkMediaTypeKind::from_code(&media_type);
+        let content_type = work_media_content_type(media_kind, &file_name)?;
         let form = reqwest::multipart::Form::new().part(
             "media",
             work_media_multipart_part(file_name, data, content_type)?,
         );
-        self.inner
+        let response: WorkUploadMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/media/upload_attachment",
                 Some(access_token.into()),
@@ -3360,7 +3373,9 @@ impl Work {
                 ],
                 form,
             )
-            .await
+            .await?;
+        response.validate_for(media_kind)?;
+        Ok(response)
     }
 
     pub async fn upload_attachment_image_from_bytes(
@@ -6772,7 +6787,8 @@ impl Work {
             "media",
             work_media_multipart_part(file_name, data, "application/octet-stream")?,
         );
-        self.inner
+        let response: WorkUploadMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/webhook/upload_media",
                 None,
@@ -6782,7 +6798,9 @@ impl Work {
                 ],
                 form,
             )
-            .await
+            .await?;
+        response.validate_for(WorkMediaTypeKind::File)?;
+        Ok(response)
     }
 
     pub fn oauth(&self) -> DomainModule {
@@ -23290,6 +23308,23 @@ pub struct WorkUploadImageResponse {
     pub extra: Value,
 }
 
+impl WorkUploadImageResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work upload image", self.errcode, self.errmsg.as_deref())?;
+        let url = self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("work image upload response requires url".to_string())
+        })?;
+        validate_work_media_http_url("image upload response URL", url)
+    }
+
+    pub fn require_url(&self) -> Result<&str> {
+        self.validate()?;
+        self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("work image upload response requires url".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WorkMediaDownload {
     pub status: u16,
@@ -23316,6 +23351,29 @@ fn validate_work_media_identifier(label: &str, value: &str) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+fn validate_work_media_http_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value)
+        .map_err(|error| WechatError::Config(format!("work media {label} is invalid: {error}")))?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work media {label} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_media_positive_timestamp(label: &str, value: &str) -> Result<i64> {
+    let timestamp = value.parse::<i64>().map_err(|error| {
+        WechatError::Config(format!("work media {label} must be an integer: {error}"))
+    })?;
+    if timestamp <= 0 {
+        return Err(WechatError::Config(format!(
+            "work media {label} must be positive"
+        )));
+    }
+    Ok(timestamp)
 }
 
 fn validate_work_media_file(file_name: &str, data: &[u8]) -> Result<()> {
@@ -23622,7 +23680,7 @@ pub struct WorkUploadMediaResponse {
     pub media_id: Option<String>,
     #[serde(default, rename = "type")]
     pub media_type: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub created_at: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
@@ -23690,6 +23748,53 @@ impl WorkUploadMediaResponse {
 
     pub fn created_at_timestamp(&self) -> Option<i64> {
         self.created_at.as_deref()?.parse().ok()
+    }
+
+    pub fn validate_for(&self, expected: WorkMediaTypeKind) -> Result<()> {
+        validate_work_response_success("work media upload", self.errcode, self.errmsg.as_deref())?;
+        if !expected.is_binary_file() {
+            return Err(WechatError::Config(
+                "work media upload expected type must be image, voice, video, or file".to_string(),
+            ));
+        }
+        self.require_media_id()?;
+        let actual = self.media_type_kind().ok_or_else(|| {
+            WechatError::Config("work media upload response requires type".to_string())
+        })?;
+        if !actual.is_binary_file() {
+            return Err(WechatError::Config(format!(
+                "work media upload response type is unsupported: {}",
+                self.media_type.as_deref().unwrap_or_default()
+            )));
+        }
+        if actual != expected {
+            return Err(WechatError::Config(format!(
+                "work media upload response type mismatch: expected {}, got {}",
+                expected.as_code().unwrap_or("unknown"),
+                actual.as_code().unwrap_or("unknown")
+            )));
+        }
+        self.require_created_at_timestamp()?;
+        if let Some(url) = self.url.as_deref() {
+            validate_work_media_identifier("upload response URL", url)?;
+            validate_work_media_http_url("upload response URL", url)?;
+        }
+        Ok(())
+    }
+
+    pub fn require_media_id(&self) -> Result<&str> {
+        let media_id = self.media_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work media upload response requires media_id".to_string())
+        })?;
+        validate_work_media_identifier("upload response media_id", media_id)?;
+        Ok(media_id)
+    }
+
+    pub fn require_created_at_timestamp(&self) -> Result<i64> {
+        let created_at = self.created_at.as_deref().ok_or_else(|| {
+            WechatError::Config("work media upload response requires created_at".to_string())
+        })?;
+        validate_work_media_positive_timestamp("upload response created_at", created_at)
     }
 }
 
@@ -23815,6 +23920,25 @@ pub struct WorkMediaUploadByUrlResponse {
     pub extra: Value,
 }
 
+impl WorkMediaUploadByUrlResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work media URL upload",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.require_job_id().map(|_| ())
+    }
+
+    pub fn require_job_id(&self) -> Result<&str> {
+        let job_id = self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config("work media URL upload response requires jobid".to_string())
+        })?;
+        validate_work_media_identifier("URL upload response job id", job_id)?;
+        Ok(job_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMediaUploadByUrlResultRequest {
     pub jobid: String,
@@ -23854,7 +23978,7 @@ pub struct WorkMediaUploadByUrlResultDetail {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_string")]
     pub created_at: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -23939,12 +24063,126 @@ impl WorkMediaUploadByUrlResultResponse {
     }
 
     pub fn is_successful(&self) -> bool {
-        self.is_completed()
-            && self
-                .detail
-                .as_ref()
-                .and_then(|detail| detail.errcode)
-                .is_some_and(|errcode| errcode == 0)
+        self.is_completed() && self.validate().is_ok()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work media URL upload result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let status = self.status.ok_or_else(|| {
+            WechatError::Config("work media URL upload result requires status".to_string())
+        })?;
+        if status <= 0 {
+            return Err(WechatError::Config(
+                "work media URL upload result status must be positive".to_string(),
+            ));
+        }
+        match WorkMediaUploadByUrlStatusKind::from(status) {
+            WorkMediaUploadByUrlStatusKind::Processing
+            | WorkMediaUploadByUrlStatusKind::Other(_) => {
+                if let Some(detail) = self.detail.as_ref() {
+                    detail.validate_optional_fields()?;
+                }
+            }
+            WorkMediaUploadByUrlStatusKind::Completed => {
+                self.detail
+                    .as_ref()
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "completed work media URL upload result requires detail".to_string(),
+                        )
+                    })?
+                    .validate_completed()?;
+            }
+            WorkMediaUploadByUrlStatusKind::Failed => {
+                self.detail
+                    .as_ref()
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "failed work media URL upload result requires detail".to_string(),
+                        )
+                    })?
+                    .validate_failed()?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn require_completed_media_id(&self) -> Result<&str> {
+        self.validate()?;
+        if !self.is_completed() {
+            return Err(WechatError::Config(
+                "work media URL upload result is not completed".to_string(),
+            ));
+        }
+        self.detail
+            .as_ref()
+            .and_then(|detail| detail.media_id.as_deref())
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "completed work media URL upload result requires media_id".to_string(),
+                )
+            })
+    }
+}
+
+impl WorkMediaUploadByUrlResultDetail {
+    pub fn created_at_timestamp(&self) -> Option<i64> {
+        self.created_at.as_deref()?.parse().ok()
+    }
+
+    pub fn require_media_id(&self) -> Result<&str> {
+        let media_id = self.media_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "completed work media URL upload result requires media_id".to_string(),
+            )
+        })?;
+        validate_work_media_identifier("URL upload result media_id", media_id)?;
+        Ok(media_id)
+    }
+
+    pub fn require_created_at_timestamp(&self) -> Result<i64> {
+        let created_at = self.created_at.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "completed work media URL upload result requires created_at".to_string(),
+            )
+        })?;
+        validate_work_media_positive_timestamp("URL upload result created_at", created_at)
+    }
+
+    fn validate_optional_fields(&self) -> Result<()> {
+        if let Some(media_id) = self.media_id.as_deref() {
+            validate_work_media_identifier("URL upload result media_id", media_id)?;
+        }
+        if let Some(created_at) = self.created_at.as_deref() {
+            validate_work_media_positive_timestamp("URL upload result created_at", created_at)?;
+        }
+        Ok(())
+    }
+
+    fn validate_completed(&self) -> Result<()> {
+        validate_work_response_success(
+            "completed work media URL upload result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.require_media_id()?;
+        self.require_created_at_timestamp()?;
+        Ok(())
+    }
+
+    fn validate_failed(&self) -> Result<()> {
+        self.validate_optional_fields()?;
+        if self.errcode.is_none_or(|code| code == 0) {
+            return Err(WechatError::Config(
+                "failed work media URL upload result requires a non-zero detail errcode"
+                    .to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -44979,6 +45217,11 @@ mod tests {
         .unwrap();
         assert_eq!(image.url.as_deref(), Some("https://example.com/image.png"));
         assert_eq!(image.extra["cdn_file_id"], "cdn-image");
+        assert!(image.validate().is_ok());
+        assert_eq!(
+            image.require_url().unwrap(),
+            "https://example.com/image.png"
+        );
 
         let response: WorkUploadMediaResponse = serde_json::from_value(json!({
             "media_id": "mid",
@@ -45084,6 +45327,23 @@ mod tests {
         assert_eq!(response.created_at.as_deref(), Some("1800000000"));
         assert_eq!(response.created_at_timestamp(), Some(1_800_000_000));
         assert_eq!(response.extra["file_size"], 1024);
+        assert!(response.validate_for(WorkMediaTypeKind::Image).is_ok());
+        assert_eq!(response.require_media_id().unwrap(), "mid");
+        assert_eq!(
+            response.require_created_at_timestamp().unwrap(),
+            1_800_000_000
+        );
+
+        let numeric_timestamp: WorkUploadMediaResponse = serde_json::from_value(json!({
+            "media_id": "file-id",
+            "type": "file",
+            "created_at": 1800000001
+        }))
+        .unwrap();
+        assert_eq!(numeric_timestamp.created_at.as_deref(), Some("1800000001"));
+        assert!(numeric_timestamp
+            .validate_for(WorkMediaTypeKind::File)
+            .is_ok());
 
         let full = WorkMediaDownload {
             status: 200,
@@ -45245,6 +45505,8 @@ mod tests {
         .unwrap();
         assert_eq!(created.jobid.as_deref(), Some("job-id"));
         assert_eq!(created.extra["expires_in"], 3600);
+        assert!(created.validate().is_ok());
+        assert_eq!(created.require_job_id().unwrap(), "job-id");
 
         let completed: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -45267,6 +45529,8 @@ mod tests {
         assert!(completed.is_completed());
         assert!(completed.is_terminal());
         assert!(completed.is_successful());
+        assert!(completed.validate().is_ok());
+        assert_eq!(completed.require_completed_media_id().unwrap(), "media-id");
         assert!(completed.status_kind().expect("status").is_terminal());
         assert_eq!(
             completed
@@ -45283,6 +45547,13 @@ mod tests {
             Some(&json!(2048))
         );
         assert_eq!(completed.extra["trace_id"], "trace-id");
+        assert_eq!(
+            completed
+                .detail
+                .as_ref()
+                .and_then(WorkMediaUploadByUrlResultDetail::created_at_timestamp),
+            Some(1_380_000_000)
+        );
 
         let failed: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
             "status": 3,
@@ -45304,6 +45575,7 @@ mod tests {
         );
         assert!(!failed.is_retryable_failure());
         assert!(failed.status_kind().expect("status").is_terminal());
+        assert!(failed.validate().is_ok());
 
         let retryable: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
             "status": 3,
@@ -45318,6 +45590,7 @@ mod tests {
             Some(WorkMediaUploadByUrlDetailErrorKind::DownloadFailed)
         );
         assert!(retryable.is_retryable_failure());
+        assert!(retryable.validate().is_ok());
         assert!(WorkMediaUploadByUrlDetailErrorKind::DownloadFailed.is_retryable());
         assert!(!WorkMediaUploadByUrlDetailErrorKind::InvalidUrl.is_retryable());
 
@@ -45330,6 +45603,142 @@ mod tests {
             WorkMediaUploadByUrlStatusKind::Other(99)
         );
         assert!(!WorkMediaUploadByUrlStatusKind::Processing.is_terminal());
+    }
+
+    #[test]
+    fn validates_work_media_response_contracts() {
+        let api_error: WorkUploadImageResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid media"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        for value in [
+            json!({}),
+            json!({ "url": " " }),
+            json!({ "url": "file:///tmp/image.png" }),
+            json!({ "url": "/image.png" }),
+        ] {
+            let response: WorkUploadImageResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let valid_upload = json!({
+            "errcode": 0,
+            "media_id": "media-id",
+            "type": "video",
+            "created_at": 1800000000,
+            "url": "https://cdn.example.com/video.mp4"
+        });
+        let response: WorkUploadMediaResponse =
+            serde_json::from_value(valid_upload.clone()).unwrap();
+        assert!(response.validate_for(WorkMediaTypeKind::Video).is_ok());
+        assert!(response.validate_for(WorkMediaTypeKind::Image).is_err());
+
+        for patch in [
+            json!({ "media_id": " " }),
+            json!({ "media_id": null }),
+            json!({ "type": "link" }),
+            json!({ "type": null }),
+            json!({ "created_at": "not-a-timestamp" }),
+            json!({ "created_at": 0 }),
+            json!({ "created_at": -1 }),
+            json!({ "url": "ftp://cdn.example.com/video.mp4" }),
+        ] {
+            let mut value = valid_upload.clone();
+            value
+                .as_object_mut()
+                .unwrap()
+                .extend(patch.as_object().unwrap().clone());
+            let response: WorkUploadMediaResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate_for(WorkMediaTypeKind::Video).is_err());
+        }
+
+        let missing_job: WorkMediaUploadByUrlResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_job.validate().is_err());
+        let job_api_error: WorkMediaUploadByUrlResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid media"
+        }))
+        .unwrap();
+        assert!(matches!(
+            job_api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let processing: WorkMediaUploadByUrlResultResponse =
+            serde_json::from_value(json!({ "status": 1 })).unwrap();
+        assert!(processing.validate().is_ok());
+        assert!(!processing.is_terminal());
+
+        let completed_numeric: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "status": 2,
+            "detail": {
+                "media_id": "media-id",
+                "created_at": 1800000000
+            }
+        }))
+        .unwrap();
+        assert!(completed_numeric.validate().is_ok());
+        assert!(completed_numeric.is_successful());
+
+        for value in [
+            json!({}),
+            json!({ "status": 0 }),
+            json!({ "status": -1 }),
+            json!({ "status": 2 }),
+            json!({ "status": 2, "detail": {} }),
+            json!({
+                "status": 2,
+                "detail": { "media_id": "media-id", "created_at": 0 }
+            }),
+            json!({
+                "status": 2,
+                "detail": {
+                    "errcode": 830003,
+                    "media_id": "media-id",
+                    "created_at": 1800000000
+                }
+            }),
+            json!({ "status": 3 }),
+            json!({ "status": 3, "detail": { "errcode": 0 } }),
+        ] {
+            let response: WorkMediaUploadByUrlResultResponse =
+                serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let failed: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "status": 3,
+            "detail": { "errcode": 830001, "errmsg": "invalid URL" }
+        }))
+        .unwrap();
+        assert!(failed.validate().is_ok());
+
+        let future_status: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "status": 99,
+            "detail": {
+                "media_id": "future-media",
+                "created_at": "1800000000"
+            }
+        }))
+        .unwrap();
+        assert!(future_status.validate().is_ok());
+
+        let outer_api_error: WorkMediaUploadByUrlResultResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid job"
+        }))
+        .unwrap();
+        assert!(matches!(
+            outer_api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
     }
 
     #[test]

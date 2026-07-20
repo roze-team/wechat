@@ -1212,6 +1212,19 @@ Implemented on 2026-07-18 in Work external-contact customer-operation depth:
 
 Implemented on 2026-07-18 in Work media upload/download depth:
 
+- synchronous image, temporary-media, attachment, and group-robot upload
+  boundaries now reject upstream API errors and structurally incomplete
+  success responses before returning them to callers;
+- upload responses require non-empty media identifiers, matching known media
+  types, positive creation timestamps, and absolute HTTP(S) URLs when present;
+  creation timestamps accept both string and numeric WeChat response forms;
+- asynchronous URL-upload creation now requires a non-empty job id, while
+  polling results validate positive statuses and apply distinct processing,
+  completed, and failed contracts; completed results require media identity
+  and creation time, failed results require a non-zero detail error, and
+  unknown positive statuses remain forward compatible;
+- checked accessors expose verified image URLs, media/job identifiers, and
+  creation timestamps for production callers and polling workers;
 - temporary-media upload now exposes PowerWeChat-compatible image, voice,
   video, and file helpers, and attachment upload exposes dedicated image and
   video helpers while retaining the generic byte-upload methods;
