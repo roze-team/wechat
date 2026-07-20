@@ -2069,6 +2069,24 @@ contracts:
 - group-chat external-userid migration now also applies the shared complete,
   unique, at-most-1000 mapping response contract before returning.
 
+Implemented on 2026-07-20 in Work external-contact intercept-rule and
+product-album response contracts:
+
+- create, list, and detail operations now validate API success and resource
+  invariants before responses leave the HTTP boundary;
+- intercept-rule responses require valid identities, names, sensitive words,
+  positive modes, applicable principals, positive optional timestamps, and
+  unique semantic values while accepting future positive semantic and mode
+  values;
+- intercept-rule lists reject duplicate identities and expose checked lookup,
+  while create/detail responses expose required-resource helpers;
+- product responses require identities, descriptions, prices, one to nine
+  attachments, valid known image media ids, unique image ids, and positive
+  optional creation times while retaining future attachment types;
+- product lists enforce the 100-item response boundary, reject duplicate
+  product identities, normalize continuation cursors, and expose pagination
+  plus checked lookup helpers.
+
 Implemented on 2026-07-20 in Payment merchant-service workflow depth:
 
 - complaint list, detail, negotiation-history, reply, completion,

@@ -2045,13 +2045,16 @@ impl Work {
         request: ExternalContactInterceptRuleAddRequest,
     ) -> Result<ExternalContactInterceptRuleAddResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactInterceptRuleAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/add_intercept_rule",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_external_contact_intercept_rule(
@@ -2095,12 +2098,15 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<ExternalContactInterceptRuleListResponse> {
-        self.inner
+        let response: ExternalContactInterceptRuleListResponse = self
+            .inner
             .get(
                 "cgi-bin/externalcontact/get_intercept_rule_list",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_intercept_rule(
@@ -2110,13 +2116,16 @@ impl Work {
     ) -> Result<ExternalContactInterceptRuleResponse> {
         let rule_id = rule_id.into();
         validate_external_contact_intercept_rule_id(&rule_id)?;
-        self.inner
+        let response: ExternalContactInterceptRuleResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_intercept_rule",
                 Some(access_token.into()),
                 json!({ "rule_id": rule_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_external_contact_product_album(
@@ -2125,13 +2134,16 @@ impl Work {
         request: ExternalContactProductAlbumAddRequest,
     ) -> Result<ExternalContactProductAlbumAddResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactProductAlbumAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/add_product_album",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_external_contact_product_album(
@@ -2177,13 +2189,16 @@ impl Work {
         request: ExternalContactProductAlbumListRequest,
     ) -> Result<ExternalContactProductAlbumListResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactProductAlbumListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_product_album_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_product_album(
@@ -2193,13 +2208,16 @@ impl Work {
     ) -> Result<ExternalContactProductAlbumResponse> {
         let product_id = product_id.into();
         validate_external_contact_product_id(&product_id)?;
-        self.inner
+        let response: ExternalContactProductAlbumResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_product_album",
                 Some(access_token.into()),
                 json!({ "product_id": product_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_customer_acquisition_quota(
@@ -15978,6 +15996,28 @@ pub struct ExternalContactInterceptRuleAddResponse {
 }
 
 impl ExternalContactInterceptRuleAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact add intercept rule",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_external_contact_intercept_rule_id(self.rule_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact add intercept-rule response requires rule_id".to_string(),
+            )
+        })?)
+    }
+
+    pub fn require_rule_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.rule_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact add intercept-rule response requires rule_id".to_string(),
+            )
+        })
+    }
+
     pub fn has_rule_id(&self) -> bool {
         self.rule_id
             .as_deref()
@@ -15998,11 +16038,40 @@ pub struct ExternalContactInterceptRuleListResponse {
 }
 
 impl ExternalContactInterceptRuleListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact list intercept rules",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut rule_ids = std::collections::HashSet::with_capacity(self.rule_list.len());
+        for rule in &self.rule_list {
+            rule.validate()?;
+            let rule_id = rule.rule_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact intercept-rule summary requires rule_id".to_string(),
+                )
+            })?;
+            if !rule_ids.insert(rule_id) {
+                return Err(WechatError::Config(
+                    "external-contact intercept-rule list contains duplicate rule ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn identified_rule_count(&self) -> usize {
         self.rule_list
             .iter()
             .filter(|rule| rule.has_identity())
             .count()
+    }
+
+    pub fn find(&self, rule_id: &str) -> Option<&ExternalContactInterceptRuleSummary> {
+        self.rule_list
+            .iter()
+            .find(|rule| rule.rule_id.as_deref() == Some(rule_id))
     }
 }
 
@@ -16019,6 +16088,27 @@ pub struct ExternalContactInterceptRuleSummary {
 }
 
 impl ExternalContactInterceptRuleSummary {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_intercept_rule_id(self.rule_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact intercept-rule summary requires rule_id".to_string(),
+            )
+        })?)?;
+        validate_external_contact_intercept_rule_name(self.rule_name.as_deref().ok_or_else(
+            || {
+                WechatError::Config(
+                    "external-contact intercept-rule summary requires rule_name".to_string(),
+                )
+            },
+        )?)?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact intercept-rule create_time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.rule_id
             .as_deref()
@@ -16039,6 +16129,31 @@ pub struct ExternalContactInterceptRuleResponse {
 }
 
 impl ExternalContactInterceptRuleResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact get intercept rule",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.rule
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact get intercept-rule response requires rule".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_rule(&self) -> Result<&ExternalContactInterceptRule> {
+        self.validate()?;
+        self.rule.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact get intercept-rule response requires rule".to_string(),
+            )
+        })
+    }
+
     pub fn has_rule(&self) -> bool {
         self.rule
             .as_ref()
@@ -16069,6 +16184,53 @@ pub struct ExternalContactInterceptRule {
 }
 
 impl ExternalContactInterceptRule {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_intercept_rule_id(self.rule_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact intercept-rule response requires rule_id".to_string(),
+            )
+        })?)?;
+        validate_external_contact_intercept_rule_name(self.rule_name.as_deref().ok_or_else(
+            || {
+                WechatError::Config(
+                    "external-contact intercept-rule response requires rule_name".to_string(),
+                )
+            },
+        )?)?;
+        validate_external_contact_intercept_words(&self.word_list, true)?;
+        let semantics = self
+            .extra_rule
+            .as_ref()
+            .map(|extra_rule| extra_rule.semantics_list.as_slice())
+            .unwrap_or(&self.semantics_list);
+        validate_external_contact_intercept_response_semantics(semantics)?;
+        let intercept_type = self.intercept_type.ok_or_else(|| {
+            WechatError::Config(
+                "external-contact intercept-rule response requires intercept_type".to_string(),
+            )
+        })?;
+        if intercept_type <= 0 {
+            return Err(WechatError::Config(
+                "external-contact intercept-rule response type must be positive".to_string(),
+            ));
+        }
+        validate_external_contact_intercept_range(
+            self.applicable_range.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact intercept-rule response requires applicable_range"
+                        .to_string(),
+                )
+            })?,
+            true,
+        )?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact intercept-rule create_time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.rule_id
             .as_deref()
@@ -16203,6 +16365,19 @@ fn validate_external_contact_intercept_semantics(semantics: &[i64]) -> Result<()
     {
         return Err(WechatError::Config(
             "external-contact intercept semantics must be unique values from 1 to 3".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_intercept_response_semantics(semantics: &[i64]) -> Result<()> {
+    let mut seen = std::collections::HashSet::with_capacity(semantics.len());
+    if semantics
+        .iter()
+        .any(|semantic| *semantic <= 0 || !seen.insert(*semantic))
+    {
+        return Err(WechatError::Config(
+            "external-contact intercept response semantics must be positive and unique".to_string(),
         ));
     }
     Ok(())
@@ -16420,6 +16595,29 @@ impl ExternalContactProductAttachment {
         }
         Ok(())
     }
+
+    pub fn validate_response(&self) -> Result<()> {
+        if self.attachment_type.trim().is_empty() {
+            return Err(WechatError::Config(
+                "external-contact product response attachment requires type".to_string(),
+            ));
+        }
+        if matches!(self.kind(), ExternalContactProductAttachmentKind::Image) {
+            let media_id = self
+                .image
+                .as_ref()
+                .map(|image| image.media_id.as_str())
+                .unwrap_or_default();
+            validate_external_contact_media_id("product image", Some(media_id))?;
+            if media_id.len() > 512 {
+                return Err(WechatError::Config(
+                    "external-contact product image media id cannot exceed 512 UTF-8 bytes"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16458,6 +16656,28 @@ pub struct ExternalContactProductAlbumAddResponse {
 }
 
 impl ExternalContactProductAlbumAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact add product album",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_external_contact_product_id(self.product_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact add product-album response requires product_id".to_string(),
+            )
+        })?)
+    }
+
+    pub fn require_product_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.product_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact add product-album response requires product_id".to_string(),
+            )
+        })
+    }
+
     pub fn has_product_id(&self) -> bool {
         self.product_id
             .as_deref()
@@ -16507,11 +16727,54 @@ pub struct ExternalContactProductAlbumListResponse {
 }
 
 impl ExternalContactProductAlbumListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact list product albums",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.product_list.len() > 100 {
+            return Err(WechatError::Config(
+                "external-contact product-album response cannot exceed 100 products".to_string(),
+            ));
+        }
+        let mut product_ids = std::collections::HashSet::with_capacity(self.product_list.len());
+        for product in &self.product_list {
+            product.validate()?;
+            let product_id = product.product_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact product-album response requires product_id".to_string(),
+                )
+            })?;
+            if !product_ids.insert(product_id) {
+                return Err(WechatError::Config(
+                    "external-contact product-album list contains duplicate product ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn total_image_count(&self) -> usize {
         self.product_list
             .iter()
             .map(ExternalContactProductAlbum::image_count)
             .sum()
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(&self, product_id: &str) -> Option<&ExternalContactProductAlbum> {
+        self.product_list
+            .iter()
+            .find(|product| product.product_id.as_deref() == Some(product_id))
     }
 }
 
@@ -16528,6 +16791,31 @@ pub struct ExternalContactProductAlbumResponse {
 }
 
 impl ExternalContactProductAlbumResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact get product album",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.product
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact get product-album response requires product".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_product(&self) -> Result<&ExternalContactProductAlbum> {
+        self.validate()?;
+        self.product.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact get product-album response requires product".to_string(),
+            )
+        })
+    }
+
     pub fn has_product(&self) -> bool {
         self.product
             .as_ref()
@@ -16554,6 +16842,54 @@ pub struct ExternalContactProductAlbum {
 }
 
 impl ExternalContactProductAlbum {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_product_id(self.product_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact product-album response requires product_id".to_string(),
+            )
+        })?)?;
+        if let Some(product_sn) = self.product_sn.as_deref() {
+            validate_external_contact_product_sn(product_sn, true)?;
+        }
+        validate_external_contact_product_description(self.description.as_deref().ok_or_else(
+            || {
+                WechatError::Config(
+                    "external-contact product-album response requires description".to_string(),
+                )
+            },
+        )?)?;
+        validate_external_contact_product_price(self.price.ok_or_else(|| {
+            WechatError::Config(
+                "external-contact product-album response requires price".to_string(),
+            )
+        })?)?;
+        if !(1..=9).contains(&self.attachments.len()) {
+            return Err(WechatError::Config(
+                "external-contact product-album response requires 1 to 9 attachments".to_string(),
+            ));
+        }
+        for attachment in &self.attachments {
+            attachment.validate_response()?;
+        }
+        let image_media_ids = self
+            .attachments
+            .iter()
+            .filter_map(|attachment| attachment.image.as_ref())
+            .map(|image| image.media_id.as_str())
+            .collect::<Vec<_>>();
+        if has_duplicate_strings(&image_media_ids) {
+            return Err(WechatError::Config(
+                "external-contact product response image media ids must be unique".to_string(),
+            ));
+        }
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact product create_time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.product_id
             .as_deref()
@@ -37455,6 +37791,7 @@ mod tests {
         .unwrap();
         assert_eq!(added.rule_id.as_deref(), Some("rule"));
         assert!(added.has_rule_id());
+        assert_eq!(added.require_rule_id().unwrap(), "rule");
         assert_eq!(added.extra["request_id"], "rule-add");
 
         let list: ExternalContactInterceptRuleListResponse = serde_json::from_value(json!({
@@ -37474,6 +37811,8 @@ mod tests {
         );
         assert_eq!(list.identified_rule_count(), 1);
         assert!(list.rule_list[0].has_identity());
+        assert!(list.validate().is_ok());
+        assert!(list.find("rule").is_some());
         assert_eq!(list.rule_list[0].extra["owner"], "admin");
         assert_eq!(list.extra["rule_total"], 1);
 
@@ -37500,6 +37839,11 @@ mod tests {
         .unwrap();
         assert_eq!(detail.extra["request_id"], "rule-detail");
         assert!(detail.has_rule());
+        assert!(detail.validate().is_ok());
+        assert_eq!(
+            detail.require_rule().unwrap().rule_id.as_deref(),
+            Some("rule")
+        );
         let rule = detail.rule.as_ref().expect("rule");
         assert!(rule.has_identity());
         assert_eq!(rule.principal_count(), 2);
@@ -37603,6 +37947,34 @@ mod tests {
             Some(ExternalContactInterceptRuleRange::new(["user"], [3]));
         assert!(overlapping_update.validate().is_err());
         assert!(validate_external_contact_intercept_rule_id(" ").is_err());
+
+        let api_error: ExternalContactInterceptRuleAddResponse =
+            serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid" })).unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+        let duplicate_list: ExternalContactInterceptRuleListResponse =
+            serde_json::from_value(json!({
+                "rule_list": [{
+                    "rule_id": "rule",
+                    "rule_name": "one"
+                }, {
+                    "rule_id": "rule",
+                    "rule_name": "two"
+                }]
+            }))
+            .unwrap();
+        assert!(duplicate_list.validate().is_err());
+        let invalid_detail: ExternalContactInterceptRuleResponse = serde_json::from_value(json!({
+            "rule": {
+                "rule_id": "rule",
+                "rule_name": "rule",
+                "word_list": ["word"],
+                "extra_rule": { "semantics_list": [1, 1] },
+                "intercept_type": 1,
+                "applicable_range": { "user_list": ["user"] }
+            }
+        }))
+        .unwrap();
+        assert!(invalid_detail.validate().is_err());
     }
 
     #[test]
@@ -37644,6 +38016,7 @@ mod tests {
         .unwrap();
         assert_eq!(added.product_id.as_deref(), Some("product"));
         assert!(added.has_product_id());
+        assert_eq!(added.require_product_id().unwrap(), "product");
         assert_eq!(added.extra["request_id"], "product-add");
 
         let list: ExternalContactProductAlbumListResponse = serde_json::from_value(json!({
@@ -37669,6 +38042,10 @@ mod tests {
             Some("199.00")
         );
         assert_eq!(list.total_image_count(), 1);
+        assert!(list.validate().is_ok());
+        assert!(list.has_more());
+        assert_eq!(list.next_cursor(), Some("cursor"));
+        assert!(list.find("product").is_some());
         assert_eq!(list.product_list[0].extra["catalog"], "software");
         assert_eq!(list.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(list.extra["product_total"], 1);
@@ -37695,6 +38072,11 @@ mod tests {
         .unwrap();
         assert_eq!(detail.extra["request_id"], "product-detail");
         assert!(detail.has_product());
+        assert!(detail.validate().is_ok());
+        assert_eq!(
+            detail.require_product().unwrap().product_id.as_deref(),
+            Some("product")
+        );
         let product = detail.product.as_ref().expect("product");
         assert!(product.has_identity());
         assert_eq!(product.create_time, Some(1_720_000_000));
@@ -37718,6 +38100,7 @@ mod tests {
         );
         assert!(future_attachment.image.is_none());
         assert_eq!(future_attachment.extra["video"]["media_id"], "future-media");
+        assert!(future_attachment.validate_response().is_ok());
 
         let oversized_description = ExternalContactProductAlbumAddRequest::new(
             "商".repeat(301),
@@ -37781,6 +38164,43 @@ mod tests {
             .validate()
             .is_err());
         assert!(validate_external_contact_product_id(" ").is_err());
+
+        let api_error: ExternalContactProductAlbumAddResponse =
+            serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid" })).unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+        let duplicate_list: ExternalContactProductAlbumListResponse =
+            serde_json::from_value(json!({
+                "product_list": [{
+                    "product_id": "product",
+                    "description": "one",
+                    "price": 1,
+                    "attachments": [{
+                        "type": "image",
+                        "image": { "media_id": "one" }
+                    }]
+                }, {
+                    "product_id": "product",
+                    "description": "two",
+                    "price": 2,
+                    "attachments": [{
+                        "type": "video",
+                        "video": { "media_id": "future" }
+                    }]
+                }]
+            }))
+            .unwrap();
+        assert!(duplicate_list.validate().is_err());
+        let incomplete_detail: ExternalContactProductAlbumResponse =
+            serde_json::from_value(json!({
+                "product": {
+                    "product_id": "product",
+                    "description": "product",
+                    "price": 100,
+                    "attachments": []
+                }
+            }))
+            .unwrap();
+        assert!(incomplete_detail.validate().is_err());
     }
 
     #[test]
