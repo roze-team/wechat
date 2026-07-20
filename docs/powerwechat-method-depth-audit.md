@@ -137,6 +137,21 @@ Implemented on 2026-07-21 in Work external-contact profile depth:
 - Profile lookup and per-kind count helpers expose the typed attribute data
   without forcing callers back to generic JSON traversal.
 
+Implemented on 2026-07-21 in Work media integrity depth:
+
+- URL-upload requests can now compute the required MD5 digest directly from
+  local content and verify that content again before submission, using the
+  project's shared MD5 dependency instead of caller-specific implementations.
+- Remote upload URLs reject embedded credentials and fragments in addition to
+  requiring absolute HTTP(S), preventing secrets or browser-only URL state
+  from entering WeCom's server-side downloader.
+- Download responses expose canonical MD5 calculation and checked digest
+  verification helpers; malformed expected digests and content mismatches are
+  reported before application code persists the media.
+- Binary download validation now rejects JSON content types, including
+  structured `+json` variants, so a successful JSON envelope cannot be
+  mistaken for media bytes.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream

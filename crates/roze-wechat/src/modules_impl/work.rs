@@ -26488,6 +26488,15 @@ fn validate_work_media_positive_timestamp(label: &str, value: &str) -> Result<i6
     Ok(timestamp)
 }
 
+fn validate_work_media_md5(label: &str, value: &str) -> Result<()> {
+    if value.len() != 32 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(WechatError::Config(format!(
+            "work media {label} must contain 32 hexadecimal characters"
+        )));
+    }
+    Ok(())
+}
+
 fn validate_work_media_file(file_name: &str, data: &[u8]) -> Result<()> {
     validate_work_media_file_name(file_name)?;
     if data.is_empty() {
@@ -26666,6 +26675,20 @@ impl WorkMediaDownload {
         self.header("content-type")
     }
 
+    pub fn content_type_essence(&self) -> Option<&str> {
+        self.content_type()
+            .and_then(|value| value.split(';').next())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }
+
+    pub fn is_json_response(&self) -> bool {
+        self.content_type_essence().is_some_and(|content_type| {
+            content_type.eq_ignore_ascii_case("application/json")
+                || content_type.to_ascii_lowercase().ends_with("+json")
+        })
+    }
+
     pub fn content_disposition(&self) -> Option<&str> {
         self.header("content-disposition")
     }
@@ -26795,6 +26818,22 @@ impl WorkMediaDownload {
             && self.next_range_start().is_some()
     }
 
+    pub fn md5_hex(&self) -> String {
+        format!("{:x}", md5::compute(&self.body))
+    }
+
+    pub fn verify_md5(&self, expected: &str) -> Result<()> {
+        validate_work_media_md5("download MD5", expected)?;
+        self.validate()?;
+        let actual = self.md5_hex();
+        if !actual.eq_ignore_ascii_case(expected) {
+            return Err(WechatError::Config(format!(
+                "work media download MD5 mismatch: expected {expected}, got {actual}"
+            )));
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<()> {
         if !self.is_successful() {
             return Err(WechatError::Config(format!(
@@ -26805,6 +26844,11 @@ impl WorkMediaDownload {
         if self.body.is_empty() {
             return Err(WechatError::Config(
                 "work media download response body cannot be empty".to_string(),
+            ));
+        }
+        if self.is_json_response() {
+            return Err(WechatError::Config(
+                "work media download response cannot use a JSON content type".to_string(),
             ));
         }
         if self
@@ -27057,6 +27101,34 @@ impl WorkMediaUploadByUrlRequest {
         }
     }
 
+    pub fn new_with_content_md5(
+        scene: WorkMediaUploadByUrlSceneKind,
+        media_type: WorkMediaUploadByUrlTypeKind,
+        filename: impl Into<String>,
+        url: impl Into<String>,
+        content: &[u8],
+    ) -> Self {
+        Self::new(
+            scene,
+            media_type,
+            filename,
+            url,
+            format!("{:x}", md5::compute(content)),
+        )
+    }
+
+    pub fn verify_content_md5(&self, content: &[u8]) -> Result<()> {
+        self.validate()?;
+        let actual = format!("{:x}", md5::compute(content));
+        if !self.md5.eq_ignore_ascii_case(&actual) {
+            return Err(WechatError::Config(format!(
+                "work media URL upload MD5 mismatch: expected {}, got {actual}",
+                self.md5
+            )));
+        }
+        Ok(())
+    }
+
     pub fn scene_kind(&self) -> Option<WorkMediaUploadByUrlSceneKind> {
         (self.scene == WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome.as_code())
             .then_some(WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome)
@@ -27093,21 +27165,18 @@ impl WorkMediaUploadByUrlRequest {
         let url = url::Url::parse(&self.url).map_err(|error| {
             WechatError::Config(format!("work media URL upload URL is invalid: {error}"))
         })?;
-        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-            return Err(WechatError::Config(
-                "work media URL upload URL must be an absolute HTTP(S) URL".to_string(),
-            ));
-        }
-        if self.md5.len() != 32
-            || !self
-                .md5
-                .chars()
-                .all(|character| character.is_ascii_hexdigit())
+        if !matches!(url.scheme(), "http" | "https")
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.fragment().is_some()
         {
             return Err(WechatError::Config(
-                "work media URL upload MD5 must contain 32 hexadecimal characters".to_string(),
+                "work media URL upload URL must be absolute HTTP(S) without credentials or fragments"
+                    .to_string(),
             ));
         }
+        validate_work_media_md5("URL upload MD5", &self.md5)?;
         Ok(())
     }
 }
@@ -55906,7 +55975,26 @@ mod tests {
         assert!(full.has_complete_body());
         assert!(!full.is_resumable());
         assert!(full.validate().is_ok());
+        assert_eq!(full.md5_hex(), "781e5e245d69b566979b86e28d23f2c7");
+        assert!(full.verify_md5("781E5E245D69B566979B86E28D23F2C7").is_ok());
+        assert!(full.verify_md5("00000000000000000000000000000000").is_err());
+        assert!(full.verify_md5("not-md5").is_err());
         assert_eq!(full.body.len(), 10);
+
+        let json_envelope = WorkMediaDownload {
+            status: 200,
+            headers: vec![(
+                "content-type".to_string(),
+                "application/problem+json; charset=utf-8".to_string(),
+            )],
+            body: bytes::Bytes::from_static(br#"{"errcode":0,"errmsg":"ok"}"#),
+        };
+        assert_eq!(
+            json_envelope.content_type_essence(),
+            Some("application/problem+json")
+        );
+        assert!(json_envelope.is_json_response());
+        assert!(json_envelope.validate().is_err());
 
         let encoded_name = WorkMediaDownload {
             status: 200,
@@ -56032,6 +56120,17 @@ mod tests {
         assert_eq!(value["filename"], "video.mp4");
         assert_eq!(value["url"], "https://cdn.example.com/video.mp4");
         assert_eq!(value["md5"], "198918f40ecc7cab0fc4231adaf67c96");
+
+        let checked = WorkMediaUploadByUrlRequest::new_with_content_md5(
+            WorkMediaUploadByUrlSceneKind::ExternalContactGroupWelcome,
+            WorkMediaUploadByUrlTypeKind::Video,
+            "video.mp4",
+            "https://cdn.example.com/video.mp4",
+            b"video-content",
+        );
+        assert_eq!(checked.md5, format!("{:x}", md5::compute(b"video-content")));
+        assert!(checked.verify_content_md5(b"video-content").is_ok());
+        assert!(checked.verify_content_md5(b"different-content").is_err());
         assert!(value.get("media_type").is_none());
 
         let mut invalid_request = request.clone();
@@ -56043,6 +56142,10 @@ mod tests {
         assert!(invalid_request.validate().is_err());
         invalid_request.media_type = WorkMediaUploadByUrlTypeKind::File.as_code().to_string();
         invalid_request.url = "file:///tmp/media".to_string();
+        assert!(invalid_request.validate().is_err());
+        invalid_request.url = "https://user:secret@cdn.example.com/file".to_string();
+        assert!(invalid_request.validate().is_err());
+        invalid_request.url = "https://cdn.example.com/file#fragment".to_string();
         assert!(invalid_request.validate().is_err());
         invalid_request.url = "https://cdn.example.com/file".to_string();
         invalid_request.md5 = "not-md5".to_string();
