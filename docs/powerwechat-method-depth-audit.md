@@ -1976,6 +1976,45 @@ Implemented on 2026-07-21 in Work OA WeDrive response-contract depth:
   API failures, missing payloads, contradictions, duplicates, invalid URLs,
   reversed timestamps, permissions, quotas, and capacity overflows.
 
+Implemented on 2026-07-21 in Work account-service production-contract depth:
+
+- all 20 public account-service methods now validate local inputs, and their
+  18 distinct HTTP boundaries validate typed or status responses before
+  returning; convenience servicer methods continue through the checked
+  request-based implementations;
+- account create/update/delete, list, contact-way, customer batch, upgrade,
+  cancel-upgrade, message sync/send, servicer, and session-state requests now
+  reject blank identifiers, invalid names/scenes, duplicate or oversized
+  batches, malformed upgrade targets, unsupported flags, limits, voice
+  formats, message types, and contradictory state assignments before I/O;
+- outbound messages enforce exactly one payload matching `msgtype`; text,
+  media, video, link, mini-program, menu, location, and event-send payloads
+  validate their required fields, URLs, coordinates, menu identities, and
+  supported event-message types;
+- corrected the customer-acquisition link wire contract to use its dedicated
+  `{ "link_url": ... }` payload instead of serializing ordinary link
+  `title/url` fields under `ca_link`;
+- account and customer responses validate required identities, unique records,
+  avatar/contact URLs, session context structure, gender bounds, and
+  successful/invalid customer-list disjointness while preserving unknown
+  positive response values;
+- synchronized-message responses enforce binary pagination state, checked
+  cursor continuation, the 1000-message boundary, unique message ids, and a
+  single body matching every known message type; future message types remain
+  forward compatible through extension fields;
+- synchronized text/media/location/link/business-card/mini-program/menu,
+  Channels product/order, and event payloads now validate required content,
+  URLs, coordinates, identities, and event-specific failure/servicer/session/
+  recall fields;
+- servicer mutations expose partial-failure iteration and reject missing,
+  duplicated, or ambiguous user/department identities; servicer lists and
+  session-state responses validate identity/status coherence, including the
+  required servicer for human-service sessions;
+- normal and malformed request/response matrices cover API failures, duplicate
+  accounts/customers/messages/servicers, cursor contradictions, body/type
+  mismatches, malformed URLs/config ranges, partial servicer failures, and
+  invalid state transitions.
+
 Implemented on 2026-07-20 in Work application-message depth:
 
 - ordinary sends, statistics, recall, template-card and task-card updates,

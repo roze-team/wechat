@@ -6414,13 +6414,20 @@ impl Work {
         name: impl Into<String>,
         media_id: impl Into<String>,
     ) -> Result<WorkAccountServiceAccountAddResponse> {
-        self.inner
+        let name = name.into();
+        let media_id = media_id.into();
+        validate_work_account_service_name("account name", &name)?;
+        validate_work_account_service_identifier("account avatar media id", &media_id)?;
+        let response: WorkAccountServiceAccountAddResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/account/add",
                 Some(access_token.into()),
-                json!({ "name": name.into(), "media_id": media_id.into() }),
+                json!({ "name": name, "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_account_delete(
@@ -6428,13 +6435,18 @@ impl Work {
         access_token: impl Into<String>,
         open_kfid: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        let open_kfid = open_kfid.into();
+        validate_work_account_service_identifier("account id", &open_kfid)?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/account/del",
                 Some(access_token.into()),
-                json!({ "open_kfid": open_kfid.into() }),
+                json!({ "open_kfid": open_kfid }),
             )
-            .await
+            .await?;
+        response.validate_for("work account-service account delete")?;
+        Ok(response)
     }
 
     pub async fn account_service_account_update(
@@ -6442,26 +6454,33 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceAccountUpdateRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/account/update",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work account-service account update")?;
+        Ok(response)
     }
 
     pub async fn account_service_account_list(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkAccountServiceAccountListResponse> {
-        self.inner
+        let response: WorkAccountServiceAccountListResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/account/list",
                 Some(access_token.into()),
                 json!({}),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_add_contact_way(
@@ -6469,13 +6488,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceAddContactWayRequest,
     ) -> Result<WorkAccountServiceAddContactWayResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceAddContactWayResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/add_contact_way",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn account_service_customer(&self) -> DomainModule {
@@ -6487,25 +6510,32 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceCustomerBatchGetRequest,
     ) -> Result<WorkAccountServiceCustomerBatchGetResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceCustomerBatchGetResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/customer/batchget",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_customer_get_upgrade_service_config(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkAccountServiceCustomerUpgradeServiceConfigResponse> {
-        self.inner
+        let response: WorkAccountServiceCustomerUpgradeServiceConfigResponse = self
+            .inner
             .get(
                 "cgi-bin/kf/customer/get_upgrade_service_config",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_customer_upgrade_service(
@@ -6513,13 +6543,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceCustomerUpgradeServiceRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/customer/upgrade_service",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work account-service customer upgrade")?;
+        Ok(response)
     }
 
     pub async fn account_service_customer_cancel_upgrade_service(
@@ -6528,13 +6562,20 @@ impl Work {
         open_kfid: impl Into<String>,
         external_userid: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        let open_kfid = open_kfid.into();
+        let external_userid = external_userid.into();
+        validate_work_account_service_identifier("account id", &open_kfid)?;
+        validate_work_account_service_identifier("external user id", &external_userid)?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/customer/cancel_upgrade_service",
                 Some(access_token.into()),
-                json!({ "open_kfid": open_kfid.into(), "external_userid": external_userid.into() }),
+                json!({ "open_kfid": open_kfid, "external_userid": external_userid }),
             )
-            .await
+            .await?;
+        response.validate_for("work account-service customer cancel upgrade")?;
+        Ok(response)
     }
 
     pub fn account_service_message(&self) -> DomainModule {
@@ -6546,9 +6587,13 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceSyncMsgRequest,
     ) -> Result<WorkAccountServiceSyncMsgResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceSyncMsgResponse = self
+            .inner
             .post("cgi-bin/kf/sync_msg", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_send_msg(
@@ -6556,9 +6601,13 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceSendMsgRequest,
     ) -> Result<WorkAccountServiceSendMsgResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceSendMsgResponse = self
+            .inner
             .post("cgi-bin/kf/send_msg", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_send_msg_on_event(
@@ -6566,13 +6615,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceSendMsgOnEventRequest,
     ) -> Result<WorkAccountServiceSendMsgResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceSendMsgResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/send_msg_on_event",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn account_service_servicer(&self) -> DomainModule {
@@ -6597,13 +6650,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceServicerRequest,
     ) -> Result<WorkAccountServiceServicerResultResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceServicerResultResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/servicer/add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_servicer_delete(
@@ -6624,13 +6681,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceServicerRequest,
     ) -> Result<WorkAccountServiceServicerResultResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceServicerResultResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/servicer/del",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_servicer_list(
@@ -6638,15 +6699,20 @@ impl Work {
         access_token: impl Into<String>,
         open_kfid: impl Into<String>,
     ) -> Result<WorkAccountServiceServicerListResponse> {
-        self.inner
+        let open_kfid = open_kfid.into();
+        validate_work_account_service_identifier("account id", &open_kfid)?;
+        let response: WorkAccountServiceServicerListResponse = self
+            .inner
             .post_json_with_access_token_query(
                 "cgi-bin/kf/servicer/list",
                 Some(access_token.into()),
-                vec![("open_kfid".to_string(), open_kfid.into())],
+                vec![("open_kfid".to_string(), open_kfid)],
                 json!({}),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn account_service_state(&self) -> DomainModule {
@@ -6659,13 +6725,20 @@ impl Work {
         open_kfid: impl Into<String>,
         external_userid: impl Into<String>,
     ) -> Result<WorkAccountServiceStateGetResponse> {
-        self.inner
+        let open_kfid = open_kfid.into();
+        let external_userid = external_userid.into();
+        validate_work_account_service_identifier("account id", &open_kfid)?;
+        validate_work_account_service_identifier("external user id", &external_userid)?;
+        let response: WorkAccountServiceStateGetResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/service_state/get",
                 Some(access_token.into()),
-                json!({ "open_kfid": open_kfid.into(), "external_userid": external_userid.into() }),
+                json!({ "open_kfid": open_kfid, "external_userid": external_userid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_state_trans(
@@ -6673,13 +6746,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceStateTransRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/service_state/trans",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work account-service state transition")?;
+        Ok(response)
     }
 
     pub async fn account_service_state_trans_with_response(
@@ -6687,13 +6764,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkAccountServiceStateTransRequest,
     ) -> Result<WorkAccountServiceStateTransResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAccountServiceStateTransResponse = self
+            .inner
             .post(
                 "cgi-bin/kf/service_state/trans",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn account_service_tag(&self) -> DomainModule {
@@ -24687,11 +24768,29 @@ pub struct WorkAccountServiceAccountUpdateRequest {
     pub media_id: String,
 }
 
+impl WorkAccountServiceAccountUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        validate_work_account_service_name("account name", &self.name)?;
+        validate_work_account_service_identifier("account avatar media id", &self.media_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceAddContactWayRequest {
     pub open_kfid: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scene: Option<String>,
+}
+
+impl WorkAccountServiceAddContactWayRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        if let Some(scene) = &self.scene {
+            validate_work_account_service_text("contact scene", scene, 32)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24706,6 +24805,25 @@ pub struct WorkAccountServiceAccountAddResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceAccountAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service account add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_account_service_required_identifier(
+            "created account id",
+            self.open_kfid.as_deref(),
+        )
+    }
+
+    pub fn require_open_kfid(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.open_kfid.as_deref().expect("validated account id"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceAccountListResponse {
     #[serde(default)]
@@ -24716,6 +24834,27 @@ pub struct WorkAccountServiceAccountListResponse {
     pub account_list: Vec<WorkAccountServiceAccount>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceAccountListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service account list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut account_ids = HashSet::new();
+        for account in &self.account_list {
+            account.validate()?;
+            let account_id = account.open_kfid.as_deref().expect("validated account id");
+            if !account_ids.insert(account_id) {
+                return Err(WechatError::Config(
+                    "work account-service account list contains duplicate account ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24730,6 +24869,14 @@ pub struct WorkAccountServiceAccount {
     pub extra: Value,
 }
 
+impl WorkAccountServiceAccount {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_identifier("account id", self.open_kfid.as_deref())?;
+        validate_work_account_service_required_text("account name", self.name.as_deref(), 64)?;
+        validate_work_account_service_url("account avatar URL", self.avatar.as_deref(), false)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceAddContactWayResponse {
     #[serde(default)]
@@ -24742,10 +24889,42 @@ pub struct WorkAccountServiceAddContactWayResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceAddContactWayResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service contact way",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_account_service_url("contact URL", self.url.as_deref(), true)
+    }
+
+    pub fn require_url(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.url.as_deref().expect("validated contact URL"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceCustomerBatchGetRequest {
     pub external_userid_list: Vec<String>,
     pub need_enter_session_context: i64,
+}
+
+impl WorkAccountServiceCustomerBatchGetRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier_list(
+            "external user ids",
+            &self.external_userid_list,
+            100,
+        )?;
+        if !matches!(self.need_enter_session_context, 0 | 1) {
+            return Err(WechatError::Config(
+                "work account-service session-context flag must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24760,6 +24939,43 @@ pub struct WorkAccountServiceCustomerBatchGetResponse {
     pub invalid_external_userid: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceCustomerBatchGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service customer batch get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut customer_ids = HashSet::new();
+        for customer in &self.customer_list {
+            customer.validate()?;
+            let customer_id = customer
+                .external_userid
+                .as_deref()
+                .expect("validated external user id");
+            if !customer_ids.insert(customer_id) {
+                return Err(WechatError::Config(
+                    "work account-service customer response contains duplicate customers"
+                        .to_string(),
+                ));
+            }
+        }
+        let mut invalid_ids = HashSet::new();
+        for invalid_id in &self.invalid_external_userid {
+            validate_work_account_service_identifier("invalid external user id", invalid_id)?;
+            if customer_ids.contains(invalid_id.as_str())
+                || !invalid_ids.insert(invalid_id.as_str())
+            {
+                return Err(WechatError::Config(
+                    "work account-service customer response contains duplicate or contradictory external user ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24780,6 +24996,28 @@ pub struct WorkAccountServiceCustomer {
     pub extra: Value,
 }
 
+impl WorkAccountServiceCustomer {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_identifier(
+            "external user id",
+            self.external_userid.as_deref(),
+        )?;
+        if self.gender.is_some_and(|gender| gender < 0) {
+            return Err(WechatError::Config(
+                "work account-service customer gender cannot be negative".to_string(),
+            ));
+        }
+        validate_work_account_service_url("customer avatar URL", self.avatar.as_deref(), false)?;
+        if let Some(union_id) = &self.unionid {
+            validate_work_account_service_identifier("customer union id", union_id)?;
+        }
+        if let Some(context) = &self.enter_session_context {
+            context.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceEnterSessionContext {
     #[serde(default)]
@@ -24790,6 +25028,27 @@ pub struct WorkAccountServiceEnterSessionContext {
     pub wechat_channels: Option<Value>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceEnterSessionContext {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(scene) = &self.scene {
+            validate_work_account_service_text("entry scene", scene, 64)?;
+        }
+        if let Some(scene_param) = &self.scene_param {
+            validate_work_account_service_text("entry scene parameter", scene_param, 256)?;
+        }
+        if self
+            .wechat_channels
+            .as_ref()
+            .is_some_and(|value| !value.is_object())
+        {
+            return Err(WechatError::Config(
+                "work account-service Channels entry context must be an object".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24806,6 +25065,27 @@ pub struct WorkAccountServiceCustomerUpgradeServiceConfigResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceCustomerUpgradeServiceConfigResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service upgrade config",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for (label, range) in [
+            ("member range", self.member_range.as_ref()),
+            ("group-chat range", self.groupchat_range.as_ref()),
+        ] {
+            if range.is_some_and(|value| !value.is_object()) {
+                return Err(WechatError::Config(format!(
+                    "work account-service {label} must be an object"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceCustomerUpgradeServiceRequest {
     pub open_kfid: String,
@@ -24818,6 +25098,47 @@ pub struct WorkAccountServiceCustomerUpgradeServiceRequest {
     pub groupchat: Option<Value>,
 }
 
+impl WorkAccountServiceCustomerUpgradeServiceRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        validate_work_account_service_identifier("external user id", &self.external_userid)?;
+        match self.upgrade_type {
+            1 => {
+                let member = self.member.as_ref().ok_or_else(|| {
+                    WechatError::Config(
+                        "work account-service member upgrade requires member".to_string(),
+                    )
+                })?;
+                validate_work_account_service_upgrade_target(member, "userid", "member")?;
+                if self.groupchat.is_some() {
+                    return Err(WechatError::Config(
+                        "work account-service member upgrade cannot contain groupchat".to_string(),
+                    ));
+                }
+            }
+            2 => {
+                let groupchat = self.groupchat.as_ref().ok_or_else(|| {
+                    WechatError::Config(
+                        "work account-service group-chat upgrade requires groupchat".to_string(),
+                    )
+                })?;
+                validate_work_account_service_upgrade_target(groupchat, "chat_id", "group-chat")?;
+                if self.member.is_some() {
+                    return Err(WechatError::Config(
+                        "work account-service group-chat upgrade cannot contain member".to_string(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "work account-service upgrade type must be 1 or 2".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceSyncMsgRequest {
     pub cursor: String,
@@ -24827,6 +25148,50 @@ pub struct WorkAccountServiceSyncMsgRequest {
     pub open_kfid: String,
 }
 
+impl WorkAccountServiceSyncMsgRequest {
+    pub fn first_page(
+        token: impl Into<String>,
+        limit: i64,
+        voice_format: i64,
+        open_kfid: impl Into<String>,
+    ) -> Self {
+        Self {
+            cursor: String::new(),
+            token: token.into(),
+            limit,
+            voice_format,
+            open_kfid: open_kfid.into(),
+        }
+    }
+
+    pub fn next_page(&self, response: &WorkAccountServiceSyncMsgResponse) -> Option<Self> {
+        response.next_cursor().map(|cursor| Self {
+            cursor: cursor.to_string(),
+            ..self.clone()
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.cursor.is_empty() {
+            validate_work_account_service_identifier("message cursor", &self.cursor)?;
+        }
+        validate_work_account_service_identifier("message token", &self.token)?;
+        if !(1..=1000).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "work account-service sync limit must be between 1 and 1000".to_string(),
+            ));
+        }
+        if !matches!(self.voice_format, 0 | 1) {
+            return Err(WechatError::Config(
+                "work account-service voice format must be 0 or 1".to_string(),
+            ));
+        }
+        if !self.open_kfid.is_empty() {
+            validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceSyncMsgResponse {
     #[serde(default)]
@@ -24841,6 +25206,63 @@ pub struct WorkAccountServiceSyncMsgResponse {
     pub msg_list: Vec<WorkAccountServiceMessage>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceSyncMsgResponse {
+    pub fn has_more(&self) -> bool {
+        self.has_more == Some(1)
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        self.has_more()
+            .then_some(self.next_cursor.as_deref())
+            .flatten()
+            .filter(|cursor| !cursor.trim().is_empty())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service sync messages",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if !matches!(self.has_more, Some(0 | 1)) {
+            return Err(WechatError::Config(
+                "work account-service sync response has_more must be 0 or 1".to_string(),
+            ));
+        }
+        if self.has_more() {
+            validate_work_account_service_required_identifier(
+                "next message cursor",
+                self.next_cursor.as_deref(),
+            )?;
+        } else if self
+            .next_cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work account-service sync response cursor cannot be blank".to_string(),
+            ));
+        }
+        if self.msg_list.len() > 1000 {
+            return Err(WechatError::Config(
+                "work account-service sync response cannot contain more than 1000 messages"
+                    .to_string(),
+            ));
+        }
+        let mut message_ids = HashSet::new();
+        for message in &self.msg_list {
+            message.validate()?;
+            let message_id = message.msgid.as_deref().expect("validated message id");
+            if !message_ids.insert(message_id) {
+                return Err(WechatError::Config(
+                    "work account-service sync response contains duplicate message ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24978,6 +25400,135 @@ impl WorkAccountServiceMessage {
             .as_deref()
             .map(WorkAccountServiceMessageTypeKind::from_code)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_identifier("message id", self.msgid.as_deref())?;
+        if self.send_time.is_some_and(|send_time| send_time <= 0) {
+            return Err(WechatError::Config(
+                "work account-service message send time must be positive".to_string(),
+            ));
+        }
+        if self.origin.is_some_and(|origin| origin <= 0) {
+            return Err(WechatError::Config(
+                "work account-service message origin must be positive".to_string(),
+            ));
+        }
+        for (label, value) in [
+            ("account id", self.open_kfid.as_deref()),
+            ("external user id", self.external_userid.as_deref()),
+            ("servicer user id", self.servicer_userid.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_account_service_identifier(label, value)?;
+            }
+        }
+        let message_type = self.msgtype.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work account-service synchronized message requires msgtype".to_string(),
+            )
+        })?;
+        validate_work_account_service_identifier("message type", message_type)?;
+        let payload_count = [
+            self.text.is_some(),
+            self.image.is_some(),
+            self.voice.is_some(),
+            self.video.is_some(),
+            self.file.is_some(),
+            self.location.is_some(),
+            self.link.is_some(),
+            self.business_card.is_some(),
+            self.miniprogram.is_some(),
+            self.msgmenu.is_some(),
+            self.channels_shop_product.is_some(),
+            self.channels_shop_order.is_some(),
+            self.event.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        if self.msgtype_kind() != Some(WorkAccountServiceMessageTypeKind::Other)
+            && payload_count != 1
+        {
+            return Err(WechatError::Config(
+                "work account-service synchronized message requires exactly one matching payload"
+                    .to_string(),
+            ));
+        }
+        match self.msgtype_kind() {
+            Some(WorkAccountServiceMessageTypeKind::Text) => self
+                .text
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("text"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::Image) => self
+                .image
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("image"))?
+                .validate("image"),
+            Some(WorkAccountServiceMessageTypeKind::Voice) => self
+                .voice
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("voice"))?
+                .validate("voice"),
+            Some(WorkAccountServiceMessageTypeKind::Video) => self
+                .video
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("video"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::File) => self
+                .file
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("file"))?
+                .validate("file"),
+            Some(WorkAccountServiceMessageTypeKind::Location) => self
+                .location
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("location"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::Link) => self
+                .link
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("link"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::BusinessCard) => {
+                let card = self
+                    .business_card
+                    .as_ref()
+                    .ok_or_else(|| missing_work_account_service_message_payload("business card"))?;
+                validate_work_account_service_required_identifier(
+                    "business-card user id",
+                    card.userid.as_deref(),
+                )
+            }
+            Some(WorkAccountServiceMessageTypeKind::MiniProgram) => self
+                .miniprogram
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("mini program"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::Menu) => self
+                .msgmenu
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("menu"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::ChannelsShopProduct) => self
+                .channels_shop_product
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("Channels product"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::ChannelsShopOrder) => self
+                .channels_shop_order
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("Channels order"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::Event) => self
+                .event
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("event"))?
+                .validate(),
+            Some(WorkAccountServiceMessageTypeKind::Other) => Ok(()),
+            None => unreachable!("validated message type"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24988,10 +25539,29 @@ pub struct WorkAccountServiceTextMessage {
     pub menu_id: Option<String>,
 }
 
+impl WorkAccountServiceTextMessage {
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_text("text content", self.content.as_deref(), 2048)?;
+        if let Some(menu_id) = &self.menu_id {
+            validate_work_account_service_identifier("menu id", menu_id)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceMediaMessage {
     #[serde(default)]
     pub media_id: Option<String>,
+}
+
+impl WorkAccountServiceMediaMessage {
+    fn validate(&self, label: &str) -> Result<()> {
+        validate_work_account_service_required_identifier(
+            &format!("{label} media id"),
+            self.media_id.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25000,6 +25570,19 @@ pub struct WorkAccountServiceVideoMessage {
     pub media_id: Option<String>,
     #[serde(default)]
     pub thumb_media_id: Option<String>,
+}
+
+impl WorkAccountServiceVideoMessage {
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_identifier(
+            "video media id",
+            self.media_id.as_deref(),
+        )?;
+        if let Some(thumb_media_id) = &self.thumb_media_id {
+            validate_work_account_service_identifier("video thumbnail media id", thumb_media_id)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25014,6 +25597,32 @@ pub struct WorkAccountServiceLocationMessage {
     pub address: Option<String>,
 }
 
+impl WorkAccountServiceLocationMessage {
+    fn validate(&self) -> Result<()> {
+        if self
+            .latitude
+            .is_none_or(|latitude| !latitude.is_finite() || !(-90.0..=90.0).contains(&latitude))
+        {
+            return Err(WechatError::Config(
+                "work account-service latitude must be between -90 and 90".to_string(),
+            ));
+        }
+        if self.longitude.is_none_or(|longitude| {
+            !longitude.is_finite() || !(-180.0..=180.0).contains(&longitude)
+        }) {
+            return Err(WechatError::Config(
+                "work account-service longitude must be between -180 and 180".to_string(),
+            ));
+        }
+        validate_work_account_service_required_text("location name", self.name.as_deref(), 128)?;
+        validate_work_account_service_required_text(
+            "location address",
+            self.address.as_deref(),
+            512,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceLinkMessage {
     #[serde(default)]
@@ -25026,6 +25635,38 @@ pub struct WorkAccountServiceLinkMessage {
     pub thumb_media_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pic_url: Option<String>,
+}
+
+impl WorkAccountServiceLinkMessage {
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_text("link title", self.title.as_deref(), 128)?;
+        validate_work_account_service_url("link URL", self.url.as_deref(), true)?;
+        if let Some(thumb_media_id) = &self.thumb_media_id {
+            validate_work_account_service_identifier("link thumbnail media id", thumb_media_id)?;
+        }
+        validate_work_account_service_url("link picture URL", self.pic_url.as_deref(), false)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceCustomerAcquisitionLinkMessage {
+    pub link_url: String,
+}
+
+impl WorkAccountServiceCustomerAcquisitionLinkMessage {
+    pub fn new(link_url: impl Into<String>) -> Self {
+        Self {
+            link_url: link_url.into(),
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_url(
+            "customer-acquisition link URL",
+            Some(&self.link_url),
+            true,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25046,6 +25687,28 @@ pub struct WorkAccountServiceMiniProgramMessage {
     pub thumb_media_id: Option<String>,
 }
 
+impl WorkAccountServiceMiniProgramMessage {
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_text(
+            "mini-program title",
+            self.title.as_deref(),
+            128,
+        )?;
+        validate_work_account_service_required_identifier(
+            "mini-program app id",
+            self.appid.as_deref(),
+        )?;
+        validate_work_account_service_required_text(
+            "mini-program page path",
+            self.pagepath.as_deref(),
+            1024,
+        )?;
+        validate_work_account_service_required_identifier(
+            "mini-program thumbnail media id",
+            self.thumb_media_id.as_deref(),
+        )
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceChannelsShopProductMessage {
     #[serde(default)]
@@ -25062,6 +25725,30 @@ pub struct WorkAccountServiceChannelsShopProductMessage {
     pub shop_head_img: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceChannelsShopProductMessage {
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_identifier(
+            "Channels product id",
+            self.product_id.as_deref(),
+        )?;
+        validate_work_account_service_required_text(
+            "Channels product title",
+            self.title.as_deref(),
+            256,
+        )?;
+        validate_work_account_service_url(
+            "Channels product image URL",
+            self.head_img.as_deref(),
+            false,
+        )?;
+        validate_work_account_service_url(
+            "Channels shop image URL",
+            self.shop_head_img.as_deref(),
+            false,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25082,6 +25769,20 @@ pub struct WorkAccountServiceChannelsShopOrderMessage {
     pub extra: Value,
 }
 
+impl WorkAccountServiceChannelsShopOrderMessage {
+    fn validate(&self) -> Result<()> {
+        validate_work_account_service_required_identifier(
+            "Channels order id",
+            self.order_id.as_deref(),
+        )?;
+        validate_work_account_service_url(
+            "Channels order image URL",
+            self.image_url.as_deref(),
+            false,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceMenuMessage {
     #[serde(default)]
@@ -25090,6 +25791,40 @@ pub struct WorkAccountServiceMenuMessage {
     pub list: Vec<WorkAccountServiceMenuItem>,
     #[serde(default)]
     pub tail_content: Option<String>,
+}
+
+impl WorkAccountServiceMenuMessage {
+    fn validate(&self) -> Result<()> {
+        if self.list.is_empty() || self.list.len() > 10 {
+            return Err(WechatError::Config(
+                "work account-service menu must contain between 1 and 10 items".to_string(),
+            ));
+        }
+        if let Some(head_content) = &self.head_content {
+            validate_work_account_service_text("menu heading", head_content, 1024)?;
+        }
+        if let Some(tail_content) = &self.tail_content {
+            validate_work_account_service_text("menu footer", tail_content, 1024)?;
+        }
+        let mut item_ids = HashSet::new();
+        for item in &self.list {
+            let item_id = item.id.as_deref().ok_or_else(|| {
+                WechatError::Config("work account-service menu item requires an id".to_string())
+            })?;
+            validate_work_account_service_identifier("menu item id", item_id)?;
+            validate_work_account_service_required_text(
+                "menu item content",
+                item.content.as_deref(),
+                128,
+            )?;
+            if !item_ids.insert(item_id) {
+                return Err(WechatError::Config(
+                    "work account-service menu contains duplicate item ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25256,6 +25991,91 @@ impl WorkAccountServiceEventMessage {
         self.change_type
             .map(WorkAccountServiceSessionChangeKind::from)
     }
+
+    fn validate(&self) -> Result<()> {
+        let event_type = self.event_type.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work account-service event message requires event_type".to_string(),
+            )
+        })?;
+        validate_work_account_service_identifier("event type", event_type)?;
+        for (label, value) in [
+            ("event account id", self.open_kfid.as_deref()),
+            ("event external user id", self.external_userid.as_deref()),
+            ("event servicer user id", self.servicer_userid.as_deref()),
+            (
+                "event previous servicer user id",
+                self.old_servicer_userid.as_deref(),
+            ),
+            (
+                "event new servicer user id",
+                self.new_servicer_userid.as_deref(),
+            ),
+            ("event message id", self.msgid.as_deref()),
+            ("event failed message id", self.fail_msgid.as_deref()),
+            ("event recalled message id", self.recall_msgid.as_deref()),
+            ("event message code", self.msg_code.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_account_service_identifier(label, value)?;
+            }
+        }
+        match self.event_type_kind() {
+            Some(WorkAccountServiceEventTypeKind::EnterSession) => {
+                validate_work_account_service_required_identifier(
+                    "entry account id",
+                    self.open_kfid.as_deref(),
+                )?;
+                validate_work_account_service_required_identifier(
+                    "entry external user id",
+                    self.external_userid.as_deref(),
+                )
+            }
+            Some(WorkAccountServiceEventTypeKind::MessageSendFailed) => {
+                validate_work_account_service_required_identifier(
+                    "failed message id",
+                    self.fail_msgid.as_deref(),
+                )?;
+                if self.fail_type.is_none_or(|fail_type| fail_type < 0) {
+                    return Err(WechatError::Config(
+                        "work account-service failed-message event requires a non-negative fail_type"
+                            .to_string(),
+                    ));
+                }
+                Ok(())
+            }
+            Some(WorkAccountServiceEventTypeKind::ServicerStatusChanged) => {
+                validate_work_account_service_required_identifier(
+                    "servicer status user id",
+                    self.servicer_userid.as_deref(),
+                )?;
+                if self.status.is_none_or(|status| status <= 0) {
+                    return Err(WechatError::Config(
+                        "work account-service servicer event status must be positive".to_string(),
+                    ));
+                }
+                Ok(())
+            }
+            Some(WorkAccountServiceEventTypeKind::SessionStatusChanged) => {
+                if self.change_type.is_none_or(|change_type| change_type <= 0) {
+                    return Err(WechatError::Config(
+                        "work account-service session event change type must be positive"
+                            .to_string(),
+                    ));
+                }
+                Ok(())
+            }
+            Some(
+                WorkAccountServiceEventTypeKind::UserRecalledMessage
+                | WorkAccountServiceEventTypeKind::ServicerRecalledMessage,
+            ) => validate_work_account_service_required_identifier(
+                "recalled message id",
+                self.recall_msgid.as_deref(),
+            ),
+            Some(WorkAccountServiceEventTypeKind::Other) => Ok(()),
+            None => unreachable!("validated event type"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25285,7 +26105,98 @@ pub struct WorkAccountServiceSendMsgRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub location: Option<WorkAccountServiceLocationMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ca_link: Option<WorkAccountServiceLinkMessage>,
+    pub ca_link: Option<WorkAccountServiceCustomerAcquisitionLinkMessage>,
+}
+
+impl WorkAccountServiceSendMsgRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("external user id", &self.touser)?;
+        validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        if let Some(message_id) = &self.msgid {
+            validate_work_account_service_identifier("message id", message_id)?;
+        }
+        let message_type = self.msgtype.as_deref().ok_or_else(|| {
+            WechatError::Config("work account-service send request requires msgtype".to_string())
+        })?;
+        let payload_count = [
+            self.text.is_some(),
+            self.image.is_some(),
+            self.voice.is_some(),
+            self.video.is_some(),
+            self.file.is_some(),
+            self.link.is_some(),
+            self.miniprogram.is_some(),
+            self.menu.is_some(),
+            self.location.is_some(),
+            self.ca_link.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        if payload_count != 1 {
+            return Err(WechatError::Config(
+                "work account-service send request requires exactly one message payload"
+                    .to_string(),
+            ));
+        }
+        match message_type {
+            "text" => self
+                .text
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("text"))?
+                .validate(),
+            "image" => self
+                .image
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("image"))?
+                .validate("image"),
+            "voice" => self
+                .voice
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("voice"))?
+                .validate("voice"),
+            "video" => self
+                .video
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("video"))?
+                .validate(),
+            "file" => self
+                .file
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("file"))?
+                .validate("file"),
+            "link" => self
+                .link
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("link"))?
+                .validate(),
+            "miniprogram" => self
+                .miniprogram
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("mini program"))?
+                .validate(),
+            "msgmenu" => self
+                .menu
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("menu"))?
+                .validate(),
+            "location" => self
+                .location
+                .as_ref()
+                .ok_or_else(|| missing_work_account_service_message_payload("location"))?
+                .validate(),
+            "ca_link" => self
+                .ca_link
+                .as_ref()
+                .ok_or_else(|| {
+                    missing_work_account_service_message_payload("customer-acquisition link")
+                })?
+                .validate(),
+            _ => Err(WechatError::Config(format!(
+                "work account-service send message type {message_type} is not supported"
+            ))),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25297,6 +26208,27 @@ pub struct WorkAccountServiceSendMsgOnEventRequest {
     pub text: Option<WorkAccountServiceTextMessage>,
     #[serde(default, rename = "msgmenu", skip_serializing_if = "Option::is_none")]
     pub menu: Option<WorkAccountServiceMenuMessage>,
+}
+
+impl WorkAccountServiceSendMsgOnEventRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("event code", &self.code)?;
+        validate_work_account_service_identifier("message id", &self.msgid)?;
+        match self.msgtype.as_str() {
+            "text" if self.text.is_some() && self.menu.is_none() => {
+                self.text.as_ref().expect("checked text").validate()
+            }
+            "msgmenu" if self.menu.is_some() && self.text.is_none() => {
+                self.menu.as_ref().expect("checked menu").validate()
+            }
+            "text" | "msgmenu" => Err(WechatError::Config(
+                "work account-service event send requires exactly one matching payload".to_string(),
+            )),
+            _ => Err(WechatError::Config(
+                "work account-service event send only supports text or msgmenu".to_string(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25311,6 +26243,21 @@ pub struct WorkAccountServiceSendMsgResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceSendMsgResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service send message",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_account_service_required_identifier("sent message id", self.msgid.as_deref())
+    }
+
+    pub fn require_message_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.msgid.as_deref().expect("validated message id"))
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceServicerRequest {
     pub open_kfid: String,
@@ -25336,6 +26283,33 @@ impl WorkAccountServiceServicerRequest {
             department_id_list,
         }
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        let count = self.userid_list.len() + self.department_id_list.len();
+        if count == 0 || count > 100 {
+            return Err(WechatError::Config(
+                "work account-service servicer request must contain between 1 and 100 members or departments"
+                    .to_string(),
+            ));
+        }
+        if !self.userid_list.is_empty() {
+            validate_work_account_service_identifier_list(
+                "servicer user ids",
+                &self.userid_list,
+                100,
+            )?;
+        }
+        let mut departments = HashSet::new();
+        for department_id in &self.department_id_list {
+            if *department_id <= 0 || !departments.insert(*department_id) {
+                return Err(WechatError::Config(
+                    "work account-service department ids must be positive and unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25348,6 +26322,42 @@ pub struct WorkAccountServiceServicerResultResponse {
     pub result_list: Vec<WorkAccountServiceServicerResult>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceServicerResultResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service servicer mutation",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.result_list.is_empty() {
+            return Err(WechatError::Config(
+                "work account-service servicer response requires result_list".to_string(),
+            ));
+        }
+        let mut identities = HashSet::new();
+        for result in &self.result_list {
+            let identity = result.validate()?;
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "work account-service servicer response contains duplicate identities"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn failures(&self) -> impl Iterator<Item = &WorkAccountServiceServicerResult> {
+        self.result_list
+            .iter()
+            .filter(|result| result.errcode.is_some_and(|code| code != 0))
+    }
+
+    pub fn has_failures(&self) -> bool {
+        self.failures().next().is_some()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25364,6 +26374,21 @@ pub struct WorkAccountServiceServicerResult {
     pub extra: Value,
 }
 
+impl WorkAccountServiceServicerResult {
+    fn validate(&self) -> Result<String> {
+        let identity = validate_work_account_service_member_identity(
+            self.userid.as_deref(),
+            self.department_id,
+        )?;
+        if self.errcode.is_none() {
+            return Err(WechatError::Config(
+                "work account-service servicer result requires errcode".to_string(),
+            ));
+        }
+        Ok(identity)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceServicerListResponse {
     #[serde(default)]
@@ -25374,6 +26399,26 @@ pub struct WorkAccountServiceServicerListResponse {
     pub servicer_list: Vec<WorkAccountServiceServicer>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceServicerListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service servicer list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut identities = HashSet::new();
+        for servicer in &self.servicer_list {
+            let identity = servicer.validate()?;
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "work account-service servicer list contains duplicate identities".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25436,6 +26481,24 @@ impl WorkAccountServiceServicer {
     pub fn is_receiving(&self) -> bool {
         self.status_kind() == Some(WorkAccountServiceServicerStatusKind::Receiving)
     }
+
+    fn validate(&self) -> Result<String> {
+        let identity = validate_work_account_service_member_identity(
+            self.userid.as_deref(),
+            self.department_id,
+        )?;
+        if self.status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "work account-service servicer status cannot be negative".to_string(),
+            ));
+        }
+        if self.stop_type.is_some_and(|stop_type| stop_type < 0) {
+            return Err(WechatError::Config(
+                "work account-service servicer stop type cannot be negative".to_string(),
+            ));
+        }
+        Ok(identity)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25495,6 +26558,33 @@ impl WorkAccountServiceStateGetResponse {
         self.service_state
             .map(WorkAccountServiceStateKind::from_code)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service state get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let state = self.service_state.ok_or_else(|| {
+            WechatError::Config(
+                "work account-service state response requires service_state".to_string(),
+            )
+        })?;
+        if state < 0 {
+            return Err(WechatError::Config(
+                "work account-service state cannot be negative".to_string(),
+            ));
+        }
+        if state == WorkAccountServiceStateKind::HumanServicer.as_code() {
+            validate_work_account_service_required_identifier(
+                "active servicer user id",
+                self.servicer_userid.as_deref(),
+            )?;
+        } else if let Some(servicer_userid) = &self.servicer_userid {
+            validate_work_account_service_identifier("servicer user id", servicer_userid)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25536,6 +26626,25 @@ impl WorkAccountServiceStateTransRequest {
     pub fn service_state_kind(&self) -> WorkAccountServiceStateKind {
         WorkAccountServiceStateKind::from_code(self.service_state)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("account id", &self.open_kfid)?;
+        validate_work_account_service_identifier("external user id", &self.external_userid)?;
+        if !(0..=4).contains(&self.service_state) {
+            return Err(WechatError::Config(
+                "work account-service target state must be between 0 and 4".to_string(),
+            ));
+        }
+        if self.service_state == WorkAccountServiceStateKind::HumanServicer.as_code() {
+            validate_work_account_service_identifier("servicer user id", &self.servicer_userid)?;
+        } else if !self.servicer_userid.is_empty() {
+            return Err(WechatError::Config(
+                "work account-service servicer user id is only valid for human-servicer state"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25548,6 +26657,189 @@ pub struct WorkAccountServiceStateTransResponse {
     pub msg_code: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceStateTransResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_response(
+            "work account-service state transition",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(message_code) = &self.msg_code {
+            validate_work_account_service_identifier("state message code", message_code)?;
+        }
+        Ok(())
+    }
+
+    pub fn message_code(&self) -> Option<&str> {
+        self.msg_code
+            .as_deref()
+            .filter(|message_code| !message_code.trim().is_empty())
+    }
+}
+
+fn validate_work_account_service_response(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    validate_work_response_success(operation, errcode, errmsg)
+}
+
+fn validate_work_account_service_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work account-service {label} cannot be blank or contain control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_account_service_required_identifier(
+    label: &str,
+    value: Option<&str>,
+) -> Result<()> {
+    let value = value.ok_or_else(|| {
+        WechatError::Config(format!("work account-service response requires {label}"))
+    })?;
+    validate_work_account_service_identifier(label, value)
+}
+
+fn validate_work_account_service_text(label: &str, value: &str, max_chars: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || value.chars().any(char::is_control) || length > max_chars {
+        return Err(WechatError::Config(format!(
+            "work account-service {label} must contain between 1 and {max_chars} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_account_service_required_text(
+    label: &str,
+    value: Option<&str>,
+    max_chars: usize,
+) -> Result<()> {
+    let value = value.ok_or_else(|| {
+        WechatError::Config(format!("work account-service response requires {label}"))
+    })?;
+    validate_work_account_service_text(label, value, max_chars)
+}
+
+fn validate_work_account_service_name(label: &str, value: &str) -> Result<()> {
+    validate_work_account_service_text(label, value, 64)
+}
+
+fn validate_work_account_service_url(
+    label: &str,
+    value: Option<&str>,
+    required: bool,
+) -> Result<()> {
+    let Some(value) = value else {
+        return if required {
+            Err(WechatError::Config(format!(
+                "work account-service response requires {label}"
+            )))
+        } else {
+            Ok(())
+        };
+    };
+    validate_work_account_service_identifier(label, value)?;
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work account-service {label} is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "work account-service {label} must be an absolute HTTP(S) URL without credentials or fragments"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_account_service_identifier_list(
+    label: &str,
+    values: &[String],
+    max_items: usize,
+) -> Result<()> {
+    if values.is_empty() || values.len() > max_items {
+        return Err(WechatError::Config(format!(
+            "work account-service {label} must contain between 1 and {max_items} entries"
+        )));
+    }
+    let mut unique = HashSet::new();
+    for value in values {
+        validate_work_account_service_identifier(label, value)?;
+        if !unique.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work account-service {label} must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_account_service_upgrade_target(
+    value: &Value,
+    identity_field: &str,
+    label: &str,
+) -> Result<()> {
+    let object = value.as_object().ok_or_else(|| {
+        WechatError::Config(format!(
+            "work account-service {label} upgrade target must be an object"
+        ))
+    })?;
+    let identity = object
+        .get(identity_field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WechatError::Config(format!(
+                "work account-service {label} upgrade target requires {identity_field}"
+            ))
+        })?;
+    validate_work_account_service_identifier(
+        &format!("{label} upgrade {identity_field}"),
+        identity,
+    )?;
+    let wording = object
+        .get("wording")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WechatError::Config(format!(
+                "work account-service {label} upgrade target requires wording"
+            ))
+        })?;
+    validate_work_account_service_text(&format!("{label} upgrade wording"), wording, 1024)
+}
+
+fn validate_work_account_service_member_identity(
+    user_id: Option<&str>,
+    department_id: Option<i64>,
+) -> Result<String> {
+    match (user_id, department_id) {
+        (Some(user_id), None) => {
+            validate_work_account_service_identifier("servicer user id", user_id)?;
+            Ok(format!("user:{user_id}"))
+        }
+        (None, Some(department_id)) if department_id > 0 => {
+            Ok(format!("department:{department_id}"))
+        }
+        _ => Err(WechatError::Config(
+            "work account-service servicer requires exactly one valid user or department identity"
+                .to_string(),
+        )),
+    }
+}
+
+fn missing_work_account_service_message_payload(label: &str) -> WechatError {
+    WechatError::Config(format!(
+        "work account-service message type requires {label} payload"
+    ))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55621,13 +56913,9 @@ mod tests {
                 name: Some("office".to_string()),
                 address: Some("Shanghai".to_string()),
             }),
-            ca_link: Some(WorkAccountServiceLinkMessage {
-                title: Some("customer".to_string()),
-                desc: None,
-                url: Some("https://example.com/customer".to_string()),
-                thumb_media_id: None,
-                pic_url: None,
-            }),
+            ca_link: Some(WorkAccountServiceCustomerAcquisitionLinkMessage::new(
+                "https://example.com/customer",
+            )),
         })
         .unwrap();
         assert_eq!(send["text"]["content"], "hello");
@@ -55638,7 +56926,7 @@ mod tests {
         assert_eq!(send["msgmenu"]["head_content"], "choose");
         assert_eq!(send["msgmenu"]["list"][0]["id"], "id-1");
         assert_eq!(send["location"]["name"], "office");
-        assert_eq!(send["ca_link"]["title"], "customer");
+        assert_eq!(send["ca_link"]["link_url"], "https://example.com/customer");
 
         let on_event = serde_json::to_value(WorkAccountServiceSendMsgOnEventRequest {
             code: "code".to_string(),
@@ -55732,12 +57020,361 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_account_service_request_contracts() {
+        let account = WorkAccountServiceAccountUpdateRequest {
+            open_kfid: "kf".to_string(),
+            name: "Support".to_string(),
+            media_id: "avatar".to_string(),
+        };
+        assert!(account.validate().is_ok());
+        assert!(WorkAccountServiceAccountUpdateRequest {
+            name: " ".to_string(),
+            ..account
+        }
+        .validate()
+        .is_err());
+
+        let contact = WorkAccountServiceAddContactWayRequest {
+            open_kfid: "kf".to_string(),
+            scene: Some("campaign".to_string()),
+        };
+        assert!(contact.validate().is_ok());
+        assert!(WorkAccountServiceAddContactWayRequest {
+            scene: Some("x".repeat(33)),
+            ..contact
+        }
+        .validate()
+        .is_err());
+
+        let customers = WorkAccountServiceCustomerBatchGetRequest {
+            external_userid_list: vec!["external-1".to_string(), "external-2".to_string()],
+            need_enter_session_context: 1,
+        };
+        assert!(customers.validate().is_ok());
+        assert!(WorkAccountServiceCustomerBatchGetRequest {
+            external_userid_list: vec!["external".to_string(), "external".to_string()],
+            ..customers.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkAccountServiceCustomerBatchGetRequest {
+            need_enter_session_context: 2,
+            ..customers
+        }
+        .validate()
+        .is_err());
+
+        let upgrade = WorkAccountServiceCustomerUpgradeServiceRequest {
+            open_kfid: "kf".to_string(),
+            external_userid: "external".to_string(),
+            upgrade_type: 1,
+            member: Some(json!({ "userid": "servicer", "wording": "Human support" })),
+            groupchat: None,
+        };
+        assert!(upgrade.validate().is_ok());
+        assert!(WorkAccountServiceCustomerUpgradeServiceRequest {
+            upgrade_type: 2,
+            ..upgrade.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkAccountServiceCustomerUpgradeServiceRequest {
+            groupchat: Some(json!({ "chat_id": "chat", "wording": "Group support" })),
+            ..upgrade
+        }
+        .validate()
+        .is_err());
+
+        let first_page = WorkAccountServiceSyncMsgRequest::first_page("token", 1000, 0, "");
+        assert!(first_page.validate().is_ok());
+        assert!(first_page.cursor.is_empty());
+        assert!(WorkAccountServiceSyncMsgRequest {
+            limit: 1001,
+            ..first_page.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkAccountServiceSyncMsgRequest {
+            voice_format: 2,
+            ..first_page
+        }
+        .validate()
+        .is_err());
+
+        let send = WorkAccountServiceSendMsgRequest {
+            touser: "external".to_string(),
+            open_kfid: "kf".to_string(),
+            msgid: Some("client-msg".to_string()),
+            msgtype: Some("text".to_string()),
+            text: Some(WorkAccountServiceTextMessage {
+                content: Some("hello".to_string()),
+                menu_id: None,
+            }),
+            image: None,
+            voice: None,
+            video: None,
+            file: None,
+            link: None,
+            miniprogram: None,
+            menu: None,
+            location: None,
+            ca_link: None,
+        };
+        assert!(send.validate().is_ok());
+        assert!(WorkAccountServiceSendMsgRequest {
+            image: Some(WorkAccountServiceMediaMessage {
+                media_id: Some("image".to_string()),
+            }),
+            ..send.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkAccountServiceSendMsgRequest {
+            msgtype: Some("image".to_string()),
+            ..send
+        }
+        .validate()
+        .is_err());
+
+        let event_send = WorkAccountServiceSendMsgOnEventRequest {
+            code: "event-code".to_string(),
+            msgid: "message".to_string(),
+            msgtype: "msgmenu".to_string(),
+            text: None,
+            menu: Some(WorkAccountServiceMenuMessage {
+                head_content: Some("Choose".to_string()),
+                list: vec![WorkAccountServiceMenuItem {
+                    id: Some("item-1".to_string()),
+                    content: Some("Human support".to_string()),
+                }],
+                tail_content: None,
+            }),
+        };
+        assert!(event_send.validate().is_ok());
+        assert!(WorkAccountServiceSendMsgOnEventRequest {
+            msgtype: "video".to_string(),
+            ..event_send
+        }
+        .validate()
+        .is_err());
+
+        let servicers = WorkAccountServiceServicerRequest {
+            open_kfid: "kf".to_string(),
+            userid_list: vec!["servicer".to_string()],
+            department_id_list: vec![2],
+        };
+        assert!(servicers.validate().is_ok());
+        assert!(WorkAccountServiceServicerRequest {
+            department_id_list: vec![2, 2],
+            ..servicers
+        }
+        .validate()
+        .is_err());
+
+        let assigned =
+            WorkAccountServiceStateTransRequest::with_servicer("kf", "external", "servicer");
+        assert!(assigned.validate().is_ok());
+        assert!(WorkAccountServiceStateTransRequest {
+            service_state: WorkAccountServiceStateKind::WaitingPool.as_code(),
+            ..assigned.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkAccountServiceStateTransRequest {
+            service_state: 5,
+            servicer_userid: String::new(),
+            ..assigned
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[test]
+    fn validates_work_account_service_response_contracts() {
+        let account: WorkAccountServiceAccountAddResponse =
+            serde_json::from_value(json!({ "errcode": 0, "open_kfid": "kf" })).unwrap();
+        assert_eq!(account.require_open_kfid().unwrap(), "kf");
+        let api_error: WorkAccountServiceAccountAddResponse = serde_json::from_value(json!({
+            "errcode": 95001,
+            "errmsg": "account unavailable"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 95001, .. })
+        ));
+
+        let accounts: WorkAccountServiceAccountListResponse = serde_json::from_value(json!({
+            "account_list": [{
+                "open_kfid": "kf",
+                "name": "Support",
+                "avatar": "https://example.com/avatar.png"
+            }]
+        }))
+        .unwrap();
+        assert!(accounts.validate().is_ok());
+        let duplicate_accounts: WorkAccountServiceAccountListResponse =
+            serde_json::from_value(json!({
+                "account_list": [
+                    { "open_kfid": "kf", "name": "Support" },
+                    { "open_kfid": "kf", "name": "Sales" }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_accounts.validate().is_err());
+        let invalid_avatar: WorkAccountServiceAccountListResponse = serde_json::from_value(json!({
+            "account_list": [{
+                "open_kfid": "kf",
+                "name": "Support",
+                "avatar": "/relative"
+            }]
+        }))
+        .unwrap();
+        assert!(invalid_avatar.validate().is_err());
+
+        let contact: WorkAccountServiceAddContactWayResponse =
+            serde_json::from_value(json!({ "url": "https://example.com/contact" })).unwrap();
+        assert_eq!(
+            contact.require_url().unwrap(),
+            "https://example.com/contact"
+        );
+
+        let customers: WorkAccountServiceCustomerBatchGetResponse = serde_json::from_value(json!({
+            "customer_list": [{
+                "external_userid": "external",
+                "gender": 99,
+                "avatar": "https://example.com/customer.png"
+            }],
+            "invalid_external_userid": ["invalid"]
+        }))
+        .unwrap();
+        assert!(customers.validate().is_ok());
+        let contradictory_customer: WorkAccountServiceCustomerBatchGetResponse =
+            serde_json::from_value(json!({
+                "customer_list": [{ "external_userid": "external" }],
+                "invalid_external_userid": ["external"]
+            }))
+            .unwrap();
+        assert!(contradictory_customer.validate().is_err());
+        let invalid_config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
+            serde_json::from_value(json!({ "member_range": "invalid" })).unwrap();
+        assert!(invalid_config.validate().is_err());
+
+        let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
+            "has_more": 1,
+            "next_cursor": "next",
+            "msg_list": [{
+                "msgid": "message",
+                "send_time": 1_800_000_000,
+                "origin": 99,
+                "msgtype": "text",
+                "text": { "content": "hello" }
+            }, {
+                "msgid": "future",
+                "msgtype": "future_type",
+                "future_payload": { "value": true }
+            }]
+        }))
+        .unwrap();
+        assert!(sync.validate().is_ok());
+        assert!(sync.has_more());
+        assert_eq!(sync.next_cursor(), Some("next"));
+        assert_eq!(
+            WorkAccountServiceSyncMsgRequest::first_page("token", 100, 0, "")
+                .next_page(&sync)
+                .unwrap()
+                .cursor,
+            "next"
+        );
+        let missing_cursor: WorkAccountServiceSyncMsgResponse =
+            serde_json::from_value(json!({ "has_more": 1, "msg_list": [] })).unwrap();
+        assert!(missing_cursor.validate().is_err());
+        let duplicate_messages: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
+            "has_more": 0,
+            "msg_list": [
+                { "msgid": "message", "msgtype": "text", "text": { "content": "one" } },
+                { "msgid": "message", "msgtype": "text", "text": { "content": "two" } }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_messages.validate().is_err());
+        let mismatched_message: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
+            "has_more": 0,
+            "msg_list": [{
+                "msgid": "message",
+                "msgtype": "image",
+                "text": { "content": "wrong body" }
+            }]
+        }))
+        .unwrap();
+        assert!(mismatched_message.validate().is_err());
+
+        let sent: WorkAccountServiceSendMsgResponse =
+            serde_json::from_value(json!({ "msgid": "message" })).unwrap();
+        assert_eq!(sent.require_message_id().unwrap(), "message");
+        let missing_sent_id: WorkAccountServiceSendMsgResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_sent_id.validate().is_err());
+
+        let mutation: WorkAccountServiceServicerResultResponse = serde_json::from_value(json!({
+            "result_list": [
+                { "userid": "servicer", "errcode": 0 },
+                { "department_id": 2, "errcode": 95002, "errmsg": "invalid department" }
+            ]
+        }))
+        .unwrap();
+        assert!(mutation.validate().is_ok());
+        assert!(mutation.has_failures());
+        assert_eq!(mutation.failures().count(), 1);
+        let duplicate_servicers: WorkAccountServiceServicerResultResponse =
+            serde_json::from_value(json!({
+                "result_list": [
+                    { "userid": "servicer", "errcode": 0 },
+                    { "userid": "servicer", "errcode": 0 }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_servicers.validate().is_err());
+
+        let servicers: WorkAccountServiceServicerListResponse = serde_json::from_value(json!({
+            "servicer_list": [
+                { "userid": "servicer", "status": 99, "stop_type": 99 },
+                { "department_id": 2 }
+            ]
+        }))
+        .unwrap();
+        assert!(servicers.validate().is_ok());
+
+        let state: WorkAccountServiceStateGetResponse = serde_json::from_value(json!({
+            "service_state": 3,
+            "servicer_userid": "servicer"
+        }))
+        .unwrap();
+        assert!(state.validate().is_ok());
+        let missing_servicer: WorkAccountServiceStateGetResponse =
+            serde_json::from_value(json!({ "service_state": 3 })).unwrap();
+        assert!(missing_servicer.validate().is_err());
+        let future_state: WorkAccountServiceStateGetResponse =
+            serde_json::from_value(json!({ "service_state": 99 })).unwrap();
+        assert!(future_state.validate().is_ok());
+
+        let transitioned: WorkAccountServiceStateTransResponse =
+            serde_json::from_value(json!({ "msg_code": "event-code" })).unwrap();
+        assert!(transitioned.validate().is_ok());
+        assert_eq!(transitioned.message_code(), Some("event-code"));
+        let blank_code: WorkAccountServiceStateTransResponse =
+            serde_json::from_value(json!({ "msg_code": " " })).unwrap();
+        assert!(blank_code.validate().is_err());
+    }
+
+    #[test]
     fn deserializes_work_account_service_and_aibot_responses() {
         let account_add: WorkAccountServiceAccountAddResponse = serde_json::from_value(json!({
             "open_kfid": "kf",
             "request_id": "account-add"
         }))
         .unwrap();
+        assert!(account_add.validate().is_ok());
         assert_eq!(account_add.open_kfid.as_deref(), Some("kf"));
         assert_eq!(account_add.extra["request_id"], "account-add");
 
@@ -55751,6 +57388,7 @@ mod tests {
             "request_id": "account-list"
         }))
         .unwrap();
+        assert!(accounts.validate().is_ok());
         assert_eq!(accounts.extra["request_id"], "account-list");
         assert_eq!(accounts.account_list[0].open_kfid.as_deref(), Some("kf"));
         assert_eq!(accounts.account_list[0].name.as_deref(), Some("Support"));
@@ -55765,6 +57403,7 @@ mod tests {
             "request_id": "contact-way"
         }))
         .unwrap();
+        assert!(contact_way.validate().is_ok());
         assert_eq!(contact_way.url.as_deref(), Some("https://example.com/kf"));
         assert_eq!(contact_way.extra["request_id"], "contact-way");
 
@@ -55784,6 +57423,7 @@ mod tests {
             "request_id": "customer-batch"
         }))
         .unwrap();
+        assert!(customers.validate().is_ok());
         assert_eq!(customers.extra["request_id"], "customer-batch");
         assert_eq!(
             customers.customer_list[0].external_userid.as_deref(),
@@ -55822,6 +57462,7 @@ mod tests {
                 "request_id": "upgrade-config"
             }))
             .unwrap();
+        assert!(config.validate().is_ok());
         assert_eq!(
             config.member_range.as_ref().unwrap()["userid"][0],
             "servicer"
@@ -55953,6 +57594,7 @@ mod tests {
             ]
         }))
         .unwrap();
+        assert!(sync.validate().is_ok());
         assert_eq!(sync.next_cursor.as_deref(), Some("next"));
         assert_eq!(sync.extra["sync_id"], "sync-msg");
         assert_eq!(sync.msg_list[0].msgid.as_deref(), Some("msg"));
@@ -56124,6 +57766,7 @@ mod tests {
 
         let send: WorkAccountServiceSendMsgResponse =
             serde_json::from_value(json!({ "msgid": "msg", "request_id": "send-msg" })).unwrap();
+        assert!(send.validate().is_ok());
         assert_eq!(send.msgid.as_deref(), Some("msg"));
         assert_eq!(send.extra["request_id"], "send-msg");
 
@@ -56136,6 +57779,7 @@ mod tests {
                 "request_id": "servicer-result"
             }))
             .unwrap();
+        assert!(servicer_result.validate().is_ok());
         assert_eq!(servicer_result.extra["request_id"], "servicer-result");
         assert_eq!(
             servicer_result.result_list[0].userid.as_deref(),
@@ -56162,6 +57806,7 @@ mod tests {
             "request_id": "servicer-list"
         }))
         .unwrap();
+        assert!(servicers.validate().is_ok());
         assert_eq!(servicers.extra["request_id"], "servicer-list");
         assert_eq!(
             servicers.servicer_list[0].userid.as_deref(),
@@ -56191,6 +57836,7 @@ mod tests {
             "state_source": "api"
         }))
         .unwrap();
+        assert!(state.validate().is_ok());
         assert_eq!(state.service_state, Some(2));
         assert_eq!(
             state.service_state_kind(),
@@ -56211,6 +57857,7 @@ mod tests {
             "request_id": "state-trans"
         }))
         .unwrap();
+        assert!(state_trans.validate().is_ok());
         assert_eq!(state_trans.msg_code.as_deref(), Some("state-code"));
         assert_eq!(state_trans.extra["request_id"], "state-trans");
 
