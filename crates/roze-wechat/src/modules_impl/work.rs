@@ -4342,13 +4342,16 @@ impl Work {
         request: WorkDialRecordRequest,
     ) -> Result<WorkDialRecordResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkDialRecordResponse = self
+            .inner
             .post(
                 "cgi-bin/dial/get_dial_record",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn oa_journal(&self) -> DomainModule {
@@ -4361,13 +4364,16 @@ impl Work {
         request: WorkJournalRecordListRequest,
     ) -> Result<WorkJournalRecordListResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkJournalRecordListResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/journal/get_record_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_journal_record_detail(
@@ -4377,13 +4383,16 @@ impl Work {
     ) -> Result<WorkJournalRecordDetailResponse> {
         let journal_uuid = journal_uuid.into();
         validate_work_journal_identifier("record id", &journal_uuid, 256)?;
-        self.inner
+        let response: WorkJournalRecordDetailResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/journal/get_record_detail",
                 Some(access_token.into()),
                 json!({ "journaluuid": journal_uuid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_journal_stat_list(
@@ -4392,13 +4401,16 @@ impl Work {
         request: WorkJournalStatListRequest,
     ) -> Result<WorkJournalStatListResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkJournalStatListResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/journal/get_stat_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn export_journal_doc(
@@ -4407,13 +4419,16 @@ impl Work {
         request: WorkJournalExportDocRequest,
     ) -> Result<WorkJournalExportDocResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkJournalExportDocResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/journal/export_doc",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_journal_export_doc_result(
@@ -4423,13 +4438,16 @@ impl Work {
     ) -> Result<WorkJournalExportDocResultResponse> {
         let job_id = job_id.into();
         validate_work_journal_identifier("export job id", &job_id, 64)?;
-        self.inner
+        let response: WorkJournalExportDocResultResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/journal/get_export_doc_result",
                 Some(access_token.into()),
                 json!({ "jobid": job_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn oa_pstncc(&self) -> DomainModule {
@@ -4442,13 +4460,16 @@ impl Work {
         callee_userid: Vec<String>,
     ) -> Result<WorkPstnccCallResponse> {
         validate_work_pstncc_callees(&callee_userid)?;
-        self.inner
+        let response: WorkPstnccCallResponse = self
+            .inner
             .post(
                 "cgi-bin/pstncc/call",
                 Some(access_token.into()),
                 json!({ "callee_userid": callee_userid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn pstncc_get_states(
@@ -4461,13 +4482,16 @@ impl Work {
         let call_id = call_id.into();
         validate_work_pstncc_identifier("callee user id", &callee_userid)?;
         validate_work_pstncc_identifier("call id", &call_id)?;
-        self.inner
+        let response: WorkPstnccGetStatesResponse = self
+            .inner
             .post(
                 "cgi-bin/pstncc/getstates",
                 Some(access_token.into()),
                 json!({ "callee_userid": callee_userid, "callid": call_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_corp_vacation_config(
@@ -29216,6 +29240,102 @@ impl WorkDialRecord {
     pub fn call_type_kind(&self) -> Option<WorkDialCallTypeKind> {
         self.call_type.map(WorkDialCallTypeKind::from_code)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_call_time()?;
+        self.require_total_duration()?;
+        let call_type = self.call_type.ok_or_else(|| {
+            WechatError::Config("work dial record requires call_type".to_string())
+        })?;
+        if call_type <= 0 {
+            return Err(WechatError::Config(
+                "work dial record call_type must be positive".to_string(),
+            ));
+        }
+        let caller = self
+            .caller
+            .as_ref()
+            .ok_or_else(|| WechatError::Config("work dial record requires caller".to_string()))?;
+        caller.validate()?;
+        if self.callee.is_empty() {
+            return Err(WechatError::Config(
+                "work dial record requires at least one callee".to_string(),
+            ));
+        }
+        let mut callee_identities = std::collections::HashSet::with_capacity(self.callee.len());
+        for callee in &self.callee {
+            callee.validate()?;
+            if !callee_identities.insert(callee.identity_key()?) {
+                return Err(WechatError::Config(
+                    "work dial record callees must have unique identities".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn require_call_time(&self) -> Result<i64> {
+        let call_time = self.call_time.ok_or_else(|| {
+            WechatError::Config("work dial record requires call_time".to_string())
+        })?;
+        if call_time <= 0 {
+            return Err(WechatError::Config(
+                "work dial record call_time must be positive".to_string(),
+            ));
+        }
+        Ok(call_time)
+    }
+
+    pub fn require_total_duration(&self) -> Result<i64> {
+        let duration = self.total_duration.ok_or_else(|| {
+            WechatError::Config("work dial record requires total_duration".to_string())
+        })?;
+        if duration < 0 {
+            return Err(WechatError::Config(
+                "work dial record total_duration cannot be negative".to_string(),
+            ));
+        }
+        Ok(duration)
+    }
+}
+
+impl WorkDialParticipant {
+    pub fn validate(&self) -> Result<()> {
+        self.identity_key()?;
+        let duration = self.duration.ok_or_else(|| {
+            WechatError::Config("work dial participant requires duration".to_string())
+        })?;
+        if duration < 0 {
+            return Err(WechatError::Config(
+                "work dial participant duration cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn identity_key(&self) -> Result<String> {
+        if let Some(userid) = self.userid.as_deref() {
+            let userid = userid.trim();
+            if userid.is_empty() {
+                return Err(WechatError::Config(
+                    "work dial participant userid cannot be blank".to_string(),
+                ));
+            }
+            return Ok(format!("user:{userid}"));
+        }
+        match self.phone.as_ref() {
+            Some(WorkDialPhone::Text(phone)) if !phone.trim().is_empty() => {
+                Ok(format!("phone:{}", phone.trim()))
+            }
+            Some(WorkDialPhone::Number(phone)) if *phone > 0 => Ok(format!("phone:{phone}")),
+            Some(_) => Err(WechatError::Config(
+                "work dial participant phone must be non-empty and positive".to_string(),
+            )),
+            None => Err(WechatError::Config(
+                "work dial participant requires userid or phone".to_string(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29228,6 +29348,20 @@ pub struct WorkDialRecordResponse {
     pub record: Vec<WorkDialRecord>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkDialRecordResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA dial record list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for record in &self.record {
+            record.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29309,10 +29443,65 @@ pub struct WorkJournalRecordListResponse {
     pub journaluuid_list: Vec<String>,
     #[serde(default)]
     pub next_cursor: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_work_optional_binary_i64")]
     pub endflag: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkJournalRecordListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA journal record list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.journaluuid_list.len() > 100 {
+            return Err(WechatError::Config(
+                "work journal record response cannot contain more than 100 ids".to_string(),
+            ));
+        }
+        for journal_uuid in &self.journaluuid_list {
+            validate_work_journal_identifier("record response id", journal_uuid, 256)?;
+        }
+        if has_duplicate_strings(&self.journaluuid_list) {
+            return Err(WechatError::Config(
+                "work journal record response ids must be unique".to_string(),
+            ));
+        }
+        let endflag = self.endflag.ok_or_else(|| {
+            WechatError::Config("work journal record response requires endflag".to_string())
+        })?;
+        if !matches!(endflag, 0 | 1) {
+            return Err(WechatError::Config(
+                "work journal record response endflag must be 0 or 1".to_string(),
+            ));
+        }
+        if self.next_cursor.is_some_and(|cursor| cursor < 0) {
+            return Err(WechatError::Config(
+                "work journal record response next_cursor cannot be negative".to_string(),
+            ));
+        }
+        if endflag == 0 && self.next_cursor.is_none_or(|cursor| cursor <= 0) {
+            return Err(WechatError::Config(
+                "work journal record response requires a positive next_cursor when more data exists"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn is_end(&self) -> bool {
+        self.endflag == Some(1)
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.endflag == Some(0) && self.next_cursor.is_some_and(|cursor| cursor > 0)
+    }
+
+    pub fn next_cursor(&self) -> Option<i64> {
+        self.has_more().then_some(self.next_cursor).flatten()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29365,6 +29554,86 @@ pub struct WorkJournalRecordDetailResponse {
     pub info: Option<WorkJournalRecordInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkJournalRecordDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA journal record detail",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.require_info()?.validate()
+    }
+
+    pub fn require_info(&self) -> Result<&WorkJournalRecordInfo> {
+        self.info.as_ref().ok_or_else(|| {
+            WechatError::Config("work journal record detail response requires info".to_string())
+        })
+    }
+}
+
+impl WorkJournalRecordInfo {
+    pub fn validate(&self) -> Result<()> {
+        self.require_journal_uuid()?;
+        let template_name = self.template_name.as_deref().ok_or_else(|| {
+            WechatError::Config("work journal record detail requires template_name".to_string())
+        })?;
+        validate_work_journal_identifier("template name", template_name, 256)?;
+        let report_time = self.report_time.ok_or_else(|| {
+            WechatError::Config("work journal record detail requires report_time".to_string())
+        })?;
+        validate_work_journal_positive("record report_time", report_time)?;
+        self.submitter
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work journal record detail requires submitter".to_string())
+            })?
+            .validate("submitter")?;
+        validate_work_journal_users("receiver", &self.receivers)?;
+        validate_work_journal_users("read receiver", &self.readed_receivers)?;
+        if let Some(apply_data) = self.apply_data.as_ref() {
+            apply_data.validate_response()?;
+        }
+        let mut comment_ids = std::collections::HashSet::with_capacity(self.comments.len());
+        for comment in &self.comments {
+            comment.validate()?;
+            if !comment_ids.insert(comment.commentid) {
+                return Err(WechatError::Config(
+                    "work journal comment ids must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn require_journal_uuid(&self) -> Result<&str> {
+        let journal_uuid = self.journal_uuid.as_deref().ok_or_else(|| {
+            WechatError::Config("work journal record detail requires journal_uuid".to_string())
+        })?;
+        validate_work_journal_identifier("record id", journal_uuid, 256)?;
+        Ok(journal_uuid)
+    }
+}
+
+impl WorkJournalUser {
+    fn validate(&self, label: &str) -> Result<()> {
+        validate_work_journal_identifier(label, &self.userid, 256)
+    }
+}
+
+impl WorkJournalComment {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_journal_positive("comment id", self.commentid)?;
+        if self.tocommentid < 0 {
+            return Err(WechatError::Config(
+                "work journal parent comment id cannot be negative".to_string(),
+            ));
+        }
+        self.comment_userinfo.validate("comment user id")?;
+        validate_work_journal_identifier("comment content", &self.content, 4096)?;
+        validate_work_journal_positive("comment time", self.comment_time)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29491,6 +29760,171 @@ pub struct WorkJournalStatListResponse {
     pub extra: Value,
 }
 
+impl WorkJournalStatListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA journal statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut template_ids = std::collections::HashSet::with_capacity(self.stat_list.len());
+        for stat in &self.stat_list {
+            stat.validate()?;
+            if !template_ids.insert(stat.require_template_id()?) {
+                return Err(WechatError::Config(
+                    "work journal statistics contain duplicate template ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkJournalStat {
+    pub fn validate(&self) -> Result<()> {
+        self.require_template_id()?;
+        let template_name = self.template_name.as_deref().ok_or_else(|| {
+            WechatError::Config("work journal statistics require template_name".to_string())
+        })?;
+        validate_work_journal_identifier("statistics template name", template_name, 256)?;
+        if let Some(range) = self.report_range.as_ref() {
+            range.validate("report range")?;
+        }
+        if let Some(range) = self.white_range.as_ref() {
+            range.validate("white range")?;
+        }
+        if let Some(receivers) = self.receivers.as_ref() {
+            receivers.validate()?;
+        }
+        validate_work_journal_required_time_range(
+            "statistics cycle",
+            self.cycle_begin_time,
+            self.cycle_end_time,
+        )?;
+        validate_work_journal_required_time_range(
+            "statistics period",
+            self.stat_begin_time,
+            self.stat_end_time,
+        )?;
+        if self.report_type.is_some_and(|report_type| report_type < 0) {
+            return Err(WechatError::Config(
+                "work journal report_type cannot be negative".to_string(),
+            ));
+        }
+        validate_work_journal_reports("reported", &self.report_list, true)?;
+        validate_work_journal_reports("unreported", &self.unreport_list, false)
+    }
+
+    pub fn require_template_id(&self) -> Result<&str> {
+        let template_id = self.template_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work journal statistics require template_id".to_string())
+        })?;
+        validate_work_journal_identifier("statistics template id", template_id, 256)?;
+        Ok(template_id)
+    }
+}
+
+impl WorkJournalRange {
+    fn validate(&self, label: &str) -> Result<()> {
+        validate_work_journal_users(&format!("{label} user"), &self.user_list)?;
+        let mut party_ids = std::collections::HashSet::with_capacity(self.party_list.len());
+        for party in &self.party_list {
+            validate_work_journal_identifier(
+                &format!("{label} party id"),
+                &party.open_partyid,
+                256,
+            )?;
+            if !party_ids.insert(party.open_partyid.as_str()) {
+                return Err(WechatError::Config(format!(
+                    "work journal {label} party ids must be unique"
+                )));
+            }
+        }
+        let mut tag_ids = std::collections::HashSet::with_capacity(self.tag_list.len());
+        for tag in &self.tag_list {
+            validate_work_journal_identifier(&format!("{label} tag id"), &tag.open_tagid, 256)?;
+            if !tag_ids.insert(tag.open_tagid.as_str()) {
+                return Err(WechatError::Config(format!(
+                    "work journal {label} tag ids must be unique"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkJournalReceivers {
+    fn validate(&self) -> Result<()> {
+        validate_work_journal_users("statistics receiver", &self.user_list)?;
+        let mut tag_ids = std::collections::HashSet::with_capacity(self.tag_list.len());
+        for tag in &self.tag_list {
+            validate_work_journal_identifier("statistics receiver tag id", &tag.open_tagid, 256)?;
+            if !tag_ids.insert(tag.open_tagid.as_str()) {
+                return Err(WechatError::Config(
+                    "work journal statistics receiver tag ids must be unique".to_string(),
+                ));
+            }
+        }
+        if self.leader_list.iter().any(|leader| leader.level <= 0) || {
+            let levels = self
+                .leader_list
+                .iter()
+                .map(|leader| leader.level)
+                .collect::<Vec<_>>();
+            has_duplicate_i64(&levels)
+        } {
+            return Err(WechatError::Config(
+                "work journal statistics leader levels must be unique and positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_work_journal_reports(
+    label: &str,
+    reports: &[WorkJournalReport],
+    require_journal_uuid: bool,
+) -> Result<()> {
+    let mut users = std::collections::HashSet::with_capacity(reports.len());
+    for report in reports {
+        report.user.validate(&format!("{label} user id"))?;
+        if !users.insert(report.user.userid.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work journal {label} users must be unique"
+            )));
+        }
+        let mut journal_uuids = std::collections::HashSet::with_capacity(report.itemlist.len());
+        for item in &report.itemlist {
+            if require_journal_uuid {
+                validate_work_journal_identifier(
+                    &format!("{label} record id"),
+                    &item.journaluuid,
+                    256,
+                )?;
+                if !journal_uuids.insert(item.journaluuid.as_str()) {
+                    return Err(WechatError::Config(format!(
+                        "work journal {label} record ids must be unique per user"
+                    )));
+                }
+            } else if !item.journaluuid.is_empty() {
+                validate_work_journal_identifier(
+                    &format!("{label} record id"),
+                    &item.journaluuid,
+                    256,
+                )?;
+            }
+            validate_work_journal_positive(&format!("{label} report time"), item.reporttime)?;
+            if item.flag < 0 {
+                return Err(WechatError::Config(format!(
+                    "work journal {label} report flag cannot be negative"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalExportDocRequest {
     pub journaluuid: String,
@@ -29523,6 +29957,25 @@ pub struct WorkJournalExportDocResponse {
     pub extra: Value,
 }
 
+impl WorkJournalExportDocResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA journal document export",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.require_job_id().map(|_| ())
+    }
+
+    pub fn require_job_id(&self) -> Result<&str> {
+        let job_id = self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config("work journal document export response requires jobid".to_string())
+        })?;
+        validate_work_journal_identifier("export job id", job_id, 64)?;
+        Ok(job_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalExportDocResultResponse {
     #[serde(default)]
@@ -29537,14 +29990,151 @@ pub struct WorkJournalExportDocResultResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkJournalExportStatusKind {
+    Processing,
+    Completed,
+    Failed,
+    Other(i64),
+}
+
+impl From<i64> for WorkJournalExportStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Processing,
+            2 => Self::Completed,
+            3 => Self::Failed,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl WorkJournalExportStatusKind {
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Failed)
+    }
+}
+
 impl WorkJournalExportDocResultResponse {
+    pub fn status_kind(&self) -> Option<WorkJournalExportStatusKind> {
+        self.status.map(WorkJournalExportStatusKind::from)
+    }
+
     pub fn is_completed(&self) -> bool {
-        self.status == Some(2)
+        self.status_kind() == Some(WorkJournalExportStatusKind::Completed)
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        self.status_kind()
+            .is_some_and(WorkJournalExportStatusKind::is_terminal)
     }
 
     pub fn download_url(&self) -> Option<&str> {
-        self.is_completed().then_some(self.url.as_deref()).flatten()
+        self.is_completed()
+            .then_some(self.url.as_deref())
+            .flatten()
+            .filter(|url| !url.trim().is_empty())
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA journal document export result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let status = self.status.ok_or_else(|| {
+            WechatError::Config("work journal document export result requires status".to_string())
+        })?;
+        if status <= 0 {
+            return Err(WechatError::Config(
+                "work journal document export result status must be positive".to_string(),
+            ));
+        }
+        if self.is_completed() {
+            self.require_download_url()?;
+        } else if let Some(url) = self.url.as_deref() {
+            validate_work_journal_http_url("export result URL", url)?;
+        }
+        Ok(())
+    }
+
+    pub fn require_download_url(&self) -> Result<&str> {
+        if !self.is_completed() {
+            return Err(WechatError::Config(
+                "work journal document export is not completed".to_string(),
+            ));
+        }
+        let url = self.download_url().ok_or_else(|| {
+            WechatError::Config("completed work journal document export requires url".to_string())
+        })?;
+        validate_work_journal_http_url("export result URL", url)?;
+        Ok(url)
+    }
+}
+
+fn deserialize_work_optional_binary_i64<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Bool(value)) => Ok(Some(i64::from(value))),
+        Some(Value::Number(value)) => value
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| serde::de::Error::custom("work binary value must be an integer")),
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "work binary value must be a boolean or integer, got {other}"
+        ))),
+    }
+}
+
+fn validate_work_journal_users(label: &str, users: &[WorkJournalUser]) -> Result<()> {
+    let mut user_ids = std::collections::HashSet::with_capacity(users.len());
+    for user in users {
+        user.validate(label)?;
+        if !user_ids.insert(user.userid.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work journal {label} values must be unique"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_journal_positive(label: &str, value: i64) -> Result<()> {
+    if value <= 0 {
+        return Err(WechatError::Config(format!(
+            "work journal {label} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_journal_required_time_range(
+    label: &str,
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> Result<()> {
+    let start_time = start_time
+        .ok_or_else(|| WechatError::Config(format!("work journal {label} requires begin time")))?;
+    let end_time = end_time
+        .ok_or_else(|| WechatError::Config(format!("work journal {label} requires end time")))?;
+    validate_work_journal_time_range(label, start_time, end_time, i64::MAX)
+}
+
+fn validate_work_journal_http_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work journal {label} is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work journal {label} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
 }
 
 fn validate_work_journal_identifier(label: &str, value: &str, maximum: usize) -> Result<()> {
@@ -29608,6 +30198,41 @@ impl WorkPstnccCallState {
     pub fn succeeded(&self) -> bool {
         self.code == Some(0)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work PSTNCC call state requires userid".to_string())
+        })?;
+        validate_work_pstncc_identifier("call-state user id", userid)?;
+        let code = self.code.ok_or_else(|| {
+            WechatError::Config("work PSTNCC call state requires code".to_string())
+        })?;
+        if code < 0 {
+            return Err(WechatError::Config(
+                "work PSTNCC call state code cannot be negative".to_string(),
+            ));
+        }
+        validate_work_pstncc_optional_identifier("call id", self.callid.as_deref())?;
+        validate_work_pstncc_optional_identifier("callee number", self.callee.as_deref())?;
+        validate_work_pstncc_optional_identifier("caller number", self.caller.as_deref())?;
+        if self.reason.is_some_and(|reason| reason < 0) {
+            return Err(WechatError::Config(
+                "work PSTNCC call state reason cannot be negative".to_string(),
+            ));
+        }
+        if self.succeeded() {
+            self.require_call_id()?;
+        }
+        Ok(())
+    }
+
+    pub fn require_call_id(&self) -> Result<&str> {
+        let call_id = self.callid.as_deref().ok_or_else(|| {
+            WechatError::Config("successful work PSTNCC call state requires callid".to_string())
+        })?;
+        validate_work_pstncc_identifier("call id", call_id)?;
+        Ok(call_id)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29629,6 +30254,29 @@ impl WorkPstnccCallResponse {
 
     pub fn failed_states(&self) -> impl Iterator<Item = &WorkPstnccCallState> {
         self.states.iter().filter(|state| !state.succeeded())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA PSTNCC call",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.states.is_empty() {
+            return Err(WechatError::Config(
+                "work PSTNCC call response requires states".to_string(),
+            ));
+        }
+        let mut user_ids = std::collections::HashSet::with_capacity(self.states.len());
+        for state in &self.states {
+            state.validate()?;
+            if !user_ids.insert(state.userid.as_deref().unwrap_or_default()) {
+                return Err(WechatError::Config(
+                    "work PSTNCC call response user ids must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -29716,6 +30364,41 @@ impl WorkPstnccGetStatesResponse {
     pub fn reason_kind(&self) -> Option<WorkPstnccReasonKind> {
         self.reason.map(WorkPstnccReasonKind::from_code)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA PSTNCC call state",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.istalked.is_none_or(|value| !matches!(value, 0 | 1)) {
+            return Err(WechatError::Config(
+                "work PSTNCC state response istalked must be 0 or 1".to_string(),
+            ));
+        }
+        let calltime = self.calltime.ok_or_else(|| {
+            WechatError::Config("work PSTNCC state response requires calltime".to_string())
+        })?;
+        if calltime <= 0 {
+            return Err(WechatError::Config(
+                "work PSTNCC state response calltime must be positive".to_string(),
+            ));
+        }
+        let talktime = self.talktime.ok_or_else(|| {
+            WechatError::Config("work PSTNCC state response requires talktime".to_string())
+        })?;
+        if talktime < 0 {
+            return Err(WechatError::Config(
+                "work PSTNCC state response talktime cannot be negative".to_string(),
+            ));
+        }
+        if self.reason.is_none_or(|reason| reason < 0) {
+            return Err(WechatError::Config(
+                "work PSTNCC state response requires a non-negative reason".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn validate_work_pstncc_identifier(label: &str, value: &str) -> Result<()> {
@@ -29723,6 +30406,13 @@ fn validate_work_pstncc_identifier(label: &str, value: &str) -> Result<()> {
         return Err(WechatError::Config(format!(
             "work PSTNCC {label} cannot be blank"
         )));
+    }
+    Ok(())
+}
+
+fn validate_work_pstncc_optional_identifier(label: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_pstncc_identifier(label, value)?;
     }
     Ok(())
 }
@@ -46476,6 +47166,7 @@ mod tests {
             "has_more": false
         }))
         .unwrap();
+        assert!(dial.validate().is_ok());
         assert_eq!(dial.record[0].call_time, Some(1_800_000_000));
         assert_eq!(dial.record[0].total_duration, Some(20));
         assert_eq!(
@@ -46512,6 +47203,7 @@ mod tests {
             "session_id": "pstn-session"
         }))
         .unwrap();
+        assert!(call.validate().is_ok());
         assert_eq!(call.states[0].callid.as_deref(), Some("call-1"));
         assert_eq!(call.states[0].userid.as_deref(), Some("user"));
         assert_eq!(call.states[0].code, Some(0));
@@ -46529,11 +47221,139 @@ mod tests {
             "state_detail": "completed"
         }))
         .unwrap();
+        assert!(states.validate().is_ok());
         assert_eq!(states.istalked, Some(1));
         assert_eq!(states.reason, Some(0));
         assert!(states.is_talked());
         assert_eq!(states.reason_kind(), Some(WorkPstnccReasonKind::Connected));
         assert_eq!(states.extra["state_detail"], "completed");
+    }
+
+    #[test]
+    fn validates_work_oa_dial_and_pstncc_response_contracts() {
+        let valid_dial = json!({
+            "record": [{
+                "call_time": 1800000000,
+                "total_duration": 60,
+                "call_type": 2,
+                "caller": { "userid": "caller", "duration": 60 },
+                "callee": [
+                    { "userid": "callee", "duration": 30 },
+                    { "phone": "13800138000", "duration": 0 }
+                ]
+            }]
+        });
+        let response: WorkDialRecordResponse = serde_json::from_value(valid_dial.clone()).unwrap();
+        assert!(response.validate().is_ok());
+        assert_eq!(
+            response.record[0].require_call_time().unwrap(),
+            1_800_000_000
+        );
+        assert_eq!(response.record[0].require_total_duration().unwrap(), 60);
+
+        for patch in [
+            json!({ "record": [{ "call_time": 0 }] }),
+            json!({
+                "record": [{
+                    "call_time": 1800000000,
+                    "total_duration": -1,
+                    "call_type": 1,
+                    "caller": { "userid": "caller", "duration": 1 },
+                    "callee": [{ "userid": "callee", "duration": 1 }]
+                }]
+            }),
+            json!({
+                "record": [{
+                    "call_time": 1800000000,
+                    "total_duration": 1,
+                    "call_type": 0,
+                    "caller": { "userid": "caller", "duration": 1 },
+                    "callee": [{ "userid": "callee", "duration": 1 }]
+                }]
+            }),
+            json!({
+                "record": [{
+                    "call_time": 1800000000,
+                    "total_duration": 1,
+                    "call_type": 1,
+                    "caller": { "duration": 1 },
+                    "callee": [{ "userid": "callee", "duration": 1 }]
+                }]
+            }),
+            json!({
+                "record": [{
+                    "call_time": 1800000000,
+                    "total_duration": 1,
+                    "call_type": 2,
+                    "caller": { "userid": "caller", "duration": 1 },
+                    "callee": [
+                        { "userid": "callee", "duration": 1 },
+                        { "userid": "callee", "duration": 1 }
+                    ]
+                }]
+            }),
+            json!({ "errcode": 40058, "errmsg": "invalid query" }),
+        ] {
+            let mut value = valid_dial.clone();
+            value
+                .as_object_mut()
+                .unwrap()
+                .extend(patch.as_object().unwrap().clone());
+            let response: WorkDialRecordResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let valid_call: WorkPstnccCallResponse = serde_json::from_value(json!({
+            "states": [
+                { "userid": "user-1", "callid": "call-1", "code": 0 },
+                { "userid": "user-2", "code": 301051, "reason": 6 }
+            ]
+        }))
+        .unwrap();
+        assert!(valid_call.validate().is_ok());
+        assert_eq!(valid_call.states[0].require_call_id().unwrap(), "call-1");
+
+        for value in [
+            json!({}),
+            json!({ "states": [] }),
+            json!({ "states": [{ "userid": "user", "code": 0 }] }),
+            json!({ "states": [{ "userid": "user", "callid": "call", "code": -1 }] }),
+            json!({
+                "states": [
+                    { "userid": "user", "callid": "call-1", "code": 0 },
+                    { "userid": "user", "code": 301051 }
+                ]
+            }),
+            json!({ "errcode": 301052, "errmsg": "call failed" }),
+        ] {
+            let response: WorkPstnccCallResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let valid_state: WorkPstnccGetStatesResponse = serde_json::from_value(json!({
+            "istalked": 0,
+            "calltime": 1800000000,
+            "talktime": 0,
+            "reason": 16
+        }))
+        .unwrap();
+        assert!(valid_state.validate().is_ok());
+        assert_eq!(
+            valid_state.reason_kind(),
+            Some(WorkPstnccReasonKind::LineBusy)
+        );
+
+        for value in [
+            json!({}),
+            json!({ "istalked": 2, "calltime": 1800000000, "talktime": 0, "reason": 0 }),
+            json!({ "istalked": 1, "calltime": 0, "talktime": 0, "reason": 0 }),
+            json!({ "istalked": 1, "calltime": 1800000000, "talktime": -1, "reason": 0 }),
+            json!({ "istalked": 1, "calltime": 1800000000, "talktime": 1, "reason": -1 }),
+            json!({ "errcode": 40058, "errmsg": "invalid call" }),
+        ] {
+            let response: WorkPstnccGetStatesResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
     }
 
     #[test]
@@ -47360,6 +48180,255 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_journal_response_contracts() {
+        let more: WorkJournalRecordListResponse = serde_json::from_value(json!({
+            "journaluuid_list": ["journal-1"],
+            "next_cursor": 10,
+            "endflag": false
+        }))
+        .unwrap();
+        assert_eq!(more.endflag, Some(0));
+        assert!(more.validate().is_ok());
+        assert!(more.has_more());
+        assert_eq!(more.next_cursor(), Some(10));
+
+        let end: WorkJournalRecordListResponse = serde_json::from_value(json!({
+            "journaluuid_list": [],
+            "endflag": true
+        }))
+        .unwrap();
+        assert_eq!(end.endflag, Some(1));
+        assert!(end.validate().is_ok());
+        assert!(end.is_end());
+        assert!(!end.has_more());
+
+        for value in [
+            json!({ "journaluuid_list": [] }),
+            json!({ "journaluuid_list": [], "endflag": 0 }),
+            json!({ "journaluuid_list": [], "next_cursor": -1, "endflag": 1 }),
+            json!({
+                "journaluuid_list": ["journal-1", "journal-1"],
+                "endflag": 1
+            }),
+            json!({ "journaluuid_list": [" "], "endflag": 1 }),
+            json!({ "journaluuid_list": [], "endflag": 2 }),
+            json!({ "errcode": 40058, "errmsg": "invalid journal" }),
+        ] {
+            let response: WorkJournalRecordListResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+        let too_many: WorkJournalRecordListResponse = serde_json::from_value(json!({
+            "journaluuid_list": (0..101)
+                .map(|index| format!("journal-{index}"))
+                .collect::<Vec<_>>(),
+            "endflag": true
+        }))
+        .unwrap();
+        assert!(too_many.validate().is_err());
+
+        let detail: WorkJournalRecordDetailResponse = serde_json::from_value(json!({
+            "info": {
+                "journaluuid": "journal-1",
+                "template_name": "Daily",
+                "report_time": 1800000000,
+                "submitter": { "userid": "submitter" },
+                "receivers": [{ "userid": "manager" }],
+                "readed_receivers": [{ "userid": "manager" }],
+                "comments": [{
+                    "commentid": 1,
+                    "tocommentid": 0,
+                    "comment_userinfo": { "userid": "manager" },
+                    "content": "done",
+                    "comment_time": 1800000100
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(detail.validate().is_ok());
+        assert_eq!(
+            detail
+                .require_info()
+                .unwrap()
+                .require_journal_uuid()
+                .unwrap(),
+            "journal-1"
+        );
+
+        for value in [
+            json!({}),
+            json!({ "info": {} }),
+            json!({
+                "info": {
+                    "journaluuid": "journal-1",
+                    "template_name": "Daily",
+                    "report_time": 0,
+                    "submitter": { "userid": "submitter" }
+                }
+            }),
+            json!({
+                "info": {
+                    "journaluuid": "journal-1",
+                    "template_name": "Daily",
+                    "report_time": 1800000000,
+                    "submitter": { "userid": " " }
+                }
+            }),
+            json!({
+                "info": {
+                    "journaluuid": "journal-1",
+                    "template_name": "Daily",
+                    "report_time": 1800000000,
+                    "submitter": { "userid": "submitter" },
+                    "receivers": [
+                        { "userid": "manager" },
+                        { "userid": "manager" }
+                    ]
+                }
+            }),
+            json!({
+                "info": {
+                    "journaluuid": "journal-1",
+                    "template_name": "Daily",
+                    "report_time": 1800000000,
+                    "submitter": { "userid": "submitter" },
+                    "comments": [{
+                        "commentid": 0,
+                        "tocommentid": 0,
+                        "comment_userinfo": { "userid": "manager" },
+                        "content": "done",
+                        "comment_time": 1800000100
+                    }]
+                }
+            }),
+            json!({ "errcode": 40058, "errmsg": "invalid record" }),
+        ] {
+            let response: WorkJournalRecordDetailResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let stat = json!({
+            "template_id": "template-1",
+            "template_name": "Daily",
+            "cycle_begin_time": 1800000000,
+            "cycle_end_time": 1800003600,
+            "stat_begin_time": 1800000000,
+            "stat_end_time": 1800003600,
+            "report_list": [{
+                "user": { "userid": "user-1" },
+                "itemlist": [{
+                    "journaluuid": "journal-1",
+                    "reporttime": 1800000100,
+                    "flag": 0
+                }]
+            }],
+            "unreport_list": [{
+                "user": { "userid": "user-2" },
+                "itemlist": [{
+                    "journaluuid": "",
+                    "reporttime": 1800000100,
+                    "flag": 0
+                }]
+            }],
+            "report_type": 1
+        });
+        let response: WorkJournalStatListResponse = serde_json::from_value(json!({
+            "stat_list": [stat.clone()]
+        }))
+        .unwrap();
+        assert!(response.validate().is_ok());
+
+        for value in [
+            json!({ "stat_list": [{}] }),
+            json!({ "stat_list": [stat.clone(), stat.clone()] }),
+            json!({
+                "stat_list": [{
+                    "template_id": "template-1",
+                    "template_name": "Daily",
+                    "cycle_begin_time": 1800003600,
+                    "cycle_end_time": 1800000000,
+                    "stat_begin_time": 1800000000,
+                    "stat_end_time": 1800003600
+                }]
+            }),
+            json!({
+                "stat_list": [{
+                    "template_id": "template-1",
+                    "template_name": "Daily",
+                    "cycle_begin_time": 1800000000,
+                    "cycle_end_time": 1800003600,
+                    "stat_begin_time": 1800000000,
+                    "stat_end_time": 1800003600,
+                    "report_range": {
+                        "user_list": [
+                            { "userid": "user" },
+                            { "userid": "user" }
+                        ]
+                    }
+                }]
+            }),
+            json!({
+                "stat_list": [{
+                    "template_id": "template-1",
+                    "template_name": "Daily",
+                    "cycle_begin_time": 1800000000,
+                    "cycle_end_time": 1800003600,
+                    "stat_begin_time": 1800000000,
+                    "stat_end_time": 1800003600,
+                    "report_list": [{
+                        "user": { "userid": "user" },
+                        "itemlist": [{
+                            "journaluuid": "",
+                            "reporttime": 1800000100,
+                            "flag": 0
+                        }]
+                    }]
+                }]
+            }),
+            json!({ "errcode": 40058, "errmsg": "invalid statistics" }),
+        ] {
+            let response: WorkJournalStatListResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let export: WorkJournalExportDocResponse =
+            serde_json::from_value(json!({ "jobid": "job-1" })).unwrap();
+        assert!(export.validate().is_ok());
+        for value in [
+            json!({}),
+            json!({ "jobid": " " }),
+            json!({ "errcode": 40058, "errmsg": "invalid export" }),
+        ] {
+            let response: WorkJournalExportDocResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        for value in [
+            json!({ "status": 1 }),
+            json!({ "status": 2, "url": "https://example.com/journal.docx" }),
+            json!({ "status": 3 }),
+            json!({ "status": 99 }),
+        ] {
+            let response: WorkJournalExportDocResultResponse =
+                serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_ok());
+        }
+        for value in [
+            json!({}),
+            json!({ "status": 0 }),
+            json!({ "status": 2 }),
+            json!({ "status": 2, "url": "file:///tmp/journal.docx" }),
+            json!({ "status": 1, "url": " " }),
+            json!({ "errcode": 40058, "errmsg": "invalid job" }),
+        ] {
+            let response: WorkJournalExportDocResultResponse =
+                serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+        assert!(WorkJournalExportStatusKind::Completed.is_terminal());
+        assert!(!WorkJournalExportStatusKind::Processing.is_terminal());
+    }
+
+    #[test]
     fn deserializes_work_oa_approval_journal_and_schedule_responses() {
         let approval: WorkApprovalCreateTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -47377,6 +48446,9 @@ mod tests {
             "trace_id": "journal-list"
         }))
         .unwrap();
+        records.validate().unwrap();
+        assert!(records.has_more());
+        assert_eq!(records.next_cursor(), Some(10));
         assert_eq!(records.journaluuid_list[0], "journal-1");
         assert_eq!(records.next_cursor, Some(10));
         assert_eq!(records.endflag, Some(0));
@@ -47389,6 +48461,8 @@ mod tests {
             "trace_id": "journal-export"
         }))
         .unwrap();
+        export.validate().unwrap();
+        assert_eq!(export.require_job_id().unwrap(), "job-1");
         assert_eq!(export.jobid.as_deref(), Some("job-1"));
         assert_eq!(export.extra["trace_id"], "journal-export");
 
@@ -47400,7 +48474,17 @@ mod tests {
             "expires_in": 300
         }))
         .unwrap();
+        export_result.validate().unwrap();
         assert!(export_result.is_completed());
+        assert!(export_result.is_terminal());
+        assert_eq!(
+            export_result.status_kind(),
+            Some(WorkJournalExportStatusKind::Completed)
+        );
+        assert_eq!(
+            export_result.require_download_url().unwrap(),
+            "https://example.com/journal.docx"
+        );
         assert_eq!(
             export_result.download_url(),
             Some("https://example.com/journal.docx")
@@ -47446,6 +48530,15 @@ mod tests {
             }
         }))
         .unwrap();
+        detail.validate().unwrap();
+        assert_eq!(
+            detail
+                .require_info()
+                .unwrap()
+                .require_journal_uuid()
+                .unwrap(),
+            "journal-1"
+        );
         assert_eq!(detail.extra["trace_id"], "journal-detail");
         let detail = detail.info.unwrap();
         assert_eq!(detail.journal_uuid.as_deref(), Some("journal-1"));
@@ -47516,6 +48609,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        stats.validate().unwrap();
         assert_eq!(stats.extra["trace_id"], "journal-stat");
         let stats = &stats.stat_list[0];
         assert_eq!(stats.template_name.as_deref(), Some("Daily"));

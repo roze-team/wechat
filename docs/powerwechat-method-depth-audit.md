@@ -1719,6 +1719,22 @@ Implemented on 2026-07-20 in Work OA journal depth:
   record, template, document, and job identifiers, while statistics queries
   enforce the documented one-year maximum window.
 
+Implemented on 2026-07-21 in Work OA journal response contracts:
+
+- record-list, detail, statistics, document-export, and export-result methods
+  now reject API errors and structurally invalid success responses at the HTTP
+  boundary;
+- record pagination accepts both PowerWeChat boolean and Enterprise WeChat
+  integer `endflag` forms, enforces the 100-row limit, unique non-empty record
+  ids, and positive continuation cursors only when more data exists;
+- journal details require stable record, template, report-time, submitter,
+  receiver, comment, and typed form-content contracts, while statistics
+  validate template identities, report/white ranges, receivers, leader levels,
+  cycle/stat time ranges, and per-user report records;
+- export creation requires a usable job id; polling exposes forward-compatible
+  processing/completed/failed status semantics and requires a validated
+  absolute HTTP(S) download URL only for completed tasks.
+
 Implemented on 2026-07-20 in Work OA living depth:
 
 - create, modify, cancel, replay deletion, WeChat viewing-code, member-list,
@@ -1828,6 +1844,20 @@ Implemented on 2026-07-20 in Work OA dial and PSTNCC depth:
 - PSTNCC query responses expose talked-state and forward-compatible reason
   semantics for ringing, answering, active calls, timeout, rejection,
   service, balance, rate-limit, line, cancellation, and unknown outcomes.
+
+Implemented on 2026-07-21 in Work OA dial and PSTNCC response contracts:
+
+- dial-record, PSTNCC call, and PSTNCC state methods now validate API success
+  and response structure before returning from their HTTP boundaries;
+- dial records require positive call times, non-negative durations, positive
+  call types, a caller, and at least one uniquely identified callee; caller and
+  callee records require a member or phone identity plus per-party duration;
+- PSTNCC initiation responses require non-empty unique user states, non-negative
+  result codes, and a call id for successful entries while retaining
+  failure-only entries without call ids;
+- state queries require a binary talked flag, positive call timestamp,
+  non-negative talk duration and reason code, with checked call-id accessors
+  and existing forward-compatible reason semantics preserved.
 
 Implemented on 2026-07-20 in Work OA WeDrive lifecycle depth:
 
