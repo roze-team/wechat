@@ -5399,13 +5399,16 @@ impl Work {
         request: WorkWeDocSmartSheetAddRequest,
     ) -> Result<WorkWeDocSmartSheetAddResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetAddResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_sheet",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheets(
@@ -5414,13 +5417,16 @@ impl Work {
         request: WorkWeDocSmartSheetGetRequest,
     ) -> Result<WorkWeDocSmartSheetGetResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetGetResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_sheet",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_wedoc_smartsheet(
@@ -5429,13 +5435,16 @@ impl Work {
         request: WorkWeDocSmartSheetUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_sheet",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet update sheet")?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_smartsheet(
@@ -5444,13 +5453,16 @@ impl Work {
         request: WorkWeDocSmartSheetDeleteRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_sheet",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet delete sheet")?;
+        Ok(response)
     }
 
     pub async fn add_wedoc_smartsheet_view(
@@ -5459,13 +5471,16 @@ impl Work {
         request: WorkWeDocSmartSheetAddViewRequest,
     ) -> Result<WorkWeDocSmartSheetViewResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetViewResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_view",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("add")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheet_views(
@@ -5474,13 +5489,16 @@ impl Work {
         request: WorkWeDocSmartSheetGetViewsRequest,
     ) -> Result<WorkWeDocSmartSheetGetViewsResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetGetViewsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_views",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_wedoc_smartsheet_view(
@@ -5489,13 +5507,16 @@ impl Work {
         request: WorkWeDocSmartSheetUpdateViewRequest,
     ) -> Result<WorkWeDocSmartSheetViewResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetViewResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_view",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("update")?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_smartsheet_views(
@@ -5504,13 +5525,16 @@ impl Work {
         request: WorkWeDocSmartSheetDeleteViewsRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_views",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet delete views")?;
+        Ok(response)
     }
 
     pub async fn add_wedoc_smartsheet_fields(
@@ -5519,13 +5543,16 @@ impl Work {
         request: WorkWeDocSmartSheetFieldsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetFieldsResponse> {
         request.validate_for_add()?;
-        self.inner
+        let response: WorkWeDocSmartSheetFieldsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_fields",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("add")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheet_fields(
@@ -5533,13 +5560,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetGetFieldsRequest,
     ) -> Result<WorkWeDocSmartSheetGetFieldsResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocSmartSheetGetFieldsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_fields",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_wedoc_smartsheet_fields(
@@ -5548,13 +5579,16 @@ impl Work {
         request: WorkWeDocSmartSheetFieldsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetFieldsResponse> {
         request.validate_for_update()?;
-        self.inner
+        let response: WorkWeDocSmartSheetFieldsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_fields",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("update")?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_smartsheet_fields(
@@ -5562,13 +5596,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSmartSheetDeleteFieldsRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_fields",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet delete fields")?;
+        Ok(response)
     }
 
     pub async fn add_wedoc_smartsheet_field_group(
@@ -5577,13 +5615,16 @@ impl Work {
         request: WorkWeDocSmartSheetAddFieldGroupRequest,
     ) -> Result<WorkWeDocSmartSheetFieldGroupResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetFieldGroupResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_field_group",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("add")?;
+        Ok(response)
     }
 
     pub async fn update_wedoc_smartsheet_field_group(
@@ -5592,13 +5633,16 @@ impl Work {
         request: WorkWeDocSmartSheetUpdateFieldGroupRequest,
     ) -> Result<WorkWeDocSmartSheetFieldGroupResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetFieldGroupResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_field_group",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("update")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheet_field_groups(
@@ -5607,13 +5651,16 @@ impl Work {
         request: WorkWeDocSmartSheetGetFieldGroupsRequest,
     ) -> Result<WorkWeDocSmartSheetGetFieldGroupsResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetGetFieldGroupsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_field_groups",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_smartsheet_field_groups(
@@ -5622,13 +5669,16 @@ impl Work {
         request: WorkWeDocSmartSheetDeleteFieldGroupsRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_field_groups",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet delete field groups")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheet_privileges(
@@ -5637,13 +5687,16 @@ impl Work {
         request: WorkWeDocSmartSheetGetPrivilegesRequest,
     ) -> Result<WorkWeDocSmartSheetGetPrivilegesResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetGetPrivilegesResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/content_priv/get_sheet_priv",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheet_auth(
@@ -5652,13 +5705,16 @@ impl Work {
         request: WorkWeDocSmartSheetAuthRequest,
     ) -> Result<WorkWeDocSmartSheetAuthResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetAuthResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_sheet_auth",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn modify_wedoc_smartsheet_auth(
@@ -5667,13 +5723,16 @@ impl Work {
         request: WorkWeDocSmartSheetModifyAuthRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/mod_sheet_auth",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet modify authorization")?;
+        Ok(response)
     }
 
     pub async fn add_wedoc_smartsheet_records(
@@ -5682,13 +5741,16 @@ impl Work {
         request: WorkWeDocSmartSheetRecordsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetRecordsResponse> {
         request.validate_for_add()?;
-        self.inner
+        let response: WorkWeDocSmartSheetRecordsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/add_records",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("add")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_smartsheet_records(
@@ -5697,13 +5759,16 @@ impl Work {
         request: WorkWeDocSmartSheetGetRecordsRequest,
     ) -> Result<WorkWeDocSmartSheetGetRecordsResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkWeDocSmartSheetGetRecordsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/get_records",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_wedoc_smartsheet_records(
@@ -5712,13 +5777,16 @@ impl Work {
         request: WorkWeDocSmartSheetRecordsMutationRequest,
     ) -> Result<WorkWeDocSmartSheetRecordsResponse> {
         request.validate_for_update()?;
-        self.inner
+        let response: WorkWeDocSmartSheetRecordsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/update_records",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("update")?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_smartsheet_records(
@@ -5727,13 +5795,16 @@ impl Work {
         request: WorkWeDocSmartSheetDeleteRecordsRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/smartsheet/delete_records",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc smart-sheet delete records")?;
+        Ok(response)
     }
 
     pub async fn create_wedoc_form(
@@ -36808,6 +36879,7 @@ impl WorkWeDocSmartSheetGetViewsRequest {
             .view_ids
             .iter()
             .any(|view_id| view_id.trim().is_empty())
+            || has_duplicate_strings(&self.view_ids)
         {
             return Err(WechatError::Config(
                 "WeDoc smart-sheet view id cannot be empty".to_string(),
@@ -36858,7 +36930,10 @@ pub struct WorkWeDocSmartSheetDeleteViewsRequest {
 impl WorkWeDocSmartSheetDeleteViewsRequest {
     pub fn validate(&self) -> Result<()> {
         validate_wedoc_smartsheet_view_scope(&self.docid, &self.sheet_id)?;
-        if self.view_ids.is_empty() || self.view_ids.iter().any(|id| id.trim().is_empty()) {
+        if self.view_ids.is_empty()
+            || self.view_ids.iter().any(|id| id.trim().is_empty())
+            || has_duplicate_strings(&self.view_ids)
+        {
             return Err(WechatError::Config(
                 "WeDoc smart-sheet view deletion requires non-empty view ids".to_string(),
             ));
@@ -37327,6 +37402,34 @@ pub struct WorkWeDocSmartSheetGetFieldsRequest {
     pub limit: Option<i64>,
 }
 
+impl WorkWeDocSmartSheetGetFieldsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_record_scope(&self.docid, &self.sheet_id)?;
+        if self
+            .view_id
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+            || self.field_ids.iter().any(|value| value.trim().is_empty())
+            || self
+                .field_titles
+                .iter()
+                .any(|value| value.trim().is_empty())
+            || has_duplicate_strings(&self.field_ids)
+            || has_duplicate_strings(&self.field_titles)
+            || self.offset.is_some_and(|value| value < 0)
+            || self
+                .limit
+                .is_some_and(|value| !(1..=1_000).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field query contains invalid identities or pagination"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetFieldsResponse {
     #[serde(default)]
@@ -37380,6 +37483,22 @@ pub struct WorkWeDocSmartSheetDeleteFieldsRequest {
     pub docid: String,
     pub sheet_id: String,
     pub field_ids: Vec<String>,
+}
+
+impl WorkWeDocSmartSheetDeleteFieldsRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_smartsheet_record_scope(&self.docid, &self.sheet_id)?;
+        if self.field_ids.is_empty()
+            || self.field_ids.len() > 150
+            || self.field_ids.iter().any(|value| value.trim().is_empty())
+            || has_duplicate_strings(&self.field_ids)
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet field deletion requires 1 to 150 unique field ids".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38330,6 +38449,26 @@ pub struct WorkWeDocSmartSheetGetRecordsRequest {
 impl WorkWeDocSmartSheetGetRecordsRequest {
     pub fn validate(&self) -> Result<()> {
         validate_wedoc_smartsheet_record_scope(&self.docid, &self.sheet_id)?;
+        if self
+            .view_id
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+            || self.record_ids.iter().any(|value| value.trim().is_empty())
+            || self
+                .field_titles
+                .iter()
+                .any(|value| value.trim().is_empty())
+            || self.field_ids.iter().any(|value| value.trim().is_empty())
+            || has_duplicate_strings(&self.record_ids)
+            || has_duplicate_strings(&self.field_titles)
+            || has_duplicate_strings(&self.field_ids)
+            || self.ver.is_some_and(|version| version < 0)
+        {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record query contains invalid or duplicate identities"
+                    .to_string(),
+            ));
+        }
         if self.offset.is_some_and(|offset| offset < 0) {
             return Err(WechatError::Config(
                 "WeDoc smart-sheet record query offset cannot be negative".to_string(),
@@ -38769,6 +38908,461 @@ pub struct WorkWeDocSmartSheetRecord {
     pub extra: Value,
 }
 
+fn validate_wedoc_smartsheet_page(
+    operation: &str,
+    total: Option<i64>,
+    item_count: usize,
+    has_more: Option<bool>,
+    next: Option<i64>,
+) -> Result<()> {
+    let item_count = i64::try_from(item_count).map_err(|_| {
+        WechatError::Config(format!(
+            "work WeDoc smart-sheet {operation} item count is too large"
+        ))
+    })?;
+    if total.is_some_and(|value| value < item_count) || next.is_some_and(|value| value < 0) {
+        return Err(WechatError::Config(format!(
+            "work WeDoc smart-sheet {operation} pagination is inconsistent"
+        )));
+    }
+    if has_more == Some(true) && next.is_none() {
+        return Err(WechatError::Config(format!(
+            "work WeDoc smart-sheet {operation} requires next when has_more is true"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_smartsheet_property(property: &WorkWeDocSmartSheetProperties) -> Result<&str> {
+    let sheet_id = property.sheet_id.as_deref().ok_or_else(|| {
+        WechatError::Config(
+            "work WeDoc smart-sheet response property requires sheet_id".to_string(),
+        )
+    })?;
+    validate_wedoc_identifier("smart-sheet id", sheet_id)?;
+    if let Some(title) = property.title.as_deref() {
+        validate_wedoc_identifier("smart-sheet title", title)?;
+    }
+    if property.index.is_some_and(|value| value < 0)
+        || property
+            .sheet_type
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(WechatError::Config(
+            "work WeDoc smart-sheet response property has an invalid index or type".to_string(),
+        ));
+    }
+    Ok(sheet_id)
+}
+
+impl WorkWeDocSmartSheetAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet add sheet",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let property = self.properties.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "work WeDoc smart-sheet add response requires properties".to_string(),
+            )
+        })?;
+        validate_wedoc_smartsheet_property(property).map(|_| ())
+    }
+}
+
+impl WorkWeDocSmartSheetGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get sheets",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut sheet_ids = HashSet::with_capacity(self.sheet_list.len());
+        for property in &self.sheet_list {
+            let sheet_id = validate_wedoc_smartsheet_property(property)?;
+            if !sheet_ids.insert(sheet_id) {
+                return Err(WechatError::Config(
+                    "work WeDoc smart-sheet response cannot contain duplicate sheet ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_smartsheet_view(view: &WorkWeDocSmartSheetView) -> Result<&str> {
+    let view_id = view.view_id.as_deref().ok_or_else(|| {
+        WechatError::Config("work WeDoc smart-sheet view requires view_id".to_string())
+    })?;
+    validate_wedoc_identifier("smart-sheet view id", view_id)?;
+    if let Some(title) = view.view_title.as_deref() {
+        validate_wedoc_identifier("smart-sheet view title", title)?;
+    }
+    if view
+        .view_type
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(WechatError::Config(
+            "work WeDoc smart-sheet view type cannot be empty".to_string(),
+        ));
+    }
+    if let Some(property) = view.property.as_ref() {
+        property.validate()?;
+    }
+    if let Some(range) = view
+        .property_gantt
+        .as_ref()
+        .or(view.property_calendar.as_ref())
+    {
+        range.validate()?;
+    }
+    Ok(view_id)
+}
+
+impl WorkWeDocSmartSheetViewResponse {
+    pub fn validate(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work WeDoc smart-sheet {operation} view"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let view = self.view.as_ref().ok_or_else(|| {
+            WechatError::Config(format!(
+                "work WeDoc smart-sheet {operation} view response requires view"
+            ))
+        })?;
+        validate_wedoc_smartsheet_view(view).map(|_| ())
+    }
+}
+
+impl WorkWeDocSmartSheetGetViewsResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get views",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_smartsheet_page(
+            "view query",
+            self.total,
+            self.views.len(),
+            self.has_more,
+            self.next,
+        )?;
+        let mut view_ids = HashSet::with_capacity(self.views.len());
+        for view in &self.views {
+            let view_id = validate_wedoc_smartsheet_view(view)?;
+            if !view_ids.insert(view_id) {
+                return Err(WechatError::Config(
+                    "work WeDoc smart-sheet view response cannot contain duplicate ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_smartsheet_field(field: &WorkWeDocSmartSheetField) -> Result<&str> {
+    let field_id = field.field_id.as_deref().ok_or_else(|| {
+        WechatError::Config("work WeDoc smart-sheet field requires field_id".to_string())
+    })?;
+    validate_wedoc_identifier("smart-sheet field id", field_id)?;
+    if let Some(title) = field.field_title.as_deref() {
+        validate_wedoc_identifier("smart-sheet field title", title)?;
+    }
+    if field
+        .field_type
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(WechatError::Config(
+            "work WeDoc smart-sheet field type cannot be empty".to_string(),
+        ));
+    }
+    Ok(field_id)
+}
+
+fn validate_wedoc_smartsheet_fields(
+    operation: &str,
+    fields: &[WorkWeDocSmartSheetField],
+) -> Result<()> {
+    let mut field_ids = HashSet::with_capacity(fields.len());
+    for field in fields {
+        let field_id = validate_wedoc_smartsheet_field(field)?;
+        if !field_ids.insert(field_id) {
+            return Err(WechatError::Config(format!(
+                "work WeDoc smart-sheet {operation} response cannot contain duplicate field ids"
+            )));
+        }
+    }
+    Ok(())
+}
+
+impl WorkWeDocSmartSheetFieldsResponse {
+    pub fn validate(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work WeDoc smart-sheet {operation} fields"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_smartsheet_fields(operation, &self.fields)
+    }
+}
+
+impl WorkWeDocSmartSheetGetFieldsResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get fields",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_smartsheet_page("field query", self.total, self.fields.len(), None, None)?;
+        validate_wedoc_smartsheet_fields("field query", &self.fields)
+    }
+}
+
+fn validate_wedoc_smartsheet_field_group(group: &WorkWeDocSmartSheetFieldGroup) -> Result<&str> {
+    let group_id = group.field_group_id.as_deref().ok_or_else(|| {
+        WechatError::Config(
+            "work WeDoc smart-sheet field group requires field_group_id".to_string(),
+        )
+    })?;
+    validate_wedoc_identifier("smart-sheet field-group id", group_id)?;
+    if let Some(name) = group.name.as_deref() {
+        validate_wedoc_smartsheet_field_group_name(name)?;
+    }
+    validate_wedoc_smartsheet_field_group_children(&group.children)?;
+    Ok(group_id)
+}
+
+impl WorkWeDocSmartSheetFieldGroupResponse {
+    pub fn validate(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work WeDoc smart-sheet {operation} field group"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let group = self.field_group.as_ref().ok_or_else(|| {
+            WechatError::Config(format!(
+                "work WeDoc smart-sheet {operation} field-group response requires field_group"
+            ))
+        })?;
+        validate_wedoc_smartsheet_field_group(group).map(|_| ())
+    }
+}
+
+impl WorkWeDocSmartSheetGetFieldGroupsResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get field groups",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_smartsheet_page(
+            "field-group query",
+            self.total,
+            self.field_groups.len(),
+            self.has_more,
+            self.next,
+        )?;
+        let mut group_ids = HashSet::with_capacity(self.field_groups.len());
+        for group in &self.field_groups {
+            let group_id = validate_wedoc_smartsheet_field_group(group)?;
+            if !group_ids.insert(group_id) {
+                return Err(WechatError::Config(
+                    "work WeDoc smart-sheet field-group response cannot contain duplicate ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSmartSheetGetPrivilegesResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get privileges",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut rule_ids = HashSet::with_capacity(self.rule_list.len());
+        for rule in &self.rule_list {
+            let rule_id = match rule.rule_id.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDoc smart-sheet privilege rule requires rule_id".to_string(),
+                )
+            })? {
+                WorkWeDocSmartSheetPrivilegeRuleId::String(value) => {
+                    validate_wedoc_identifier("smart-sheet privilege rule id", value)?;
+                    format!("s:{value}")
+                }
+                WorkWeDocSmartSheetPrivilegeRuleId::Integer(value) if *value > 0 => {
+                    format!("i:{value}")
+                }
+                WorkWeDocSmartSheetPrivilegeRuleId::Integer(_) => {
+                    return Err(WechatError::Config(
+                        "work WeDoc smart-sheet privilege rule id must be positive".to_string(),
+                    ))
+                }
+            };
+            if !rule_ids.insert(rule_id) || rule.rule_type.is_some_and(|kind| kind.as_code() <= 0) {
+                return Err(WechatError::Config(
+                    "work WeDoc smart-sheet privilege rules require valid unique identities"
+                        .to_string(),
+                ));
+            }
+            let mut sheet_ids = HashSet::with_capacity(rule.priv_list.len());
+            for privilege in &rule.priv_list {
+                let sheet_id = privilege.sheet_id.as_deref().ok_or_else(|| {
+                    WechatError::Config(
+                        "work WeDoc smart-sheet privilege requires sheet_id".to_string(),
+                    )
+                })?;
+                validate_wedoc_identifier("smart-sheet privilege sheet id", sheet_id)?;
+                if !sheet_ids.insert(sheet_id)
+                    || privilege.priv_level.is_some_and(|value| value < 0)
+                    || privilege
+                        .record_priv
+                        .as_ref()
+                        .and_then(|value| value.record_range_type)
+                        .is_some_and(|value| value < 0)
+                {
+                    return Err(WechatError::Config(
+                        "work WeDoc smart-sheet privilege entries are invalid or duplicated"
+                            .to_string(),
+                    ));
+                }
+                if let Some(field_privilege) = privilege.field_priv.as_ref() {
+                    let mut field_ids =
+                        HashSet::with_capacity(field_privilege.field_rule_list.len());
+                    for field_rule in &field_privilege.field_rule_list {
+                        let field_id = field_rule.field_id.as_deref().ok_or_else(|| {
+                            WechatError::Config(
+                                "work WeDoc smart-sheet field privilege requires field_id"
+                                    .to_string(),
+                            )
+                        })?;
+                        validate_wedoc_identifier("smart-sheet privilege field id", field_id)?;
+                        if !field_ids.insert(field_id) {
+                            return Err(WechatError::Config(
+                                "work WeDoc smart-sheet field privileges cannot contain duplicates"
+                                    .to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSmartSheetAuthResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get authorization",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(docid) = self.docid.as_deref() {
+            validate_wedoc_identifier("smart-sheet auth document id", docid)?;
+        }
+        if let Some(sheet_id) = self.sheet_id.as_deref() {
+            validate_wedoc_identifier("smart-sheet auth sheet id", sheet_id)?;
+        }
+        if self.effective_auth_info().is_none() {
+            return Err(WechatError::Config(
+                "work WeDoc smart-sheet auth response requires authorization data".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_smartsheet_record(
+    record: &WorkWeDocSmartSheetRecord,
+    require_values: bool,
+) -> Result<&str> {
+    let record_id = record.record_id.as_deref().ok_or_else(|| {
+        WechatError::Config("work WeDoc smart-sheet record requires record_id".to_string())
+    })?;
+    validate_wedoc_identifier("smart-sheet record id", record_id)?;
+    if require_values && record.values.is_none() {
+        return Err(WechatError::Config(
+            "work WeDoc smart-sheet queried record requires values".to_string(),
+        ));
+    }
+    if let Some(values) = record.values.as_ref() {
+        validate_wedoc_smartsheet_record_keys(values)?;
+    }
+    if record.create_time.is_some_and(|value| value < 0)
+        || record.update_time.is_some_and(|value| value < 0)
+    {
+        return Err(WechatError::Config(
+            "work WeDoc smart-sheet record timestamps cannot be negative".to_string(),
+        ));
+    }
+    Ok(record_id)
+}
+
+impl WorkWeDocSmartSheetRecordsResponse {
+    pub fn validate(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work WeDoc smart-sheet {operation} records"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut record_ids = HashSet::with_capacity(self.records.len());
+        for record in &self.records {
+            let record_id = validate_wedoc_smartsheet_record(record, false)?;
+            if !record_ids.insert(record_id) {
+                return Err(WechatError::Config(format!(
+                    "work WeDoc smart-sheet {operation} response cannot contain duplicate record ids"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSmartSheetGetRecordsResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc smart-sheet get records",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_smartsheet_page(
+            "record query",
+            self.total,
+            self.records.len(),
+            self.has_more,
+            self.next,
+        )?;
+        if self.ver.is_some_and(|value| value < 0) {
+            return Err(WechatError::Config(
+                "work WeDoc smart-sheet record version cannot be negative".to_string(),
+            ));
+        }
+        let mut record_ids = HashSet::with_capacity(self.records.len());
+        for record in &self.records {
+            let record_id = validate_wedoc_smartsheet_record(record, true)?;
+            if !record_ids.insert(record_id) {
+                return Err(WechatError::Config(
+                    "work WeDoc smart-sheet record response cannot contain duplicate ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDocSmartSheetDeleteRecordsRequest {
     pub docid: String,
@@ -38792,6 +39386,11 @@ impl WorkWeDocSmartSheetDeleteRecordsRequest {
         if self.record_ids.iter().any(|id| id.trim().is_empty()) {
             return Err(WechatError::Config(
                 "WeDoc smart-sheet record id cannot be empty".to_string(),
+            ));
+        }
+        if has_duplicate_strings(&self.record_ids) {
+            return Err(WechatError::Config(
+                "WeDoc smart-sheet record ids cannot contain duplicates".to_string(),
             ));
         }
         Ok(())
@@ -60212,6 +60811,7 @@ mod tests {
             "request_id": "sheet-request"
         }))
         .unwrap();
+        sheets.validate().unwrap();
         assert_eq!(sheets.sheet_list[0].sheet_id.as_deref(), Some("sheet"));
         assert_eq!(
             sheets.sheet_list[0].sheet_type_kind(),
@@ -60235,6 +60835,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        views.validate().unwrap();
         assert_eq!(views.total, Some(1));
         assert_eq!(views.views[0].view_id.as_deref(), Some("view"));
         assert_eq!(
@@ -60259,6 +60860,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        fields.validate().unwrap();
         assert_eq!(fields.fields[0].field_title.as_deref(), Some("Owner"));
         assert_eq!(
             fields.fields[0].property.as_ref().unwrap().is_multiple,
@@ -60285,6 +60887,7 @@ mod tests {
             "trace_id": "record-request"
         }))
         .unwrap();
+        records.validate().unwrap();
         assert_eq!(records.next, Some(100));
         assert_eq!(records.ver, Some(8));
         assert_eq!(
@@ -60363,6 +60966,7 @@ mod tests {
             "request_id": "field-groups"
         }))
         .unwrap();
+        groups.validate().unwrap();
         assert_eq!(groups.total, Some(1));
         assert_eq!(
             groups.field_groups[0].field_group_id.as_deref(),
@@ -60410,6 +61014,7 @@ mod tests {
             "trace_id": "privileges"
         }))
         .unwrap();
+        privileges.validate().unwrap();
         let rule = &privileges.rule_list[0];
         assert_eq!(
             rule.rule_id,
@@ -60546,5 +61151,143 @@ mod tests {
             unknown_object.as_object().unwrap()["future_policy"]["enabled"],
             true
         );
+    }
+
+    #[test]
+    fn validates_work_wedoc_smartsheet_response_contracts() {
+        let api_error: WorkWeDocSmartSheetGetResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid parameter",
+            "sheet_list": []
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let missing_added_sheet: WorkWeDocSmartSheetAddResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_added_sheet.validate().is_err());
+        let duplicate_sheets: WorkWeDocSmartSheetGetResponse = serde_json::from_value(json!({
+            "sheet_list": [
+                { "sheet_id": "sheet-1" },
+                { "sheet_id": "sheet-1" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_sheets.validate().is_err());
+
+        let missing_view: WorkWeDocSmartSheetViewResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_view.validate("add").is_err());
+        let incomplete_view_page: WorkWeDocSmartSheetGetViewsResponse =
+            serde_json::from_value(json!({
+                "total": 2,
+                "has_more": true,
+                "views": [{ "view_id": "view-1" }]
+            }))
+            .unwrap();
+        assert!(incomplete_view_page.validate().is_err());
+        let duplicate_views: WorkWeDocSmartSheetGetViewsResponse = serde_json::from_value(json!({
+            "total": 2,
+            "views": [
+                { "view_id": "view-1" },
+                { "view_id": "view-1" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_views.validate().is_err());
+
+        let duplicate_fields: WorkWeDocSmartSheetGetFieldsResponse =
+            serde_json::from_value(json!({
+                "total": 2,
+                "fields": [
+                    { "field_id": "field-1" },
+                    { "field_id": "field-1" }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_fields.validate().is_err());
+        let missing_group: WorkWeDocSmartSheetFieldGroupResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_group.validate("add").is_err());
+        let duplicate_groups: WorkWeDocSmartSheetGetFieldGroupsResponse =
+            serde_json::from_value(json!({
+                "total": 2,
+                "field_groups": [
+                    { "field_group_id": "group-1" },
+                    { "field_group_id": "group-1" }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_groups.validate().is_err());
+
+        let duplicate_privilege_rules: WorkWeDocSmartSheetGetPrivilegesResponse =
+            serde_json::from_value(json!({
+                "rule_list": [
+                    { "rule_id": 1, "type": 1 },
+                    { "rule_id": 1, "type": 1 }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_privilege_rules.validate().is_err());
+        let missing_auth: WorkWeDocSmartSheetAuthResponse =
+            serde_json::from_value(json!({ "docid": "doc-1" })).unwrap();
+        assert!(missing_auth.validate().is_err());
+        let auth: WorkWeDocSmartSheetAuthResponse = serde_json::from_value(json!({
+            "docid": "doc-1",
+            "sheet_id": "sheet-1",
+            "auth_info": { "mode": "custom" }
+        }))
+        .unwrap();
+        auth.validate().unwrap();
+
+        let duplicate_mutated_records: WorkWeDocSmartSheetRecordsResponse =
+            serde_json::from_value(json!({
+                "records": [
+                    { "record_id": "record-1" },
+                    { "record_id": "record-1" }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_mutated_records.validate("add").is_err());
+        let missing_record_values: WorkWeDocSmartSheetGetRecordsResponse =
+            serde_json::from_value(json!({
+                "total": 1,
+                "records": [{ "record_id": "record-1" }]
+            }))
+            .unwrap();
+        assert!(missing_record_values.validate().is_err());
+        let incomplete_record_page: WorkWeDocSmartSheetGetRecordsResponse =
+            serde_json::from_value(json!({
+                "total": 2,
+                "has_more": true,
+                "records": [{
+                    "record_id": "record-1",
+                    "values": {}
+                }]
+            }))
+            .unwrap();
+        assert!(incomplete_record_page.validate().is_err());
+
+        assert!(WorkWeDocSmartSheetDeleteFieldsRequest {
+            docid: "doc-1".to_string(),
+            sheet_id: "sheet-1".to_string(),
+            field_ids: vec!["field-1".to_string(), "field-1".to_string()],
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDocSmartSheetDeleteViewsRequest {
+            docid: "doc-1".to_string(),
+            sheet_id: "sheet-1".to_string(),
+            view_ids: vec!["view-1".to_string(), "view-1".to_string()],
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDocSmartSheetDeleteRecordsRequest {
+            docid: "doc-1".to_string(),
+            sheet_id: "sheet-1".to_string(),
+            record_ids: vec!["record-1".to_string(), "record-1".to_string()],
+        }
+        .validate()
+        .is_err());
     }
 }

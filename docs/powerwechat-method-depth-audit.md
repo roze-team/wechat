@@ -2516,6 +2516,29 @@ Implemented on 2026-07-21 in Work OA WeDoc response-contract depth:
   errors, missing payloads, malformed URLs, cursor breaks, duplicate
   identities, and ambiguous spreadsheet operations.
 
+Implemented on 2026-07-21 in Work OA WeDoc smart-sheet response-contract depth:
+
+- all 23 smart-sheet public network boundaries now validate typed requests
+  before transport and validate either their dedicated response DTO or status
+  response before returning application data;
+- sheet, view, field, field-group, privilege, authorization, and record
+  responses propagate WeChat API errors and require stable identifiers while
+  preserving unknown future fields and unknown semantic type codes;
+- list responses enforce nonnegative and internally consistent totals,
+  continuation offsets whenever `has_more` is true, nonnegative versions and
+  timestamps, required queried record values, and unique entity ids;
+- field query/delete, view query/delete, and record query/delete requests now
+  reject empty or duplicate identifiers, invalid versions, and out-of-range
+  pagination at the client boundary;
+- privilege responses validate mixed string/integer rule identities, per-rule
+  unique sheet privileges, positive rule identities, and unique field rules;
+  authorization reads require one of the supported typed authorization
+  payload envelopes;
+- realistic smart-sheet fixtures now execute production validators, and the
+  failure matrix covers API errors, missing wrappers, duplicate entities,
+  broken pagination, empty authorization data, missing record values, and
+  duplicate deletion targets.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
