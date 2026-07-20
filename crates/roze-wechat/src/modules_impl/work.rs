@@ -6781,6 +6781,10 @@ impl Work {
         DomainModule::new(self.inner.clone(), "work.accountService.tag")
     }
 
+    pub fn user_tag(&self) -> DomainModule {
+        DomainModule::new(self.inner.clone(), "work.user.tag")
+    }
+
     pub async fn account_service_tag_create(
         &self,
         access_token: impl Into<String>,
@@ -6798,9 +6802,12 @@ impl Work {
         if tagid > 0 {
             body["tagid"] = json!(tagid);
         }
-        self.inner
+        let response: WorkAccountServiceTagCreateResponse = self
+            .inner
             .post("cgi-bin/tag/create", Some(access_token.into()), body)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_tag_update(
@@ -6812,13 +6819,16 @@ impl Work {
         let tagname = tagname.into();
         validate_work_tag_id(tagid)?;
         validate_work_tag_name(&tagname)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/tag/update",
                 Some(access_token.into()),
                 json!({ "tagname": tagname, "tagid": tagid }),
             )
-            .await
+            .await?;
+        response.validate_for("work tag update")?;
+        Ok(response)
     }
 
     pub async fn account_service_tag_delete(
@@ -6827,13 +6837,16 @@ impl Work {
         tagid: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
         let tagid = parse_work_tag_id(tagid.into())?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/tag/delete",
                 Some(access_token.into()),
                 vec![("tagid".to_string(), tagid.to_string())],
             )
-            .await
+            .await?;
+        response.validate_for("work tag delete")?;
+        Ok(response)
     }
 
     pub async fn account_service_tag_get(
@@ -6842,13 +6855,16 @@ impl Work {
         tagid: impl Into<String>,
     ) -> Result<WorkAccountServiceTagDetailResponse> {
         let tagid = parse_work_tag_id(tagid.into())?;
-        self.inner
+        let response: WorkAccountServiceTagDetailResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/tag/get",
                 Some(access_token.into()),
                 vec![("tagid".to_string(), tagid.to_string())],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn account_service_tag_users(
@@ -6902,13 +6918,16 @@ impl Work {
         }
         validate_work_tag_id(tagid)?;
         let partylist = validate_work_tag_members(&userlist, &partylist)?;
-        self.inner
+        let response: WorkAccountServiceTagUserResultResponse = self
+            .inner
             .post(
                 endpoint,
                 Some(access_token.into()),
                 json!({ "tagid": tagid, "userlist": userlist, "partylist": partylist }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn remove_users_from_tag(
@@ -6932,9 +6951,12 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkAccountServiceTagListResponse> {
-        self.inner
+        let response: WorkAccountServiceTagListResponse = self
+            .inner
             .get("cgi-bin/tag/list", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn aibot(&self) -> DomainModule {
@@ -10839,9 +10861,10 @@ fn parse_work_tag_id(tag_id: String) -> Result<i64> {
 
 fn validate_work_tag_name(tag_name: &str) -> Result<()> {
     let length = tag_name.chars().count();
-    if tag_name.trim().is_empty() || length > 32 {
+    if tag_name.trim().is_empty() || length > 32 || tag_name.chars().any(char::is_control) {
         return Err(WechatError::Config(
-            "work tag name must contain between 1 and 32 characters".to_string(),
+            "work tag name must contain between 1 and 32 characters without control characters"
+                .to_string(),
         ));
     }
     Ok(())
@@ -26854,6 +26877,20 @@ pub struct WorkAccountServiceTagCreateResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceTagCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work tag create", self.errcode, self.errmsg.as_deref())?;
+        validate_work_tag_id(self.tagid.ok_or_else(|| {
+            WechatError::Config("work tag create response requires tagid".to_string())
+        })?)
+    }
+
+    pub fn require_tag_id(&self) -> Result<i64> {
+        self.validate()?;
+        Ok(self.tagid.expect("validated tag id"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceTagDetailResponse {
     #[serde(default)]
@@ -26870,6 +26907,23 @@ pub struct WorkAccountServiceTagDetailResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceTagDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work tag detail", self.errcode, self.errmsg.as_deref())?;
+        validate_work_tag_response_name("tag detail name", self.tagname.as_deref())?;
+        let mut user_ids = HashSet::new();
+        for user in &self.userlist {
+            let user_id = user.validate()?;
+            if !user_ids.insert(user_id) {
+                return Err(WechatError::Config(
+                    "work tag detail contains duplicate users".to_string(),
+                ));
+            }
+        }
+        validate_work_tag_response_departments("tag detail departments", &self.partylist)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceTagUser {
     #[serde(default)]
@@ -26880,13 +26934,26 @@ pub struct WorkAccountServiceTagUser {
     pub extra: Value,
 }
 
+impl WorkAccountServiceTagUser {
+    fn validate(&self) -> Result<&str> {
+        let user_id = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work tag user response requires userid".to_string())
+        })?;
+        validate_work_user_id(user_id)?;
+        if let Some(name) = &self.name {
+            validate_work_tag_response_text("tag user name", name, 128)?;
+        }
+        Ok(user_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceTagUserResultResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "invaliduser")]
     pub invalidlist: Option<String>,
     #[serde(default)]
     pub invalidparty: Vec<i64>,
@@ -26912,6 +26979,28 @@ impl WorkAccountServiceTagUserResultResponse {
     pub fn has_failures(&self) -> bool {
         self.failure_count() > 0
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work tag membership mutation",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let invalid_userids = self.invalid_userids();
+        let mut unique_users = HashSet::new();
+        for user_id in invalid_userids {
+            validate_work_user_id(user_id)?;
+            if !unique_users.insert(user_id) {
+                return Err(WechatError::Config(
+                    "work tag mutation response contains duplicate invalid users".to_string(),
+                ));
+            }
+        }
+        validate_work_tag_response_departments(
+            "tag mutation invalid departments",
+            &self.invalidparty,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26926,6 +27015,22 @@ pub struct WorkAccountServiceTagListResponse {
     pub extra: Value,
 }
 
+impl WorkAccountServiceTagListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work tag list", self.errcode, self.errmsg.as_deref())?;
+        let mut tag_ids = HashSet::new();
+        for tag in &self.taglist {
+            let tag_id = tag.validate()?;
+            if !tag_ids.insert(tag_id) {
+                return Err(WechatError::Config(
+                    "work tag list contains duplicate tag ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAccountServiceTag {
     #[serde(default)]
@@ -26934,6 +27039,47 @@ pub struct WorkAccountServiceTag {
     pub tagname: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceTag {
+    fn validate(&self) -> Result<i64> {
+        let tag_id = self
+            .tagid
+            .ok_or_else(|| WechatError::Config("work tag list item requires tagid".to_string()))?;
+        validate_work_tag_id(tag_id)?;
+        validate_work_tag_response_name("tag list item name", self.tagname.as_deref())?;
+        Ok(tag_id)
+    }
+}
+
+fn validate_work_tag_response_name(label: &str, value: Option<&str>) -> Result<()> {
+    let value = value.ok_or_else(|| WechatError::Config(format!("work {label} is required")))?;
+    validate_work_tag_response_text(label, value, 32)
+}
+
+fn validate_work_tag_response_text(label: &str, value: &str, max_chars: usize) -> Result<()> {
+    if value.trim().is_empty()
+        || value.chars().count() > max_chars
+        || value.chars().any(char::is_control)
+    {
+        return Err(WechatError::Config(format!(
+            "work {label} must contain between 1 and {max_chars} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_tag_response_departments(label: &str, department_ids: &[i64]) -> Result<()> {
+    let mut unique = HashSet::new();
+    if department_ids
+        .iter()
+        .any(|department_id| *department_id <= 0 || !unique.insert(*department_id))
+    {
+        return Err(WechatError::Config(format!(
+            "work {label} must contain unique positive department ids"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48975,6 +49121,93 @@ mod tests {
         assert!(parse_work_tag_id("tag".to_string()).is_err());
         assert!(validate_work_tag_name("tag").is_ok());
         assert!(validate_work_tag_name(&"x".repeat(33)).is_err());
+        assert!(validate_work_tag_name("tag\nname").is_err());
+    }
+
+    #[test]
+    fn validates_work_user_tag_response_contracts() {
+        let created: WorkAccountServiceTagCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "tagid": 12 })).unwrap();
+        assert_eq!(created.require_tag_id().unwrap(), 12);
+        let api_error: WorkAccountServiceTagCreateResponse = serde_json::from_value(json!({
+            "errcode": 40068,
+            "errmsg": "invalid tag"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40068, .. })
+        ));
+        let missing_tag: WorkAccountServiceTagCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_tag.validate().is_err());
+
+        let detail: WorkAccountServiceTagDetailResponse = serde_json::from_value(json!({
+            "tagname": "Production",
+            "userlist": [
+                { "userid": "user-1", "name": "User One" },
+                { "userid": "user-2", "name": "User Two" }
+            ],
+            "partylist": [1, 2]
+        }))
+        .unwrap();
+        assert!(detail.validate().is_ok());
+        let duplicate_users: WorkAccountServiceTagDetailResponse = serde_json::from_value(json!({
+            "tagname": "Production",
+            "userlist": [
+                { "userid": "user", "name": "One" },
+                { "userid": "user", "name": "Two" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_users.validate().is_err());
+        let duplicate_departments: WorkAccountServiceTagDetailResponse =
+            serde_json::from_value(json!({
+                "tagname": "Production",
+                "partylist": [1, 1]
+            }))
+            .unwrap();
+        assert!(duplicate_departments.validate().is_err());
+
+        let add_result: WorkAccountServiceTagUserResultResponse = serde_json::from_value(json!({
+            "invaliduser": "bad-user|inactive-user",
+            "invalidparty": [3]
+        }))
+        .unwrap();
+        assert!(add_result.validate().is_ok());
+        assert_eq!(add_result.invalid_userids(), ["bad-user", "inactive-user"]);
+        assert_eq!(add_result.failure_count(), 3);
+        let delete_result: WorkAccountServiceTagUserResultResponse =
+            serde_json::from_value(json!({
+                "invalidlist": "bad-user,other-user",
+                "invalidparty": []
+            }))
+            .unwrap();
+        assert!(delete_result.validate().is_ok());
+        assert_eq!(delete_result.invalid_userids(), ["bad-user", "other-user"]);
+        let duplicate_failures: WorkAccountServiceTagUserResultResponse =
+            serde_json::from_value(json!({ "invaliduser": "bad-user|bad-user" })).unwrap();
+        assert!(duplicate_failures.validate().is_err());
+        let invalid_department: WorkAccountServiceTagUserResultResponse =
+            serde_json::from_value(json!({ "invalidparty": [0] })).unwrap();
+        assert!(invalid_department.validate().is_err());
+
+        let tags: WorkAccountServiceTagListResponse = serde_json::from_value(json!({
+            "taglist": [
+                { "tagid": 1, "tagname": "Production" },
+                { "tagid": 2, "tagname": "Support" }
+            ]
+        }))
+        .unwrap();
+        assert!(tags.validate().is_ok());
+        let duplicate_tags: WorkAccountServiceTagListResponse = serde_json::from_value(json!({
+            "taglist": [
+                { "tagid": 1, "tagname": "Production" },
+                { "tagid": 1, "tagname": "Support" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_tags.validate().is_err());
     }
 
     #[test]
@@ -57863,6 +58096,7 @@ mod tests {
 
         let tag_create: WorkAccountServiceTagCreateResponse =
             serde_json::from_value(json!({ "tagid": 1, "request_id": "tag-create" })).unwrap();
+        assert!(tag_create.validate().is_ok());
         assert_eq!(tag_create.tagid, Some(1));
         assert_eq!(tag_create.extra["request_id"], "tag-create");
 
@@ -57873,6 +58107,7 @@ mod tests {
             "tag_source": "kf"
         }))
         .unwrap();
+        assert!(tag_detail.validate().is_ok());
         assert_eq!(tag_detail.tagname.as_deref(), Some("tag"));
         assert_eq!(tag_detail.extra["tag_source"], "kf");
         assert_eq!(tag_detail.userlist[0].userid.as_deref(), Some("user"));
@@ -57886,6 +58121,7 @@ mod tests {
             "request_id": "tag-user"
         }))
         .unwrap();
+        assert!(tag_user.validate().is_ok());
         assert_eq!(tag_user.invalidparty[0], 2);
         assert_eq!(tag_user.invalid_userids(), ["bad-a", "bad-b"]);
         assert_eq!(tag_user.failure_count(), 3);
@@ -57897,6 +58133,7 @@ mod tests {
             "request_id": "tag-list"
         }))
         .unwrap();
+        assert!(tags.validate().is_ok());
         assert_eq!(tags.extra["request_id"], "tag-list");
         assert_eq!(tags.taglist[0].tagid, Some(1));
         assert_eq!(tags.taglist[0].tagname.as_deref(), Some("tag"));

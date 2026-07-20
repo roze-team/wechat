@@ -2015,6 +2015,27 @@ Implemented on 2026-07-21 in Work account-service production-contract depth:
   mismatches, malformed URLs/config ranges, partial servicer failures, and
   invalid state transitions.
 
+Implemented on 2026-07-21 in Work user-tag response-contract depth:
+
+- added the explicit `user_tag()` module entry while retaining the historical
+  account-service tag entry for compatibility; all 9 public tag operations
+  now flow through 6 validated HTTP boundaries;
+- create, update, delete, detail, add/remove members, and list responses reject
+  nonzero WeCom API status codes before returning, while create responses
+  expose a checked positive tag-id accessor;
+- corrected partial-failure compatibility across the upstream add/remove
+  shapes by accepting both `invaliduser` and `invalidlist`, preserving one
+  normalized invalid-user helper for callers;
+- tag details and lists require valid names and positive identities, reject
+  duplicate tag/user/department ids, and validate optional user names while
+  preserving unknown response fields;
+- membership mutation responses retain partial success but validate unique,
+  nonblank invalid users and unique positive invalid departments; tag names
+  now also reject control characters before network I/O;
+- normal and malformed matrices cover API errors, missing ids, duplicate
+  users/departments/tags, both partial-failure wire names, invalid department
+  ids, overlong names, and control-character names.
+
 Implemented on 2026-07-20 in Work application-message depth:
 
 - ordinary sends, statistics, recall, template-card and task-card updates,
