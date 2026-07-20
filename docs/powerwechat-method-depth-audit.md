@@ -166,6 +166,21 @@ Implemented on 2026-07-21 in Work application-message response depth:
   enforce the same 1000/100/100 response boundaries as their request scopes;
   task-card update failures enforce the 1000-user limit as well.
 
+Implemented on 2026-07-21 in Work user batch-job result depth:
+
+- Known contact-import jobs now require total and percentage lifecycle fields;
+  finished jobs require 100 percent progress and result rows cannot exceed the
+  declared total.
+- Sync, replace-user, and invite results require a user identity, while
+  replace-department results require a positive department identity; mixed or
+  duplicate identities are rejected before returning polling results.
+- Known result items require an explicit error code, and failed rows require a
+  non-empty error message; success/failure counts plus user and department
+  lookup helpers support reconciliation workers without raw scans.
+- Unknown future job types remain forward-compatible, while batch callback
+  URLs now reject credentials and fragments in addition to requiring absolute
+  HTTP(S).
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream

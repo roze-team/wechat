@@ -13927,9 +13927,15 @@ impl WorkUserBatchJobCallback {
         let url = url::Url::parse(&self.url).map_err(|error| {
             WechatError::Config(format!("work user batch callback URL is invalid: {error}"))
         })?;
-        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        if !matches!(url.scheme(), "http" | "https")
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.fragment().is_some()
+        {
             return Err(WechatError::Config(
-                "work user batch callback URL must be absolute HTTP(S)".to_string(),
+                "work user batch callback URL must be absolute HTTP(S) without credentials or fragments"
+                    .to_string(),
             ));
         }
         validate_work_user_identifier("batch callback token", &self.token)?;
@@ -14117,8 +14123,41 @@ impl WorkUserBatchJobResultResponse {
                 "work user batch-job percentage must be between 0 and 100".to_string(),
             ));
         }
+        let job_type = self.job_type_kind().unwrap_or(WorkAsyncJobTypeKind::Other);
+        if job_type.is_contact_import() && (self.total.is_none() || self.percentage.is_none()) {
+            return Err(WechatError::Config(
+                "known work user batch jobs require total and percentage".to_string(),
+            ));
+        }
+        if self.status_kind() == Some(WorkAsyncJobStatusKind::Finished)
+            && job_type.is_contact_import()
+            && self.percentage != Some(100)
+        {
+            return Err(WechatError::Config(
+                "finished work user batch jobs require percentage=100".to_string(),
+            ));
+        }
+        if self
+            .total
+            .is_some_and(|total| self.result.len() as i64 > total)
+        {
+            return Err(WechatError::Config(
+                "work user batch-job result rows cannot exceed total".to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.result.len());
         for item in &self.result {
             item.validate()?;
+            if job_type.is_contact_import() {
+                item.validate_for(job_type)?;
+                let identity = item.identity_for(job_type).unwrap_or_default();
+                if !identities.insert(identity) {
+                    return Err(WechatError::Config(
+                        "work user batch-job results cannot contain duplicate identities"
+                            .to_string(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -14143,6 +14182,25 @@ impl WorkUserBatchJobResultResponse {
             .iter()
             .filter(|item| item.errcode.is_some_and(|code| code != 0))
             .count()
+    }
+
+    pub fn success_count(&self) -> usize {
+        self.result
+            .iter()
+            .filter(|item| item.errcode == Some(0))
+            .count()
+    }
+
+    pub fn result_for_user(&self, user_id: &str) -> Option<&WorkUserBatchJobResultItem> {
+        self.result
+            .iter()
+            .find(|item| item.userid.as_deref() == Some(user_id))
+    }
+
+    pub fn result_for_department(&self, department_id: i64) -> Option<&WorkUserBatchJobResultItem> {
+        self.result
+            .iter()
+            .find(|item| item.partyid == Some(department_id))
     }
 }
 
@@ -14184,6 +14242,70 @@ impl WorkUserBatchJobResultItem {
             ));
         }
         Ok(())
+    }
+
+    pub fn validate_for(&self, job_type: WorkAsyncJobTypeKind) -> Result<()> {
+        if self.errcode.is_none() {
+            return Err(WechatError::Config(
+                "known work user batch-job result items require errcode".to_string(),
+            ));
+        }
+        if self.is_failure()
+            && self
+                .errmsg
+                .as_deref()
+                .is_none_or(|message| message.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "failed work user batch-job result items require errmsg".to_string(),
+            ));
+        }
+        match job_type {
+            WorkAsyncJobTypeKind::SyncUser
+            | WorkAsyncJobTypeKind::ReplaceUser
+            | WorkAsyncJobTypeKind::InviteUser => {
+                let user_id = self.userid.as_deref().ok_or_else(|| {
+                    WechatError::Config(
+                        "work user batch-job result item requires userid".to_string(),
+                    )
+                })?;
+                validate_work_user_identifier("batch-job result userid", user_id)?;
+                if self.partyid.is_some() {
+                    return Err(WechatError::Config(
+                        "user batch-job result items cannot contain partyid".to_string(),
+                    ));
+                }
+            }
+            WorkAsyncJobTypeKind::ReplaceParty => {
+                if self.partyid.is_none_or(|party_id| party_id <= 0) {
+                    return Err(WechatError::Config(
+                        "department batch-job result item requires positive partyid".to_string(),
+                    ));
+                }
+                if self.userid.is_some() {
+                    return Err(WechatError::Config(
+                        "department batch-job result items cannot contain userid".to_string(),
+                    ));
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn identity_for(&self, job_type: WorkAsyncJobTypeKind) -> Option<String> {
+        match job_type {
+            WorkAsyncJobTypeKind::ReplaceParty => {
+                self.partyid.map(|party_id| format!("party:{party_id}"))
+            }
+            WorkAsyncJobTypeKind::SyncUser
+            | WorkAsyncJobTypeKind::ReplaceUser
+            | WorkAsyncJobTypeKind::InviteUser => self
+                .userid
+                .as_deref()
+                .map(|user_id| format!("user:{user_id}")),
+            _ => None,
+        }
     }
 
     pub fn is_failure(&self) -> bool {
@@ -54550,6 +54672,18 @@ mod tests {
             }),
         };
         assert!(batch.validate().is_ok());
+        for url in [
+            "https://user:secret@example.com/callback",
+            "https://example.com/callback#fragment",
+        ] {
+            assert!(WorkUserBatchJobCallback {
+                url: url.to_string(),
+                token: "token".to_string(),
+                encodingaeskey: key.clone(),
+            }
+            .validate()
+            .is_err());
+        }
         let export = WorkUserExportJobRequest {
             encoding_aeskey: key.clone(),
             block_size: 1_000_000,
@@ -55225,6 +55359,101 @@ mod tests {
         }))
         .unwrap();
         assert!(invalid_progress.validate().is_err());
+
+        let completed_batch: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
+            "status": 3,
+            "type": "sync_user",
+            "total": 2,
+            "percentage": 100,
+            "result": [
+                { "userid": "user-a", "errcode": 0 },
+                { "userid": "user-b", "errcode": 40058, "errmsg": "invalid user" }
+            ]
+        }))
+        .unwrap();
+        assert!(completed_batch.validate().is_ok());
+        assert!(completed_batch.is_finished());
+        assert_eq!(completed_batch.success_count(), 1);
+        assert_eq!(completed_batch.failure_count(), 1);
+        assert_eq!(
+            completed_batch
+                .result_for_user("user-b")
+                .and_then(|item| item.errcode),
+            Some(40058)
+        );
+
+        for value in [
+            json!({
+                "status": 2,
+                "type": "sync_user",
+                "percentage": 50,
+                "result": []
+            }),
+            json!({
+                "status": 3,
+                "type": "sync_user",
+                "total": 1,
+                "percentage": 99,
+                "result": [{ "userid": "user", "errcode": 0 }]
+            }),
+            json!({
+                "status": 3,
+                "type": "sync_user",
+                "total": 2,
+                "percentage": 100,
+                "result": [
+                    { "userid": "user", "errcode": 0 },
+                    { "userid": "user", "errcode": 0 }
+                ]
+            }),
+            json!({
+                "status": 3,
+                "type": "sync_user",
+                "total": 1,
+                "percentage": 100,
+                "result": [{ "userid": "user", "partyid": 1, "errcode": 0 }]
+            }),
+            json!({
+                "status": 3,
+                "type": "replace_party",
+                "total": 1,
+                "percentage": 100,
+                "result": [{ "userid": "user", "errcode": 0 }]
+            }),
+            json!({
+                "status": 3,
+                "type": "sync_user",
+                "total": 1,
+                "percentage": 100,
+                "result": [{ "userid": "user", "errcode": 40058 }]
+            }),
+            json!({
+                "status": 2,
+                "type": "sync_user",
+                "total": 0,
+                "percentage": 50,
+                "result": [{ "userid": "user", "errcode": 0 }]
+            }),
+        ] {
+            let response: WorkUserBatchJobResultResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let department_batch: WorkUserBatchJobResultResponse = serde_json::from_value(json!({
+            "status": 3,
+            "type": "replace_party",
+            "total": 1,
+            "percentage": 100,
+            "result": [{ "partyid": 2, "errcode": 0 }]
+        }))
+        .unwrap();
+        assert!(department_batch.validate().is_ok());
+        assert_eq!(
+            department_batch
+                .result_for_department(2)
+                .and_then(|item| item.partyid),
+            Some(2)
+        );
 
         let export_job: WorkUserExportJobResponse =
             serde_json::from_value(json!({ "jobid": "export-job" })).unwrap();
