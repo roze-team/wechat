@@ -2580,6 +2580,22 @@ Implemented on 2026-07-21 in Work OA WeDoc smart-sheet response-contract depth:
   broken pagination, empty authorization data, missing record values, and
   duplicate deletion targets.
 
+Implemented on 2026-07-21 in Work account-service customer-upgrade depth:
+
+- customer upgrades now use typed member and group-chat targets instead of
+  arbitrary JSON, matching PowerWeChat's `userid`/`chat_id` plus `wording`
+  contracts;
+- checked member and group-chat constructors select the exact upstream type,
+  populate only the matching target, and reject blank identities, blank or
+  control-character wording, overlong wording, and mixed target payloads before
+  network I/O;
+- upgrade-service configuration now exposes typed member and group-chat ranges,
+  rejects blank or duplicate target identities, preserves nested extension
+  fields, and provides direct eligibility lookup helpers;
+- response and request tests cover both upgrade modes, malformed wire shapes,
+  duplicate/blank ranges, incompatible targets, wording boundaries, and
+  forward-compatible nested metadata.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

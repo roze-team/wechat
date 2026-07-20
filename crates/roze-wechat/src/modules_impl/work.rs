@@ -25360,9 +25360,9 @@ pub struct WorkAccountServiceCustomerUpgradeServiceConfigResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub member_range: Option<Value>,
+    pub member_range: Option<WorkAccountServiceUpgradeMemberRange>,
     #[serde(default)]
-    pub groupchat_range: Option<Value>,
+    pub groupchat_range: Option<WorkAccountServiceUpgradeGroupChatRange>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -25374,17 +25374,61 @@ impl WorkAccountServiceCustomerUpgradeServiceConfigResponse {
             self.errcode,
             self.errmsg.as_deref(),
         )?;
-        for (label, range) in [
-            ("member range", self.member_range.as_ref()),
-            ("group-chat range", self.groupchat_range.as_ref()),
-        ] {
-            if range.is_some_and(|value| !value.is_object()) {
-                return Err(WechatError::Config(format!(
-                    "work account-service {label} must be an object"
-                )));
-            }
+        if let Some(range) = &self.member_range {
+            range.validate()?;
+        }
+        if let Some(range) = &self.groupchat_range {
+            range.validate()?;
         }
         Ok(())
+    }
+
+    pub fn can_upgrade_to_member(&self, userid: &str) -> bool {
+        self.member_range
+            .as_ref()
+            .is_some_and(|range| range.contains(userid))
+    }
+
+    pub fn can_upgrade_to_group_chat(&self, chat_id: &str) -> bool {
+        self.groupchat_range
+            .as_ref()
+            .is_some_and(|range| range.contains(chat_id))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceUpgradeMemberRange {
+    #[serde(default)]
+    pub userid: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkAccountServiceUpgradeMemberRange {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_upgrade_range("member user ids", &self.userid)
+    }
+
+    pub fn contains(&self, userid: &str) -> bool {
+        self.userid.iter().any(|candidate| candidate == userid)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceUpgradeGroupChatRange {
+    #[serde(default)]
+    pub chat_id: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkAccountServiceUpgradeGroupChatRange {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_upgrade_range("group-chat ids", &self.chat_id)
+    }
+
+    pub fn contains(&self, chat_id: &str) -> bool {
+        self.chat_id.iter().any(|candidate| candidate == chat_id)
     }
 }
 
@@ -25395,12 +25439,42 @@ pub struct WorkAccountServiceCustomerUpgradeServiceRequest {
     #[serde(rename = "type")]
     pub upgrade_type: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub member: Option<Value>,
+    pub member: Option<WorkAccountServiceUpgradeMember>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub groupchat: Option<Value>,
+    pub groupchat: Option<WorkAccountServiceUpgradeGroupChat>,
 }
 
 impl WorkAccountServiceCustomerUpgradeServiceRequest {
+    pub fn for_member(
+        open_kfid: impl Into<String>,
+        external_userid: impl Into<String>,
+        userid: impl Into<String>,
+        wording: impl Into<String>,
+    ) -> Self {
+        Self {
+            open_kfid: open_kfid.into(),
+            external_userid: external_userid.into(),
+            upgrade_type: 1,
+            member: Some(WorkAccountServiceUpgradeMember::new(userid, wording)),
+            groupchat: None,
+        }
+    }
+
+    pub fn for_group_chat(
+        open_kfid: impl Into<String>,
+        external_userid: impl Into<String>,
+        chat_id: impl Into<String>,
+        wording: impl Into<String>,
+    ) -> Self {
+        Self {
+            open_kfid: open_kfid.into(),
+            external_userid: external_userid.into(),
+            upgrade_type: 2,
+            member: None,
+            groupchat: Some(WorkAccountServiceUpgradeGroupChat::new(chat_id, wording)),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_work_account_service_identifier("account id", &self.open_kfid)?;
         validate_work_account_service_identifier("external user id", &self.external_userid)?;
@@ -25411,7 +25485,7 @@ impl WorkAccountServiceCustomerUpgradeServiceRequest {
                         "work account-service member upgrade requires member".to_string(),
                     )
                 })?;
-                validate_work_account_service_upgrade_target(member, "userid", "member")?;
+                member.validate()?;
                 if self.groupchat.is_some() {
                     return Err(WechatError::Config(
                         "work account-service member upgrade cannot contain groupchat".to_string(),
@@ -25424,7 +25498,7 @@ impl WorkAccountServiceCustomerUpgradeServiceRequest {
                         "work account-service group-chat upgrade requires groupchat".to_string(),
                     )
                 })?;
-                validate_work_account_service_upgrade_target(groupchat, "chat_id", "group-chat")?;
+                groupchat.validate()?;
                 if self.member.is_some() {
                     return Err(WechatError::Config(
                         "work account-service group-chat upgrade cannot contain member".to_string(),
@@ -25438,6 +25512,46 @@ impl WorkAccountServiceCustomerUpgradeServiceRequest {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceUpgradeMember {
+    pub userid: String,
+    pub wording: String,
+}
+
+impl WorkAccountServiceUpgradeMember {
+    pub fn new(userid: impl Into<String>, wording: impl Into<String>) -> Self {
+        Self {
+            userid: userid.into(),
+            wording: wording.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("member upgrade userid", &self.userid)?;
+        validate_work_account_service_text("member upgrade wording", &self.wording, 1024)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAccountServiceUpgradeGroupChat {
+    pub chat_id: String,
+    pub wording: String,
+}
+
+impl WorkAccountServiceUpgradeGroupChat {
+    pub fn new(chat_id: impl Into<String>, wording: impl Into<String>) -> Self {
+        Self {
+            chat_id: chat_id.into(),
+            wording: wording.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_account_service_identifier("group-chat upgrade chat id", &self.chat_id)?;
+        validate_work_account_service_text("group-chat upgrade wording", &self.wording, 1024)
     }
 }
 
@@ -27086,37 +27200,17 @@ fn validate_work_account_service_identifier_list(
     Ok(())
 }
 
-fn validate_work_account_service_upgrade_target(
-    value: &Value,
-    identity_field: &str,
-    label: &str,
-) -> Result<()> {
-    let object = value.as_object().ok_or_else(|| {
-        WechatError::Config(format!(
-            "work account-service {label} upgrade target must be an object"
-        ))
-    })?;
-    let identity = object
-        .get(identity_field)
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            WechatError::Config(format!(
-                "work account-service {label} upgrade target requires {identity_field}"
-            ))
-        })?;
-    validate_work_account_service_identifier(
-        &format!("{label} upgrade {identity_field}"),
-        identity,
-    )?;
-    let wording = object
-        .get("wording")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            WechatError::Config(format!(
-                "work account-service {label} upgrade target requires wording"
-            ))
-        })?;
-    validate_work_account_service_text(&format!("{label} upgrade wording"), wording, 1024)
+fn validate_work_account_service_upgrade_range(label: &str, values: &[String]) -> Result<()> {
+    let mut unique = HashSet::new();
+    for value in values {
+        validate_work_account_service_identifier(label, value)?;
+        if !unique.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work account-service {label} must be unique"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn validate_work_account_service_member_identity(
@@ -59037,14 +59131,11 @@ mod tests {
         .unwrap();
         assert_eq!(batch["external_userid_list"][0], "external");
 
-        let upgrade = serde_json::to_value(WorkAccountServiceCustomerUpgradeServiceRequest {
-            open_kfid: "kf".to_string(),
-            external_userid: "external".to_string(),
-            upgrade_type: 1,
-            member: Some(json!({ "userid": "servicer", "wording": "hello" })),
-            groupchat: None,
-        })
-        .unwrap();
+        let upgrade =
+            serde_json::to_value(WorkAccountServiceCustomerUpgradeServiceRequest::for_member(
+                "kf", "external", "servicer", "hello",
+            ))
+            .unwrap();
         assert_eq!(upgrade["type"], 1);
         assert_eq!(upgrade["member"]["userid"], "servicer");
         assert!(upgrade.get("groupchat").is_none());
@@ -59255,13 +59346,12 @@ mod tests {
         .validate()
         .is_err());
 
-        let upgrade = WorkAccountServiceCustomerUpgradeServiceRequest {
-            open_kfid: "kf".to_string(),
-            external_userid: "external".to_string(),
-            upgrade_type: 1,
-            member: Some(json!({ "userid": "servicer", "wording": "Human support" })),
-            groupchat: None,
-        };
+        let upgrade = WorkAccountServiceCustomerUpgradeServiceRequest::for_member(
+            "kf",
+            "external",
+            "servicer",
+            "Human support",
+        );
         assert!(upgrade.validate().is_ok());
         assert!(WorkAccountServiceCustomerUpgradeServiceRequest {
             upgrade_type: 2,
@@ -59270,9 +59360,44 @@ mod tests {
         .validate()
         .is_err());
         assert!(WorkAccountServiceCustomerUpgradeServiceRequest {
-            groupchat: Some(json!({ "chat_id": "chat", "wording": "Group support" })),
+            groupchat: Some(WorkAccountServiceUpgradeGroupChat::new(
+                "chat",
+                "Group support",
+            )),
             ..upgrade
         }
+        .validate()
+        .is_err());
+
+        let group_chat = WorkAccountServiceCustomerUpgradeServiceRequest::for_group_chat(
+            "kf",
+            "external",
+            "chat",
+            "Group support",
+        );
+        assert!(group_chat.validate().is_ok());
+        assert_eq!(group_chat.upgrade_type, 2);
+        assert!(WorkAccountServiceCustomerUpgradeServiceRequest::for_member(
+            "kf",
+            "external",
+            " ",
+            "Human support",
+        )
+        .validate()
+        .is_err());
+        assert!(
+            WorkAccountServiceCustomerUpgradeServiceRequest::for_group_chat(
+                "kf", "external", "chat", " ",
+            )
+            .validate()
+            .is_err()
+        );
+        assert!(WorkAccountServiceCustomerUpgradeServiceRequest::for_member(
+            "kf",
+            "external",
+            "servicer",
+            "x".repeat(1025),
+        )
         .validate()
         .is_err());
 
@@ -59447,9 +59572,24 @@ mod tests {
             }))
             .unwrap();
         assert!(contradictory_customer.validate().is_err());
-        let invalid_config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
-            serde_json::from_value(json!({ "member_range": "invalid" })).unwrap();
-        assert!(invalid_config.validate().is_err());
+        assert!(
+            serde_json::from_value::<WorkAccountServiceCustomerUpgradeServiceConfigResponse>(
+                json!({ "member_range": "invalid" })
+            )
+            .is_err()
+        );
+        let duplicate_config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
+            serde_json::from_value(json!({
+                "member_range": { "userid": ["servicer", "servicer"] }
+            }))
+            .unwrap();
+        assert!(duplicate_config.validate().is_err());
+        let invalid_group_chat_config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
+            serde_json::from_value(json!({
+                "groupchat_range": { "chat_id": [" "] }
+            }))
+            .unwrap();
+        assert!(invalid_group_chat_config.validate().is_err());
 
         let sync: WorkAccountServiceSyncMsgResponse = serde_json::from_value(json!({
             "has_more": 1,
@@ -59648,15 +59788,29 @@ mod tests {
 
         let config: WorkAccountServiceCustomerUpgradeServiceConfigResponse =
             serde_json::from_value(json!({
-                "member_range": { "userid": ["servicer"] },
-                "groupchat_range": { "chat_id": ["chat"] },
+                "member_range": {
+                    "userid": ["servicer"],
+                    "member_range_revision": 2
+                },
+                "groupchat_range": {
+                    "chat_id": ["chat"],
+                    "groupchat_range_revision": 3
+                },
                 "request_id": "upgrade-config"
             }))
             .unwrap();
         assert!(config.validate().is_ok());
+        assert_eq!(config.member_range.as_ref().unwrap().userid[0], "servicer");
+        assert!(config.can_upgrade_to_member("servicer"));
+        assert!(config.can_upgrade_to_group_chat("chat"));
+        assert!(!config.can_upgrade_to_member("missing"));
         assert_eq!(
-            config.member_range.as_ref().unwrap()["userid"][0],
-            "servicer"
+            config.member_range.as_ref().unwrap().extra["member_range_revision"],
+            2
+        );
+        assert_eq!(
+            config.groupchat_range.as_ref().unwrap().extra["groupchat_range_revision"],
+            3
         );
         assert_eq!(config.extra["request_id"], "upgrade-config");
 
