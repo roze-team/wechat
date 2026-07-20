@@ -3924,11 +3924,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<WorkVacationQuotaResponse> {
+        let user_id = user_id.into();
+        validate_work_vacation_identifier("user id", &user_id)?;
         self.inner
             .post(
                 "cgi-bin/oa/vacation/getuservacationquota",
                 Some(access_token.into()),
-                json!({ "userid": user_id.into() }),
+                json!({ "userid": user_id }),
             )
             .await
     }
@@ -3938,6 +3940,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkVacationQuotaUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/vacation/setoneuserquota",
@@ -19003,6 +19006,47 @@ pub struct WorkVacationConfigResponse {
     pub extra: Value,
 }
 
+impl WorkVacationConfigResponse {
+    pub fn find_by_id(&self, vacation_id: i64) -> Option<&WorkVacationConfig> {
+        self.lists
+            .iter()
+            .find(|vacation| vacation.id == vacation_id)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkVacationTimeUnitKind {
+    Day,
+    Hour,
+    Other,
+}
+
+impl WorkVacationTimeUnitKind {
+    pub fn from_code(code: i64) -> Self {
+        match code {
+            0 => Self::Day,
+            1 => Self::Hour,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn seconds_per_unit(self) -> Option<i64> {
+        match self {
+            Self::Day => Some(86_400),
+            Self::Hour => Some(3_600),
+            Self::Other => None,
+        }
+    }
+
+    pub fn minimum_increment_seconds(self) -> Option<i64> {
+        match self {
+            Self::Day => Some(8_640),
+            Self::Hour => Some(360),
+            Self::Other => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationConfig {
     pub id: i64,
@@ -19021,6 +19065,16 @@ pub struct WorkVacationConfig {
     pub expire_rule: Option<WorkVacationExpireRule>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkVacationConfig {
+    pub fn time_unit_kind(&self) -> WorkVacationTimeUnitKind {
+        WorkVacationTimeUnitKind::from_code(self.time_attr)
+    }
+
+    pub fn seconds_per_unit(&self) -> Option<i64> {
+        self.time_unit_kind().seconds_per_unit()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19096,6 +19150,14 @@ pub struct WorkVacationQuotaResponse {
     pub extra: Value,
 }
 
+impl WorkVacationQuotaResponse {
+    pub fn find_by_id(&self, vacation_id: i64) -> Option<&WorkVacationQuota> {
+        self.lists
+            .iter()
+            .find(|vacation| vacation.id == vacation_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationQuota {
     pub id: i64,
@@ -19109,6 +19171,30 @@ pub struct WorkVacationQuota {
     pub extra: Value,
 }
 
+impl WorkVacationQuota {
+    pub fn assigned_units(&self, unit: WorkVacationTimeUnitKind) -> Option<f64> {
+        work_vacation_seconds_to_units(self.assignduration, unit)
+    }
+
+    pub fn used_units(&self, unit: WorkVacationTimeUnitKind) -> Option<f64> {
+        work_vacation_seconds_to_units(self.usedduration, unit)
+    }
+
+    pub fn remaining_units(&self, unit: WorkVacationTimeUnitKind) -> Option<f64> {
+        work_vacation_seconds_to_units(self.leftduration, unit)
+    }
+
+    pub fn real_assigned_units(&self, unit: WorkVacationTimeUnitKind) -> Option<f64> {
+        self.real_assignduration
+            .and_then(|seconds| work_vacation_seconds_to_units(seconds, unit))
+    }
+}
+
+fn work_vacation_seconds_to_units(seconds: i64, unit: WorkVacationTimeUnitKind) -> Option<f64> {
+    unit.seconds_per_unit()
+        .map(|seconds_per_unit| seconds as f64 / seconds_per_unit as f64)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkVacationQuotaUpdateRequest {
     pub userid: String,
@@ -19117,6 +19203,109 @@ pub struct WorkVacationQuotaUpdateRequest {
     pub time_attr: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remarks: Option<String>,
+}
+
+impl WorkVacationQuotaUpdateRequest {
+    pub fn new(
+        userid: impl Into<String>,
+        vacation_id: i64,
+        leftduration: i64,
+        time_attr: i64,
+    ) -> Self {
+        Self {
+            userid: userid.into(),
+            vacation_id,
+            leftduration,
+            time_attr,
+            remarks: None,
+        }
+    }
+
+    pub fn from_tenths_of_days(
+        userid: impl Into<String>,
+        vacation_id: i64,
+        tenths_of_days: i64,
+    ) -> Result<Self> {
+        let leftduration = tenths_of_days.checked_mul(8_640).ok_or_else(|| {
+            WechatError::Config("work vacation day balance is too large".to_string())
+        })?;
+        let request = Self::new(userid, vacation_id, leftduration, 0);
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn from_tenths_of_hours(
+        userid: impl Into<String>,
+        vacation_id: i64,
+        tenths_of_hours: i64,
+    ) -> Result<Self> {
+        let leftduration = tenths_of_hours.checked_mul(360).ok_or_else(|| {
+            WechatError::Config("work vacation hour balance is too large".to_string())
+        })?;
+        let request = Self::new(userid, vacation_id, leftduration, 1);
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn with_remarks(mut self, remarks: impl Into<String>) -> Self {
+        self.remarks = Some(remarks.into());
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_vacation_identifier("user id", &self.userid)?;
+        if self.vacation_id <= 0 {
+            return Err(WechatError::Config(
+                "work vacation id must be positive".to_string(),
+            ));
+        }
+        if self.leftduration < 0 {
+            return Err(WechatError::Config(
+                "work vacation remaining duration cannot be negative".to_string(),
+            ));
+        }
+        let (maximum, increment) = match self.time_attr {
+            0 => (1_000 * 86_400, 8_640),
+            1 => (24_000 * 3_600, 360),
+            _ => {
+                return Err(WechatError::Config(
+                    "work vacation time unit must be 0 for days or 1 for hours".to_string(),
+                ))
+            }
+        };
+        if self.leftduration > maximum {
+            return Err(WechatError::Config(
+                "work vacation remaining duration exceeds the supported maximum".to_string(),
+            ));
+        }
+        if self.leftduration % increment != 0 {
+            return Err(WechatError::Config(format!(
+                "work vacation remaining duration must be a multiple of {increment} seconds"
+            )));
+        }
+        if let Some(remarks) = &self.remarks {
+            if remarks.trim().is_empty() {
+                return Err(WechatError::Config(
+                    "work vacation remarks cannot be blank".to_string(),
+                ));
+            }
+            if remarks.chars().count() > 200 {
+                return Err(WechatError::Config(
+                    "work vacation remarks cannot exceed 200 characters".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn validate_work_vacation_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "work vacation {label} cannot be blank"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32499,15 +32688,56 @@ mod tests {
         let quota = serde_json::to_value(WorkVacationQuotaUpdateRequest {
             userid: "user".to_string(),
             vacation_id: 1,
-            leftduration: 3600,
+            leftduration: 86_400,
             time_attr: 0,
             remarks: Some("annual adjustment".to_string()),
         })
         .unwrap();
         assert_eq!(quota["userid"], "user");
         assert_eq!(quota["vacation_id"], 1);
-        assert_eq!(quota["leftduration"], 3600);
+        assert_eq!(quota["leftduration"], 86_400);
         assert_eq!(quota["remarks"], "annual adjustment");
+    }
+
+    #[test]
+    fn validates_work_oa_vacation_balances() {
+        let days = WorkVacationQuotaUpdateRequest::from_tenths_of_days("user", 1, 15)
+            .expect("valid day balance")
+            .with_remarks("annual adjustment");
+        assert_eq!(days.leftduration, 129_600);
+        assert_eq!(days.time_attr, 0);
+        assert!(days.validate().is_ok());
+
+        let hours = WorkVacationQuotaUpdateRequest::from_tenths_of_hours("user", 2, 25)
+            .expect("valid hour balance");
+        assert_eq!(hours.leftduration, 9_000);
+        assert_eq!(hours.time_attr, 1);
+        assert!(hours.validate().is_ok());
+
+        for request in [
+            WorkVacationQuotaUpdateRequest::new("", 1, 86_400, 0),
+            WorkVacationQuotaUpdateRequest::new("user", 0, 86_400, 0),
+            WorkVacationQuotaUpdateRequest::new("user", 1, -1, 0),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 3_600, 0),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 1, 1),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 86_400, 2),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 1_000 * 86_400 + 8_640, 0),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 24_000 * 3_600 + 360, 1),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 86_400, 0).with_remarks(" "),
+            WorkVacationQuotaUpdateRequest::new("user", 1, 86_400, 0).with_remarks("x".repeat(201)),
+        ] {
+            assert!(request.validate().is_err());
+        }
+
+        assert_eq!(
+            WorkVacationTimeUnitKind::from_code(0),
+            WorkVacationTimeUnitKind::Day
+        );
+        assert_eq!(
+            WorkVacationTimeUnitKind::Hour.minimum_increment_seconds(),
+            Some(360)
+        );
+        assert_eq!(WorkVacationTimeUnitKind::Other.seconds_per_unit(), None);
     }
 
     #[test]
@@ -33786,6 +34016,15 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(vacation.lists[0].name, "Annual Leave");
+        assert_eq!(
+            vacation.lists[0].time_unit_kind(),
+            WorkVacationTimeUnitKind::Day
+        );
+        assert_eq!(vacation.lists[0].seconds_per_unit(), Some(86_400));
+        assert_eq!(
+            vacation.find_by_id(1).map(|config| config.name.as_str()),
+            Some("Annual Leave")
+        );
         let policy = vacation.lists[0]
             .quota_attr
             .as_ref()
@@ -33838,6 +34077,20 @@ mod tests {
         .unwrap();
         assert_eq!(quota.lists[0].leftduration, 518400);
         assert_eq!(quota.lists[0].real_assignduration, Some(604800));
+        assert_eq!(
+            quota
+                .find_by_id(1)
+                .and_then(|balance| balance.remaining_units(WorkVacationTimeUnitKind::Day)),
+            Some(6.0)
+        );
+        assert_eq!(
+            quota.lists[0].used_units(WorkVacationTimeUnitKind::Hour),
+            Some(24.0)
+        );
+        assert_eq!(
+            quota.lists[0].real_assigned_units(WorkVacationTimeUnitKind::Day),
+            Some(7.0)
+        );
         assert_eq!(quota.lists[0].extra["quota_version"], 2);
         assert_eq!(quota.extra["quota_trace"], "vacation-quota");
     }

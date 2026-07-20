@@ -1363,6 +1363,24 @@ Implemented on 2026-07-20 in Work OA approval depth:
   approval and approval-node status codes expose forward-compatible semantic
   enums with terminal and approved-state helpers.
 
+Implemented on 2026-07-20 in Work OA vacation depth:
+
+- member quota reads now reject blank user ids, and quota mutations validate
+  member identity, positive vacation ids, non-negative balances, supported
+  day/hour time units, and nonblank remarks of at most 200 characters before
+  network I/O;
+- day balances enforce the documented 0.1-day (`8640` seconds) increment and
+  1000-day ceiling, while hour balances enforce the 0.1-hour (`360` seconds)
+  increment and 24000-hour ceiling;
+- quota requests expose checked constructors in tenths of days or hours plus
+  a remarks builder, avoiding unchecked unit conversion and integer overflow
+  in application code;
+- vacation configurations expose forward-compatible day/hour unit semantics,
+  unit-second and minimum-increment helpers, and ID lookups;
+- quota responses expose ID lookup plus assigned, used, remaining, and
+  effective-assigned conversions for the selected day/hour unit while
+  retaining exact upstream seconds.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
