@@ -2653,6 +2653,21 @@ Implemented on 2026-07-20 in Payment bill download and statement depth:
   errors instead of panicking in debug builds or wrapping in release builds;
 - summary count reconciliation now uses checked `usize` to `i64` conversion.
 
+Implemented on 2026-07-21 in Payment stream-download response integrity:
+
+- Atomic bill downloads now parse and preflight an unencoded response
+  `Content-Length`, rejecting malformed metadata and configured-size overruns
+  before response chunks are written.
+- The observed stream length must match the declared length before flush,
+  digest verification, and atomic publication, detecting truncated or
+  unexpectedly expanded responses independently of the cryptographic hash.
+- JSON and structured `+json` download responses are consumed through a
+  bounded 64 KiB error path instead of being persisted as bill data; numeric
+  WeChat errors retain typed API codes and v3 string codes remain visible in
+  the returned diagnostic.
+- Compressed responses skip encoded-length equality checks while retaining the
+  existing per-decoded-chunk maximum and digest enforcement.
+
 Implemented on 2026-07-21 in Payment bill query and download contracts:
 
 - trade, fund-flow, and profit-sharing bill queries now reject malformed

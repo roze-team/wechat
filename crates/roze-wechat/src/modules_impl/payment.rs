@@ -1523,6 +1523,21 @@ impl Payment {
             credentials.authorization("GET", &path_query, "")?,
         )];
         let mut response = self.inner.get_stream_response(path, query, headers).await?;
+        let expected_content_length =
+            payment_download_stream_content_length(&response.headers, max_bytes)?;
+        if payment_download_stream_is_json(&response.headers) {
+            let mut body = Vec::new();
+            let mut body_length = 0_u64;
+            while let Some(chunk) = response.next_chunk().await? {
+                body_length = checked_payment_download_size(
+                    body_length,
+                    chunk.len(),
+                    Some(PAYMENT_DOWNLOAD_ERROR_MAX_BYTES),
+                )?;
+                body.extend_from_slice(&chunk);
+            }
+            return Err(payment_download_json_error(&body));
+        }
         let mut bytes_written = 0_u64;
         while let Some(chunk) = response.next_chunk().await? {
             bytes_written = checked_payment_download_size(bytes_written, chunk.len(), max_bytes)?;
@@ -1533,6 +1548,13 @@ impl Payment {
             return Err(WechatError::Config(
                 "payment bill download is empty".to_string(),
             ));
+        }
+        if let Some(expected) = expected_content_length {
+            if expected != bytes_written {
+                return Err(WechatError::Config(format!(
+                    "payment bill download length mismatch: expected {expected} bytes, got {bytes_written}"
+                )));
+            }
         }
         file.flush().await?;
         file.sync_all().await?;
@@ -2031,6 +2053,92 @@ fn checked_payment_download_size(
         }
     }
     Ok(next)
+}
+
+const PAYMENT_DOWNLOAD_ERROR_MAX_BYTES: u64 = 64 * 1024;
+
+fn payment_download_stream_header<'a>(
+    headers: &'a [(String, String)],
+    name: &str,
+) -> Option<&'a str> {
+    headers
+        .iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(name))
+        .map(|(_, value)| value.as_str())
+}
+
+fn payment_download_stream_content_length(
+    headers: &[(String, String)],
+    max_bytes: Option<u64>,
+) -> Result<Option<u64>> {
+    let Some(raw_length) = payment_download_stream_header(headers, "content-length") else {
+        return Ok(None);
+    };
+    let length = raw_length.trim().parse::<u64>().map_err(|error| {
+        WechatError::Config(format!(
+            "payment bill download has invalid content-length: {error}"
+        ))
+    })?;
+    let encoded = payment_download_stream_header(headers, "content-encoding")
+        .is_some_and(|encoding| !encoding.trim().eq_ignore_ascii_case("identity"));
+    if encoded {
+        return Ok(None);
+    }
+    if let Some(maximum) = max_bytes {
+        if length > maximum {
+            return Err(WechatError::Config(format!(
+                "payment bill download content-length {length} exceeds the configured {maximum} byte limit"
+            )));
+        }
+    }
+    Ok(Some(length))
+}
+
+fn payment_download_stream_is_json(headers: &[(String, String)]) -> bool {
+    payment_download_stream_header(headers, "content-type")
+        .and_then(|content_type| content_type.split(';').next())
+        .map(str::trim)
+        .is_some_and(|content_type| {
+            content_type.eq_ignore_ascii_case("application/json")
+                || content_type.to_ascii_lowercase().ends_with("+json")
+        })
+}
+
+fn payment_download_json_error(body: &[u8]) -> WechatError {
+    let value = match serde_json::from_slice::<Value>(body) {
+        Ok(value) => value,
+        Err(error) => {
+            return WechatError::Config(format!(
+                "payment bill download returned an invalid JSON response: {error}"
+            ));
+        }
+    };
+    let message = value
+        .get("message")
+        .or_else(|| value.get("errmsg"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown payment download error");
+    if let Some(code) = value
+        .get("errcode")
+        .or_else(|| value.get("code"))
+        .and_then(Value::as_i64)
+        .filter(|code| *code != 0)
+    {
+        return WechatError::Api {
+            code,
+            message: message.to_string(),
+        };
+    }
+    if let Some(code) = value
+        .get("code")
+        .and_then(Value::as_str)
+        .filter(|code| !code.trim().is_empty())
+    {
+        return WechatError::Config(format!("payment bill download API error {code}: {message}"));
+    }
+    WechatError::Config(format!(
+        "payment bill download returned an unexpected JSON response: {message}"
+    ))
 }
 
 enum PaymentDownloadHasher {
@@ -7695,7 +7803,7 @@ mod tests {
     use serde_json::json;
     use sha1::Digest as _;
 
-    use crate::crypto;
+    use crate::{crypto, WechatError};
 
     use super::{
         build_merchant_media_upload_body, build_sandbox_sign_key_xml,
@@ -9251,6 +9359,59 @@ mod tests {
             let response: BillResponse = serde_json::from_value(value).unwrap();
             assert!(response.validate().is_err());
         }
+    }
+
+    #[test]
+    fn validates_payment_stream_download_metadata_and_errors() {
+        let headers = vec![
+            (
+                "Content-Type".to_string(),
+                "text/csv; charset=utf-8".to_string(),
+            ),
+            ("Content-Length".to_string(), "1024".to_string()),
+        ];
+        assert_eq!(
+            super::payment_download_stream_content_length(&headers, Some(1024)).unwrap(),
+            Some(1024)
+        );
+        assert!(super::payment_download_stream_content_length(&headers, Some(1023)).is_err());
+        assert!(!super::payment_download_stream_is_json(&headers));
+
+        let encoded_headers = vec![
+            ("content-length".to_string(), "128".to_string()),
+            ("content-encoding".to_string(), "gzip".to_string()),
+        ];
+        assert_eq!(
+            super::payment_download_stream_content_length(&encoded_headers, Some(64)).unwrap(),
+            None
+        );
+        let invalid_headers = vec![("content-length".to_string(), "invalid".to_string())];
+        assert!(super::payment_download_stream_content_length(&invalid_headers, None).is_err());
+
+        let json_headers = vec![(
+            "content-type".to_string(),
+            "application/problem+json; charset=utf-8".to_string(),
+        )];
+        assert!(super::payment_download_stream_is_json(&json_headers));
+
+        let numeric_error =
+            super::payment_download_json_error(br#"{"errcode":40013,"errmsg":"invalid appid"}"#);
+        assert!(matches!(
+            numeric_error,
+            WechatError::Api {
+                code: 40013,
+                message
+            } if message == "invalid appid"
+        ));
+
+        let payment_error = super::payment_download_json_error(
+            br#"{"code":"SIGN_ERROR","message":"signature failed"}"#,
+        );
+        assert!(payment_error.to_string().contains("SIGN_ERROR"));
+        assert!(payment_error.to_string().contains("signature failed"));
+        assert!(super::payment_download_json_error(b"not-json")
+            .to_string()
+            .contains("invalid JSON"));
     }
 
     #[test]
