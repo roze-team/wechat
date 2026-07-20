@@ -3201,6 +3201,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: WxaSecUploadShippingInfoRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/order/upload_shipping_info",
@@ -3215,6 +3216,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: WxaSecUploadCombinedShippingInfoRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/order/upload_combined_shipping_info",
@@ -3229,6 +3231,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: WxaSecOrderQuery,
     ) -> Result<WxaSecOrderResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/order/get_order",
@@ -3243,6 +3246,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: WxaSecOrderListRequest,
     ) -> Result<WxaSecOrderListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/order/get_order_list",
@@ -3257,6 +3261,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: WxaSecConfirmReceiveRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/order/notify_confirm_receive",
@@ -3271,11 +3276,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         path: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
+        let path = path.into();
+        validate_wxa_sec_jump_path(&path)?;
         self.inner
             .post(
                 "wxa/sec/order/set_msg_jump_path",
                 Some(access_token.into()),
-                json!({ "path": path.into() }),
+                json!({ "path": path }),
             )
             .await
     }
@@ -3285,11 +3292,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         app_id: impl Into<String>,
     ) -> Result<WxaSecTradeManagedResponse> {
+        let app_id = app_id.into();
+        validate_wxa_sec_app_id(&app_id)?;
         self.inner
             .post(
                 "wxa/sec/order/is_trade_managed",
                 Some(access_token.into()),
-                json!({ "appid": app_id.into() }),
+                json!({ "appid": app_id }),
             )
             .await
     }
@@ -3299,11 +3308,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         app_id: impl Into<String>,
     ) -> Result<WxaSecTradeManagementConfirmationResponse> {
+        let app_id = app_id.into();
+        validate_wxa_sec_app_id(&app_id)?;
         self.inner
             .post(
                 "wxa/sec/order/is_trade_management_confirmation_completed",
                 Some(access_token.into()),
-                json!({ "appid": app_id.into() }),
+                json!({ "appid": app_id }),
             )
             .await
     }
@@ -3313,6 +3324,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: WxaSecSpecialOrderRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/order/opspecialorder",
@@ -9100,9 +9112,53 @@ pub struct WxaSecOrderKey {
     pub out_trade_no: Option<String>,
 }
 
+impl WxaSecOrderKey {
+    pub fn validate(&self) -> Result<()> {
+        match self.order_number_type {
+            1 => {
+                validate_wxa_sec_required_option("merchant id", self.mch_id.as_deref())?;
+                validate_wxa_sec_required_option(
+                    "merchant trade number",
+                    self.out_trade_no.as_deref(),
+                )?;
+                validate_wxa_sec_absent("transaction id", self.transaction_id.as_deref())
+            }
+            2 => {
+                validate_wxa_sec_required_option("transaction id", self.transaction_id.as_deref())?;
+                validate_wxa_sec_absent("merchant id", self.mch_id.as_deref())?;
+                validate_wxa_sec_absent("merchant trade number", self.out_trade_no.as_deref())
+            }
+            _ => Err(WechatError::Config(
+                "mini-program wxa/sec/order number type must be 1 or 2".to_string(),
+            )),
+        }
+    }
+
+    fn identity(&self) -> String {
+        match self.order_number_type {
+            1 => format!(
+                "merchant:{}:{}",
+                self.mch_id.as_deref().unwrap_or_default(),
+                self.out_trade_no.as_deref().unwrap_or_default()
+            ),
+            2 => format!(
+                "transaction:{}",
+                self.transaction_id.as_deref().unwrap_or_default()
+            ),
+            other => format!("invalid:{other}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecPayer {
     pub openid: String,
+}
+
+impl WxaSecPayer {
+    pub fn validate(&self) -> Result<()> {
+        validate_wxa_sec_required("payer openid", &self.openid)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9124,6 +9180,35 @@ pub struct WxaSecShippingInfo {
     pub contact: Option<WxaSecShippingContact>,
 }
 
+impl WxaSecShippingInfo {
+    fn validate(&self, logistics_type: i64) -> Result<()> {
+        validate_wxa_sec_required("shipping item description", &self.item_desc)?;
+        if self.item_desc.chars().count() > 120 {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order shipping item description must contain at most 120 characters"
+                    .to_string(),
+            ));
+        }
+        validate_wxa_sec_optional("tracking number", self.tracking_no.as_deref())?;
+        validate_wxa_sec_optional("express company", self.express_company.as_deref())?;
+        if logistics_type == 1 {
+            validate_wxa_sec_required_option("tracking number", self.tracking_no.as_deref())?;
+            validate_wxa_sec_required_option("express company", self.express_company.as_deref())?;
+        }
+        if let Some(contact) = &self.contact {
+            validate_wxa_sec_optional("consignor contact", contact.consignor_contact.as_deref())?;
+            validate_wxa_sec_optional("receiver contact", contact.receiver_contact.as_deref())?;
+            if contact.consignor_contact.is_none() && contact.receiver_contact.is_none() {
+                return Err(WechatError::Config(
+                    "mini-program wxa/sec/order contact requires a consignor or receiver contact"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecUploadShippingInfoRequest {
     pub order_key: WxaSecOrderKey,
@@ -9136,6 +9221,20 @@ pub struct WxaSecUploadShippingInfoRequest {
     pub payer: WxaSecPayer,
 }
 
+impl WxaSecUploadShippingInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.order_key.validate()?;
+        validate_wxa_sec_shipping(
+            self.logistics_type,
+            self.delivery_mode,
+            self.is_all_delivered,
+            &self.shipping_list,
+        )?;
+        validate_wxa_sec_upload_time(&self.upload_time)?;
+        self.payer.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecSubOrderShippingInfo {
     pub order_key: WxaSecOrderKey,
@@ -9145,12 +9244,48 @@ pub struct WxaSecSubOrderShippingInfo {
     pub shipping_list: Vec<WxaSecShippingInfo>,
 }
 
+impl WxaSecSubOrderShippingInfo {
+    pub fn validate(&self) -> Result<()> {
+        self.order_key.validate()?;
+        validate_wxa_sec_shipping(
+            self.logistics_type,
+            self.delivery_mode,
+            Some(self.is_all_delivered),
+            &self.shipping_list,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecUploadCombinedShippingInfoRequest {
     pub order_key: WxaSecOrderKey,
     pub sub_orders: Vec<WxaSecSubOrderShippingInfo>,
     pub upload_time: String,
     pub payer: WxaSecPayer,
+}
+
+impl WxaSecUploadCombinedShippingInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.order_key.validate()?;
+        if self.sub_orders.is_empty() {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order combined shipment requires at least one sub-order"
+                    .to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.sub_orders.len());
+        for sub_order in &self.sub_orders {
+            sub_order.validate()?;
+            if !identities.insert(sub_order.order_key.identity()) {
+                return Err(WechatError::Config(
+                    "mini-program wxa/sec/order combined shipment contains duplicate sub-orders"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_wxa_sec_upload_time(&self.upload_time)?;
+        self.payer.validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9163,6 +9298,17 @@ pub struct WxaSecOrderQuery {
     pub sub_merchant_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub merchant_trade_no: Option<String>,
+}
+
+impl WxaSecOrderQuery {
+    pub fn validate(&self) -> Result<()> {
+        validate_wxa_sec_order_lookup(
+            self.transaction_id.as_deref(),
+            self.merchant_id.as_deref(),
+            self.sub_merchant_id.as_deref(),
+            self.merchant_trade_no.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9179,12 +9325,58 @@ pub struct WxaSecOrderListRequest {
     pub page_size: Option<i64>,
 }
 
+impl WxaSecOrderListRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(range) = &self.pay_time_range {
+            range.validate()?;
+        }
+        if self
+            .order_state
+            .is_some_and(|state| !(1..=5).contains(&state))
+        {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order state must be between 1 and 5".to_string(),
+            ));
+        }
+        validate_wxa_sec_optional("openid", self.openid.as_deref())?;
+        validate_wxa_sec_optional("last index", self.last_index.as_deref())?;
+        if self.page_size.is_some_and(|size| !(1..=50).contains(&size)) {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order page size must be between 1 and 50".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecPayTimeRange {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub begin_time: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_time: Option<i64>,
+}
+
+impl WxaSecPayTimeRange {
+    pub fn validate(&self) -> Result<()> {
+        let begin = self.begin_time.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program wxa/sec/order pay-time range requires a begin time".to_string(),
+            )
+        })?;
+        let end = self.end_time.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program wxa/sec/order pay-time range requires an end time".to_string(),
+            )
+        })?;
+        if begin <= 0 || end <= 0 || begin > end {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order pay-time range must be positive and ordered"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9201,6 +9393,24 @@ pub struct WxaSecConfirmReceiveRequest {
     pub received_time: Option<i64>,
 }
 
+impl WxaSecConfirmReceiveRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wxa_sec_order_lookup(
+            self.transaction_id.as_deref(),
+            self.merchant_id.as_deref(),
+            self.sub_merchant_id.as_deref(),
+            self.merchant_trade_no.as_deref(),
+        )?;
+        if !matches!(self.received_time, Some(time) if time > 0) {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order received time must be a positive Unix timestamp"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecSpecialOrderRequest {
     pub order_id: String,
@@ -9208,6 +9418,24 @@ pub struct WxaSecSpecialOrderRequest {
     pub operation_type: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delay_to: Option<i64>,
+}
+
+impl WxaSecSpecialOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wxa_sec_required("special order id", &self.order_id)?;
+        if self.operation_type <= 0 {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order special operation type must be positive".to_string(),
+            ));
+        }
+        if self.delay_to.is_some_and(|time| time <= 0) {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order special operation delay must be a positive Unix timestamp"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9220,6 +9448,20 @@ pub struct WxaSecOrderResponse {
     pub order: Option<WxaSecOrder>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WxaSecOrderResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_wxa_sec_order_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.order
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program wxa/sec/order detail response is missing order".to_string(),
+                )
+            })?
+            .validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9241,7 +9483,13 @@ pub struct WxaSecOrder {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
+    pub paid_amount: Option<i64>,
+    #[serde(default)]
+    pub trade_create_time: Option<i64>,
+    #[serde(default)]
     pub pay_time: Option<i64>,
+    #[serde(default)]
+    pub in_complaint: Option<bool>,
     #[serde(default)]
     pub amount: Option<WxaSecOrderAmount>,
     #[serde(default)]
@@ -9279,6 +9527,53 @@ impl WxaSecOrder {
     pub fn order_state_kind(&self) -> Option<WxaSecOrderStateKind> {
         self.order_state.map(WxaSecOrderStateKind::from)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_wxa_sec_response_order_identity(self)?;
+        if self
+            .order_state
+            .is_some_and(|state| !(1..=5).contains(&state))
+        {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order response contains an invalid order state".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("paid amount", self.paid_amount),
+            ("trade create time", self.trade_create_time),
+            ("pay time", self.pay_time),
+            ("receive time", self.receive_time),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program wxa/sec/order response {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(created), Some(paid)) = (self.trade_create_time, self.pay_time) {
+            if created > paid {
+                return Err(WechatError::Config(
+                    "mini-program wxa/sec/order response payment precedes trade creation"
+                        .to_string(),
+                ));
+            }
+        }
+        if let Some(amount) = &self.amount {
+            amount.validate()?;
+            if let (Some(paid_amount), Some(total)) = (self.paid_amount, amount.payer_total) {
+                if paid_amount != total {
+                    return Err(WechatError::Config(
+                        "mini-program wxa/sec/order paid amount disagrees with payer total"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        if let Some(shipping) = &self.shipping {
+            shipping.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9295,6 +9590,27 @@ pub struct WxaSecOrderAmount {
     pub extra: Value,
 }
 
+impl WxaSecOrderAmount {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [("total", self.total), ("payer total", self.payer_total)] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program wxa/sec/order amount {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(total), Some(payer_total)) = (self.total, self.payer_total) {
+            if payer_total > total {
+                return Err(WechatError::Config(
+                    "mini-program wxa/sec/order payer total cannot exceed total".to_string(),
+                ));
+            }
+        }
+        validate_wxa_sec_optional("currency", self.currency.as_deref())?;
+        validate_wxa_sec_optional("payer currency", self.payer_currency.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecOrderShipping {
     #[serde(default)]
@@ -9304,11 +9620,49 @@ pub struct WxaSecOrderShipping {
     #[serde(default)]
     pub is_all_delivered: Option<bool>,
     #[serde(default)]
+    pub finish_shipping: Option<bool>,
+    #[serde(default)]
+    pub finish_shipping_count: Option<i64>,
+    #[serde(default)]
+    pub goods_desc: Option<String>,
+    #[serde(default)]
     pub shipping_list: Vec<WxaSecOrderShippingItem>,
     #[serde(default)]
     pub upload_time: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WxaSecOrderShipping {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .logistics_type
+            .is_some_and(|kind| !(1..=4).contains(&kind))
+        {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order response contains an invalid logistics type"
+                    .to_string(),
+            ));
+        }
+        if self
+            .delivery_mode
+            .is_some_and(|mode| !(1..=2).contains(&mode))
+        {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order response contains an invalid delivery mode".to_string(),
+            ));
+        }
+        if self.finish_shipping_count.is_some_and(|count| count < 0) {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order finish shipping count cannot be negative".to_string(),
+            ));
+        }
+        validate_wxa_sec_optional("shipping goods description", self.goods_desc.as_deref())?;
+        for item in &self.shipping_list {
+            item.validate(self.logistics_type)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9320,9 +9674,38 @@ pub struct WxaSecOrderShippingItem {
     #[serde(default)]
     pub item_desc: Option<String>,
     #[serde(default)]
+    pub goods_desc: Option<String>,
+    #[serde(default, rename = "upload_time")]
+    pub upload_time_unix: Option<i64>,
+    #[serde(default)]
     pub contact: Option<WxaSecShippingContact>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WxaSecOrderShippingItem {
+    fn validate(&self, logistics_type: Option<i64>) -> Result<()> {
+        validate_wxa_sec_optional("response tracking number", self.tracking_no.as_deref())?;
+        validate_wxa_sec_optional("response express company", self.express_company.as_deref())?;
+        validate_wxa_sec_optional("response item description", self.item_desc.as_deref())?;
+        validate_wxa_sec_optional("response goods description", self.goods_desc.as_deref())?;
+        if logistics_type == Some(1) {
+            validate_wxa_sec_required_option(
+                "response tracking number",
+                self.tracking_no.as_deref(),
+            )?;
+            validate_wxa_sec_required_option(
+                "response express company",
+                self.express_company.as_deref(),
+            )?;
+        }
+        if self.upload_time_unix.is_some_and(|time| time < 0) {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order shipping upload time cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9341,6 +9724,43 @@ pub struct WxaSecOrderListResponse {
     pub extra: Value,
 }
 
+impl WxaSecOrderListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_wxa_sec_order_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.has_more == Some(true) {
+            validate_wxa_sec_required_option("response last index", self.last_index.as_deref())?;
+        } else {
+            validate_wxa_sec_optional("response last index", self.last_index.as_deref())?;
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.order_list.len());
+        for order in &self.order_list {
+            order.validate()?;
+            let identity = wxa_sec_response_order_identity(order)?;
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "mini-program wxa/sec/order list response contains duplicate orders"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_page_request(
+        &self,
+        current: &WxaSecOrderListRequest,
+    ) -> Result<Option<WxaSecOrderListRequest>> {
+        self.validate()?;
+        if self.has_more != Some(true) {
+            return Ok(None);
+        }
+        let mut next = current.clone();
+        next.last_index = self.last_index.clone();
+        next.validate()?;
+        Ok(Some(next))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecTradeManagedResponse {
     #[serde(default)]
@@ -9353,6 +9773,19 @@ pub struct WxaSecTradeManagedResponse {
     pub extra: Value,
 }
 
+impl WxaSecTradeManagedResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_wxa_sec_order_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.is_trade_managed.is_none() {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order trade-managed response is missing its result"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WxaSecTradeManagementConfirmationResponse {
     #[serde(default)]
@@ -9363,6 +9796,189 @@ pub struct WxaSecTradeManagementConfirmationResponse {
     pub completed: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WxaSecTradeManagementConfirmationResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_wxa_sec_order_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.completed.is_none() {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order confirmation response is missing its result"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_wxa_sec_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program wxa/sec/order {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_wxa_sec_required_option(kind: &str, value: Option<&str>) -> Result<()> {
+    value
+        .ok_or_else(|| {
+            WechatError::Config(format!("mini-program wxa/sec/order {kind} is required"))
+        })
+        .and_then(|value| validate_wxa_sec_required(kind, value))
+}
+
+fn validate_wxa_sec_optional(kind: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_wxa_sec_required(kind, value)?;
+    }
+    Ok(())
+}
+
+fn validate_wxa_sec_absent(kind: &str, value: Option<&str>) -> Result<()> {
+    if value.is_some() {
+        return Err(WechatError::Config(format!(
+            "mini-program wxa/sec/order {kind} must be omitted for this order-number type"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_wxa_sec_app_id(app_id: &str) -> Result<()> {
+    validate_wxa_sec_required("appid", app_id)?;
+    if app_id.len() > 128 {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order appid must contain at most 128 bytes".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_wxa_sec_jump_path(path: &str) -> Result<()> {
+    validate_wxa_sec_required("message jump path", path)?;
+    if path.len() > 1024 || path.contains("://") || path.contains('\\') {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order message jump path must be an in-app path of at most 1024 bytes"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_wxa_sec_upload_time(upload_time: &str) -> Result<()> {
+    validate_wxa_sec_required("upload time", upload_time)?;
+    chrono::DateTime::parse_from_rfc3339(upload_time).map_err(|err| {
+        WechatError::Config(format!(
+            "mini-program wxa/sec/order upload time must use RFC 3339 format: {err}"
+        ))
+    })?;
+    Ok(())
+}
+
+fn validate_wxa_sec_shipping(
+    logistics_type: i64,
+    delivery_mode: i64,
+    is_all_delivered: Option<bool>,
+    shipping_list: &[WxaSecShippingInfo],
+) -> Result<()> {
+    if !(1..=4).contains(&logistics_type) {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order logistics type must be between 1 and 4".to_string(),
+        ));
+    }
+    if !(1..=2).contains(&delivery_mode) {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order delivery mode must be 1 or 2".to_string(),
+        ));
+    }
+    if shipping_list.is_empty() {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order shipping list must not be empty".to_string(),
+        ));
+    }
+    if delivery_mode == 1 && shipping_list.len() != 1 {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order unified delivery requires exactly one shipping item"
+                .to_string(),
+        ));
+    }
+    if delivery_mode == 2 && is_all_delivered.is_none() {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order split delivery requires is_all_delivered".to_string(),
+        ));
+    }
+    for shipping in shipping_list {
+        shipping.validate(logistics_type)?;
+    }
+    Ok(())
+}
+
+fn validate_wxa_sec_order_lookup(
+    transaction_id: Option<&str>,
+    merchant_id: Option<&str>,
+    sub_merchant_id: Option<&str>,
+    merchant_trade_no: Option<&str>,
+) -> Result<()> {
+    for (kind, value) in [
+        ("transaction id", transaction_id),
+        ("merchant id", merchant_id),
+        ("sub-merchant id", sub_merchant_id),
+        ("merchant trade number", merchant_trade_no),
+    ] {
+        validate_wxa_sec_optional(kind, value)?;
+    }
+    if transaction_id.is_some() {
+        if merchant_id.is_some() || sub_merchant_id.is_some() || merchant_trade_no.is_some() {
+            return Err(WechatError::Config(
+                "mini-program wxa/sec/order lookup must use either transaction id or merchant identifiers"
+                    .to_string(),
+            ));
+        }
+        return Ok(());
+    }
+    if merchant_id.is_none() || merchant_trade_no.is_none() {
+        return Err(WechatError::Config(
+            "mini-program wxa/sec/order lookup requires transaction id or merchant id plus merchant trade number"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn wxa_sec_response_order_identity(order: &WxaSecOrder) -> Result<String> {
+    if let Some(transaction_id) = order.transaction_id.as_deref() {
+        validate_wxa_sec_required("response transaction id", transaction_id)?;
+        return Ok(format!("transaction:{transaction_id}"));
+    }
+    let merchant_id = order.merchant_id.as_deref().ok_or_else(|| {
+        WechatError::Config(
+            "mini-program wxa/sec/order response is missing merchant id".to_string(),
+        )
+    })?;
+    let merchant_trade_no = order.merchant_trade_no.as_deref().ok_or_else(|| {
+        WechatError::Config(
+            "mini-program wxa/sec/order response is missing merchant trade number".to_string(),
+        )
+    })?;
+    validate_wxa_sec_required("response merchant id", merchant_id)?;
+    validate_wxa_sec_required("response merchant trade number", merchant_trade_no)?;
+    Ok(format!("merchant:{merchant_id}:{merchant_trade_no}"))
+}
+
+fn validate_wxa_sec_response_order_identity(order: &WxaSecOrder) -> Result<()> {
+    wxa_sec_response_order_identity(order).map(|_| ())
+}
+
+fn ensure_wxa_sec_order_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program wxa/sec/order operation failed")
+                .to_string(),
+        });
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13460,11 +14076,11 @@ mod tests {
 
     #[test]
     fn serializes_wxa_sec_shipping_info_request() {
-        let value = serde_json::to_value(WxaSecUploadShippingInfoRequest {
+        let request = WxaSecUploadShippingInfoRequest {
             order_key: WxaSecOrderKey {
                 order_number_type: 2,
                 transaction_id: Some("tx".to_string()),
-                mch_id: Some("mchid".to_string()),
+                mch_id: None,
                 out_trade_no: None,
             },
             logistics_type: 1,
@@ -13483,10 +14099,11 @@ mod tests {
             payer: WxaSecPayer {
                 openid: "openid".to_string(),
             },
-        })
-        .unwrap();
+        };
+        request.validate().unwrap();
+        let value = serde_json::to_value(request).unwrap();
 
-        assert_eq!(value["order_key"]["mchid"], "mchid");
+        assert!(value["order_key"].get("mchid").is_none());
         assert!(value["order_key"].get("out_trade_no").is_none());
         assert_eq!(value["is_all_delivered"], true);
         assert_eq!(value["shipping_list"][0]["item_desc"], "book");
@@ -13499,16 +14116,16 @@ mod tests {
 
     #[test]
     fn serializes_wxa_sec_combined_shipping_info_request() {
-        let value = serde_json::to_value(WxaSecUploadCombinedShippingInfoRequest {
+        let request = WxaSecUploadCombinedShippingInfoRequest {
             order_key: WxaSecOrderKey {
-                order_number_type: 1,
+                order_number_type: 2,
                 transaction_id: Some("tx-parent".to_string()),
                 mch_id: None,
                 out_trade_no: None,
             },
             sub_orders: vec![WxaSecSubOrderShippingInfo {
                 order_key: WxaSecOrderKey {
-                    order_number_type: 2,
+                    order_number_type: 1,
                     transaction_id: None,
                     mch_id: Some("mchid".to_string()),
                     out_trade_no: Some("out-trade-no".to_string()),
@@ -13518,7 +14135,7 @@ mod tests {
                 is_all_delivered: true,
                 shipping_list: vec![WxaSecShippingInfo {
                     tracking_no: Some("tracking".to_string()),
-                    express_company: None,
+                    express_company: Some("SF".to_string()),
                     item_desc: "coffee".to_string(),
                     contact: None,
                 }],
@@ -13527,8 +14144,9 @@ mod tests {
             payer: WxaSecPayer {
                 openid: "openid".to_string(),
             },
-        })
-        .unwrap();
+        };
+        request.validate().unwrap();
+        let value = serde_json::to_value(request).unwrap();
 
         assert_eq!(value["order_key"]["transaction_id"], "tx-parent");
         assert_eq!(
@@ -13541,17 +14159,19 @@ mod tests {
 
     #[test]
     fn serializes_wxa_sec_order_queries() {
-        let order_query = serde_json::to_value(WxaSecOrderQuery {
+        let order_request = WxaSecOrderQuery {
             transaction_id: None,
-            merchant_id: None,
+            merchant_id: Some("merchant".to_string()),
             sub_merchant_id: None,
             merchant_trade_no: Some("trade-no".to_string()),
-        })
-        .unwrap();
+        };
+        order_request.validate().unwrap();
+        let order_query = serde_json::to_value(order_request).unwrap();
         assert_eq!(order_query["merchant_trade_no"], "trade-no");
+        assert_eq!(order_query["merchant_id"], "merchant");
         assert!(order_query.get("transaction_id").is_none());
 
-        let list_query = serde_json::to_value(WxaSecOrderListRequest {
+        let list_request = WxaSecOrderListRequest {
             pay_time_range: Some(WxaSecPayTimeRange {
                 begin_time: Some(1_800_000_000),
                 end_time: Some(1_800_003_600),
@@ -13560,28 +14180,31 @@ mod tests {
             openid: Some("openid".to_string()),
             last_index: Some("cursor".to_string()),
             page_size: Some(20),
-        })
-        .unwrap();
+        };
+        list_request.validate().unwrap();
+        let list_query = serde_json::to_value(list_request).unwrap();
         assert_eq!(list_query["pay_time_range"]["begin_time"], 1_800_000_000);
         assert_eq!(list_query["page_size"], 20);
 
-        let confirm = serde_json::to_value(WxaSecConfirmReceiveRequest {
+        let confirm_request = WxaSecConfirmReceiveRequest {
             transaction_id: Some("tx".to_string()),
             merchant_id: None,
             sub_merchant_id: None,
             merchant_trade_no: None,
             received_time: Some(1_800_003_600),
-        })
-        .unwrap();
+        };
+        confirm_request.validate().unwrap();
+        let confirm = serde_json::to_value(confirm_request).unwrap();
         assert_eq!(confirm["transaction_id"], "tx");
         assert_eq!(confirm["received_time"], 1_800_003_600);
 
-        let special = serde_json::to_value(WxaSecSpecialOrderRequest {
+        let special_request = WxaSecSpecialOrderRequest {
             order_id: "order-id".to_string(),
             operation_type: 1,
             delay_to: Some(1_800_010_000),
-        })
-        .unwrap();
+        };
+        special_request.validate().unwrap();
+        let special = serde_json::to_value(special_request).unwrap();
         assert_eq!(special["order_id"], "order-id");
         assert_eq!(special["type"], 1);
         assert_eq!(special["delay_to"], 1_800_010_000);
@@ -13598,9 +14221,12 @@ mod tests {
                 "merchant_trade_no": "trade-no",
                 "openid": "openid",
                 "description": "goods",
+                "paid_amount": 100,
+                "trade_create_time": 1_799_999_000,
                 "order_state": 2,
                 "order_state_desc": "paid",
                 "pay_time": 1_800_000_000,
+                "in_complaint": false,
                 "amount": {
                     "total": 100,
                     "payer_total": 100,
@@ -13612,12 +14238,17 @@ mod tests {
                     "logistics_type": 1,
                     "delivery_mode": 1,
                     "is_all_delivered": true,
+                    "finish_shipping": true,
+                    "finish_shipping_count": 1,
+                    "goods_desc": "goods",
                     "upload_time": "2026-07-16T10:00:00+08:00",
                     "shipping_extra": "retained",
                     "shipping_list": [{
                         "tracking_no": "tracking",
                         "express_company": "SF",
                         "item_desc": "goods",
+                        "goods_desc": "goods",
+                        "upload_time": 1_800_000_100,
                         "contact": {
                             "consignor_contact": "13800000000",
                             "receiver_contact": "13900000000"
@@ -13630,11 +14261,15 @@ mod tests {
             "request_id": "order"
         }))
         .unwrap();
+        order.validate().unwrap();
         assert_eq!(order.errcode, Some(0));
         assert_eq!(order.extra["request_id"], "order");
         let order_detail = order.order.expect("order");
         assert_eq!(order_detail.transaction_id.as_deref(), Some("tx"));
         assert_eq!(order_detail.merchant_trade_no.as_deref(), Some("trade-no"));
+        assert_eq!(order_detail.paid_amount, Some(100));
+        assert_eq!(order_detail.trade_create_time, Some(1_799_999_000));
+        assert_eq!(order_detail.in_complaint, Some(false));
         assert_eq!(
             order_detail.order_state_kind(),
             Some(WxaSecOrderStateKind::Shipped)
@@ -13644,10 +14279,16 @@ mod tests {
         assert_eq!(amount.total, Some(100));
         assert_eq!(amount.extra["amount_extra"], "retained");
         let shipping = order_detail.shipping.expect("shipping");
+        assert_eq!(shipping.finish_shipping, Some(true));
+        assert_eq!(shipping.finish_shipping_count, Some(1));
         assert_eq!(shipping.extra["shipping_extra"], "retained");
         assert_eq!(
             shipping.shipping_list[0].tracking_no.as_deref(),
             Some("tracking")
+        );
+        assert_eq!(
+            shipping.shipping_list[0].upload_time_unix,
+            Some(1_800_000_100)
         );
         assert_eq!(shipping.shipping_list[0].extra["item_extra"], "retained");
 
@@ -13664,6 +14305,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        list.validate().unwrap();
         assert_eq!(list.last_index.as_deref(), Some("cursor"));
         assert_eq!(list.has_more, Some(true));
         assert_eq!(list.extra["request_id"], "list");
@@ -13695,6 +14337,7 @@ mod tests {
         .unwrap();
         assert_eq!(managed.is_trade_managed, Some(true));
         assert_eq!(managed.extra["request_id"], "managed");
+        managed.validate().unwrap();
 
         let confirmation: WxaSecTradeManagementConfirmationResponse =
             serde_json::from_value(json!({
@@ -13705,6 +14348,108 @@ mod tests {
             .unwrap();
         assert_eq!(confirmation.completed, Some(true));
         assert_eq!(confirmation.extra["request_id"], "confirmation");
+        confirmation.validate().unwrap();
+    }
+
+    #[test]
+    fn validates_wxa_sec_order_production_invariants() {
+        validate_wxa_sec_jump_path("pages/order/detail?id=1").unwrap();
+        validate_wxa_sec_jump_path("/pages/order/detail?id=1").unwrap();
+        assert!(validate_wxa_sec_jump_path("https://example.com/order").is_err());
+
+        let mixed_key = WxaSecOrderKey {
+            order_number_type: 2,
+            transaction_id: Some("tx".to_string()),
+            mch_id: Some("merchant".to_string()),
+            out_trade_no: None,
+        };
+        assert!(mixed_key.validate().is_err());
+
+        let invalid_range = WxaSecOrderListRequest {
+            pay_time_range: Some(WxaSecPayTimeRange {
+                begin_time: Some(20),
+                end_time: Some(10),
+            }),
+            order_state: None,
+            openid: None,
+            last_index: None,
+            page_size: Some(51),
+        };
+        assert!(invalid_range.validate().is_err());
+
+        let split_without_completion = WxaSecUploadShippingInfoRequest {
+            order_key: WxaSecOrderKey {
+                order_number_type: 2,
+                transaction_id: Some("tx".to_string()),
+                mch_id: None,
+                out_trade_no: None,
+            },
+            logistics_type: 1,
+            delivery_mode: 2,
+            is_all_delivered: None,
+            shipping_list: vec![WxaSecShippingInfo {
+                tracking_no: Some("tracking".to_string()),
+                express_company: Some("SF".to_string()),
+                item_desc: "goods".to_string(),
+                contact: None,
+            }],
+            upload_time: "2026-07-20T12:00:00+08:00".to_string(),
+            payer: WxaSecPayer {
+                openid: "openid".to_string(),
+            },
+        };
+        assert!(split_without_completion.validate().is_err());
+
+        let api_error: WxaSecOrderResponse =
+            serde_json::from_value(json!({ "errcode": 40001, "errmsg": "invalid token" })).unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let missing_cursor: WxaSecOrderListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "has_more": true,
+            "order_list": []
+        }))
+        .unwrap();
+        assert!(missing_cursor.validate().is_err());
+
+        let duplicate_orders: WxaSecOrderListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "has_more": false,
+            "order_list": [
+                { "transaction_id": "tx", "order_state": 1 },
+                { "transaction_id": "tx", "order_state": 2 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_orders.validate().is_err());
+    }
+
+    #[test]
+    fn builds_wxa_sec_order_next_page_request() {
+        let current = WxaSecOrderListRequest {
+            pay_time_range: Some(WxaSecPayTimeRange {
+                begin_time: Some(1_800_000_000),
+                end_time: Some(1_800_003_600),
+            }),
+            order_state: Some(2),
+            openid: None,
+            last_index: None,
+            page_size: Some(20),
+        };
+        let response: WxaSecOrderListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "has_more": true,
+            "last_index": "next-cursor",
+            "order_list": []
+        }))
+        .unwrap();
+        let next = response
+            .next_page_request(&current)
+            .unwrap()
+            .expect("next page");
+        assert_eq!(next.last_index.as_deref(), Some("next-cursor"));
+        assert_eq!(next.page_size, Some(20));
+        assert_eq!(next.order_state, Some(2));
     }
 
     #[test]

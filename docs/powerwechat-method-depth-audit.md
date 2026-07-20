@@ -52,7 +52,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    coverage and production request/response guards. `express` retains all
    16 PowerWeChat methods and adds typed production variants for the four
    upstream open-map operations. Continue DTO normalization across
-   `industry/miniDrama/vod`, `b2b`, `dataCube`, and `wxa`.
+   `industry/miniDrama/vod`, `b2b`, and `dataCube`. The current
+   PowerWeChat `wxa/sec/order` surface now has production request/response
+   guards and pagination helpers.
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -780,6 +782,30 @@ Implemented on 2026-07-20 in Mini Program operation production depth:
   percentage, schedule, JSON payload, semantic status/version, and next-page
   validation helpers.
 
+Implemented on 2026-07-20 in Mini Program `wxa/sec/order` production depth:
+
+- all 9 current PowerWeChat security-order methods remain covered, with
+  request validation applied before upload, combined upload, order query,
+  list query, receipt confirmation, message-path, trade-management, and
+  special-order network calls;
+- order keys now enforce the documented merchant-order versus WeChat
+  transaction identifier modes, while shipment validation covers logistics
+  and delivery modes, split-delivery completion, express identifiers,
+  non-empty item descriptions, RFC 3339 upload times, payer identity, and
+  duplicate combined sub-orders;
+- order/list requests enforce complete lookup identities, positive ordered
+  payment ranges, order states, page sizes up to 50, nonblank cursors, and
+  positive receipt/special-order timestamps;
+- order responses now cover PowerWeChat's flat paid amount, trade creation
+  time, complaint state, shipping-completion counters, goods descriptions,
+  and per-item Unix upload time while preserving the existing amount and
+  extension-field compatibility surface;
+- response guards reject WeChat API failures, missing or duplicate order
+  identities, invalid states, negative or inconsistent amounts/timestamps,
+  malformed shipping data, missing trade-management results, and `has_more`
+  pages without a cursor; a typed next-page helper preserves the current
+  filters.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -990,7 +1016,7 @@ Recommended implementation order:
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
 3. Mini Program DTO/method-depth review for `industry/miniDrama/vod`, `b2b`,
-   `dataCube`, and `wxa`.
+   and `dataCube`.
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
