@@ -112,6 +112,18 @@ Implemented on 2026-07-21 in Work department contract depth:
 - Full/simple department responses enforce unique IDs and valid hierarchy
   records, with root, child, lookup, leader, and required-detail helpers.
 
+Implemented on 2026-07-21 in Work JSSDK credential depth:
+
+- Corporation and agent JSSDK ticket network exits now validate WeCom API
+  status, required ticket values, and positive expiration before returning.
+- Ticket DTOs expose checked ticket, expiry, and safety-margin refresh helpers
+  matching PowerWeChat's early-refresh cache behavior.
+- JSSDK config construction is now fallible and validates corporation IDs,
+  tickets, nonces, timestamps, absolute HTTP(S) URLs, and unique API names.
+- Signature input strips the browser-only URL fragment while preserving the
+  exact pre-fragment URL bytes; deterministic construction and signature
+  verification helpers are covered by a fixed WeChat-format SHA-1 vector.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream

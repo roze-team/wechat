@@ -3248,22 +3248,28 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkTicketResponse> {
-        self.inner
+        let response: WorkTicketResponse = self
+            .inner
             .get("cgi-bin/get_jsapi_ticket", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate_for("corporation")?;
+        Ok(response)
     }
 
     pub async fn agent_jsapi_ticket(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkTicketResponse> {
-        self.inner
+        let response: WorkTicketResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/ticket/get",
                 Some(access_token.into()),
                 vec![("type".to_string(), "agent_config".to_string())],
             )
-            .await
+            .await?;
+        response.validate_for("agent")?;
+        Ok(response)
     }
 
     pub fn build_jsapi_config(
@@ -3271,25 +3277,48 @@ impl Work {
         jsapi_ticket: impl AsRef<str>,
         url: impl AsRef<str>,
         js_api_list: Vec<String>,
-    ) -> WorkJsapiConfig {
+    ) -> Result<WorkJsapiConfig> {
         let nonce_str = crypto::nonce_string(16);
         let timestamp = chrono::Utc::now().timestamp();
-        let plain = format!(
-            "jsapi_ticket={}&noncestr={}&timestamp={}&url={}",
-            jsapi_ticket.as_ref(),
+        Self::build_jsapi_config_with(
+            corp_id,
+            jsapi_ticket,
+            url,
+            js_api_list,
             nonce_str,
             timestamp,
-            url.as_ref()
-        );
-        let signature = crypto::sha1_signature(&[plain.as_str()]);
+        )
+    }
 
-        WorkJsapiConfig {
-            corp_id: corp_id.into(),
+    pub fn build_jsapi_config_with(
+        corp_id: impl Into<String>,
+        jsapi_ticket: impl AsRef<str>,
+        url: impl AsRef<str>,
+        js_api_list: Vec<String>,
+        nonce_str: impl Into<String>,
+        timestamp: i64,
+    ) -> Result<WorkJsapiConfig> {
+        let corp_id = corp_id.into();
+        let nonce_str = nonce_str.into();
+        validate_work_jsapi_inputs(
+            &corp_id,
+            jsapi_ticket.as_ref(),
+            &nonce_str,
+            timestamp,
+            &js_api_list,
+        )?;
+        let url = normalize_work_jsapi_url(url.as_ref())?;
+        let signature =
+            work_jsapi_signature(jsapi_ticket.as_ref(), &nonce_str, timestamp, url.as_str());
+        let config = WorkJsapiConfig {
+            corp_id,
             timestamp,
             nonce_str,
             signature,
             js_api_list,
-        }
+        };
+        config.validate()?;
+        Ok(config)
     }
 
     pub fn media(&self) -> DomainModule {
@@ -10469,6 +10498,48 @@ pub struct WorkTicketResponse {
     pub extra: Value,
 }
 
+impl WorkTicketResponse {
+    pub fn validate_for(&self, kind: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work {kind} JSSDK ticket"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_base_credential(
+            &format!("{kind} JSSDK ticket"),
+            self.ticket.as_deref().ok_or_else(|| {
+                WechatError::Config(format!("work {kind} JSSDK ticket response requires ticket"))
+            })?,
+        )?;
+        if self.expires_in.is_none_or(|expires_in| expires_in <= 0) {
+            return Err(WechatError::Config(format!(
+                "work {kind} JSSDK ticket response requires positive expires_in"
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn require_ticket(&self, kind: &str) -> Result<&str> {
+        self.validate_for(kind)?;
+        Ok(self.ticket.as_deref().expect("validated JSSDK ticket"))
+    }
+
+    pub fn expires_after_seconds(&self, kind: &str) -> Result<i64> {
+        self.validate_for(kind)?;
+        Ok(self.expires_in.expect("validated JSSDK ticket expiration"))
+    }
+
+    pub fn refresh_after_seconds(&self, kind: &str, safety_margin_seconds: i64) -> Result<i64> {
+        let expires_in = self.expires_after_seconds(kind)?;
+        if safety_margin_seconds < 0 || safety_margin_seconds >= expires_in {
+            return Err(WechatError::Config(format!(
+                "work {kind} JSSDK ticket refresh margin must be non-negative and less than expires_in"
+            )));
+        }
+        Ok(expires_in - safety_margin_seconds)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJsapiConfig {
     #[serde(rename = "corpId")]
@@ -10479,6 +10550,104 @@ pub struct WorkJsapiConfig {
     pub signature: String,
     #[serde(rename = "jsApiList")]
     pub js_api_list: Vec<String>,
+}
+
+impl WorkJsapiConfig {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_jsapi_config_fields(
+            &self.corp_id,
+            &self.nonce_str,
+            self.timestamp,
+            &self.js_api_list,
+        )?;
+        if self.signature.len() != 40
+            || !self.signature.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(WechatError::Config(
+                "work JSSDK signature must contain 40 hexadecimal characters".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn verify_signature(&self, jsapi_ticket: &str, url: &str) -> Result<bool> {
+        self.validate()?;
+        validate_work_base_credential("JSSDK ticket", jsapi_ticket)?;
+        let url = normalize_work_jsapi_url(url)?;
+        Ok(self.signature.eq_ignore_ascii_case(&work_jsapi_signature(
+            jsapi_ticket,
+            &self.nonce_str,
+            self.timestamp,
+            url.as_str(),
+        )))
+    }
+}
+
+fn validate_work_jsapi_inputs(
+    corp_id: &str,
+    jsapi_ticket: &str,
+    nonce_str: &str,
+    timestamp: i64,
+    js_api_list: &[String],
+) -> Result<()> {
+    validate_work_base_credential("JSSDK ticket", jsapi_ticket)?;
+    validate_work_jsapi_config_fields(corp_id, nonce_str, timestamp, js_api_list)
+}
+
+fn validate_work_jsapi_config_fields(
+    corp_id: &str,
+    nonce_str: &str,
+    timestamp: i64,
+    js_api_list: &[String],
+) -> Result<()> {
+    validate_work_base_credential("JSSDK corporation id", corp_id)?;
+    validate_work_base_credential("JSSDK nonce", nonce_str)?;
+    if nonce_str.len() > 64 {
+        return Err(WechatError::Config(
+            "work JSSDK nonce cannot exceed 64 UTF-8 bytes".to_string(),
+        ));
+    }
+    if timestamp <= 0 {
+        return Err(WechatError::Config(
+            "work JSSDK timestamp must be positive".to_string(),
+        ));
+    }
+    if js_api_list.is_empty() || js_api_list.len() > 100 {
+        return Err(WechatError::Config(
+            "work JSSDK API list must contain between 1 and 100 APIs".to_string(),
+        ));
+    }
+    let mut apis = std::collections::HashSet::with_capacity(js_api_list.len());
+    for api in js_api_list {
+        if api.trim().is_empty()
+            || api.len() > 128
+            || api.chars().any(char::is_control)
+            || !apis.insert(api.as_str())
+        {
+            return Err(WechatError::Config(
+                "work JSSDK API list requires unique non-empty names of at most 128 bytes"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn normalize_work_jsapi_url(value: &str) -> Result<String> {
+    let value = value.split_once('#').map_or(value, |(base, _)| base);
+    let url = url::Url::parse(value)
+        .map_err(|error| WechatError::Config(format!("work JSSDK URL is invalid: {error}")))?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(WechatError::Config(
+            "work JSSDK URL must be an absolute HTTP(S) URL".to_string(),
+        ));
+    }
+    Ok(value.to_string())
+}
+
+fn work_jsapi_signature(ticket: &str, nonce: &str, timestamp: i64, url: &str) -> String {
+    let plain = format!("jsapi_ticket={ticket}&noncestr={nonce}&timestamp={timestamp}&url={url}");
+    crypto::sha1_signature(&[plain.as_str()])
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53290,6 +53459,12 @@ mod tests {
         .unwrap();
         assert_eq!(ticket.ticket.as_deref(), Some("ticket"));
         assert_eq!(ticket.extra["issued_at"], 1_800_000_000);
+        assert_eq!(ticket.require_ticket("corporation").unwrap(), "ticket");
+        assert_eq!(ticket.expires_after_seconds("corporation").unwrap(), 7200);
+        assert_eq!(
+            ticket.refresh_after_seconds("corporation", 500).unwrap(),
+            6700
+        );
     }
 
     #[test]
@@ -53325,6 +53500,117 @@ mod tests {
         let duplicate: WorkIpListResponse =
             serde_json::from_value(json!({ "ip_list": ["1.1.1.1", "1.1.1.1"] })).unwrap();
         assert!(duplicate.validate_for("callback").is_err());
+    }
+
+    #[test]
+    fn validates_work_jssdk_ticket_and_signature_contracts() {
+        let api_error: WorkTicketResponse = serde_json::from_value(json!({
+            "errcode": 40014,
+            "errmsg": "invalid access token"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate_for("corporation"),
+            Err(WechatError::Api { code: 40014, .. })
+        ));
+        let missing_ticket: WorkTicketResponse =
+            serde_json::from_value(json!({ "expires_in": 7200 })).unwrap();
+        assert!(missing_ticket.validate_for("agent").is_err());
+        let zero_expiry: WorkTicketResponse =
+            serde_json::from_value(json!({ "ticket": "ticket", "expires_in": 0 })).unwrap();
+        assert!(zero_expiry.validate_for("agent").is_err());
+        let ticket: WorkTicketResponse = serde_json::from_value(json!({
+            "ticket": "ticket",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert!(ticket.refresh_after_seconds("agent", -1).is_err());
+        assert!(ticket.refresh_after_seconds("agent", 7200).is_err());
+
+        let config = Work::build_jsapi_config_with(
+            "wxcorp",
+            "sM4AOVdWfPE4DxkXGEs8VMKCbjsa9w1jWZLQRAzG2SxXxY",
+            "http://mp.weixin.qq.com?params=value#client-route",
+            vec!["checkJsApi".to_string()],
+            "Wm3WZYTPz0wzccnW",
+            1_414_587_457,
+        )
+        .unwrap();
+        assert_eq!(config.signature, "57e68ba45e84d58def905623ab31ac6538aeeee4");
+        assert!(config
+            .verify_signature(
+                "sM4AOVdWfPE4DxkXGEs8VMKCbjsa9w1jWZLQRAzG2SxXxY",
+                "http://mp.weixin.qq.com?params=value#another-route"
+            )
+            .unwrap());
+        assert!(!config
+            .verify_signature(
+                "sM4AOVdWfPE4DxkXGEs8VMKCbjsa9w1jWZLQRAzG2SxXxY",
+                "http://mp.weixin.qq.com?params=other"
+            )
+            .unwrap());
+        let wire = serde_json::to_value(&config).unwrap();
+        assert_eq!(wire["corpId"], "wxcorp");
+        assert_eq!(wire["nonceStr"], "Wm3WZYTPz0wzccnW");
+        assert_eq!(wire["jsApiList"][0], "checkJsApi");
+
+        assert!(Work::build_jsapi_config(
+            "wxcorp",
+            "ticket",
+            "https://example.com",
+            vec!["checkJsApi".to_string()]
+        )
+        .is_ok());
+        for invalid in [
+            Work::build_jsapi_config_with(
+                " ",
+                "ticket",
+                "https://example.com",
+                vec!["checkJsApi".to_string()],
+                "nonce",
+                1,
+            ),
+            Work::build_jsapi_config_with(
+                "wxcorp",
+                "ticket",
+                "file:///tmp/page",
+                vec!["checkJsApi".to_string()],
+                "nonce",
+                1,
+            ),
+            Work::build_jsapi_config_with(
+                "wxcorp",
+                "ticket",
+                "https://example.com",
+                vec!["checkJsApi".to_string(), "checkJsApi".to_string()],
+                "nonce",
+                1,
+            ),
+            Work::build_jsapi_config_with(
+                "wxcorp",
+                "ticket",
+                "https://example.com",
+                Vec::new(),
+                "nonce",
+                1,
+            ),
+            Work::build_jsapi_config_with(
+                "wxcorp",
+                "ticket",
+                "https://example.com",
+                vec!["checkJsApi".to_string()],
+                "nonce",
+                0,
+            ),
+        ] {
+            assert!(invalid.is_err());
+        }
+
+        let invalid_signature = WorkJsapiConfig {
+            signature: "not-sha1".to_string(),
+            ..config
+        };
+        assert!(invalid_signature.validate().is_err());
     }
 
     #[test]
