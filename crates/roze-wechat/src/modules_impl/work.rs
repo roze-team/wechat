@@ -879,7 +879,9 @@ impl Work {
         access_token: impl Into<String>,
         agent_id: i64,
     ) -> Result<WorkCorpGroupAppShareInfoResponse> {
-        self.inner
+        validate_work_agent_id(agent_id)?;
+        let response: WorkCorpGroupAppShareInfoResponse = self
+            .inner
             .post_json_with_access_token_query(
                 "cgi-bin/corpgroup/corp/list_app_share_info",
                 Some(access_token.into()),
@@ -887,7 +889,9 @@ impl Work {
                 json!({}),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn corpgroup_token(
@@ -896,13 +900,20 @@ impl Work {
         corp_id: impl Into<String>,
         agent_id: impl Into<String>,
     ) -> Result<WorkCorpGroupTokenResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        let agent_id = agent_id.into();
+        validate_work_corpgroup_identifier("corp id", &corp_id)?;
+        validate_work_corpgroup_agent_id(&agent_id)?;
+        let response: WorkCorpGroupTokenResponse = self
+            .inner
             .post(
                 "cgi-bin/corpgroup/corp/gettoken",
                 Some(access_token.into()),
-                json!({ "corpid": corp_id.into(), "agentid": agent_id.into() }),
+                json!({ "corpid": corp_id, "agentid": agent_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn corpgroup_miniprogram_transfer_session(
@@ -911,13 +922,20 @@ impl Work {
         user_id: impl Into<String>,
         session_key: impl Into<String>,
     ) -> Result<WorkCorpGroupTransferSessionResponse> {
-        self.inner
+        let user_id = user_id.into();
+        let session_key = session_key.into();
+        validate_work_user_id(&user_id)?;
+        validate_work_base_credential("corpgroup session key", &session_key)?;
+        let response: WorkCorpGroupTransferSessionResponse = self
+            .inner
             .post(
                 "cgi-bin/corpgroup/miniprogram/transfer_session",
                 Some(access_token.into()),
-                json!({ "userid": user_id.into(), "session_key": session_key.into() }),
+                json!({ "userid": user_id, "session_key": session_key }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn mini_program(&self) -> DomainModule {
@@ -929,13 +947,17 @@ impl Work {
         access_token: impl Into<String>,
         code: impl Into<String>,
     ) -> Result<WorkMiniProgramSessionResponse> {
-        self.inner
+        let query = work_mini_program_code_to_session_query(code.into())?;
+        let response: WorkMiniProgramSessionResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/miniprogram/jscode2session",
                 Some(access_token.into()),
-                vec![("js_code".to_string(), code.into())],
+                query,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn id_convert(&self) -> DomainModule {
@@ -8481,6 +8503,41 @@ pub struct WorkCorpGroupAppShareInfoResponse {
     pub extra: Value,
 }
 
+impl WorkCorpGroupAppShareInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work corpgroup application sharing",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut installations = std::collections::HashSet::with_capacity(self.corp_list.len());
+        for corp in &self.corp_list {
+            let (corp_id, agent_id) = corp.validate()?;
+            if !installations.insert((corp_id, agent_id)) {
+                return Err(WechatError::Config(
+                    "work corpgroup application sharing cannot contain duplicate installations"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find_corp(&self, corp_id: &str) -> Option<&WorkCorpGroupAppShareCorp> {
+        self.corp_list
+            .iter()
+            .find(|corp| corp.corpid.as_deref() == Some(corp_id))
+    }
+
+    pub fn installation_count(&self) -> usize {
+        self.corp_list.len()
+    }
+
+    pub fn is_shared(&self) -> bool {
+        !self.corp_list.is_empty()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCorpGroupAppShareCorp {
     #[serde(default)]
@@ -8489,6 +8546,24 @@ pub struct WorkCorpGroupAppShareCorp {
     pub agentid: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCorpGroupAppShareCorp {
+    pub fn validate(&self) -> Result<(&str, i64)> {
+        let corp_id = self.corpid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work corpgroup application sharing entry requires corpid".to_string(),
+            )
+        })?;
+        validate_work_corpgroup_identifier("shared corp id", corp_id)?;
+        let agent_id = self.agentid.ok_or_else(|| {
+            WechatError::Config(
+                "work corpgroup application sharing entry requires agentid".to_string(),
+            )
+        })?;
+        validate_work_agent_id(agent_id)?;
+        Ok((corp_id, agent_id))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8505,6 +8580,54 @@ pub struct WorkCorpGroupTokenResponse {
     pub extra: Value,
 }
 
+impl WorkCorpGroupTokenResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work corpgroup access token",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_base_credential(
+            "corpgroup access token",
+            self.access_token.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work corpgroup token response requires access_token".to_string(),
+                )
+            })?,
+        )?;
+        if self.expires_in.is_none_or(|expires_in| expires_in <= 0) {
+            return Err(WechatError::Config(
+                "work corpgroup token response requires positive expires_in".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn require_access_token(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self
+            .access_token
+            .as_deref()
+            .expect("validated corpgroup access token"))
+    }
+
+    pub fn expires_after_seconds(&self) -> Result<i64> {
+        self.validate()?;
+        Ok(self.expires_in.expect("validated corpgroup expiration"))
+    }
+
+    pub fn refresh_after_seconds(&self, safety_margin_seconds: i64) -> Result<i64> {
+        let expires_in = self.expires_after_seconds()?;
+        if safety_margin_seconds < 0 || safety_margin_seconds >= expires_in {
+            return Err(WechatError::Config(
+                "work corpgroup token refresh margin must be non-negative and less than expires_in"
+                    .to_string(),
+            ));
+        }
+        Ok(expires_in - safety_margin_seconds)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCorpGroupTransferSessionResponse {
     #[serde(default)]
@@ -8517,6 +8640,37 @@ pub struct WorkCorpGroupTransferSessionResponse {
     pub session_key: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCorpGroupTransferSessionResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work corpgroup mini-program session transfer",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_user_id(self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work corpgroup session response requires userid".to_string())
+        })?)?;
+        validate_work_base_credential(
+            "corpgroup transferred session key",
+            self.session_key.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work corpgroup session response requires session_key".to_string(),
+                )
+            })?,
+        )
+    }
+
+    pub fn require_identity(&self) -> Result<(&str, &str)> {
+        self.validate()?;
+        Ok((
+            self.userid.as_deref().expect("validated corpgroup userid"),
+            self.session_key
+                .as_deref()
+                .expect("validated corpgroup session key"),
+        ))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8535,6 +8689,85 @@ pub struct WorkMiniProgramSessionResponse {
     pub session_key: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMiniProgramSessionResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work mini-program code-to-session",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_corpgroup_identifier(
+            "mini-program corp id",
+            self.corpid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work mini-program session response requires corpid".to_string(),
+                )
+            })?,
+        )?;
+        validate_work_user_id(self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work mini-program session response requires userid".to_string())
+        })?)?;
+        validate_work_corpgroup_identifier(
+            "mini-program device id",
+            self.deviceid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work mini-program session response requires deviceid".to_string(),
+                )
+            })?,
+        )?;
+        validate_work_base_credential(
+            "mini-program session key",
+            self.session_key.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work mini-program session response requires session_key".to_string(),
+                )
+            })?,
+        )
+    }
+
+    pub fn require_identity(&self) -> Result<(&str, &str, &str, &str)> {
+        self.validate()?;
+        Ok((
+            self.corpid
+                .as_deref()
+                .expect("validated mini-program corpid"),
+            self.userid
+                .as_deref()
+                .expect("validated mini-program userid"),
+            self.deviceid
+                .as_deref()
+                .expect("validated mini-program deviceid"),
+            self.session_key
+                .as_deref()
+                .expect("validated mini-program session key"),
+        ))
+    }
+}
+
+fn validate_work_corpgroup_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() || value.len() > 256 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work corpgroup {label} must contain between 1 and 256 bytes without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_corpgroup_agent_id(agent_id: &str) -> Result<()> {
+    let agent_id = agent_id.parse::<i64>().map_err(|_| {
+        WechatError::Config("work corpgroup agent id must be a positive integer".to_string())
+    })?;
+    validate_work_agent_id(agent_id)
+}
+
+fn work_mini_program_code_to_session_query(code: String) -> Result<Vec<(String, String)>> {
+    validate_work_base_credential("mini-program login code", &code)?;
+    Ok(vec![
+        ("js_code".to_string(), code),
+        ("grant_type".to_string(), "authorization_code".to_string()),
+    ])
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52831,6 +53064,13 @@ mod tests {
         assert_eq!(share.corp_list[0].corpid.as_deref(), Some("corp"));
         assert_eq!(share.corp_list[0].agentid, Some(100001));
         assert_eq!(share.corp_list[0].extra["corp_name"], "Corp");
+        assert!(share.validate().is_ok());
+        assert!(share.is_shared());
+        assert_eq!(share.installation_count(), 1);
+        assert_eq!(
+            share.find_corp("corp").and_then(|corp| corp.agentid),
+            Some(100001)
+        );
 
         let token: WorkCorpGroupTokenResponse = serde_json::from_value(json!({
             "access_token": "token",
@@ -52841,6 +53081,9 @@ mod tests {
         assert_eq!(token.access_token.as_deref(), Some("token"));
         assert_eq!(token.expires_in, Some(7200));
         assert_eq!(token.extra["issued_at"], 1_800_000_000);
+        assert_eq!(token.require_access_token().unwrap(), "token");
+        assert_eq!(token.expires_after_seconds().unwrap(), 7200);
+        assert_eq!(token.refresh_after_seconds(300).unwrap(), 6900);
 
         let session: WorkCorpGroupTransferSessionResponse = serde_json::from_value(json!({
             "userid": "user",
@@ -52851,6 +53094,7 @@ mod tests {
         assert_eq!(session.userid.as_deref(), Some("user"));
         assert_eq!(session.session_key.as_deref(), Some("session"));
         assert_eq!(session.extra["session_expire"], 300);
+        assert_eq!(session.require_identity().unwrap(), ("user", "session"));
     }
 
     #[test]
@@ -52869,6 +53113,89 @@ mod tests {
         assert_eq!(session.deviceid.as_deref(), Some("device"));
         assert_eq!(session.session_key.as_deref(), Some("session"));
         assert_eq!(session.extra["open_data_scope"], "full");
+        assert_eq!(
+            session.require_identity().unwrap(),
+            ("corp", "user", "device", "session")
+        );
+    }
+
+    #[test]
+    fn validates_work_corpgroup_and_mini_program_session_contracts() {
+        assert!(validate_work_corpgroup_agent_id("100001").is_ok());
+        assert!(validate_work_corpgroup_agent_id("0").is_err());
+        assert!(validate_work_corpgroup_agent_id("agent").is_err());
+        assert!(validate_work_corpgroup_identifier("corp id", " ").is_err());
+        let query = work_mini_program_code_to_session_query("login-code".to_string()).unwrap();
+        assert_eq!(
+            query,
+            [
+                ("js_code".to_string(), "login-code".to_string()),
+                ("grant_type".to_string(), "authorization_code".to_string())
+            ]
+        );
+        assert!(work_mini_program_code_to_session_query(" ".to_string()).is_err());
+
+        let api_error: WorkCorpGroupAppShareInfoResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid agentid"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let missing_share_identity: WorkCorpGroupAppShareInfoResponse =
+            serde_json::from_value(json!({
+                "corp_list": [{ "agentid": 100001 }]
+            }))
+            .unwrap();
+        assert!(missing_share_identity.validate().is_err());
+        let duplicate_share: WorkCorpGroupAppShareInfoResponse = serde_json::from_value(json!({
+            "corp_list": [
+                { "corpid": "corp", "agentid": 100001 },
+                { "corpid": "corp", "agentid": 100001 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_share.validate().is_err());
+
+        let missing_token: WorkCorpGroupTokenResponse =
+            serde_json::from_value(json!({ "expires_in": 7200 })).unwrap();
+        assert!(missing_token.validate().is_err());
+        let expired_token: WorkCorpGroupTokenResponse = serde_json::from_value(json!({
+            "access_token": "token",
+            "expires_in": 0
+        }))
+        .unwrap();
+        assert!(expired_token.validate().is_err());
+        let token: WorkCorpGroupTokenResponse = serde_json::from_value(json!({
+            "access_token": "token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert!(token.refresh_after_seconds(-1).is_err());
+        assert!(token.refresh_after_seconds(7200).is_err());
+
+        let missing_transfer_user: WorkCorpGroupTransferSessionResponse =
+            serde_json::from_value(json!({ "session_key": "session" })).unwrap();
+        assert!(missing_transfer_user.validate().is_err());
+        let blank_transfer_session: WorkCorpGroupTransferSessionResponse =
+            serde_json::from_value(json!({ "userid": "user", "session_key": " " })).unwrap();
+        assert!(blank_transfer_session.validate().is_err());
+
+        for value in [
+            json!({ "userid": "user", "deviceid": "device", "session_key": "session" }),
+            json!({ "corpid": "corp", "deviceid": "device", "session_key": "session" }),
+            json!({ "corpid": "corp", "userid": "user", "session_key": "session" }),
+            json!({ "corpid": "corp", "userid": "user", "deviceid": "device" }),
+        ] {
+            let response: WorkMiniProgramSessionResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+        let mini_api_error: WorkMiniProgramSessionResponse =
+            serde_json::from_value(json!({ "errcode": 40029, "errmsg": "invalid code" })).unwrap();
+        assert!(matches!(
+            mini_api_error.validate(),
+            Err(WechatError::Api { code: 40029, .. })
+        ));
     }
 
     #[test]

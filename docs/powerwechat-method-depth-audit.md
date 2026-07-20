@@ -88,6 +88,17 @@ Implemented on 2026-07-21 in Work identity-conversion response depth:
 - Conversion responses expose successful counts, source lookup, invalid lists,
   and missing-input helpers for production reconciliation and retry handling.
 
+Implemented on 2026-07-21 in Work corpgroup and mini-program session depth:
+
+- Corpgroup application sharing, subordinate-corporation tokens, transferred
+  sessions, and Work mini-program code-to-session now validate inputs, WeCom
+  API status, and required response identities before returning.
+- The Work mini-program login request now sends PowerWeChat's documented
+  `grant_type=authorization_code` query parameter in addition to `js_code`.
+- Shared installations reject duplicate `(corpid, agentid)` pairs; subordinate
+  tokens expose checked expiry/refresh helpers, and both session responses
+  expose validated identity tuples for authentication boundaries.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream
