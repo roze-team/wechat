@@ -247,7 +247,7 @@ impl Work {
         user_id: impl Into<String>,
     ) -> Result<WorkUserDetailResponse> {
         let user_id = user_id.into();
-        validate_work_user_identifier("user id", &user_id)?;
+        validate_work_user_id(&user_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/get",
@@ -285,7 +285,7 @@ impl Work {
         user_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
         let user_id = user_id.into();
-        validate_work_user_identifier("user id", &user_id)?;
+        validate_work_user_id(&user_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/delete",
@@ -317,6 +317,7 @@ impl Work {
         department_id: i64,
         fetch_child: bool,
     ) -> Result<WorkDepartmentUserSimpleListResponse> {
+        validate_work_department_id(department_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/simplelist",
@@ -338,6 +339,7 @@ impl Work {
         department_id: i64,
         fetch_child: bool,
     ) -> Result<WorkDepartmentUserDetailListResponse> {
+        validate_work_department_id(department_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/list",
@@ -504,11 +506,13 @@ impl Work {
         access_token: impl Into<String>,
         mobile: impl Into<String>,
     ) -> Result<WorkUserIdLookupResponse> {
+        let mobile = mobile.into().trim().to_string();
+        validate_work_mobile(&mobile)?;
         self.inner
             .post(
                 "cgi-bin/user/getuserid",
                 Some(access_token.into()),
-                json!({ "mobile": mobile.into() }),
+                json!({ "mobile": mobile }),
             )
             .await
     }
@@ -519,11 +523,18 @@ impl Work {
         email: impl Into<String>,
         email_type: i64,
     ) -> Result<WorkUserIdLookupResponse> {
+        let email = email.into().trim().to_string();
+        validate_work_email(&email)?;
+        if !matches!(email_type, 1 | 2) {
+            return Err(WechatError::Config(
+                "work user email type must be 1 or 2".to_string(),
+            ));
+        }
         self.inner
             .post(
                 "cgi-bin/user/get_userid_by_email",
                 Some(access_token.into()),
-                json!({ "email": email.into(), "email_type": email_type }),
+                json!({ "email": email, "email_type": email_type }),
             )
             .await
     }
@@ -533,11 +544,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let user_id = user_id.into();
+        validate_work_user_id(&user_id)?;
         self.inner
             .get_with_query(
                 "cgi-bin/user/authsucc",
                 Some(access_token.into()),
-                vec![("userid".to_string(), user_id.into())],
+                vec![("userid".to_string(), user_id)],
             )
             .await
     }
@@ -558,6 +571,11 @@ impl Work {
         access_token: impl Into<String>,
         size_type: i64,
     ) -> Result<WorkJoinQrCodeResponse> {
+        if !(1..=4).contains(&size_type) {
+            return Err(WechatError::Config(
+                "work join QR-code size type must be between 1 and 4".to_string(),
+            ));
+        }
         self.inner
             .get_with_query(
                 "cgi-bin/corp/get_join_qrcode",
@@ -572,11 +590,13 @@ impl Work {
         access_token: impl Into<String>,
         date: impl Into<String>,
     ) -> Result<WorkUserActiveStatResponse> {
+        let date = date.into();
+        validate_work_active_stat_date(&date)?;
         self.inner
             .post(
                 "cgi-bin/user/get_active_stat",
                 Some(access_token.into()),
-                json!({ "date": date.into() }),
+                json!({ "date": date }),
             )
             .await
     }
@@ -599,11 +619,13 @@ impl Work {
         access_token: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<WorkLinkedCorpUserResponse> {
+        let user_id = user_id.into();
+        validate_work_user_identifier("linked-corp user id", &user_id)?;
         self.inner
             .post(
                 "cgi-bin/linkedcorp/user/get",
                 Some(access_token.into()),
-                json!({ "userid": user_id.into() }),
+                json!({ "userid": user_id }),
             )
             .await
     }
@@ -614,11 +636,13 @@ impl Work {
         department_id: impl Into<String>,
         fetch_child: bool,
     ) -> Result<WorkLinkedCorpUserListResponse> {
+        let department_id = department_id.into();
+        validate_work_user_identifier("linked-corp department id", &department_id)?;
         self.inner
             .post(
                 "cgi-bin/linkedcorp/user/simplelist",
                 Some(access_token.into()),
-                json!({ "department_id": department_id.into(), "fetch_child": fetch_child }),
+                json!({ "department_id": department_id, "fetch_child": fetch_child }),
             )
             .await
     }
@@ -629,11 +653,13 @@ impl Work {
         department_id: impl Into<String>,
         fetch_child: bool,
     ) -> Result<WorkLinkedCorpUserListResponse> {
+        let department_id = department_id.into();
+        validate_work_user_identifier("linked-corp department id", &department_id)?;
         self.inner
             .post(
                 "cgi-bin/linkedcorp/user/list",
                 Some(access_token.into()),
-                json!({ "department_id": department_id.into(), "fetch_child": fetch_child }),
+                json!({ "department_id": department_id, "fetch_child": fetch_child }),
             )
             .await
     }
@@ -643,11 +669,13 @@ impl Work {
         access_token: impl Into<String>,
         department_id: impl Into<String>,
     ) -> Result<WorkLinkedCorpDepartmentListResponse> {
+        let department_id = department_id.into();
+        validate_work_user_identifier("linked-corp department id", &department_id)?;
         self.inner
             .post(
                 "cgi-bin/linkedcorp/department/list",
                 Some(access_token.into()),
-                json!({ "department_id": department_id.into() }),
+                json!({ "department_id": department_id }),
             )
             .await
     }
@@ -671,6 +699,7 @@ impl Work {
         access_token: impl Into<String>,
         request: UserIdToOpenIdRequest,
     ) -> Result<UserIdToOpenIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/user/convert_to_openid",
@@ -699,6 +728,7 @@ impl Work {
         access_token: impl Into<String>,
         request: OpenIdToUserIdRequest,
     ) -> Result<OpenIdToUserIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/user/convert_to_userid",
@@ -785,6 +815,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkUnionIdToExternalUserIdRequest,
     ) -> Result<WorkUnionIdToExternalUserIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/idconvert/unionid_to_external_userid",
@@ -799,6 +830,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkExternalUserIdToPendingIdRequest,
     ) -> Result<WorkExternalUserIdToPendingIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/idconvert/batch/external_userid_to_pending_id",
@@ -813,6 +845,7 @@ impl Work {
         access_token: impl Into<String>,
         user_id_list: Vec<String>,
     ) -> Result<WorkUserIdToOpenUserIdResponse> {
+        validate_work_user_string_batch("userid conversion", &user_id_list, 1_000)?;
         self.inner
             .post(
                 "cgi-bin/batch/userid_to_openuserid",
@@ -827,6 +860,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkOpenUserIdToUserIdRequest,
     ) -> Result<WorkOpenUserIdToUserIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/batch/openuserid_to_userid",
@@ -841,6 +875,11 @@ impl Work {
         access_token: impl Into<String>,
         external_tag_id_list: Vec<String>,
     ) -> Result<WorkExternalTagIdToOpenExternalTagIdResponse> {
+        validate_work_user_string_batch(
+            "external tag-id conversion",
+            &external_tag_id_list,
+            1_000,
+        )?;
         self.inner
             .post(
                 "cgi-bin/idconvert/external_tagid",
@@ -855,6 +894,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkFromServiceExternalUserIdRequest,
     ) -> Result<WorkFromServiceExternalUserIdResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/from_service_external_userid",
@@ -869,11 +909,13 @@ impl Work {
         access_token: impl Into<String>,
         external_user_id: impl Into<String>,
     ) -> Result<WorkToServiceExternalUserIdResponse> {
+        let external_user_id = external_user_id.into();
+        validate_work_user_identifier("service external userid", &external_user_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/to_service_external_userid",
                 Some(access_token.into()),
-                json!({ "external_userid": external_user_id.into() }),
+                json!({ "external_userid": external_user_id }),
             )
             .await
     }
@@ -883,11 +925,13 @@ impl Work {
         provider_access_token: impl Into<String>,
         corp_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let corp_id = corp_id.into();
+        validate_work_user_identifier("migration corp id", &corp_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/finish_external_userid_migration",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into() }),
+                json!({ "corpid": corp_id }),
             )
             .await
     }
@@ -5903,12 +5947,19 @@ impl Work {
         tagname: impl Into<String>,
         tagid: i64,
     ) -> Result<WorkAccountServiceTagCreateResponse> {
+        let tagname = tagname.into();
+        validate_work_tag_name(&tagname)?;
+        if tagid < 0 {
+            return Err(WechatError::Config(
+                "work tag id cannot be negative".to_string(),
+            ));
+        }
+        let mut body = json!({ "tagname": tagname });
+        if tagid > 0 {
+            body["tagid"] = json!(tagid);
+        }
         self.inner
-            .post(
-                "cgi-bin/tag/create",
-                Some(access_token.into()),
-                json!({ "tagname": tagname.into(), "tagid": tagid }),
-            )
+            .post("cgi-bin/tag/create", Some(access_token.into()), body)
             .await
     }
 
@@ -5918,11 +5969,14 @@ impl Work {
         tagname: impl Into<String>,
         tagid: i64,
     ) -> Result<WorkStatusResponse> {
+        let tagname = tagname.into();
+        validate_work_tag_id(tagid)?;
+        validate_work_tag_name(&tagname)?;
         self.inner
             .post(
                 "cgi-bin/tag/update",
                 Some(access_token.into()),
-                json!({ "tagname": tagname.into(), "tagid": tagid }),
+                json!({ "tagname": tagname, "tagid": tagid }),
             )
             .await
     }
@@ -5932,11 +5986,12 @@ impl Work {
         access_token: impl Into<String>,
         tagid: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let tagid = parse_work_tag_id(tagid.into())?;
         self.inner
             .get_with_query(
                 "cgi-bin/tag/delete",
                 Some(access_token.into()),
-                vec![("tagid".to_string(), tagid.into())],
+                vec![("tagid".to_string(), tagid.to_string())],
             )
             .await
     }
@@ -5946,11 +6001,12 @@ impl Work {
         access_token: impl Into<String>,
         tagid: impl Into<String>,
     ) -> Result<WorkAccountServiceTagDetailResponse> {
+        let tagid = parse_work_tag_id(tagid.into())?;
         self.inner
             .get_with_query(
                 "cgi-bin/tag/get",
                 Some(access_token.into()),
-                vec![("tagid".to_string(), tagid.into())],
+                vec![("tagid".to_string(), tagid.to_string())],
             )
             .await
     }
@@ -5995,9 +6051,20 @@ impl Work {
         userlist: Vec<String>,
         partylist: Vec<String>,
     ) -> Result<WorkAccountServiceTagUserResultResponse> {
+        let endpoint = endpoint.into();
+        if !matches!(
+            endpoint.as_str(),
+            "cgi-bin/tag/addtagusers" | "cgi-bin/tag/deltagusers"
+        ) {
+            return Err(WechatError::Config(
+                "work tag member endpoint is not supported".to_string(),
+            ));
+        }
+        validate_work_tag_id(tagid)?;
+        let partylist = validate_work_tag_members(&userlist, &partylist)?;
         self.inner
             .post(
-                endpoint.into(),
+                endpoint,
                 Some(access_token.into()),
                 json!({ "tagid": tagid, "userlist": userlist, "partylist": partylist }),
             )
@@ -6717,6 +6784,12 @@ pub struct UserIdToOpenIdRequest {
     pub userid: String,
 }
 
+impl UserIdToOpenIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_id(&self.userid)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserIdToOpenIdResponse {
     #[serde(default)]
@@ -6734,6 +6807,12 @@ pub struct UserIdToOpenIdResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenIdToUserIdRequest {
     pub openid: String,
+}
+
+impl OpenIdToUserIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_identifier("openid", &self.openid)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6754,6 +6833,22 @@ pub struct WorkUnionIdToExternalUserIdRequest {
     pub openid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subject_type: Option<i64>,
+}
+
+impl WorkUnionIdToExternalUserIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_identifier("unionid", &self.unionid)?;
+        validate_work_user_identifier("openid", &self.openid)?;
+        if self
+            .subject_type
+            .is_some_and(|value| !matches!(value, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "work id-conversion subject type must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6859,6 +6954,20 @@ pub struct WorkExternalUserIdToPendingIdRequest {
     pub chat_id: Option<String>,
 }
 
+impl WorkExternalUserIdToPendingIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_string_batch(
+            "external-userid conversion",
+            &self.external_userid,
+            1_000,
+        )?;
+        if let Some(chat_id) = self.chat_id.as_deref() {
+            validate_work_user_identifier("external chat id", chat_id)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalUserIdToPendingIdItem {
     #[serde(default)]
@@ -6899,14 +7008,39 @@ pub struct WorkUserIdToOpenUserIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub open_userid_list: Vec<WorkUserIdToOpenUserIdItem>,
+    #[serde(default)]
+    pub invalid_userid_list: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserIdToOpenUserIdResponse {
+    pub fn find_by_user_id(&self, user_id: &str) -> Option<&WorkUserIdToOpenUserIdItem> {
+        self.open_userid_list
+            .iter()
+            .find(|item| item.userid.as_deref() == Some(user_id))
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.invalid_userid_list.len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkOpenUserIdToUserIdRequest {
     pub source_agentid: i64,
     pub open_userid_list: Vec<String>,
+}
+
+impl WorkOpenUserIdToUserIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.source_agentid <= 0 {
+            return Err(WechatError::Config(
+                "work source agent id must be positive".to_string(),
+            ));
+        }
+        validate_work_user_string_batch("open-userid conversion", &self.open_userid_list, 1_000)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6927,10 +7061,30 @@ pub struct WorkOpenUserIdToUserIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub userid_list: Vec<WorkOpenUserIdToUserIdItem>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "invalid_open_userid_list",
+        alias = "invalid_userid_list"
+    )]
     pub invalid_userid_list: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkOpenUserIdToUserIdResponse {
+    pub fn find_by_open_user_id(&self, open_user_id: &str) -> Option<&WorkOpenUserIdToUserIdItem> {
+        self.userid_list
+            .iter()
+            .find(|item| item.open_userid.as_deref() == Some(open_user_id))
+    }
+
+    pub fn invalid_open_userids(&self) -> &[String] {
+        &self.invalid_userid_list
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.invalid_userid_list.len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6951,16 +7105,51 @@ pub struct WorkExternalTagIdToOpenExternalTagIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub items: Vec<WorkExternalTagIdToOpenExternalTagIdItem>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "invalid_external_tagid_list",
+        alias = "invalid_tagid_list"
+    )]
     pub invalid_tagid_list: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalTagIdToOpenExternalTagIdResponse {
+    pub fn find_by_external_tag_id(
+        &self,
+        external_tag_id: &str,
+    ) -> Option<&WorkExternalTagIdToOpenExternalTagIdItem> {
+        self.items
+            .iter()
+            .find(|item| item.external_tagid.as_deref() == Some(external_tag_id))
+    }
+
+    pub fn invalid_external_tagids(&self) -> &[String] {
+        &self.invalid_tagid_list
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.invalid_tagid_list.len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkFromServiceExternalUserIdRequest {
     pub external_userid: String,
     pub source_agentid: i64,
+}
+
+impl WorkFromServiceExternalUserIdRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_identifier("service external userid", &self.external_userid)?;
+        if self.source_agentid <= 0 {
+            return Err(WechatError::Config(
+                "work source agent id must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9062,6 +9251,8 @@ pub struct WorkDepartmentUserId {
     #[serde(default)]
     pub userid: Option<String>,
     #[serde(default)]
+    pub open_userid: Option<String>,
+    #[serde(default)]
     pub department: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -9302,6 +9493,137 @@ fn validate_work_user_identifier(label: &str, value: &str) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+fn validate_work_user_id(user_id: &str) -> Result<()> {
+    validate_work_user_identifier("id", user_id)?;
+    if user_id.chars().count() > 64 {
+        return Err(WechatError::Config(
+            "work user id cannot exceed 64 characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_department_id(department_id: i64) -> Result<()> {
+    if department_id <= 0 {
+        return Err(WechatError::Config(
+            "work department id must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_mobile(mobile: &str) -> Result<()> {
+    let trimmed = mobile.trim();
+    let digits = trimmed.strip_prefix('+').unwrap_or(trimmed);
+    if !(5..=32).contains(&digits.len()) || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(WechatError::Config(
+            "work user mobile must contain 5 to 32 digits with an optional leading +".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_email(email: &str) -> Result<()> {
+    let trimmed = email.trim();
+    let Some((local, domain)) = trimmed.split_once('@') else {
+        return Err(WechatError::Config(
+            "work user email must be a valid email address".to_string(),
+        ));
+    };
+    if trimmed.len() > 254
+        || local.is_empty()
+        || local.len() > 64
+        || domain.is_empty()
+        || !domain.contains('.')
+        || domain.starts_with('.')
+        || domain.ends_with('.')
+        || trimmed.chars().any(char::is_whitespace)
+        || domain.split('.').any(str::is_empty)
+    {
+        return Err(WechatError::Config(
+            "work user email must be a valid email address".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_active_stat_date(date: &str) -> Result<()> {
+    let parsed = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| {
+        WechatError::Config("work active-stat date must use YYYY-MM-DD".to_string())
+    })?;
+    let today = chrono::Utc::now().date_naive();
+    let age = today.signed_duration_since(parsed).num_days();
+    if !(0..=30).contains(&age) {
+        return Err(WechatError::Config(
+            "work active-stat date must be today or within the previous 30 days".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_tag_id(tag_id: i64) -> Result<()> {
+    if tag_id <= 0 {
+        return Err(WechatError::Config(
+            "work tag id must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn parse_work_tag_id(tag_id: String) -> Result<i64> {
+    let parsed = tag_id
+        .trim()
+        .parse::<i64>()
+        .map_err(|_| WechatError::Config("work tag id must be a positive integer".to_string()))?;
+    validate_work_tag_id(parsed)?;
+    Ok(parsed)
+}
+
+fn validate_work_tag_name(tag_name: &str) -> Result<()> {
+    let length = tag_name.chars().count();
+    if tag_name.trim().is_empty() || length > 32 {
+        return Err(WechatError::Config(
+            "work tag name must contain between 1 and 32 characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_tag_members(user_ids: &[String], party_ids: &[String]) -> Result<Vec<i64>> {
+    if user_ids.is_empty() && party_ids.is_empty() {
+        return Err(WechatError::Config(
+            "work tag membership change requires at least one user or department".to_string(),
+        ));
+    }
+    if user_ids.len() + party_ids.len() > 1_000 {
+        return Err(WechatError::Config(
+            "work tag membership change cannot exceed 1000 users and departments".to_string(),
+        ));
+    }
+    if !user_ids.is_empty() {
+        validate_work_user_string_batch("tag membership", user_ids, 1_000)?;
+        if user_ids.iter().any(|user_id| user_id.chars().count() > 64) {
+            return Err(WechatError::Config(
+                "work tag member user id cannot exceed 64 characters".to_string(),
+            ));
+        }
+    }
+    let parsed = party_ids
+        .iter()
+        .map(|party_id| {
+            party_id.trim().parse::<i64>().map_err(|_| {
+                WechatError::Config("work tag department ids must be positive integers".to_string())
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if parsed.iter().any(|party_id| *party_id <= 0) || has_duplicate_i64(&parsed) {
+        return Err(WechatError::Config(
+            "work tag department ids must be unique positive integers".to_string(),
+        ));
+    }
+    Ok(parsed)
 }
 
 fn validate_work_user_job_id(job_id: &str) -> Result<()> {
@@ -17403,6 +17725,26 @@ pub struct WorkAccountServiceTagUserResultResponse {
     pub invalidparty: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAccountServiceTagUserResultResponse {
+    pub fn invalid_userids(&self) -> Vec<&str> {
+        self.invalidlist
+            .as_deref()
+            .into_iter()
+            .flat_map(|value| value.split(['|', ',']))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .collect()
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.invalid_userids().len() + self.invalidparty.len()
+    }
+
+    pub fn has_failures(&self) -> bool {
+        self.failure_count() > 0
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32921,6 +33263,96 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_user_identity_and_tag_operations() {
+        assert!(validate_work_department_id(1).is_ok());
+        assert!(validate_work_department_id(0).is_err());
+        assert!(validate_work_mobile("+8613800000000").is_ok());
+        assert!(validate_work_mobile("138-0000-0000").is_err());
+        assert!(validate_work_email("user@example.com").is_ok());
+        assert!(validate_work_email("user@example").is_err());
+        assert!(validate_work_active_stat_date(
+            &chrono::Utc::now()
+                .date_naive()
+                .format("%Y-%m-%d")
+                .to_string()
+        )
+        .is_ok());
+        assert!(validate_work_active_stat_date("2026/07/20").is_err());
+
+        assert!(UserIdToOpenIdRequest {
+            userid: "user".to_string(),
+        }
+        .validate()
+        .is_ok());
+        assert!(OpenIdToUserIdRequest {
+            openid: " ".to_string(),
+        }
+        .validate()
+        .is_err());
+        assert!(WorkUnionIdToExternalUserIdRequest {
+            unionid: "union".to_string(),
+            openid: "openid".to_string(),
+            subject_type: Some(1),
+        }
+        .validate()
+        .is_ok());
+        assert!(WorkUnionIdToExternalUserIdRequest {
+            unionid: "union".to_string(),
+            openid: "openid".to_string(),
+            subject_type: Some(2),
+        }
+        .validate()
+        .is_err());
+        assert!(WorkExternalUserIdToPendingIdRequest {
+            external_userid: vec!["external".to_string(), "external".to_string()],
+            chat_id: None,
+        }
+        .validate()
+        .is_err());
+        assert!(WorkOpenUserIdToUserIdRequest {
+            source_agentid: 100001,
+            open_userid_list: vec!["open-user".to_string()],
+        }
+        .validate()
+        .is_ok());
+        assert!(WorkOpenUserIdToUserIdRequest {
+            source_agentid: 0,
+            open_userid_list: vec!["open-user".to_string()],
+        }
+        .validate()
+        .is_err());
+        assert!(WorkFromServiceExternalUserIdRequest {
+            external_userid: "external".to_string(),
+            source_agentid: 100001,
+        }
+        .validate()
+        .is_ok());
+        assert!(WorkFromServiceExternalUserIdRequest {
+            external_userid: String::new(),
+            source_agentid: 100001,
+        }
+        .validate()
+        .is_err());
+
+        assert_eq!(
+            validate_work_tag_members(&["user".to_string()], &["1".to_string(), "2".to_string()])
+                .unwrap(),
+            vec![1, 2]
+        );
+        assert!(validate_work_tag_members(&[], &[]).is_err());
+        assert!(validate_work_tag_members(&[], &["0".to_string()]).is_err());
+        assert!(validate_work_tag_members(
+            &["user".to_string()],
+            &["1".to_string(), "1".to_string()]
+        )
+        .is_err());
+        assert_eq!(parse_work_tag_id("12".to_string()).unwrap(), 12);
+        assert!(parse_work_tag_id("tag".to_string()).is_err());
+        assert!(validate_work_tag_name("tag").is_ok());
+        assert!(validate_work_tag_name(&"x".repeat(33)).is_err());
+    }
+
+    #[test]
     fn serializes_work_user_management_requests_and_responses() {
         let create = serde_json::to_value(WorkUserRequest {
             userid: "user".to_string(),
@@ -33018,12 +33450,21 @@ mod tests {
 
         let list_id: WorkUserListIdResponse = serde_json::from_value(json!({
             "next_cursor": "cursor",
-            "dept_user": [{ "userid": "user", "department": 1, "dept_role": "owner" }],
+            "dept_user": [{
+                "userid": "user",
+                "open_userid": "open-user",
+                "department": 1,
+                "dept_role": "owner"
+            }],
             "next_open_cursor": "open-cursor"
         }))
         .unwrap();
         assert_eq!(list_id.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(list_id.dept_user[0].userid.as_deref(), Some("user"));
+        assert_eq!(
+            list_id.dept_user[0].open_userid.as_deref(),
+            Some("open-user")
+        );
         assert_eq!(list_id.dept_user[0].extra["dept_role"], "owner");
         assert_eq!(list_id.extra["next_open_cursor"], "open-cursor");
 
@@ -33379,6 +33820,7 @@ mod tests {
 
         let user_to_open: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
             "open_userid_list": [{ "userid": "user", "open_userid": "open-user", "source": "legacy" }],
+            "invalid_userid_list": ["bad-user"],
             "trace_id": "user-to-open"
         }))
         .unwrap();
@@ -33386,28 +33828,50 @@ mod tests {
             user_to_open.open_userid_list[0].open_userid.as_deref(),
             Some("open-user")
         );
+        assert_eq!(user_to_open.failure_count(), 1);
+        assert_eq!(
+            user_to_open
+                .find_by_user_id("user")
+                .and_then(|item| item.open_userid.as_deref()),
+            Some("open-user")
+        );
         assert_eq!(user_to_open.open_userid_list[0].extra["source"], "legacy");
         assert_eq!(user_to_open.extra["trace_id"], "user-to-open");
 
         let open_to_user: WorkOpenUserIdToUserIdResponse = serde_json::from_value(json!({
             "userid_list": [{ "userid": "user", "open_userid": "open-user", "user_source": "api" }],
-            "invalid_userid_list": ["bad-open-user"],
+            "invalid_open_userid_list": ["bad-open-user"],
             "trace_id": "open-to-user"
         }))
         .unwrap();
         assert_eq!(open_to_user.userid_list[0].userid.as_deref(), Some("user"));
         assert_eq!(open_to_user.invalid_userid_list[0], "bad-open-user");
+        assert_eq!(open_to_user.invalid_open_userids(), ["bad-open-user"]);
+        assert_eq!(open_to_user.failure_count(), 1);
+        assert_eq!(
+            open_to_user
+                .find_by_open_user_id("open-user")
+                .and_then(|item| item.userid.as_deref()),
+            Some("user")
+        );
         assert_eq!(open_to_user.userid_list[0].extra["user_source"], "api");
         assert_eq!(open_to_user.extra["trace_id"], "open-to-user");
 
         let tag: WorkExternalTagIdToOpenExternalTagIdResponse = serde_json::from_value(json!({
             "items": [{ "external_tagid": "tag", "open_external_tagid": "open-tag", "tag_source": "crm" }],
-            "invalid_tagid_list": [],
+            "invalid_external_tagid_list": ["bad-tag"],
             "trace_id": "tag-open"
         }))
         .unwrap();
         assert_eq!(
             tag.items[0].open_external_tagid.as_deref(),
+            Some("open-tag")
+        );
+        assert_eq!(tag.invalid_external_tagids(), ["bad-tag"]);
+        assert_eq!(tag.failure_count(), 1);
+        assert_eq!(
+            tag.find_by_external_tag_id("tag")
+                .and_then(|item| item.open_external_tagid.as_deref()),
             Some("open-tag")
         );
         assert_eq!(tag.items[0].extra["tag_source"], "crm");
@@ -39216,12 +39680,15 @@ mod tests {
         assert_eq!(tag_detail.partylist[0], 1);
 
         let tag_user: WorkAccountServiceTagUserResultResponse = serde_json::from_value(json!({
-            "invalidlist": "bad",
+            "invalidlist": "bad-a|bad-b",
             "invalidparty": [2],
             "request_id": "tag-user"
         }))
         .unwrap();
         assert_eq!(tag_user.invalidparty[0], 2);
+        assert_eq!(tag_user.invalid_userids(), ["bad-a", "bad-b"]);
+        assert_eq!(tag_user.failure_count(), 3);
+        assert!(tag_user.has_failures());
         assert_eq!(tag_user.extra["request_id"], "tag-user");
 
         let tags: WorkAccountServiceTagListResponse = serde_json::from_value(json!({

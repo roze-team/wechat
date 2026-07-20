@@ -1471,6 +1471,33 @@ Implemented on 2026-07-20 in Work application-message depth:
   checks before sending, while ordinary, linked-corporation, and school
   responses expose invalid-recipient counts and delivery-failure helpers.
 
+Implemented on 2026-07-20 in Work user, tag, and identity-conversion depth:
+
+- department member lists, authorization confirmation, linked-corporation
+  member and department reads, join QR codes, mobile/email lookups, and active
+  statistics now reject invalid identifiers, dimensions, formats, types, and
+  dates before network I/O;
+- active-stat dates use the documented `YYYY-MM-DD` format and are limited to
+  today or the previous 30 days, while mobile and email checks prevent bad
+  identity-lookup attempts from consuming upstream error and rate limits;
+- userid/openid, unionid/external-userid, pending-id, open-userid, and external
+  tag-id conversion requests now enforce required values, supported subject
+  types, positive source agents, unique batches, and the 1000-item boundary;
+- current conversion response fields `invalid_open_userid_list` and
+  `invalid_external_tagid_list` are modeled with backward-compatible aliases,
+  userid conversion now retains `invalid_userid_list`, and mapping lookup plus
+  failure-count helpers expose partial-success semantics;
+- service-provider `user/list_id` results now retain `open_userid` alongside
+  plaintext `userid`, supporting both current privacy modes without dropping
+  an identity;
+- enterprise tag creation, updates, reads, deletion, and membership changes
+  validate positive ids and 32-character names, omit optional zero tag ids on
+  creation, restrict the compatibility endpoint argument to the two official
+  member mutation paths, enforce unique batches, and serialize department ids
+  as JSON integers while preserving the existing string-based API signature;
+- tag membership results expose parsed invalid user ids, aggregate failure
+  counts, and partial-failure detection.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
