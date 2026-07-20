@@ -16122,6 +16122,8 @@ pub struct ExternalContactInfo {
     #[serde(default)]
     pub corp_full_name: Option<String>,
     #[serde(default)]
+    pub wechat_channels: Option<ExternalContactWechatChannels>,
+    #[serde(default)]
     pub external_profile: Option<ExternalContactProfile>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -16160,6 +16162,9 @@ impl ExternalContactInfo {
             return Err(WechatError::Config(
                 "external-contact gender cannot be negative".to_string(),
             ));
+        }
+        if let Some(channels) = &self.wechat_channels {
+            channels.validate()?;
         }
         if let Some(profile) = &self.external_profile {
             profile.validate()?;
@@ -16510,15 +16515,8 @@ impl ExternalContactFollowInfo {
         if let Some(oper_userid) = self.oper_userid.as_deref() {
             validate_external_contact_identifier("operator userid", oper_userid)?;
         }
-        if self
-            .wechat_channels
-            .as_ref()
-            .and_then(|channels| channels.source)
-            .is_some_and(|source| source < 0)
-        {
-            return Err(WechatError::Config(
-                "external-contact channels source cannot be negative".to_string(),
-            ));
+        if let Some(channels) = &self.wechat_channels {
+            channels.validate()?;
         }
         Ok(())
     }
@@ -16549,7 +16547,7 @@ impl ExternalContactFollowInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExternalContactFollowWechatChannels {
+pub struct ExternalContactWechatChannels {
     #[serde(default)]
     pub nickname: Option<String>,
     #[serde(default)]
@@ -16557,6 +16555,41 @@ pub struct ExternalContactFollowWechatChannels {
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
+
+impl ExternalContactWechatChannels {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(nickname) = self.nickname.as_deref() {
+            if nickname.trim().is_empty()
+                || nickname.len() > 64
+                || nickname.chars().any(char::is_control)
+            {
+                return Err(WechatError::Config(
+                    "external-contact Channels nickname must contain 1 to 64 printable UTF-8 bytes"
+                        .to_string(),
+                ));
+            }
+        }
+        if self.source.is_some_and(|source| source < 0) {
+            return Err(WechatError::Config(
+                "external-contact Channels source cannot be negative".to_string(),
+            ));
+        }
+        if self.nickname.is_none() && self.source.is_none() {
+            return Err(WechatError::Config(
+                "external-contact Channels profile requires nickname or source".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn is_configured(&self) -> bool {
+        self.nickname
+            .as_deref()
+            .is_some_and(|nickname| !nickname.trim().is_empty())
+    }
+}
+
+pub type ExternalContactFollowWechatChannels = ExternalContactWechatChannels;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExternalContactAddWayKind {
@@ -48725,7 +48758,12 @@ mod tests {
         assert!(contact.is_work_user());
         assert!(!contact.is_wechat_user());
         assert_eq!(contact.gender_kind(), Some(WorkContactGender::Male));
-        assert_eq!(contact.extra["wechat_channels"]["nickname"], "Roze Shop");
+        let channels = contact
+            .wechat_channels
+            .as_ref()
+            .expect("external-contact Channels profile");
+        assert_eq!(channels.nickname.as_deref(), Some("Roze Shop"));
+        assert!(channels.is_configured());
         assert_eq!(
             contact
                 .external_profile
@@ -48775,6 +48813,7 @@ mod tests {
             unionid: None,
             corp_name: None,
             corp_full_name: None,
+            wechat_channels: None,
             external_profile: None,
             extra: Value::Null,
         };
@@ -48984,6 +49023,60 @@ mod tests {
             api_error.validate(),
             Err(WechatError::Api { code: 40003, .. })
         ));
+
+        for value in [
+            json!({
+                "external_contact": {
+                    "external_userid": "external",
+                    "wechat_channels": {}
+                }
+            }),
+            json!({
+                "external_contact": {
+                    "external_userid": "external",
+                    "wechat_channels": { "nickname": " " }
+                }
+            }),
+            json!({
+                "external_contact": {
+                    "external_userid": "external",
+                    "wechat_channels": { "source": -1 }
+                }
+            }),
+        ] {
+            let response: ExternalContactDetailResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
+
+        let malformed_follow_channels: ExternalContactBatchGetResponse =
+            serde_json::from_value(json!({
+                "external_contact_list": [{
+                    "external_contact": { "external_userid": "external" },
+                    "follow_info": {
+                        "userid": "owner",
+                        "wechat_channels": { "nickname": "channel\nname" }
+                    }
+                }]
+            }))
+            .unwrap();
+        assert!(malformed_follow_channels.validate().is_err());
+
+        let source_only: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": {
+                "external_userid": "external",
+                "wechat_channels": { "source": 0, "channel_version": 2 }
+            }
+        }))
+        .unwrap();
+        assert!(source_only.validate().is_ok());
+        let channels = source_only
+            .require_contact()
+            .unwrap()
+            .wechat_channels
+            .as_ref()
+            .unwrap();
+        assert!(!channels.is_configured());
+        assert_eq!(channels.extra["channel_version"], 2);
     }
 
     #[test]

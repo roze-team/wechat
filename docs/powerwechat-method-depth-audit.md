@@ -137,6 +137,20 @@ Implemented on 2026-07-21 in Work external-contact profile depth:
 - Profile lookup and per-kind count helpers expose the typed attribute data
   without forcing callers back to generic JSON traversal.
 
+Implemented on 2026-07-21 in Work external-contact Channels profile depth:
+
+- The top-level `wechat_channels` object in external-contact detail and batch
+  responses is now a typed DTO instead of being retained only in flattened
+  extension JSON.
+- External-contact and follow-user Channels profiles share one forward-
+  compatible model covering nickname, source, and unknown upstream fields.
+- Response validation now rejects empty profile objects, blank, oversized, or
+  control-character nicknames, and negative source values while accepting
+  source-only profiles and future extension fields.
+- A semantic configured-profile helper distinguishes a named Channels account
+  from source-only attribution data without requiring callers to inspect raw
+  optional fields.
+
 Implemented on 2026-07-21 in Work media integrity depth:
 
 - URL-upload requests can now compute the required MD5 digest directly from
