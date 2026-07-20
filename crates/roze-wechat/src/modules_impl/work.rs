@@ -2618,13 +2618,16 @@ impl Work {
     ) -> Result<ExternalContactCustomerStrategyListResponse> {
         let cursor = cursor.into();
         validate_external_strategy_page(&cursor, limit)?;
-        self.inner
+        let response: ExternalContactCustomerStrategyListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/list",
                 Some(access_token.into()),
                 json!({ "cursor": cursor, "limit": limit }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_customer_strategy(
@@ -2633,13 +2636,16 @@ impl Work {
         strategy_id: i64,
     ) -> Result<ExternalContactCustomerStrategyResponse> {
         validate_external_strategy_id(strategy_id)?;
-        self.inner
+        let response: ExternalContactCustomerStrategyResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/get",
                 Some(access_token.into()),
                 json!({ "strategy_id": strategy_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_customer_strategy_range(
@@ -2652,13 +2658,16 @@ impl Work {
         let cursor = cursor.into();
         validate_external_strategy_id(strategy_id)?;
         validate_external_strategy_page(&cursor, limit)?;
-        self.inner
+        let response: ExternalContactCustomerStrategyRangeResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/get_range",
                 Some(access_token.into()),
                 json!({ "strategy_id": strategy_id, "cursor": cursor, "limit": limit }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_external_contact_customer_strategy(
@@ -2667,13 +2676,16 @@ impl Work {
         request: ExternalContactCustomerStrategyCreateRequest,
     ) -> Result<ExternalContactCustomerStrategyCreateResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactCustomerStrategyCreateResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/create",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn edit_external_contact_customer_strategy(
@@ -2682,13 +2694,20 @@ impl Work {
         request: ExternalContactCustomerStrategyEditRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/edit",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        validate_external_contact_strategy_response_success(
+            "external-contact customer strategy edit",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub async fn delete_external_contact_customer_strategy(
@@ -2697,13 +2716,20 @@ impl Work {
         strategy_id: i64,
     ) -> Result<WorkStatusResponse> {
         validate_external_strategy_id(strategy_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_strategy/del",
                 Some(access_token.into()),
                 json!({ "strategy_id": strategy_id }),
             )
-            .await
+            .await?;
+        validate_external_contact_strategy_response_success(
+            "external-contact customer strategy delete",
+            response.errcode,
+            response.errmsg.as_deref(),
+        )?;
+        Ok(response)
     }
 
     pub fn group_robot(&self) -> DomainModule {
@@ -13608,7 +13634,7 @@ pub struct ExternalContactMomentStrategyListResponse {
 
 impl ExternalContactMomentStrategyListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_moment_strategy_response_success(
+        validate_external_contact_strategy_response_success(
             "external-contact moment strategy list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13661,7 +13687,7 @@ pub struct ExternalContactMomentStrategyResponse {
 
 impl ExternalContactMomentStrategyResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_moment_strategy_response_success(
+        validate_external_contact_strategy_response_success(
             "external-contact moment strategy get",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13702,7 +13728,7 @@ pub struct ExternalContactMomentStrategyRangeResponse {
 
 impl ExternalContactMomentStrategyRangeResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_moment_strategy_response_success(
+        validate_external_contact_strategy_response_success(
             "external-contact moment strategy range",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13766,7 +13792,7 @@ pub struct ExternalContactMomentStrategyCreateResponse {
 
 impl ExternalContactMomentStrategyCreateResponse {
     pub fn validate_create(&self) -> Result<()> {
-        validate_external_contact_moment_strategy_response_success(
+        validate_external_contact_strategy_response_success(
             "external-contact moment strategy create",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13780,7 +13806,7 @@ impl ExternalContactMomentStrategyCreateResponse {
     }
 
     pub fn validate_edit(&self) -> Result<()> {
-        validate_external_contact_moment_strategy_response_success(
+        validate_external_contact_strategy_response_success(
             "external-contact moment strategy edit",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13801,7 +13827,7 @@ impl ExternalContactMomentStrategyCreateResponse {
     }
 }
 
-fn validate_external_contact_moment_strategy_response_success(
+fn validate_external_contact_strategy_response_success(
     operation: &str,
     errcode: Option<i64>,
     errmsg: Option<&str>,
@@ -20128,6 +20154,108 @@ pub struct ExternalContactCustomerStrategy {
     pub extra: Value,
 }
 
+impl ExternalContactCustomerStrategy {
+    pub fn validate(&self) -> Result<()> {
+        let strategy_id = self.strategy_id.ok_or_else(|| {
+            WechatError::Config(
+                "external-contact customer strategy requires strategy_id".to_string(),
+            )
+        })?;
+        validate_external_strategy_id(strategy_id)?;
+        let strategy_name = self.strategy_name.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact customer strategy requires strategy_name".to_string(),
+            )
+        })?;
+        validate_external_strategy_name(strategy_name)?;
+        if self.parent_id.is_some_and(|parent_id| parent_id < 0) {
+            return Err(WechatError::Config(
+                "external-contact customer strategy parent id cannot be negative".to_string(),
+            ));
+        }
+        validate_external_strategy_admins(&self.admin_list)?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact customer strategy create time must be positive".to_string(),
+            ));
+        }
+        if self.update_time.is_some_and(|update_time| update_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact customer strategy update time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl ExternalContactCustomerStrategyListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_strategy_response_success(
+            "external-contact customer strategy list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.strategy.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-contact customer strategy list cannot exceed 1000 rows".to_string(),
+            ));
+        }
+        let mut strategy_ids = std::collections::HashSet::with_capacity(self.strategy.len());
+        for strategy in &self.strategy {
+            strategy.validate()?;
+            let strategy_id = strategy.strategy_id.unwrap_or_default();
+            if !strategy_ids.insert(strategy_id) {
+                return Err(WechatError::Config(
+                    "external-contact customer strategy list cannot contain duplicate strategy ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(&self, strategy_id: i64) -> Option<&ExternalContactCustomerStrategy> {
+        self.strategy
+            .iter()
+            .find(|strategy| strategy.strategy_id == Some(strategy_id))
+    }
+}
+
+impl ExternalContactCustomerStrategyResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_strategy_response_success(
+            "external-contact customer strategy get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.strategy
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact customer strategy get response requires strategy".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_strategy(&self) -> Result<&ExternalContactCustomerStrategy> {
+        self.validate()?;
+        self.strategy.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact customer strategy get response requires strategy".to_string(),
+            )
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactCustomerStrategyRangeResponse {
     #[serde(default)]
@@ -20142,6 +20270,57 @@ pub struct ExternalContactCustomerStrategyRangeResponse {
     pub extra: Value,
 }
 
+impl ExternalContactCustomerStrategyRangeResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_strategy_response_success(
+            "external-contact customer strategy range",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.range.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-contact customer strategy range cannot exceed 1000 rows".to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.range.len());
+        for range in &self.range {
+            if validate_external_contact_strategy_response_range(range)?
+                && !identities.insert(range.identity())
+            {
+                return Err(WechatError::Config(
+                    "external-contact customer strategy range cannot contain duplicate entries"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn contains_user(&self, user_id: &str) -> bool {
+        self.range.iter().any(|range| {
+            matches!(range.range_kind(), ExternalContactStrategyRangeKind::User)
+                && range.userid.as_deref() == Some(user_id)
+        })
+    }
+
+    pub fn contains_department(&self, department_id: i64) -> bool {
+        self.range.iter().any(|range| {
+            matches!(
+                range.range_kind(),
+                ExternalContactStrategyRangeKind::Department
+            ) && range.partyid == Some(department_id)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactCustomerStrategyCreateResponse {
     #[serde(default)]
@@ -20152,6 +20331,33 @@ pub struct ExternalContactCustomerStrategyCreateResponse {
     pub strategy_id: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactCustomerStrategyCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_strategy_response_success(
+            "external-contact customer strategy create",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let strategy_id = self.strategy_id.ok_or_else(|| {
+            WechatError::Config(
+                "external-contact customer strategy create response requires strategy_id"
+                    .to_string(),
+            )
+        })?;
+        validate_external_strategy_id(strategy_id)
+    }
+
+    pub fn require_strategy_id(&self) -> Result<i64> {
+        self.validate()?;
+        self.strategy_id.ok_or_else(|| {
+            WechatError::Config(
+                "external-contact customer strategy create response requires strategy_id"
+                    .to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38409,12 +38615,19 @@ mod tests {
         assert_eq!(list.strategy[0].extra["strategy_source"], "crm");
         assert_eq!(list.next_cursor(), Some("next"));
         assert!(list.has_more());
+        assert!(list.validate().is_ok());
+        assert_eq!(
+            list.find(1)
+                .and_then(|strategy| strategy.strategy_name.as_deref()),
+            Some("strategy")
+        );
         assert_eq!(list.extra["total"], 1);
 
         let detail: ExternalContactCustomerStrategyResponse = serde_json::from_value(json!({
             "momentStrategy": {
                 "strategy_id": 1,
                 "strategy_name": "strategy",
+                "admin_list": ["admin"],
                 "privilege": {
                     "view_customer_list": true,
                     "view_customer_data": true,
@@ -38443,9 +38656,13 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(detail.extra["request_id"], "strategy-detail-1");
-        let strategy = detail.strategy.unwrap();
+        assert!(detail.validate().is_ok());
+        let strategy = detail.require_strategy().unwrap();
         assert_eq!(strategy.strategy_name.as_deref(), Some("strategy"));
-        assert!(strategy.privilege.unwrap().view_customer_list);
+        assert!(strategy
+            .privilege
+            .as_ref()
+            .is_some_and(|privilege| privilege.view_customer_list));
         assert_eq!(strategy.extra["strategy_source"], "detail");
 
         let range: ExternalContactCustomerStrategyRangeResponse = serde_json::from_value(json!({
@@ -38459,13 +38676,73 @@ mod tests {
         assert_eq!(range.range[0].extra["range_source"], "manual");
         assert_eq!(range.next_cursor(), Some("range-next"));
         assert!(range.has_more());
+        assert!(range.validate().is_ok());
+        assert!(range.contains_user("user"));
+        assert!(!range.contains_department(2));
         assert_eq!(range.extra["range_total"], 1);
 
         let created: ExternalContactCustomerStrategyCreateResponse =
             serde_json::from_value(json!({ "strategy_id": 3, "request_id": "strategy-create-1" }))
                 .unwrap();
         assert_eq!(created.strategy_id, Some(3));
+        assert_eq!(created.require_strategy_id().unwrap(), 3);
         assert_eq!(created.extra["request_id"], "strategy-create-1");
+    }
+
+    #[test]
+    fn validates_external_contact_customer_strategy_response_contracts() {
+        let duplicate: ExternalContactCustomerStrategyListResponse =
+            serde_json::from_value(json!({
+                "strategy": [
+                    {
+                        "strategy_id": 1,
+                        "strategy_name": "one",
+                        "admin_list": ["admin-one"]
+                    },
+                    {
+                        "strategy_id": 1,
+                        "strategy_name": "two",
+                        "admin_list": ["admin-two"]
+                    }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate.validate().is_err());
+
+        let missing_strategy: ExternalContactCustomerStrategyResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_strategy.validate().is_err());
+
+        let duplicate_range: ExternalContactCustomerStrategyRangeResponse =
+            serde_json::from_value(json!({
+                "range": [
+                    { "type": 2, "partyid": 2 },
+                    { "type": 2, "partyid": 2 }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_range.validate().is_err());
+
+        let future_range: ExternalContactCustomerStrategyRangeResponse =
+            serde_json::from_value(json!({
+                "range": [{ "type": 3, "future_scope": "all" }],
+                "next_cursor": " "
+            }))
+            .unwrap();
+        assert!(future_range.validate().is_ok());
+        assert!(!future_range.has_more());
+
+        let api_error: ExternalContactCustomerStrategyCreateResponse =
+            serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid strategy" }))
+                .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let missing_strategy_id: ExternalContactCustomerStrategyCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_strategy_id.validate().is_err());
     }
 
     #[test]

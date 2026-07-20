@@ -1523,6 +1523,22 @@ contracts:
   accessor, while edit responses remain compatible with status-only success
   payloads and validate a strategy id when one is returned.
 
+Implemented on 2026-07-20 in Work external-contact customer-strategy response
+contracts:
+
+- list, detail, range, create, edit, and delete operations now validate Work
+  API errors and typed payloads before returning from the HTTP boundary;
+- customer strategies require positive unique ids, nonblank names,
+  non-negative parent ids, unique administrators, and positive optional
+  creation/update timestamps, with detail and create helpers requiring their
+  primary result values;
+- list and range responses enforce the 1000-row boundary, normalize blank
+  cursors, expose strategy lookup and user/department membership helpers, and
+  reject duplicate known ranges while preserving future positive range types;
+- this replaces PowerWeChat's HashMap-based strategy/range payloads and its
+  incorrectly HashMap-typed `strategy_id` create result with production-safe
+  typed contracts while retaining unknown extension fields.
+
 Implemented on 2026-07-18 in Work external-contact moment and statistics
 depth:
 
