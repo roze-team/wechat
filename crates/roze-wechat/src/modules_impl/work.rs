@@ -1448,13 +1448,16 @@ impl Work {
         request: ExternalGroupChatListRequest,
     ) -> Result<ExternalGroupChatListResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalGroupChatListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_group_chat(
@@ -1470,13 +1473,16 @@ impl Work {
                 "external group-chat need-name flag must be 0 or 1".to_string(),
             ));
         }
-        self.inner
+        let response: ExternalGroupChatGetResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/get",
                 Some(access_token.into()),
                 json!({ "chat_id": chat_id, "need_name": need_name }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn transfer_external_group_chat(
@@ -1487,13 +1493,16 @@ impl Work {
     ) -> Result<ExternalGroupChatTransferResponse> {
         let new_owner = new_owner.into();
         validate_external_group_chat_transfer(&chat_id_list, &new_owner)?;
-        self.inner
+        let response: ExternalGroupChatTransferResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/transfer",
                 Some(access_token.into()),
                 json!({ "chat_id_list": chat_id_list, "new_owner": new_owner }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn transfer_onjob_external_group_chat(
@@ -1504,13 +1513,16 @@ impl Work {
     ) -> Result<ExternalGroupChatTransferResponse> {
         let new_owner = new_owner.into();
         validate_external_group_chat_transfer(&chat_id_list, &new_owner)?;
-        self.inner
+        let response: ExternalGroupChatTransferResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/onjob_transfer",
                 Some(access_token.into()),
                 json!({ "chat_id_list": chat_id_list, "new_owner": new_owner }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn external_group_chat_open_gid_to_chat_id(
@@ -1520,13 +1532,16 @@ impl Work {
     ) -> Result<ExternalGroupChatOpenGidToChatIdResponse> {
         let open_gid = open_gid.into();
         validate_external_group_chat_identifier("openGID", &open_gid)?;
-        self.inner
+        let response: ExternalGroupChatOpenGidToChatIdResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/opengid_to_chatid",
                 Some(access_token.into()),
                 json!({ "opengid": open_gid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_external_group_chat_join_way(
@@ -1535,13 +1550,16 @@ impl Work {
         request: ExternalGroupChatJoinWayRequest,
     ) -> Result<ExternalGroupChatJoinWayAddResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalGroupChatJoinWayAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/add_join_way",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_group_chat_join_way(
@@ -1551,13 +1569,16 @@ impl Work {
     ) -> Result<ExternalGroupChatJoinWayResponse> {
         let config_id = config_id.into();
         validate_external_group_chat_identifier("join-way config id", &config_id)?;
-        self.inner
+        let response: ExternalGroupChatJoinWayResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/get_join_way",
                 Some(access_token.into()),
                 json!({ "config_id": config_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_external_group_chat_join_way(
@@ -12570,6 +12591,50 @@ pub struct ExternalGroupChatListResponse {
     pub extra: Value,
 }
 
+impl ExternalGroupChatListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_response_success(
+            "external group-chat list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.group_chat_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external group-chat list cannot exceed 1000 rows".to_string(),
+            ));
+        }
+        let mut chat_ids = std::collections::HashSet::with_capacity(self.group_chat_list.len());
+        for chat in &self.group_chat_list {
+            chat.validate()?;
+            let chat_id = chat.chat_id.as_deref().unwrap_or_default();
+            if !chat_ids.insert(chat_id) {
+                return Err(WechatError::Config(
+                    "external group-chat list cannot contain duplicate chat ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        self.next_cursor
+            .as_deref()
+            .filter(|cursor| !cursor.trim().is_empty())
+    }
+
+    pub fn find(&self, chat_id: &str) -> Option<&ExternalGroupChatSummary> {
+        self.group_chat_list.iter().find(|chat| {
+            chat.chat_id
+                .as_deref()
+                .is_some_and(|value| value == chat_id)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalGroupChatSummary {
     #[serde(default)]
@@ -12602,6 +12667,19 @@ impl From<i64> for ExternalGroupChatStatusKind {
 }
 
 impl ExternalGroupChatSummary {
+    pub fn validate(&self) -> Result<()> {
+        let chat_id = self.chat_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat summary requires chat_id".to_string())
+        })?;
+        validate_external_group_chat_identifier("chat id", chat_id)?;
+        if self.status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "external group-chat summary status cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<ExternalGroupChatStatusKind> {
         self.status.map(ExternalGroupChatStatusKind::from)
     }
@@ -12617,6 +12695,31 @@ pub struct ExternalGroupChatGetResponse {
     pub group_chat: Option<ExternalGroupChatDetail>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_response_success(
+            "external group-chat get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.group_chat
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external group-chat get response requires group_chat".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_group_chat(&self) -> Result<&ExternalGroupChatDetail> {
+        self.validate()?;
+        self.group_chat.as_ref().ok_or_else(|| {
+            WechatError::Config("external group-chat get response requires group_chat".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12639,6 +12742,52 @@ pub struct ExternalGroupChatDetail {
     pub member_version: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatDetail {
+    pub fn validate(&self) -> Result<()> {
+        let chat_id = self.chat_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat detail requires chat_id".to_string())
+        })?;
+        validate_external_group_chat_identifier("chat id", chat_id)?;
+        let owner = self.owner.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat detail requires owner".to_string())
+        })?;
+        validate_external_group_chat_identifier("owner", owner)?;
+        if self.create_time.is_none_or(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external group-chat detail requires a positive create time".to_string(),
+            ));
+        }
+        if self.member_list.is_empty() {
+            return Err(WechatError::Config(
+                "external group-chat detail requires at least one member".to_string(),
+            ));
+        }
+        let mut member_ids = std::collections::HashSet::with_capacity(self.member_list.len());
+        for member in &self.member_list {
+            member.validate()?;
+            let userid = member.userid.as_deref().unwrap_or_default();
+            if !member_ids.insert(userid) {
+                return Err(WechatError::Config(
+                    "external group-chat detail cannot contain duplicate members".to_string(),
+                ));
+            }
+        }
+        let mut admin_ids = std::collections::HashSet::with_capacity(self.admin_list.len());
+        for admin in &self.admin_list {
+            let userid = admin.userid.as_deref().ok_or_else(|| {
+                WechatError::Config("external group-chat admin requires userid".to_string())
+            })?;
+            validate_external_group_chat_identifier("admin userid", userid)?;
+            if !admin_ids.insert(userid) {
+                return Err(WechatError::Config(
+                    "external group-chat detail cannot contain duplicate admins".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12692,6 +12841,46 @@ pub enum ExternalGroupChatMemberKind {
 }
 
 impl ExternalGroupChatMember {
+    pub fn validate(&self) -> Result<()> {
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat member requires userid".to_string())
+        })?;
+        validate_external_group_chat_identifier("member userid", userid)?;
+        if self.member_type.is_none_or(|member_type| member_type <= 0) {
+            return Err(WechatError::Config(
+                "external group-chat member type must be positive".to_string(),
+            ));
+        }
+        if self.join_time.is_none_or(|join_time| join_time <= 0) {
+            return Err(WechatError::Config(
+                "external group-chat member join time must be positive".to_string(),
+            ));
+        }
+        if self.join_scene.is_some_and(|join_scene| join_scene <= 0) {
+            return Err(WechatError::Config(
+                "external group-chat member join scene must be positive".to_string(),
+            ));
+        }
+        if let Some(invitor) = &self.invitor {
+            let invitor_userid = invitor.userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external group-chat member invitor requires userid".to_string(),
+                )
+            })?;
+            validate_external_group_chat_identifier("invitor userid", invitor_userid)?;
+        }
+        if self
+            .state
+            .as_deref()
+            .is_some_and(|state| state.trim().is_empty() || state.chars().count() > 128)
+        {
+            return Err(WechatError::Config(
+                "external group-chat member state must contain 1 to 128 characters".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn member_kind(&self) -> Option<ExternalGroupChatMemberKind> {
         self.member_type.map(|member_type| match member_type {
             1 => ExternalGroupChatMemberKind::WorkUser,
@@ -12742,6 +12931,25 @@ pub struct ExternalGroupChatTransferResponse {
 }
 
 impl ExternalGroupChatTransferResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_response_success(
+            "external group-chat transfer",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut chat_ids = std::collections::HashSet::with_capacity(self.failed_chat_list.len());
+        for failed in &self.failed_chat_list {
+            failed.validate()?;
+            let chat_id = failed.chat_id.as_deref().unwrap_or_default();
+            if !chat_ids.insert(chat_id) {
+                return Err(WechatError::Config(
+                    "external group-chat transfer cannot repeat failed chat ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn all_transferred(&self) -> bool {
         self.errcode.unwrap_or_default() == 0 && self.failed_chat_list.is_empty()
     }
@@ -12759,6 +12967,21 @@ pub struct ExternalGroupChatFailedChat {
     pub extra: Value,
 }
 
+impl ExternalGroupChatFailedChat {
+    pub fn validate(&self) -> Result<()> {
+        let chat_id = self.chat_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat transfer failure requires chat_id".to_string())
+        })?;
+        validate_external_group_chat_identifier("failed chat id", chat_id)?;
+        if self.errcode.is_none_or(|errcode| errcode == 0) {
+            return Err(WechatError::Config(
+                "external group-chat transfer failure requires a non-zero errcode".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalGroupChatOpenGidToChatIdResponse {
     #[serde(default)]
@@ -12769,6 +12992,25 @@ pub struct ExternalGroupChatOpenGidToChatIdResponse {
     pub chat_id: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatOpenGidToChatIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_response_success(
+            "external group-chat openGID conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let chat_id = self.chat_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat openGID response requires chat_id".to_string())
+        })?;
+        validate_external_group_chat_identifier("chat id", chat_id)
+    }
+
+    pub fn require_chat_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.chat_id.as_deref().unwrap_or_default())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12899,6 +13141,22 @@ pub struct ExternalGroupChatJoinWayAddResponse {
     pub extra: Value,
 }
 
+impl ExternalGroupChatJoinWayAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_response_success(
+            "external group-chat join-way add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let config_id = self.config_id.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external group-chat join-way add response requires config_id".to_string(),
+            )
+        })?;
+        validate_external_group_chat_identifier("join-way config id", config_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalGroupChatJoinWayResponse {
     #[serde(default)]
@@ -12909,6 +13167,33 @@ pub struct ExternalGroupChatJoinWayResponse {
     pub join_way: Option<ExternalGroupChatJoinWay>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatJoinWayResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_chat_response_success(
+            "external group-chat join-way get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.join_way
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external group-chat join-way get response requires join_way".to_string(),
+                )
+            })?
+            .validate()
+    }
+
+    pub fn require_join_way(&self) -> Result<&ExternalGroupChatJoinWay> {
+        self.validate()?;
+        self.join_way.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external group-chat join-way get response requires join_way".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12936,6 +13221,82 @@ pub struct ExternalGroupChatJoinWay {
 }
 
 impl ExternalGroupChatJoinWay {
+    pub fn validate(&self) -> Result<()> {
+        let config_id = self.config_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat join way requires config_id".to_string())
+        })?;
+        validate_external_group_chat_identifier("join-way config id", config_id)?;
+        let qr_code = self.qr_code.as_deref().ok_or_else(|| {
+            WechatError::Config("external group-chat join way requires qr_code".to_string())
+        })?;
+        validate_external_group_chat_url(qr_code, "external group-chat join-way QR code")?;
+        let scene = self.scene.ok_or_else(|| {
+            WechatError::Config("external group-chat join way requires scene".to_string())
+        })?;
+        if scene <= 0 {
+            return Err(WechatError::Config(
+                "external group-chat join-way scene must be positive".to_string(),
+            ));
+        }
+        let auto_create_room = self.auto_create_room.ok_or_else(|| {
+            WechatError::Config(
+                "external group-chat join way requires auto_create_room".to_string(),
+            )
+        })?;
+        if !matches!(auto_create_room, 0 | 1) {
+            return Err(WechatError::Config(
+                "external group-chat join-way auto-create flag must be 0 or 1".to_string(),
+            ));
+        }
+        if self
+            .remark
+            .as_deref()
+            .is_some_and(|remark| remark.chars().count() > 30)
+        {
+            return Err(WechatError::Config(
+                "external group-chat join-way remark must not exceed 30 characters".to_string(),
+            ));
+        }
+        if self
+            .state
+            .as_deref()
+            .is_some_and(|state| state.trim().is_empty() || state.chars().count() > 30)
+        {
+            return Err(WechatError::Config(
+                "external group-chat join-way state must contain 1 to 30 characters".to_string(),
+            ));
+        }
+        if self.chat_id_list.len() > 5 {
+            return Err(WechatError::Config(
+                "external group-chat join way cannot contain more than 5 chats".to_string(),
+            ));
+        }
+        validate_external_group_chat_ids(&self.chat_id_list)?;
+        if auto_create_room == 0 && self.chat_id_list.is_empty() {
+            return Err(WechatError::Config(
+                "external group-chat join way requires chats when auto creation is disabled"
+                    .to_string(),
+            ));
+        }
+        if auto_create_room == 1 {
+            let room_base_name = self.room_base_name.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external group-chat join way requires room base name".to_string(),
+                )
+            })?;
+            validate_external_group_chat_identifier("room base name", room_base_name)?;
+            if self
+                .room_base_id
+                .is_none_or(|room_base_id| room_base_id <= 0)
+            {
+                return Err(WechatError::Config(
+                    "external group-chat join way requires positive room base id".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn scene_kind(&self) -> Option<ExternalGroupChatJoinWaySceneKind> {
         self.scene.map(ExternalGroupChatJoinWaySceneKind::from)
     }
@@ -12968,6 +13329,36 @@ fn validate_external_group_chat_identifier(kind: &str, value: &str) -> Result<()
     if value.trim().is_empty() {
         return Err(WechatError::Config(format!(
             "external group-chat {kind} must not be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_group_chat_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_external_group_chat_url(value: &str, field: &str) -> Result<()> {
+    let parsed = url::Url::parse(value)
+        .map_err(|_| WechatError::Config(format!("{field} must be an absolute HTTP(S) URL")))?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "{field} must be an absolute HTTP(S) URL without credentials or fragments"
         )));
     }
     Ok(())
@@ -33582,6 +33973,10 @@ mod tests {
         assert_eq!(chats.group_chat_list[0].extra["owner"], "owner");
         assert_eq!(chats.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(chats.extra["group_total"], 1);
+        assert!(chats.validate().is_ok());
+        assert!(chats.has_more());
+        assert_eq!(chats.next_cursor(), Some("cursor"));
+        assert!(chats.find("chat").is_some());
         assert_eq!(
             ExternalGroupChatStatusKind::from(1),
             ExternalGroupChatStatusKind::OwnerResignedPendingTransfer
@@ -33618,7 +34013,8 @@ mod tests {
             "detail_source": "sync"
         }))
         .unwrap();
-        let group_chat = detail.group_chat.unwrap();
+        assert!(detail.validate().is_ok());
+        let group_chat = detail.require_group_chat().unwrap();
         assert_eq!(group_chat.name.as_deref(), Some("group"));
         assert_eq!(group_chat.extra["customer_count"], 10);
         assert_eq!(group_chat.member_list[0].member_type, Some(1));
@@ -33691,14 +34087,18 @@ mod tests {
         );
         assert_eq!(transfer.extra["request_id"], "req-1");
         assert!(!transfer.all_transferred());
+        assert!(transfer.validate().is_ok());
         let successful_transfer: ExternalGroupChatTransferResponse =
             serde_json::from_value(json!({ "errcode": 0 })).unwrap();
         assert!(successful_transfer.all_transferred());
+        assert!(successful_transfer.validate().is_ok());
 
         let open_gid: ExternalGroupChatOpenGidToChatIdResponse =
             serde_json::from_value(json!({ "chat_id": "chat", "source": "appshare" })).unwrap();
         assert_eq!(open_gid.chat_id.as_deref(), Some("chat"));
         assert_eq!(open_gid.extra["source"], "appshare");
+        assert!(open_gid.validate().is_ok());
+        assert_eq!(open_gid.require_chat_id().unwrap(), "chat");
 
         let mut join_request = ExternalGroupChatJoinWayRequest::auto_create(
             ExternalGroupChatJoinWaySceneKind::MiniProgram,
@@ -33735,6 +34135,7 @@ mod tests {
         .unwrap();
         assert_eq!(join_add.config_id.as_deref(), Some("config"));
         assert_eq!(join_add.extra["request_id"], "join-way-add");
+        assert!(join_add.validate().is_ok());
 
         let join_detail: ExternalGroupChatJoinWayResponse = serde_json::from_value(json!({
             "join_way": {
@@ -33753,7 +34154,8 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(join_detail.extra["request_id"], "join-way-get");
-        let join_way = join_detail.join_way.unwrap();
+        assert!(join_detail.validate().is_ok());
+        let join_way = join_detail.require_join_way().unwrap();
         assert_eq!(join_way.config_id.as_deref(), Some("config"));
         assert_eq!(join_way.qr_code.as_deref(), Some("https://example.com/qr"));
         assert_eq!(join_way.scene, Some(2));
@@ -33765,6 +34167,65 @@ mod tests {
         assert_eq!(join_way.chat_id_list[0], "chat");
         assert_eq!(join_way.state.as_deref(), Some("state"));
         assert_eq!(join_way.extra["future_field"], "kept");
+
+        let duplicate_chats: ExternalGroupChatListResponse = serde_json::from_value(json!({
+            "group_chat_list": [
+                { "chat_id": "chat", "status": 0 },
+                { "chat_id": "chat", "status": 1 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_chats.validate().is_err());
+
+        let duplicate_members: ExternalGroupChatGetResponse = serde_json::from_value(json!({
+            "group_chat": {
+                "chat_id": "chat",
+                "owner": "owner",
+                "create_time": 1_720_000_000,
+                "member_list": [{
+                    "userid": "member",
+                    "type": 1,
+                    "join_time": 1_720_000_001
+                }, {
+                    "userid": "member",
+                    "type": 2,
+                    "join_time": 1_720_000_002
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(duplicate_members.validate().is_err());
+
+        let invalid_failure: ExternalGroupChatTransferResponse = serde_json::from_value(json!({
+            "failed_chat_list": [{
+                "chat_id": "chat",
+                "errcode": 0
+            }]
+        }))
+        .unwrap();
+        assert!(invalid_failure.validate().is_err());
+
+        let unsafe_join_way: ExternalGroupChatJoinWayResponse = serde_json::from_value(json!({
+            "join_way": {
+                "config_id": "config",
+                "qr_code": "javascript:alert(1)",
+                "scene": 1,
+                "auto_create_room": 0,
+                "chat_id_list": ["chat"]
+            }
+        }))
+        .unwrap();
+        assert!(unsafe_join_way.validate().is_err());
+
+        let api_error: ExternalGroupChatListResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid request"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
 
         let migration_request = WorkExternalUserIdMigrationRequest::new(["old-external"]);
         assert!(migration_request.validate().is_ok());

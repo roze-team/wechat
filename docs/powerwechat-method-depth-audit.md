@@ -1467,6 +1467,27 @@ migration depth:
   state, preserve unknown fields, and distinguish fully successful transfers
   from responses containing failed chats.
 
+Implemented on 2026-07-20 in Work external-contact group-chat response
+contracts:
+
+- list/get, resigned and on-job transfer, openGID conversion, and join-way
+  add/get methods now validate typed responses before returning application
+  data;
+- list responses enforce the 1000-row boundary, required unique chat ids, and
+  non-negative statuses, while exposing normalized cursor and chat lookup
+  helpers;
+- group details require chat/owner identity, positive creation time, members,
+  unique member/admin ids, positive member type/join timestamps, valid inviter
+  identity, and bounded state metadata;
+- transfer responses require unique failed-chat records with non-zero error
+  codes, openGID responses require a resolved chat id, and non-zero top-level
+  errors are surfaced as `WechatError::Api`;
+- join-way responses require configuration identity, an absolute HTTP(S)
+  QR-code URL, scene and 0/1 auto-create semantics, bounded remark/state,
+  unique chat ids, and complete automatic-room metadata;
+- unknown positive status, member, join-scene, and join-way scene values plus
+  extension fields remain available for forward-compatible inspection.
+
 Implemented on 2026-07-18 in Work external-contact strategy and customer
 transfer depth:
 
