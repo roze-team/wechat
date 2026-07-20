@@ -1025,12 +1025,15 @@ impl Payment {
         request: ComplaintListRequest,
     ) -> Result<ComplaintListResponse> {
         request.validate()?;
-        self.get_v3(
-            credentials,
-            "/v3/merchant-service/complaints-v2",
-            request.into_query(),
-        )
-        .await
+        let response: ComplaintListResponse = self
+            .get_v3(
+                credentials,
+                "/v3/merchant-service/complaints-v2",
+                request.into_query(),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn query_complaint_detail(
@@ -1043,7 +1046,9 @@ impl Payment {
             "/v3/merchant-service/complaints-v2/{}",
             encode_payment_path_segment(complaint_id)
         );
-        self.get_v3(credentials, &path, Vec::new()).await
+        let response: ComplaintDetailResponse = self.get_v3(credentials, &path, Vec::new()).await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn query_complaint_negotiation_history(
@@ -1058,7 +1063,11 @@ impl Payment {
             "/v3/merchant-service/complaints-v2/{}/negotiation-historys",
             encode_payment_path_segment(complaint_id)
         );
-        self.get_v3(credentials, &path, request.into_query()).await
+        let response: ComplaintNegotiationHistoryResponse = self
+            .get_v3(credentials, &path, request.into_query())
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_complaint_notification(
@@ -1067,24 +1076,30 @@ impl Payment {
         request: ComplaintNotificationRequest,
     ) -> Result<ComplaintNotificationResponse> {
         request.validate()?;
-        self.post_v3(
-            credentials,
-            "/v3/merchant-service/complaint-notifications",
-            to_value(request)?,
-        )
-        .await
+        let response: ComplaintNotificationResponse = self
+            .post_v3(
+                credentials,
+                "/v3/merchant-service/complaint-notifications",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn query_complaint_notification(
         &self,
         credentials: &PaymentCredentials,
     ) -> Result<ComplaintNotificationResponse> {
-        self.get_v3(
-            credentials,
-            "/v3/merchant-service/complaint-notifications",
-            Vec::new(),
-        )
-        .await
+        let response: ComplaintNotificationResponse = self
+            .get_v3(
+                credentials,
+                "/v3/merchant-service/complaint-notifications",
+                Vec::new(),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_complaint_notification(
@@ -1093,12 +1108,15 @@ impl Payment {
         request: ComplaintNotificationRequest,
     ) -> Result<ComplaintNotificationResponse> {
         request.validate()?;
-        self.put_v3(
-            credentials,
-            "/v3/merchant-service/complaint-notifications",
-            to_value(request)?,
-        )
-        .await
+        let response: ComplaintNotificationResponse = self
+            .put_v3(
+                credentials,
+                "/v3/merchant-service/complaint-notifications",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_complaint_notification(
@@ -4705,6 +4723,28 @@ pub struct ComplaintListResponse {
 }
 
 impl ComplaintListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_complaint_page(
+            self.limit,
+            self.offset,
+            self.total_count,
+            self.data.len(),
+            50,
+            "complaint list",
+        )?;
+        let mut complaint_ids = std::collections::HashSet::with_capacity(self.data.len());
+        for complaint in &self.data {
+            complaint.validate()?;
+            let complaint_id = complaint.complaint_id.as_deref().unwrap_or_default();
+            if !complaint_ids.insert(complaint_id) {
+                return Err(WechatError::Config(
+                    "complaint list cannot contain duplicate complaint ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn has_more(&self) -> Option<bool> {
         payment_page_has_more(self.offset, self.total_count, self.data.len())
     }
@@ -4818,6 +4858,70 @@ impl ComplaintStateKind {
 }
 
 impl ComplaintDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        let complaint_id = self
+            .complaint_id
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("complaint response id is required".to_string()))?;
+        validate_payment_identifier(complaint_id, "complaint response id", 64)?;
+        let complaint_time = self.complaint_time.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint response time is required".to_string())
+        })?;
+        validate_payment_rfc3339(complaint_time, "complaint response time")?;
+        let complaint_state = self.complaint_state.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint response state is required".to_string())
+        })?;
+        validate_payment_identifier(complaint_state, "complaint response state", 64)?;
+
+        if self.user_complaint_times.is_some_and(|count| count < 0) {
+            return Err(WechatError::Config(
+                "complaint response user complaint count cannot be negative".to_string(),
+            ));
+        }
+        if self.apply_refund_amount.is_some_and(|amount| amount < 0) {
+            return Err(WechatError::Config(
+                "complaint response refund amount cannot be negative".to_string(),
+            ));
+        }
+
+        let mut order_ids =
+            std::collections::HashSet::with_capacity(self.complaint_order_info.len());
+        for order in &self.complaint_order_info {
+            order.validate()?;
+            let identity = (
+                order.transaction_id.as_deref().unwrap_or_default(),
+                order.out_trade_no.as_deref().unwrap_or_default(),
+            );
+            if !order_ids.insert(identity) {
+                return Err(WechatError::Config(
+                    "complaint response cannot contain duplicate order identities".to_string(),
+                ));
+            }
+        }
+
+        for media in &self.complaint_media_list {
+            media.validate()?;
+        }
+        validate_unique_payment_strings(&self.user_tag_list, "complaint response user tag", 100)?;
+
+        let mut service_order_ids =
+            std::collections::HashSet::with_capacity(self.service_order_info.len());
+        for order in &self.service_order_info {
+            order.validate()?;
+            let identity = (
+                order.order_id.as_deref().unwrap_or_default(),
+                order.out_order_no.as_deref().unwrap_or_default(),
+            );
+            if !service_order_ids.insert(identity) {
+                return Err(WechatError::Config(
+                    "complaint response cannot contain duplicate service-order identities"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.complaint_id
             .as_deref()
@@ -4951,6 +5055,26 @@ pub struct ComplaintOrderInfo {
 }
 
 impl ComplaintOrderInfo {
+    pub fn validate(&self) -> Result<()> {
+        if !self.has_identity() {
+            return Err(WechatError::Config(
+                "complaint order must include transaction_id or out_trade_no".to_string(),
+            ));
+        }
+        if let Some(transaction_id) = self.transaction_id.as_deref() {
+            validate_payment_identifier(transaction_id, "complaint transaction id", 64)?;
+        }
+        if let Some(out_trade_no) = self.out_trade_no.as_deref() {
+            validate_payment_identifier(out_trade_no, "complaint out trade number", 64)?;
+        }
+        if self.amount.is_some_and(|amount| amount < 0) {
+            return Err(WechatError::Config(
+                "complaint order amount cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.transaction_id
             .as_deref()
@@ -4986,6 +5110,22 @@ pub enum ComplaintMediaType {
 }
 
 impl ComplaintMedia {
+    pub fn validate(&self) -> Result<()> {
+        if self.media_id.is_none() && self.media_url.is_empty() {
+            return Err(WechatError::Config(
+                "complaint media must include a media id or URL".to_string(),
+            ));
+        }
+        if let Some(media_id) = self.media_id.as_deref() {
+            validate_payment_identifier(media_id, "complaint media id", 512)?;
+        }
+        validate_unique_payment_urls(&self.media_url, "complaint media URL", 20)?;
+        if let Some(thumbnail_url) = self.thumbnail_url.as_deref() {
+            validate_https_url(thumbnail_url, "complaint media thumbnail URL", 2048, true)?;
+        }
+        Ok(())
+    }
+
     pub fn media_kind(&self) -> Option<ComplaintMediaType> {
         self.media_type.as_deref().map(|media_type| {
             if media_type.eq_ignore_ascii_case("USER_COMPLAINT_IMAGE") {
@@ -5060,6 +5200,24 @@ impl ComplaintServiceOrderStateKind {
 }
 
 impl ComplaintServiceOrderInfo {
+    pub fn validate(&self) -> Result<()> {
+        if self.order_id.is_none() && self.out_order_no.is_none() {
+            return Err(WechatError::Config(
+                "complaint service order must include order_id or out_order_no".to_string(),
+            ));
+        }
+        if let Some(order_id) = self.order_id.as_deref() {
+            validate_payment_identifier(order_id, "complaint service order id", 64)?;
+        }
+        if let Some(out_order_no) = self.out_order_no.as_deref() {
+            validate_payment_identifier(out_order_no, "complaint service out order number", 64)?;
+        }
+        if let Some(state) = self.state.as_deref() {
+            validate_payment_identifier(state, "complaint service order state", 64)?;
+        }
+        Ok(())
+    }
+
     pub fn state_kind(&self) -> Option<ComplaintServiceOrderStateKind> {
         self.state
             .as_deref()
@@ -5179,6 +5337,28 @@ pub struct ComplaintNegotiationHistoryResponse {
 }
 
 impl ComplaintNegotiationHistoryResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_complaint_page(
+            self.limit,
+            self.offset,
+            self.total_count,
+            self.data.len(),
+            300,
+            "complaint negotiation history",
+        )?;
+        let mut log_ids = std::collections::HashSet::with_capacity(self.data.len());
+        for record in &self.data {
+            record.validate()?;
+            let log_id = record.log_id.as_deref().unwrap_or_default();
+            if !log_ids.insert(log_id) {
+                return Err(WechatError::Config(
+                    "complaint negotiation history cannot contain duplicate log ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn has_more(&self) -> Option<bool> {
         payment_page_has_more(self.offset, self.total_count, self.data.len())
     }
@@ -5246,6 +5426,47 @@ fn payment_page_next_offset(
     let returned = i64::try_from(returned).ok()?;
     let next = offset?.checked_add(returned)?;
     (next < total_count?).then_some(next)
+}
+
+fn validate_complaint_page(
+    limit: Option<i64>,
+    offset: Option<i64>,
+    total_count: Option<i64>,
+    returned: usize,
+    max_limit: i64,
+    field: &str,
+) -> Result<()> {
+    let limit = limit.ok_or_else(|| WechatError::Config(format!("{field} limit is required")))?;
+    if !(1..=max_limit).contains(&limit) {
+        return Err(WechatError::Config(format!(
+            "{field} limit must be between 1 and {max_limit}"
+        )));
+    }
+    let offset =
+        offset.ok_or_else(|| WechatError::Config(format!("{field} offset is required")))?;
+    let total_count = total_count
+        .ok_or_else(|| WechatError::Config(format!("{field} total count is required")))?;
+    if offset < 0 || total_count < 0 {
+        return Err(WechatError::Config(format!(
+            "{field} offset and total count cannot be negative"
+        )));
+    }
+    let returned = i64::try_from(returned)
+        .map_err(|_| WechatError::Config(format!("{field} returned item count overflowed")))?;
+    if returned > limit {
+        return Err(WechatError::Config(format!(
+            "{field} returned more items than its page limit"
+        )));
+    }
+    let end = offset
+        .checked_add(returned)
+        .ok_or_else(|| WechatError::Config(format!("{field} page boundary overflowed")))?;
+    if offset > total_count || end > total_count {
+        return Err(WechatError::Config(format!(
+            "{field} pagination is inconsistent with total count"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5361,6 +5582,30 @@ impl ComplaintNegotiationOperateType {
 }
 
 impl ComplaintNegotiationHistoryRecord {
+    pub fn validate(&self) -> Result<()> {
+        let log_id = self.log_id.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint negotiation log id is required".to_string())
+        })?;
+        validate_payment_identifier(log_id, "complaint negotiation log id", 64)?;
+        let operator = self.operator.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint negotiation operator is required".to_string())
+        })?;
+        validate_payment_identifier(operator, "complaint negotiation operator", 64)?;
+        let operate_time = self.operate_time.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint negotiation operation time is required".to_string())
+        })?;
+        validate_payment_rfc3339(operate_time, "complaint negotiation operation time")?;
+        let operate_type = self.operate_type.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint negotiation operation type is required".to_string())
+        })?;
+        validate_payment_identifier(operate_type, "complaint negotiation operation type", 64)?;
+        validate_unique_payment_urls(&self.image_list, "complaint negotiation image URL", 20)?;
+        for media in &self.complaint_media_list {
+            media.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.log_id
             .as_deref()
@@ -5682,6 +5927,31 @@ fn validate_unique_payment_strings(values: &[String], field: &str, max_items: us
     Ok(())
 }
 
+fn validate_unique_payment_urls(values: &[String], field: &str, max_items: usize) -> Result<()> {
+    if values.len() > max_items {
+        return Err(WechatError::Config(format!(
+            "{field} list cannot contain more than {max_items} items"
+        )));
+    }
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_https_url(value, field, 2048, true)?;
+        if !seen.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "{field} list cannot contain duplicates"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_payment_rfc3339(value: &str, field: &str) -> Result<()> {
+    validate_payment_text(value, field, 64)?;
+    chrono::DateTime::parse_from_rfc3339(value)
+        .map_err(|_| WechatError::Config(format!("{field} must use RFC3339 format")))?;
+    Ok(())
+}
+
 fn validate_https_url(value: &str, field: &str, max_chars: usize, allow_query: bool) -> Result<()> {
     validate_payment_text(value, field, max_chars)?;
     let parsed = url::Url::parse(value)
@@ -5752,6 +6022,31 @@ pub struct ComplaintNotificationResponse {
 }
 
 impl ComplaintNotificationResponse {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(code) = self.code.as_deref().filter(|code| !code.trim().is_empty()) {
+            return Err(WechatError::Config(format!(
+                "complaint notification API error {code}: {}",
+                self.message.as_deref().unwrap_or("unknown error")
+            )));
+        }
+        let mch_id = self.mch_id.as_deref().ok_or_else(|| {
+            WechatError::Config("complaint notification merchant id is required".to_string())
+        })?;
+        validate_payment_identifier(mch_id, "complaint notification merchant id", 64)?;
+        validate_https_url(&self.url, "complaint notification URL", 255, false)?;
+        let parsed = url::Url::parse(&self.url).map_err(|_| {
+            WechatError::Config(
+                "complaint notification URL must be an absolute HTTPS URL".to_string(),
+            )
+        })?;
+        if parsed.path().is_empty() || parsed.path() == "/" {
+            return Err(WechatError::Config(
+                "complaint notification URL must include a callback path".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn is_configured(&self) -> bool {
         self.code.is_none() && !self.url.trim().is_empty()
     }
@@ -9680,6 +9975,130 @@ mod tests {
         assert_eq!(error.extra["request_id"], "notify-error");
         assert!(!error.is_configured());
         assert!(error.has_api_error());
+    }
+
+    #[test]
+    fn validates_merchant_service_response_contracts() {
+        let complaint = json!({
+            "complaint_id": "complaint-1",
+            "complaint_time": "2026-07-20T10:00:00+08:00",
+            "complaint_state": "PENDING",
+            "complaint_order_info": [{
+                "transaction_id": "transaction-1",
+                "out_trade_no": "order-1",
+                "amount": 100
+            }],
+            "complaint_media_list": [{
+                "media_id": "media-1",
+                "media_type": "IMAGE",
+                "media_url": ["https://example.com/image.jpg"]
+            }],
+            "user_tag_list": ["HIGH_RISK"],
+            "service_order_info": [{
+                "order_id": "service-order-1",
+                "state": "DOING"
+            }]
+        });
+        let list: ComplaintListResponse = serde_json::from_value(json!({
+            "data": [complaint.clone()],
+            "limit": 10,
+            "offset": 0,
+            "total_count": 1
+        }))
+        .unwrap();
+        assert!(list.validate().is_ok());
+
+        let inconsistent_page: ComplaintListResponse = serde_json::from_value(json!({
+            "data": [complaint.clone()],
+            "limit": 10,
+            "offset": 1,
+            "total_count": 1
+        }))
+        .unwrap();
+        assert!(inconsistent_page.validate().is_err());
+
+        let duplicate_complaints: ComplaintListResponse = serde_json::from_value(json!({
+            "data": [complaint.clone(), complaint.clone()],
+            "limit": 10,
+            "offset": 0,
+            "total_count": 2
+        }))
+        .unwrap();
+        assert!(duplicate_complaints.validate().is_err());
+
+        let negative_amount: ComplaintDetailResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-2",
+            "complaint_time": "2026-07-20T10:00:00Z",
+            "complaint_state": "PENDING",
+            "complaint_order_info": [{
+                "transaction_id": "transaction-2",
+                "amount": -1
+            }]
+        }))
+        .unwrap();
+        assert!(negative_amount.validate().is_err());
+
+        let invalid_time: ComplaintDetailResponse = serde_json::from_value(json!({
+            "complaint_id": "complaint-3",
+            "complaint_time": "2026-07-20 10:00:00",
+            "complaint_state": "PENDING"
+        }))
+        .unwrap();
+        assert!(invalid_time.validate().is_err());
+
+        let history: ComplaintNegotiationHistoryResponse = serde_json::from_value(json!({
+            "data": [{
+                "log_id": "log-1",
+                "operator": "MERCHANT",
+                "operate_time": "2026-07-20T10:10:00+08:00",
+                "operate_type": "MERCHANT_RESPONSE",
+                "image_list": ["https://example.com/reply.jpg"]
+            }],
+            "limit": 10,
+            "offset": 0,
+            "total_count": 1
+        }))
+        .unwrap();
+        assert!(history.validate().is_ok());
+
+        let duplicate_history: ComplaintNegotiationHistoryResponse =
+            serde_json::from_value(json!({
+                "data": [{
+                    "log_id": "log-1",
+                    "operator": "MERCHANT",
+                    "operate_time": "2026-07-20T10:10:00+08:00",
+                    "operate_type": "MERCHANT_RESPONSE"
+                }, {
+                    "log_id": "log-1",
+                    "operator": "USER",
+                    "operate_time": "2026-07-20T10:11:00+08:00",
+                    "operate_type": "USER_RESPONSE"
+                }],
+                "limit": 10,
+                "offset": 0,
+                "total_count": 2
+            }))
+            .unwrap();
+        assert!(duplicate_history.validate().is_err());
+
+        let callback: ComplaintNotificationResponse = serde_json::from_value(json!({
+            "mchid": "1900000109",
+            "url": "https://example.com/complaints"
+        }))
+        .unwrap();
+        assert!(callback.validate().is_ok());
+        let callback_api_error: ComplaintNotificationResponse = serde_json::from_value(json!({
+            "code": "INVALID_REQUEST",
+            "message": "bad request"
+        }))
+        .unwrap();
+        assert!(callback_api_error.validate().is_err());
+        let insecure_callback: ComplaintNotificationResponse = serde_json::from_value(json!({
+            "mchid": "1900000109",
+            "url": "http://example.com/complaints"
+        }))
+        .unwrap();
+        assert!(insecure_callback.validate().is_err());
     }
 
     #[test]

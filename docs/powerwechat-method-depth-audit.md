@@ -36,9 +36,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 
 2. Payment method-depth parity:
    stream-download bill helpers and merchant-service complaint DTOs have been
-   deepened. Continue expanding `notify`, `order`, and remaining payment method
-   variants with strong typed request/response DTOs plus signature/decryption
-   tests where applicable.
+   deepened, including response-boundary contract validation. Continue expanding
+   `notify`, `order`, and remaining payment method variants with strong typed
+   request/response DTOs plus signature/decryption tests where applicable.
 
 3. Open Platform authorizer depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -928,8 +928,7 @@ separate path scan rather than the generic `HttpPostJson` endpoint extractor.
 The approximate payment scan found 69 payment paths and 37 paths that still
 need review. Some are formatting false positives, but the real update areas are:
 
-- remaining payment notify/order/refund variants and deeper merchant-service
-  response DTO normalization;
+- remaining payment notify/order/refund variants;
 
 Implemented on 2026-07-18 in Roze WeChat payment download depth:
 
@@ -1890,6 +1889,22 @@ Implemented on 2026-07-20 in Payment merchant-service workflow depth:
   lookup, pending-response, priority-attention, known-order-amount,
   refund/system-event, configured-callback, and API-error semantics while
   preserving upstream extension fields.
+
+Implemented on 2026-07-20 in Payment merchant-service response contracts:
+
+- complaint list and negotiation-history responses now validate required
+  pagination metadata, page bounds, total-count consistency, item limits, and
+  duplicate complaint/log identities before returning from network calls;
+- complaint detail responses validate complaint identity, RFC3339 timestamps,
+  state, non-negative counters/refund amounts, unique order/service-order
+  identities, media URLs, tags, and nested record invariants;
+- negotiation records validate log identity, operator, RFC3339 operation time,
+  operation type, unique HTTPS image URLs, and typed media records;
+- complaint callback create/query/update responses reject string-form WeChat
+  API errors and require a valid merchant id plus an absolute HTTPS callback
+  URL with a non-root path;
+- all merchant-service query and callback response methods now enforce these
+  contracts at the API boundary while retaining unknown extension fields.
 
 Implemented on 2026-07-20 in Payment bill download and statement depth:
 
