@@ -1178,6 +1178,23 @@ Implemented on 2026-07-18 in Work external-contact contact-way depth:
 - conclusion DTOs validate text/link/mini-program requirements and support both
   `media_id` and `pic_url` image forms used by upstream contracts.
 
+Implemented on 2026-07-20 in Work external-contact contact-way response depth:
+
+- add/get/list network methods now validate their typed response contracts
+  before returning data to application code, including non-zero API error
+  propagation for manually deserialized responses;
+- add responses require a bounded configuration id and absolute HTTP(S)
+  QR-code URL, while get responses require a structurally valid contact-way
+  detail;
+- contact-way details validate required identity/type/scene, style, text,
+  unique users and departments, positive temporary durations, QR-code URLs,
+  and nested conclusion contracts while retaining unknown enum values and
+  extension fields;
+- list responses reject missing or duplicate configuration ids and expose
+  normalized terminal-cursor, `has_more`, and configuration lookup helpers;
+- conclusion image, link image, and destination URLs now require absolute
+  HTTP(S) URLs without credentials or fragments.
+
 Implemented on 2026-07-18 in Work external-contact customer-operation depth:
 
 - customer list, detail, external-user conversion, temporary-chat close, batch

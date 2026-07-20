@@ -1253,13 +1253,16 @@ impl Work {
         request: ContactWayRequest,
     ) -> Result<ContactWayAddResponse> {
         request.validate()?;
-        self.inner
+        let response: ContactWayAddResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/add_contact_way",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_contact_way(
@@ -1269,13 +1272,16 @@ impl Work {
     ) -> Result<ContactWayGetResponse> {
         let config_id = config_id.into();
         validate_contact_way_config_id(&config_id)?;
-        self.inner
+        let response: ContactWayGetResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_contact_way",
                 Some(access_token.into()),
                 json!({ "config_id": config_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_contact_way(
@@ -1284,13 +1290,16 @@ impl Work {
         request: ContactWayListRequest,
     ) -> Result<ContactWayListResponse> {
         request.validate()?;
-        self.inner
+        let response: ContactWayListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/list_contact_way",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_contact_way(
@@ -11578,6 +11587,29 @@ pub struct ContactWayAddResponse {
     pub extra: Value,
 }
 
+impl ContactWayAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_contact_way_response_success(
+            "contact-way add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let config_id = self.config_id.as_deref().ok_or_else(|| {
+            WechatError::Config("contact-way add response requires config_id".to_string())
+        })?;
+        validate_contact_way_config_id(config_id)?;
+        let qr_code = self.qr_code.as_deref().ok_or_else(|| {
+            WechatError::Config("contact-way add response requires qr_code".to_string())
+        })?;
+        validate_contact_way_http_url(qr_code, "contact-way add response QR code")
+    }
+
+    pub fn require_config_id(&self) -> Result<&str> {
+        self.validate()?;
+        Ok(self.config_id.as_deref().unwrap_or_default())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactWayGetResponse {
     #[serde(default)]
@@ -11588,6 +11620,29 @@ pub struct ContactWayGetResponse {
     pub contact_way: Option<ContactWayDetail>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ContactWayGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_contact_way_response_success(
+            "contact-way get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.contact_way
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("contact-way get response requires contact_way".to_string())
+            })?
+            .validate()
+    }
+
+    pub fn require_contact_way(&self) -> Result<&ContactWayDetail> {
+        self.validate()?;
+        self.contact_way.as_ref().ok_or_else(|| {
+            WechatError::Config("contact-way get response requires contact_way".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11634,6 +11689,42 @@ pub struct ContactWayDetail {
     pub conclusions: Option<ContactWayConclusions>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ContactWayDetail {
+    pub fn validate(&self) -> Result<()> {
+        let config_id = self.config_id.as_deref().ok_or_else(|| {
+            WechatError::Config("contact-way detail requires config_id".to_string())
+        })?;
+        validate_contact_way_config_id(config_id)?;
+        if self.kind.is_none() {
+            return Err(WechatError::Config(
+                "contact-way detail requires type".to_string(),
+            ));
+        }
+        if self.scene.is_none() {
+            return Err(WechatError::Config(
+                "contact-way detail requires scene".to_string(),
+            ));
+        }
+        if self.style.is_some_and(|style| !(1..=3).contains(&style)) {
+            return Err(WechatError::Config(
+                "contact-way detail style must be between 1 and 3".to_string(),
+            ));
+        }
+        validate_contact_way_text_fields(self.remark.as_deref(), self.state.as_deref())?;
+        validate_contact_way_user_ids(&self.user)?;
+        validate_contact_way_party_ids(&self.party)?;
+        if let Some(qr_code) = self.qr_code.as_deref() {
+            validate_contact_way_http_url(qr_code, "contact-way detail QR code")?;
+        }
+        validate_contact_way_temporary_fields(
+            self.expires_in,
+            self.chat_expires_in,
+            self.unionid.as_deref(),
+            self.conclusions.as_ref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11727,6 +11818,48 @@ pub struct ContactWayListResponse {
     pub extra: Value,
 }
 
+impl ContactWayListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_contact_way_response_success(
+            "contact-way list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut config_ids = std::collections::HashSet::with_capacity(self.contact_way.len());
+        for contact_way in &self.contact_way {
+            let config_id = contact_way.config_id.as_deref().ok_or_else(|| {
+                WechatError::Config("contact-way list item requires config_id".to_string())
+            })?;
+            validate_contact_way_config_id(config_id)?;
+            if !config_ids.insert(config_id) {
+                return Err(WechatError::Config(
+                    "contact-way list cannot contain duplicate config ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        self.next_cursor
+            .as_deref()
+            .filter(|cursor| !cursor.trim().is_empty())
+    }
+
+    pub fn find(&self, config_id: &str) -> Option<&ContactWayId> {
+        self.contact_way.iter().find(|contact_way| {
+            contact_way
+                .config_id
+                .as_deref()
+                .is_some_and(|value| value == config_id)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContactWayUpdateRequest {
     pub config_id: String,
@@ -11796,10 +11929,24 @@ impl ContactWayUpdateRequest {
 }
 
 fn validate_contact_way_config_id(config_id: &str) -> Result<()> {
-    if config_id.trim().is_empty() {
+    if config_id.trim().is_empty() || config_id.chars().count() > 128 {
         return Err(WechatError::Config(
-            "contact-way config id cannot be empty".to_string(),
+            "contact-way config id must contain 1 to 128 characters".to_string(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_contact_way_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
     }
     Ok(())
 }
@@ -11935,15 +12082,20 @@ impl ContactWayConclusions {
                     "contact-way conclusion image requires media_id or pic_url".to_string(),
                 ));
             }
+            if let Some(pic_url) = pic_url {
+                validate_contact_way_http_url(pic_url, "contact-way conclusion image URL")?;
+            }
         }
-        if self
-            .link
-            .as_ref()
-            .is_some_and(|link| link.title.trim().is_empty() || link.url.trim().is_empty())
-        {
-            return Err(WechatError::Config(
-                "contact-way conclusion links require title and url".to_string(),
-            ));
+        if let Some(link) = self.link.as_ref() {
+            if link.title.trim().is_empty() || link.url.trim().is_empty() {
+                return Err(WechatError::Config(
+                    "contact-way conclusion links require title and url".to_string(),
+                ));
+            }
+            validate_contact_way_http_url(&link.url, "contact-way conclusion link URL")?;
+            if let Some(picurl) = link.picurl.as_deref() {
+                validate_contact_way_http_url(picurl, "contact-way conclusion link image URL")?;
+            }
         }
         if self.miniprogram.as_ref().is_some_and(|mini_program| {
             mini_program.title.trim().is_empty()
@@ -11958,6 +12110,22 @@ impl ContactWayConclusions {
         }
         Ok(())
     }
+}
+
+fn validate_contact_way_http_url(value: &str, field: &str) -> Result<()> {
+    let parsed = url::Url::parse(value)
+        .map_err(|_| WechatError::Config(format!("{field} must be an absolute HTTP(S) URL")))?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "{field} must be an absolute HTTP(S) URL without credentials or fragments"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32465,6 +32633,10 @@ mod tests {
         assert_eq!(response.contact_way[0].extra["owner_userid"], "owner");
         assert_eq!(response.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(response.extra["total"], 1);
+        assert!(response.validate().is_ok());
+        assert!(response.has_more());
+        assert_eq!(response.next_cursor(), Some("cursor"));
+        assert!(response.find("config").is_some());
 
         let added: ContactWayAddResponse = serde_json::from_value(json!({
             "config_id": "config",
@@ -32474,6 +32646,8 @@ mod tests {
         .unwrap();
         assert_eq!(added.config_id.as_deref(), Some("config"));
         assert_eq!(added.extra["request_id"], "contact-way-add");
+        assert!(added.validate().is_ok());
+        assert_eq!(added.require_config_id().unwrap(), "config");
 
         let detail: ContactWayGetResponse = serde_json::from_value(json!({
             "contact_way": {
@@ -32501,15 +32675,32 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(detail.extra["request_id"], "contact-way-get");
-        let contact_way = detail.contact_way.unwrap();
+        assert!(detail.validate().is_ok());
+        let contact_way = detail.require_contact_way().unwrap();
         assert_eq!(contact_way.kind, Some(ContactWayKind::Single));
         assert_eq!(contact_way.scene, Some(ContactWayScene::QrCode));
         assert_eq!(contact_way.user[0], "user");
         assert_eq!(contact_way.extra["channel"], "qrcode");
         assert_eq!(
-            contact_way.conclusions.unwrap().link.unwrap().url,
+            contact_way
+                .conclusions
+                .as_ref()
+                .unwrap()
+                .link
+                .as_ref()
+                .unwrap()
+                .url,
             "https://example.com"
         );
+
+        let terminal: ContactWayListResponse = serde_json::from_value(json!({
+            "contact_way": [],
+            "next_cursor": ""
+        }))
+        .unwrap();
+        assert!(terminal.validate().is_ok());
+        assert!(!terminal.has_more());
+        assert_eq!(terminal.next_cursor(), None);
     }
 
     #[test]
@@ -32573,6 +32764,60 @@ mod tests {
             conclusions: None,
         };
         assert!(empty_update.validate().is_err());
+
+        let api_error: ContactWayAddResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid config"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let missing_qr_code: ContactWayAddResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "config_id": "config"
+        }))
+        .unwrap();
+        assert!(missing_qr_code.validate().is_err());
+
+        let duplicate_list: ContactWayListResponse = serde_json::from_value(json!({
+            "contact_way": [
+                { "config_id": "config" },
+                { "config_id": "config" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_list.validate().is_err());
+
+        let missing_detail: ContactWayGetResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_detail.validate().is_err());
+
+        let invalid_detail: ContactWayGetResponse = serde_json::from_value(json!({
+            "contact_way": {
+                "config_id": "config",
+                "type": 1,
+                "scene": 2,
+                "qr_code": "javascript:alert(1)"
+            }
+        }))
+        .unwrap();
+        assert!(invalid_detail.validate().is_err());
+
+        let invalid_conclusion = ContactWayConclusions {
+            text: None,
+            image: None,
+            link: Some(ContactWayConclusionLink {
+                title: "unsafe".to_string(),
+                picurl: None,
+                desc: None,
+                url: "https://user:password@example.com".to_string(),
+            }),
+            miniprogram: None,
+        };
+        assert!(invalid_conclusion.validate().is_err());
 
         assert_eq!(
             serde_json::from_value::<ContactWayKind>(json!(99)).unwrap(),
