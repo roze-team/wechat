@@ -2121,6 +2121,19 @@ contracts:
 - response helpers expose owner/day and user/day lookup plus reliable
   pagination state.
 
+Implemented on 2026-07-20 in Work external-contact migration and school
+subscription response contracts:
+
+- service/corporation external-userid conversion in both directions now
+  rejects API failures and requires a usable converted identity before leaving
+  the HTTP boundary;
+- migration completion now applies the shared Work mutation-status contract,
+  including operation-aware fallback errors;
+- school-subscription QR-code queries require all large, middle, and thumbnail
+  absolute HTTP(S) URLs and expose them as one checked tuple;
+- school-subscription mode queries require a positive mode, retain future
+  positive values through the semantic enum, and expose a checked mode helper.
+
 Implemented on 2026-07-20 in Payment merchant-service workflow depth:
 
 - complaint list, detail, negotiation-history, reply, completion,

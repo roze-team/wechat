@@ -895,13 +895,16 @@ impl Work {
         request: WorkFromServiceExternalUserIdRequest,
     ) -> Result<WorkFromServiceExternalUserIdResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkFromServiceExternalUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/from_service_external_userid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn to_service_external_user_id(
@@ -911,13 +914,16 @@ impl Work {
     ) -> Result<WorkToServiceExternalUserIdResponse> {
         let external_user_id = external_user_id.into();
         validate_work_user_identifier("service external userid", &external_user_id)?;
-        self.inner
+        let response: WorkToServiceExternalUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/to_service_external_userid",
                 Some(access_token.into()),
                 json!({ "external_userid": external_user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn finish_external_user_id_migration(
@@ -927,13 +933,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let corp_id = corp_id.into();
         validate_work_user_identifier("migration corp id", &corp_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/finish_external_userid_migration",
                 Some(provider_access_token.into()),
                 json!({ "corpid": corp_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact finish external-userid migration")?;
+        Ok(response)
     }
 
     pub fn invoice(&self) -> DomainModule {
@@ -1135,12 +1144,15 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkSchoolSubscribeQrCodeResponse> {
-        self.inner
+        let response: WorkSchoolSubscribeQrCodeResponse = self
+            .inner
             .get(
                 "cgi-bin/externalcontact/get_subscribe_qr_code",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_school_notification_subscribe_mode(
@@ -1165,12 +1177,15 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkSchoolSubscribeModeResponse> {
-        self.inner
+        let response: WorkSchoolSubscribeModeResponse = self
+            .inner
             .get(
                 "cgi-bin/externalcontact/get_subscribe_mode",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact(
@@ -7635,6 +7650,34 @@ pub struct WorkFromServiceExternalUserIdResponse {
     pub extra: Value,
 }
 
+impl WorkFromServiceExternalUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact convert from service external userid",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_user_identifier(
+            "converted external userid",
+            self.external_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work from-service external-userid response requires external_userid"
+                        .to_string(),
+                )
+            })?,
+        )
+    }
+
+    pub fn require_external_userid(&self) -> Result<&str> {
+        self.validate()?;
+        self.external_userid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work from-service external-userid response requires external_userid".to_string(),
+            )
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkToServiceExternalUserIdResponse {
     #[serde(default)]
@@ -7645,6 +7688,33 @@ pub struct WorkToServiceExternalUserIdResponse {
     pub external_userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkToServiceExternalUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact convert to service external userid",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_user_identifier(
+            "converted service external userid",
+            self.external_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work to-service external-userid response requires external_userid".to_string(),
+                )
+            })?,
+        )
+    }
+
+    pub fn require_external_userid(&self) -> Result<&str> {
+        self.validate()?;
+        self.external_userid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "work to-service external-userid response requires external_userid".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11323,6 +11393,33 @@ pub struct WorkSchoolSubscribeQrCodeResponse {
     pub extra: Value,
 }
 
+impl WorkSchoolSubscribeQrCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact school subscribe QR code",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_school_subscribe_qr_code_url("large", self.qrcode_big.as_deref())?;
+        validate_school_subscribe_qr_code_url("middle", self.qrcode_middle.as_deref())?;
+        validate_school_subscribe_qr_code_url("thumbnail", self.qrcode_thumb.as_deref())
+    }
+
+    pub fn urls(&self) -> Result<(&str, &str, &str)> {
+        self.validate()?;
+        let missing = || {
+            WechatError::Config(
+                "school-notification subscribe QR-code response is incomplete".to_string(),
+            )
+        };
+        Ok((
+            self.qrcode_big.as_deref().ok_or_else(missing)?,
+            self.qrcode_middle.as_deref().ok_or_else(missing)?,
+            self.qrcode_thumb.as_deref().ok_or_else(missing)?,
+        ))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkSchoolSubscribeModeResponse {
     #[serde(default)]
@@ -11336,6 +11433,29 @@ pub struct WorkSchoolSubscribeModeResponse {
 }
 
 impl WorkSchoolSubscribeModeResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact school subscribe mode",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.subscribe_mode.is_none_or(|mode| mode <= 0) {
+            return Err(WechatError::Config(
+                "school-notification subscribe-mode response requires a positive mode".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn require_mode_kind(&self) -> Result<WorkSchoolSubscribeModeKind> {
+        self.validate()?;
+        self.mode_kind().ok_or_else(|| {
+            WechatError::Config(
+                "school-notification subscribe-mode response requires mode".to_string(),
+            )
+        })
+    }
+
     pub fn mode_kind(&self) -> Option<WorkSchoolSubscribeModeKind> {
         self.subscribe_mode.map(WorkSchoolSubscribeModeKind::from)
     }
@@ -11373,6 +11493,32 @@ fn validate_school_notification_subscribe_mode(subscribe_mode: i64) -> Result<()
         return Err(WechatError::Config(
             "school-notification subscribe mode must be 1 or 2".to_string(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_school_subscribe_qr_code_url(label: &str, value: Option<&str>) -> Result<()> {
+    let value = value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            WechatError::Config(format!(
+                "school-notification {label} subscribe QR-code URL is required"
+            ))
+        })?;
+    if value.len() > 2_048 {
+        return Err(WechatError::Config(format!(
+            "school-notification {label} subscribe QR-code URL cannot exceed 2048 bytes"
+        )));
+    }
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!(
+            "school-notification {label} subscribe QR-code URL is invalid: {error}"
+        ))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "school-notification {label} subscribe QR-code URL must be absolute HTTP(S)"
+        )));
     }
     Ok(())
 }
@@ -36219,7 +36365,23 @@ mod tests {
             to_service.external_userid.as_deref(),
             Some("service-external")
         );
+        assert!(to_service.validate().is_ok());
+        assert_eq!(
+            to_service.require_external_userid().unwrap(),
+            "service-external"
+        );
         assert_eq!(to_service.extra["migration_version"], 2);
+
+        let from_service: WorkFromServiceExternalUserIdResponse = serde_json::from_value(json!({
+            "external_userid": "corp-external",
+            "migration_version": 2
+        }))
+        .unwrap();
+        assert!(from_service.validate().is_ok());
+        assert_eq!(
+            from_service.require_external_userid().unwrap(),
+            "corp-external"
+        );
 
         let served_request = serde_json::to_value(ExternalContactServedListRequest {
             cursor: None,
@@ -36345,6 +36507,15 @@ mod tests {
             qr_code.qrcode_thumb.as_deref(),
             Some("https://example.com/qr/thumb")
         );
+        assert!(qr_code.validate().is_ok());
+        assert_eq!(
+            qr_code.urls().unwrap(),
+            (
+                "https://example.com/qr/big",
+                "https://example.com/qr/middle",
+                "https://example.com/qr/thumb"
+            )
+        );
         assert_eq!(qr_code.extra["expires_in"], 86400);
 
         let subscribe_mode: WorkSchoolSubscribeModeResponse = serde_json::from_value(json!({
@@ -36356,9 +36527,40 @@ mod tests {
             subscribe_mode.mode_kind(),
             Some(WorkSchoolSubscribeModeKind::ForbidQrCodeRegistration)
         );
+        assert!(subscribe_mode.validate().is_ok());
+        assert_eq!(
+            subscribe_mode.require_mode_kind().unwrap(),
+            WorkSchoolSubscribeModeKind::ForbidQrCodeRegistration
+        );
         assert_eq!(subscribe_mode.extra["policy_version"], 3);
         assert_eq!(
             WorkSchoolSubscribeModeKind::from(9),
+            WorkSchoolSubscribeModeKind::Other(9)
+        );
+
+        let missing_conversion: WorkToServiceExternalUserIdResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_conversion.validate().is_err());
+        let conversion_api_error: WorkFromServiceExternalUserIdResponse =
+            serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid" })).unwrap();
+        assert!(matches!(
+            conversion_api_error.validate(),
+            Err(WechatError::Api { .. })
+        ));
+        let invalid_qr_code: WorkSchoolSubscribeQrCodeResponse = serde_json::from_value(json!({
+            "qrcode_big": "relative",
+            "qrcode_middle": "https://example.com/middle",
+            "qrcode_thumb": "https://example.com/thumb"
+        }))
+        .unwrap();
+        assert!(invalid_qr_code.validate().is_err());
+        let missing_mode: WorkSchoolSubscribeModeResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_mode.validate().is_err());
+        let future_mode: WorkSchoolSubscribeModeResponse =
+            serde_json::from_value(json!({ "subscribe_mode": 9 })).unwrap();
+        assert_eq!(
+            future_mode.require_mode_kind().unwrap(),
             WorkSchoolSubscribeModeKind::Other(9)
         );
     }
