@@ -1493,11 +1493,27 @@ impl MiniProgram {
         access_token: impl Into<String>,
         action: impl Into<String>,
     ) -> Result<OperationDomainInfoResponse> {
+        let action = action.into();
+        validate_operation_domain_action(&action)?;
         self.inner
             .post(
                 "wxa/getwxadevinfo",
                 Some(access_token.into()),
-                json!({ "action": action.into() }),
+                json!({ "action": action }),
+            )
+            .await
+    }
+
+    pub async fn get_operation_domain_info_typed(
+        &self,
+        access_token: impl Into<String>,
+        action: OperationDomainAction,
+    ) -> Result<OperationDomainInfoResponse> {
+        self.inner
+            .post(
+                "wxa/getwxadevinfo",
+                Some(access_token.into()),
+                json!({ "action": action.as_str() }),
             )
             .await
     }
@@ -1509,6 +1525,7 @@ impl MiniProgram {
         page: i64,
         num: i64,
     ) -> Result<OperationFeedbackResponse> {
+        validate_operation_feedback_query(feedback_type, page, num)?;
         self.inner
             .get_with_query(
                 "wxaapi/feedback/list",
@@ -1528,13 +1545,20 @@ impl MiniProgram {
         record_id: i64,
         media_id: impl Into<String>,
     ) -> Result<Bytes> {
+        if record_id <= 0 {
+            return Err(WechatError::Config(
+                "mini-program operation feedback record id must be positive".to_string(),
+            ));
+        }
+        let media_id = media_id.into();
+        validate_operation_required("feedback media id", &media_id)?;
         self.inner
             .post_form_bytes(
                 "cgi-bin/media/getfeedbackmedia",
                 Some(access_token.into()),
                 vec![
                     ("record_id".to_string(), record_id.to_string()),
-                    ("media_id".to_string(), media_id.into()),
+                    ("media_id".to_string(), media_id),
                 ],
             )
             .await
@@ -1554,6 +1578,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: OperationRequest,
     ) -> Result<OperationJsErrDetailResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/log/jserr_detail",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_operation_js_err_detail_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationJsErrDetailRequest,
+    ) -> Result<OperationJsErrDetailResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxaapi/log/jserr_detail",
@@ -1568,6 +1608,18 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: OperationRequest,
     ) -> Result<OperationJsErrListResponse> {
+        request.validate()?;
+        self.inner
+            .post("wxaapi/log/jserr_list", Some(access_token.into()), request)
+            .await
+    }
+
+    pub async fn get_operation_js_err_list_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationJsErrListRequest,
+    ) -> Result<OperationJsErrListResponse> {
+        request.validate()?;
         self.inner
             .post("wxaapi/log/jserr_list", Some(access_token.into()), request)
             .await
@@ -1578,6 +1630,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: OperationRequest,
     ) -> Result<OperationJsErrSearchResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/log/jserr_search",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn search_operation_js_err_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationJsErrSearchRequest,
+    ) -> Result<OperationJsErrSearchResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxaapi/log/jserr_search",
@@ -1592,6 +1660,22 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: OperationRequest,
     ) -> Result<OperationPerformanceResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "wxaapi/log/get_performance",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_operation_performance_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationPerformanceRequest,
+    ) -> Result<OperationPerformanceResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxaapi/log/get_performance",
@@ -1624,11 +1708,27 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: OperationRequest,
     ) -> Result<OperationRealTimeLogSearchResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxaapi/userlog/userlog_search",
                 Some(access_token.into()),
                 request,
+            )
+            .await
+    }
+
+    pub async fn search_operation_real_time_log_typed(
+        &self,
+        access_token: impl Into<String>,
+        request: OperationRealTimeLogSearchRequest,
+    ) -> Result<OperationRealTimeLogSearchResponse> {
+        request.validate()?;
+        self.inner
+            .get_with_query(
+                "wxaapi/userlog/userlog_search",
+                Some(access_token.into()),
+                request.to_query(),
             )
             .await
     }
@@ -4143,6 +4243,283 @@ impl OperationRequest {
     pub fn new(payload: Value) -> Self {
         Self { payload }
     }
+
+    pub fn validate(&self) -> Result<()> {
+        match &self.payload {
+            Value::Object(payload) if !payload.is_empty() => Ok(()),
+            _ => Err(WechatError::Config(
+                "mini-program operation payload must be a nonempty JSON object".to_string(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationDomainAction {
+    Business,
+    Server,
+}
+
+impl OperationDomainAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Business => "getbizdomain",
+            Self::Server => "getserverdomain",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrListRequest {
+    #[serde(rename = "appVersion")]
+    pub app_version: String,
+    #[serde(rename = "errType")]
+    pub error_type: String,
+    #[serde(rename = "startTime")]
+    pub start_time: String,
+    #[serde(rename = "endTime")]
+    pub end_time: String,
+    pub keyword: String,
+    pub openid: String,
+    pub orderby: String,
+    pub desc: String,
+    pub offset: i64,
+    pub limit: i64,
+}
+
+impl OperationJsErrListRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_operation_required("JS-error app version", &self.app_version)?;
+        validate_operation_date_range(&self.start_time, &self.end_time)?;
+        if !matches!(self.error_type.as_str(), "0" | "1" | "2" | "3") {
+            return Err(WechatError::Config(
+                "mini-program operation JS-error type must be 0, 1, 2, or 3".to_string(),
+            ));
+        }
+        if !matches!(self.orderby.as_str(), "uv" | "pv") {
+            return Err(WechatError::Config(
+                "mini-program operation JS-error orderby must be uv or pv".to_string(),
+            ));
+        }
+        if !matches!(self.desc.as_str(), "1" | "2") {
+            return Err(WechatError::Config(
+                "mini-program operation JS-error list desc must be 1 or 2".to_string(),
+            ));
+        }
+        validate_operation_page(self.offset, self.limit, 30)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrDetailRequest {
+    #[serde(rename = "startTime")]
+    pub start_time: String,
+    #[serde(rename = "endTime")]
+    pub end_time: String,
+    #[serde(rename = "errorMsgMd5")]
+    pub error_message_md5: String,
+    #[serde(rename = "errorStackMd5")]
+    pub error_stack_md5: String,
+    #[serde(rename = "appVersion")]
+    pub app_version: String,
+    #[serde(rename = "sdkVersion")]
+    pub sdk_version: String,
+    #[serde(rename = "osName")]
+    pub os_name: String,
+    #[serde(rename = "clientVersion")]
+    pub client_version: String,
+    pub openid: String,
+    pub desc: String,
+    pub offset: i64,
+    pub limit: i64,
+}
+
+impl OperationJsErrDetailRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_operation_date_range(&self.start_time, &self.end_time)?;
+        validate_operation_md5("error message MD5", &self.error_message_md5)?;
+        validate_operation_md5("error stack MD5", &self.error_stack_md5)?;
+        for (kind, value) in [
+            ("app version", self.app_version.as_str()),
+            ("SDK version", self.sdk_version.as_str()),
+            ("client version", self.client_version.as_str()),
+        ] {
+            validate_operation_required(kind, value)?;
+        }
+        if !matches!(self.os_name.as_str(), "0" | "1" | "2" | "3") {
+            return Err(WechatError::Config(
+                "mini-program operation JS-error OS name must be 0, 1, 2, or 3".to_string(),
+            ));
+        }
+        if !matches!(self.desc.as_str(), "0" | "1") {
+            return Err(WechatError::Config(
+                "mini-program operation JS-error detail desc must be 0 or 1".to_string(),
+            ));
+        }
+        validate_operation_page(self.offset, self.limit, 30)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationJsErrSearchRequest {
+    pub errmsg_keyword: String,
+    #[serde(rename = "type")]
+    pub query_type: i64,
+    pub client_version: String,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub start: i64,
+    pub limit: i64,
+}
+
+impl OperationJsErrSearchRequest {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.query_type, 1 | 2) {
+            return Err(WechatError::Config(
+                "mini-program operation legacy JS-error query type must be 1 or 2".to_string(),
+            ));
+        }
+        validate_operation_timestamp_range(self.start_time, self.end_time)?;
+        validate_operation_page(self.start, self.limit, 30)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationPerformanceRequest {
+    pub cost_time_type: i64,
+    pub default_start_time: i64,
+    pub default_end_time: i64,
+    pub device: String,
+    pub is_download_code: String,
+    pub scene: String,
+    pub networktype: String,
+}
+
+impl OperationPerformanceRequest {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.cost_time_type, 1..=3) {
+            return Err(WechatError::Config(
+                "mini-program operation performance cost-time type must be 1, 2, or 3".to_string(),
+            ));
+        }
+        validate_operation_timestamp_range(self.default_start_time, self.default_end_time)?;
+        if !matches!(self.device.as_str(), "@_all:" | "1" | "2") {
+            return Err(WechatError::Config(
+                "mini-program operation performance device must be @_all:, 1, or 2".to_string(),
+            ));
+        }
+        if !matches!(self.is_download_code.as_str(), "@_all:" | "1" | "2") {
+            return Err(WechatError::Config(
+                "mini-program operation download-code filter must be @_all:, 1, or 2".to_string(),
+            ));
+        }
+        if !matches!(
+            self.networktype.as_str(),
+            "@_all:" | "wifi" | "4g" | "3g" | "2g"
+        ) {
+            return Err(WechatError::Config(
+                "mini-program operation network type is unsupported".to_string(),
+            ));
+        }
+        validate_operation_required("performance scene", &self.scene)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationRealTimeLogSearchRequest {
+    pub date: String,
+    pub begintime: i64,
+    pub endtime: i64,
+    #[serde(default)]
+    pub start: i64,
+    #[serde(default = "operation_default_log_limit")]
+    pub limit: i64,
+    #[serde(default, rename = "traceId", skip_serializing_if = "Option::is_none")]
+    pub trace_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, rename = "filterMsg", skip_serializing_if = "Option::is_none")]
+    pub filter_message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<i64>,
+}
+
+impl OperationRealTimeLogSearchRequest {
+    pub fn validate(&self) -> Result<()> {
+        let date = chrono::NaiveDate::parse_from_str(&self.date, "%Y%m%d").map_err(|err| {
+            WechatError::Config(format!(
+                "mini-program operation real-time-log date must be YYYYMMDD: {err}"
+            ))
+        })?;
+        validate_operation_timestamp_range(self.begintime, self.endtime)?;
+        for (kind, timestamp) in [("begin time", self.begintime), ("end time", self.endtime)] {
+            let china_standard_timestamp = timestamp.checked_add(8 * 60 * 60).ok_or_else(|| {
+                WechatError::Config(format!(
+                    "mini-program operation real-time-log {kind} overflows China Standard Time"
+                ))
+            })?;
+            let timestamp_date = chrono::DateTime::from_timestamp(china_standard_timestamp, 0)
+                .ok_or_else(|| {
+                    WechatError::Config(format!(
+                        "mini-program operation real-time-log {kind} is outside the Unix timestamp range"
+                    ))
+                })?
+                .date_naive();
+            if timestamp_date != date {
+                return Err(WechatError::Config(format!(
+                    "mini-program operation real-time-log {kind} must fall on date {}",
+                    self.date
+                )));
+            }
+        }
+        validate_operation_page(self.start, self.limit, 100)?;
+        if !matches!(self.level, None | Some(2 | 4 | 8)) {
+            return Err(WechatError::Config(
+                "mini-program operation real-time-log level must be 2, 4, or 8".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("trace id", self.trace_id.as_deref()),
+            ("page URL", self.url.as_deref()),
+            ("user id", self.id.as_deref()),
+            ("filter message", self.filter_message.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_operation_required(kind, value)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn to_query(&self) -> Vec<(String, String)> {
+        let mut query = vec![
+            ("date".to_string(), self.date.clone()),
+            ("begintime".to_string(), self.begintime.to_string()),
+            ("endtime".to_string(), self.endtime.to_string()),
+            ("start".to_string(), self.start.to_string()),
+            ("limit".to_string(), self.limit.to_string()),
+        ];
+        for (name, value) in [
+            ("traceId", self.trace_id.as_deref()),
+            ("url", self.url.as_deref()),
+            ("id", self.id.as_deref()),
+            ("filterMsg", self.filter_message.as_deref()),
+        ] {
+            if let Some(value) = value {
+                query.push((name.to_string(), value.to_string()));
+            }
+        }
+        if let Some(level) = self.level {
+            query.push(("level".to_string(), level.to_string()));
+        }
+        query
+    }
+}
+
+fn operation_default_log_limit() -> i64 {
+    20
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4163,6 +4540,8 @@ pub struct OperationDomainInfoResponse {
     pub udpdomain: Vec<String>,
     #[serde(default)]
     pub bizdomain: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4175,6 +4554,8 @@ pub struct OperationFeedbackResponse {
     pub list: Vec<OperationFeedbackItem>,
     #[serde(default)]
     pub total_num: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4193,6 +4574,12 @@ pub struct OperationFeedbackItem {
     pub system_info: Option<String>,
     #[serde(default)]
     pub media_id: Vec<String>,
+    #[serde(default, rename = "type")]
+    pub feedback_type: Option<i64>,
+    #[serde(default)]
+    pub app_version: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4203,6 +4590,8 @@ pub struct OperationGrayReleasePlanResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub gray_release_plan: Option<OperationGrayReleasePlan>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4212,9 +4601,15 @@ pub struct OperationGrayReleasePlan {
     #[serde(default)]
     pub gray_percentage: Option<i64>,
     #[serde(default)]
+    pub create_timestamp: Option<i64>,
+    #[serde(default)]
+    pub default_finish_timestamp: Option<i64>,
+    #[serde(default)]
     pub support_experiencer_first: Option<bool>,
     #[serde(default)]
     pub support_debuger_first: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4229,24 +4624,60 @@ pub struct OperationJsErrDetailResponse {
     pub openid: Option<String>,
     #[serde(default)]
     pub data: Vec<OperationJsErrDetail>,
+    #[serde(default, rename = "totalCount")]
+    pub total_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationJsErrDetail {
-    #[serde(default)]
+    #[serde(default, rename = "errorMsg", alias = "message")]
     pub message: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "errorStack", alias = "stack")]
     pub stack: Option<String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "TimeStamp",
+        alias = "time",
+        alias = "timestamp",
+        deserialize_with = "deserialize_optional_i64"
+    )]
     pub time: Option<i64>,
-    #[serde(default)]
+    #[serde(default, rename = "appVersion", alias = "app_version")]
     pub app_version: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "sdkVersion", alias = "sdk_version")]
     pub sdk_version: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "clientVersion", alias = "client_version")]
     pub client_version: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "DeviceModel", alias = "device")]
     pub device: Option<String>,
+    #[serde(default, rename = "errorMsgMd5")]
+    pub error_message_md5: Option<String>,
+    #[serde(default, rename = "errorStackMd5")]
+    pub error_stack_md5: Option<String>,
+    #[serde(default, rename = "Count")]
+    pub count: Option<i64>,
+    #[serde(default, rename = "Ds")]
+    pub ds: Option<String>,
+    #[serde(default, rename = "osName")]
+    pub os_name: Option<String>,
+    #[serde(default)]
+    pub openid: Option<String>,
+    #[serde(default)]
+    pub pluginversion: Option<String>,
+    #[serde(default, rename = "appId")]
+    pub app_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub route: Option<String>,
+    #[serde(default, rename = "Uin")]
+    pub uin: Option<String>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4263,24 +4694,38 @@ pub struct OperationJsErrListResponse {
     pub data: Vec<OperationJsErrSummary>,
     #[serde(default, rename = "totalCount")]
     pub total_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationJsErrSummary {
-    #[serde(default)]
+    #[serde(default, rename = "errorMsg", alias = "message")]
     pub message: Option<String>,
     #[serde(default)]
     pub count: Option<i64>,
-    #[serde(default)]
+    #[serde(default, rename = "appVersion", alias = "app_version")]
     pub app_version: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "sdkVersion", alias = "sdk_version")]
     pub sdk_version: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "clientVersion", alias = "client_version")]
     pub client_version: Option<String>,
     #[serde(default)]
     pub first_time: Option<i64>,
     #[serde(default)]
     pub last_time: Option<i64>,
+    #[serde(default, rename = "errorMsgMd5")]
+    pub error_message_md5: Option<String>,
+    #[serde(default, rename = "errorStackMd5")]
+    pub error_stack_md5: Option<String>,
+    #[serde(default)]
+    pub uv: Option<i64>,
+    #[serde(default)]
+    pub pv: Option<i64>,
+    #[serde(default, rename = "errorStack")]
+    pub error_stack: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4293,12 +4738,16 @@ pub struct OperationJsErrSearchResponse {
     pub results: Option<OperationJsErrSearchResults>,
     #[serde(default)]
     pub total: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationJsErrSearchResults {
     #[serde(default)]
     pub items: Vec<OperationJsErrDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4311,6 +4760,8 @@ pub struct OperationPerformanceResponse {
     pub default_time_data: Option<String>,
     #[serde(default)]
     pub compare_time_data: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4321,14 +4772,18 @@ pub struct OperationSceneListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub scene: Vec<OperationScene>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationScene {
     #[serde(default)]
     pub name: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
     pub value: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4339,14 +4794,22 @@ pub struct OperationVersionListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub cvlist: Vec<OperationClientVersion>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationClientVersion {
+    #[serde(default, rename = "type")]
+    pub version_type: Option<i64>,
+    #[serde(default)]
+    pub client_version_list: Vec<String>,
     #[serde(default)]
     pub version: Option<String>,
     #[serde(default)]
     pub percentage: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4359,6 +4822,8 @@ pub struct OperationRealTimeLogSearchResponse {
     pub data: Option<OperationRealTimeLogData>,
     #[serde(default)]
     pub list: Vec<OperationRealTimeLogItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4371,18 +4836,676 @@ pub struct OperationRealTimeLogData {
     pub page: Option<i64>,
     #[serde(default)]
     pub limit: Option<i64>,
+    #[serde(default)]
+    pub list: Vec<OperationRealTimeLogItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationRealTimeLogItem {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
     pub level: Option<String>,
     #[serde(default)]
     pub message: Option<String>,
     #[serde(default)]
     pub timestamp: Option<i64>,
-    #[serde(default)]
+    #[serde(default, rename = "traceid", alias = "trace_id")]
     pub trace_id: Option<String>,
+    #[serde(default)]
+    pub platform: Option<i64>,
+    #[serde(default, rename = "libraryVersion")]
+    pub library_version: Option<String>,
+    #[serde(default, rename = "clientVersion")]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub msg: Vec<OperationRealTimeLogMessage>,
+    #[serde(default, rename = "filterMsg")]
+    pub filter_message: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationRealTimeLogMessage {
+    #[serde(default)]
+    pub time: Option<i64>,
+    #[serde(default)]
+    pub msg: Vec<Value>,
+    #[serde(default)]
+    pub level: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationGrayReleaseStatusKind {
+    Initial,
+    Running,
+    Paused,
+    Finished,
+    Deleted,
+    Other(i64),
+}
+
+impl From<i64> for OperationGrayReleaseStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Initial,
+            1 => Self::Running,
+            2 => Self::Paused,
+            3 => Self::Finished,
+            4 => Self::Deleted,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl OperationDomainInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut domains = std::collections::HashSet::new();
+        for (kind, values) in [
+            ("request", self.requestdomain.as_slice()),
+            ("WebSocket request", self.wsrequestdomain.as_slice()),
+            ("upload", self.uploaddomain.as_slice()),
+            ("download", self.downloaddomain.as_slice()),
+            ("UDP", self.udpdomain.as_slice()),
+            ("business", self.bizdomain.as_slice()),
+        ] {
+            for value in values {
+                validate_operation_required(&format!("{kind} domain"), value)?;
+                if !domains.insert((kind, value)) {
+                    return Err(WechatError::Config(format!(
+                        "mini-program operation {kind} domain list contains duplicates"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OperationFeedbackResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        let total = self.total_num.unwrap_or(self.list.len() as i64);
+        if total < 0
+            || usize::try_from(total)
+                .ok()
+                .is_some_and(|total| total < self.list.len())
+        {
+            return Err(WechatError::Config(
+                "mini-program operation feedback total is inconsistent with the returned list"
+                    .to_string(),
+            ));
+        }
+        let mut record_ids = std::collections::HashSet::with_capacity(self.list.len());
+        for item in &self.list {
+            let record_id = item.record_id.ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program operation feedback item is missing record id".to_string(),
+                )
+            })?;
+            if record_id <= 0 || !record_ids.insert(record_id) {
+                return Err(WechatError::Config(
+                    "mini-program operation feedback record ids must be positive and unique"
+                        .to_string(),
+                ));
+            }
+            if item.create_time.is_some_and(|time| time < 0) {
+                return Err(WechatError::Config(
+                    "mini-program operation feedback create time cannot be negative".to_string(),
+                ));
+            }
+            let mut media_ids = std::collections::HashSet::with_capacity(item.media_id.len());
+            for media_id in &item.media_id {
+                validate_operation_required("feedback media id", media_id)?;
+                if !media_ids.insert(media_id) {
+                    return Err(WechatError::Config(
+                        "mini-program operation feedback item contains duplicate media ids"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_page(&self, page: i64, num: i64) -> Result<Option<i64>> {
+        validate_operation_feedback_query(0, page, num)?;
+        self.validate()?;
+        let consumed = page.checked_mul(num).ok_or_else(|| {
+            WechatError::Config("mini-program operation feedback pagination overflowed".to_string())
+        })?;
+        if consumed >= self.total_num.unwrap_or(self.list.len() as i64) {
+            Ok(None)
+        } else {
+            page.checked_add(1).map(Some).ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program operation feedback next page overflowed".to_string(),
+                )
+            })
+        }
+    }
+}
+
+impl OperationGrayReleasePlan {
+    pub fn status_kind(&self) -> Option<OperationGrayReleaseStatusKind> {
+        self.status.map(OperationGrayReleaseStatusKind::from)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .gray_percentage
+            .is_some_and(|value| !(0..=100).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "mini-program operation gray percentage must be between 0 and 100".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("create timestamp", self.create_timestamp),
+            ("default finish timestamp", self.default_finish_timestamp),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program operation gray-release {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(created), Some(finished)) =
+            (self.create_timestamp, self.default_finish_timestamp)
+        {
+            if finished < created {
+                return Err(WechatError::Config(
+                    "mini-program operation gray-release finish time precedes creation".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OperationGrayReleasePlanResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        if let Some(plan) = &self.gray_release_plan {
+            plan.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl OperationJsErrDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_operation_js_response(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.success,
+            self.total_count,
+            self.data.len(),
+        )?;
+        for detail in &self.data {
+            detail.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl OperationJsErrDetail {
+    pub fn validate(&self) -> Result<()> {
+        if self.count.is_some_and(|count| count < 0) || self.time.is_some_and(|time| time < 0) {
+            return Err(WechatError::Config(
+                "mini-program operation JS-error count/time cannot be negative".to_string(),
+            ));
+        }
+        for (kind, digest) in [
+            ("error message MD5", self.error_message_md5.as_deref()),
+            ("error stack MD5", self.error_stack_md5.as_deref()),
+        ] {
+            if let Some(digest) = digest {
+                validate_operation_md5(kind, digest)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OperationJsErrListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_operation_js_response(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.success,
+            self.total_count,
+            self.data.len(),
+        )?;
+        for item in &self.data {
+            if item.count.is_some_and(|count| count < 0)
+                || item.uv.is_some_and(|count| count < 0)
+                || item.pv.is_some_and(|count| count < 0)
+            {
+                return Err(WechatError::Config(
+                    "mini-program operation JS-error counters cannot be negative".to_string(),
+                ));
+            }
+            if let (Some(first), Some(last)) = (item.first_time, item.last_time) {
+                if last < first {
+                    return Err(WechatError::Config(
+                        "mini-program operation JS-error last time precedes first time".to_string(),
+                    ));
+                }
+            }
+            for (kind, digest) in [
+                ("error message MD5", item.error_message_md5.as_deref()),
+                ("error stack MD5", item.error_stack_md5.as_deref()),
+            ] {
+                if let Some(digest) = digest {
+                    validate_operation_md5(kind, digest)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_offset(&self, offset: i64, limit: i64) -> Result<Option<i64>> {
+        validate_operation_page(offset, limit, 30)?;
+        self.validate()?;
+        let next = offset.checked_add(self.data.len() as i64).ok_or_else(|| {
+            WechatError::Config("mini-program operation JS-error pagination overflowed".to_string())
+        })?;
+        if next >= self.total_count.unwrap_or(next) {
+            Ok(None)
+        } else if self.data.is_empty() {
+            Err(WechatError::Config(
+                "mini-program operation JS-error pagination stalled before total count".to_string(),
+            ))
+        } else {
+            Ok(Some(next))
+        }
+    }
+}
+
+impl OperationJsErrSearchResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        let items = self
+            .results
+            .as_ref()
+            .map(|results| results.items.as_slice())
+            .unwrap_or_default();
+        let total = self.total.unwrap_or(items.len() as i64);
+        if total < 0
+            || usize::try_from(total)
+                .ok()
+                .is_some_and(|total| total < items.len())
+        {
+            return Err(WechatError::Config(
+                "mini-program operation legacy JS-error total is inconsistent".to_string(),
+            ));
+        }
+        for item in items {
+            item.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl OperationPerformanceResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.default_time_data_value()?;
+        self.compare_time_data_value()?;
+        Ok(())
+    }
+
+    pub fn default_time_data_value(&self) -> Result<Option<Value>> {
+        parse_operation_json_string(
+            "default performance data",
+            self.default_time_data.as_deref(),
+        )
+    }
+
+    pub fn compare_time_data_value(&self) -> Result<Option<Value>> {
+        parse_operation_json_string(
+            "comparison performance data",
+            self.compare_time_data.as_deref(),
+        )
+    }
+}
+
+impl OperationSceneListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut values = std::collections::HashSet::with_capacity(self.scene.len());
+        for scene in &self.scene {
+            validate_operation_required("scene name", scene.name.as_deref().unwrap_or_default())?;
+            let value = scene.value.ok_or_else(|| {
+                WechatError::Config("mini-program operation scene is missing value".to_string())
+            })?;
+            if value < 0 || !values.insert(value) {
+                return Err(WechatError::Config(
+                    "mini-program operation scene values must be non-negative and unique"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationVersionTypeKind {
+    Client,
+    ServiceDirect,
+    Other(i64),
+}
+
+impl From<i64> for OperationVersionTypeKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Client,
+            2 => Self::ServiceDirect,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl OperationClientVersion {
+    pub fn version_type_kind(&self) -> Option<OperationVersionTypeKind> {
+        self.version_type.map(OperationVersionTypeKind::from)
+    }
+}
+
+impl OperationVersionListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut types = std::collections::HashSet::new();
+        for item in &self.cvlist {
+            if let Some(kind) = item.version_type {
+                if kind <= 0 || !types.insert(kind) {
+                    return Err(WechatError::Config(
+                        "mini-program operation client-version types must be positive and unique"
+                            .to_string(),
+                    ));
+                }
+            }
+            if item
+                .percentage
+                .is_some_and(|value| !(0..=100).contains(&value))
+            {
+                return Err(WechatError::Config(
+                    "mini-program operation client-version percentage must be between 0 and 100"
+                        .to_string(),
+                ));
+            }
+            let mut versions = std::collections::HashSet::new();
+            for version in &item.client_version_list {
+                validate_operation_required("client version", version)?;
+                if !versions.insert(version) {
+                    return Err(WechatError::Config(
+                        "mini-program operation client-version list contains duplicates"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OperationRealTimeLogItem {
+    pub fn level_bits(&self) -> Result<Option<i64>> {
+        self.level
+            .as_deref()
+            .map(|level| {
+                level.parse::<i64>().map_err(|err| {
+                    WechatError::Config(format!(
+                        "mini-program operation real-time-log level is invalid: {err}"
+                    ))
+                })
+            })
+            .transpose()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.timestamp.is_some_and(|time| time < 0) {
+            return Err(WechatError::Config(
+                "mini-program operation real-time-log timestamp cannot be negative".to_string(),
+            ));
+        }
+        if self
+            .platform
+            .is_some_and(|platform| !matches!(platform, 1 | 2))
+        {
+            return Err(WechatError::Config(
+                "mini-program operation real-time-log platform must be 1 or 2".to_string(),
+            ));
+        }
+        let level = self.level_bits()?;
+        if level.is_some_and(|level| level < 0 || level & !14 != 0) {
+            return Err(WechatError::Config(
+                "mini-program operation real-time-log aggregate level contains unknown bits"
+                    .to_string(),
+            ));
+        }
+        for message in &self.msg {
+            if message.time.is_some_and(|time| time < 0)
+                || message
+                    .level
+                    .is_some_and(|level| !matches!(level, 2 | 4 | 8))
+            {
+                return Err(WechatError::Config(
+                    "mini-program operation real-time-log message has invalid time or level"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OperationRealTimeLogSearchResponse {
+    pub fn items(&self) -> &[OperationRealTimeLogItem] {
+        self.data
+            .as_ref()
+            .filter(|data| !data.list.is_empty())
+            .map(|data| data.list.as_slice())
+            .unwrap_or(self.list.as_slice())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_operation_response_success(self.errcode, self.errmsg.as_deref())?;
+        let items = self.items();
+        let total = self
+            .data
+            .as_ref()
+            .and_then(|data| data.total)
+            .unwrap_or(items.len() as i64);
+        if total < 0
+            || usize::try_from(total)
+                .ok()
+                .is_some_and(|total| total < items.len())
+        {
+            return Err(WechatError::Config(
+                "mini-program operation real-time-log total is inconsistent".to_string(),
+            ));
+        }
+        let mut trace_timestamps = std::collections::HashSet::with_capacity(items.len());
+        for item in items {
+            item.validate()?;
+            if let (Some(trace_id), Some(timestamp)) = (item.trace_id.as_deref(), item.timestamp) {
+                if !trace_timestamps.insert((trace_id, timestamp)) {
+                    return Err(WechatError::Config(
+                        "mini-program operation real-time-log response contains duplicate entries"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_start(&self, start: i64, limit: i64) -> Result<Option<i64>> {
+        validate_operation_page(start, limit, 100)?;
+        self.validate()?;
+        let next = start
+            .checked_add(self.items().len() as i64)
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program operation real-time-log pagination overflowed".to_string(),
+                )
+            })?;
+        let total = self
+            .data
+            .as_ref()
+            .and_then(|data| data.total)
+            .unwrap_or(next);
+        if next >= total {
+            Ok(None)
+        } else if self.items().is_empty() {
+            Err(WechatError::Config(
+                "mini-program operation real-time-log pagination stalled before total".to_string(),
+            ))
+        } else {
+            Ok(Some(next))
+        }
+    }
+}
+
+fn validate_operation_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program operation {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_operation_domain_action(action: &str) -> Result<()> {
+    if !matches!(action, "getbizdomain" | "getserverdomain") {
+        return Err(WechatError::Config(
+            "mini-program operation domain action must be getbizdomain or getserverdomain"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_operation_feedback_query(feedback_type: i64, page: i64, num: i64) -> Result<()> {
+    if !(0..=8).contains(&feedback_type) {
+        return Err(WechatError::Config(
+            "mini-program operation feedback type must be between 0 and 8".to_string(),
+        ));
+    }
+    if page <= 0 || !(1..=20).contains(&num) {
+        return Err(WechatError::Config(
+            "mini-program operation feedback page must be positive and num must be 1..=20"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_operation_page(offset: i64, limit: i64, maximum: i64) -> Result<()> {
+    if offset < 0 || !(1..=maximum).contains(&limit) {
+        return Err(WechatError::Config(format!(
+            "mini-program operation offset must be non-negative and limit must be 1..={maximum}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_operation_date_range(start: &str, end: &str) -> Result<()> {
+    let start = chrono::NaiveDate::parse_from_str(start, "%Y-%m-%d").map_err(|err| {
+        WechatError::Config(format!(
+            "mini-program operation start date must be YYYY-MM-DD: {err}"
+        ))
+    })?;
+    let end = chrono::NaiveDate::parse_from_str(end, "%Y-%m-%d").map_err(|err| {
+        WechatError::Config(format!(
+            "mini-program operation end date must be YYYY-MM-DD: {err}"
+        ))
+    })?;
+    if end < start {
+        return Err(WechatError::Config(
+            "mini-program operation end date precedes start date".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_operation_timestamp_range(start: i64, end: i64) -> Result<()> {
+    if start <= 0 || end <= 0 || end < start {
+        return Err(WechatError::Config(
+            "mini-program operation timestamps must be positive and ordered".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_operation_md5(kind: &str, digest: &str) -> Result<()> {
+    if digest.len() != 32 || !digest.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(WechatError::Config(format!(
+            "mini-program operation {kind} must be a 32-character hexadecimal digest"
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_operation_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program operation API error")
+                .to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_operation_js_response(
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+    success: Option<bool>,
+    total: Option<i64>,
+    count: usize,
+) -> Result<()> {
+    ensure_operation_response_success(errcode, errmsg)?;
+    if success == Some(false) {
+        return Err(WechatError::Config(
+            "mini-program operation JS-error query reported success=false".to_string(),
+        ));
+    }
+    let total = total.unwrap_or(count as i64);
+    if total < 0
+        || usize::try_from(total)
+            .ok()
+            .is_some_and(|total| total < count)
+    {
+        return Err(WechatError::Config(
+            "mini-program operation JS-error total is inconsistent with returned data".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn parse_operation_json_string(kind: &str, value: Option<&str>) -> Result<Option<Value>> {
+    value
+        .map(|value| {
+            serde_json::from_str(value).map_err(|err| {
+                WechatError::Config(format!(
+                    "mini-program operation {kind} is not valid JSON: {err}"
+                ))
+            })
+        })
+        .transpose()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10471,6 +11594,101 @@ mod tests {
     }
 
     #[test]
+    fn serializes_and_validates_typed_operation_requests() {
+        let list = OperationJsErrListRequest {
+            app_version: "0".to_string(),
+            error_type: "1".to_string(),
+            start_time: "2026-07-01".to_string(),
+            end_time: "2026-07-02".to_string(),
+            keyword: "TypeError".to_string(),
+            openid: String::new(),
+            orderby: "pv".to_string(),
+            desc: "1".to_string(),
+            offset: 0,
+            limit: 30,
+        };
+        list.validate().unwrap();
+        let list_value = serde_json::to_value(&list).unwrap();
+        assert_eq!(list_value["appVersion"], "0");
+        assert_eq!(list_value["errType"], "1");
+        assert_eq!(list_value["startTime"], "2026-07-01");
+
+        let detail = OperationJsErrDetailRequest {
+            start_time: "2026-07-01".to_string(),
+            end_time: "2026-07-02".to_string(),
+            error_message_md5: "d41d8cd98f00b204e9800998ecf8427e".to_string(),
+            error_stack_md5: "d41d8cd98f00b204e9800998ecf8427e".to_string(),
+            app_version: "0".to_string(),
+            sdk_version: "0".to_string(),
+            os_name: "0".to_string(),
+            client_version: "0".to_string(),
+            openid: String::new(),
+            desc: "1".to_string(),
+            offset: 0,
+            limit: 20,
+        };
+        detail.validate().unwrap();
+        let detail_value = serde_json::to_value(&detail).unwrap();
+        assert_eq!(
+            detail_value["errorMsgMd5"],
+            "d41d8cd98f00b204e9800998ecf8427e"
+        );
+        assert_eq!(detail_value["clientVersion"], "0");
+
+        let search = OperationJsErrSearchRequest {
+            errmsg_keyword: String::new(),
+            query_type: 1,
+            client_version: String::new(),
+            start_time: 1_783_036_800,
+            end_time: 1_783_123_200,
+            start: 0,
+            limit: 20,
+        };
+        search.validate().unwrap();
+        assert_eq!(serde_json::to_value(&search).unwrap()["type"], 1);
+
+        let performance = OperationPerformanceRequest {
+            cost_time_type: 2,
+            default_start_time: 1_783_036_800,
+            default_end_time: 1_783_123_200,
+            device: "@_all:".to_string(),
+            is_download_code: "@_all:".to_string(),
+            scene: "1007".to_string(),
+            networktype: "wifi".to_string(),
+        };
+        performance.validate().unwrap();
+
+        let real_time = OperationRealTimeLogSearchRequest {
+            date: "20260703".to_string(),
+            begintime: 1_783_036_800,
+            endtime: 1_783_040_400,
+            start: 0,
+            limit: 20,
+            trace_id: Some("trace-id".to_string()),
+            url: Some("pages/index/index".to_string()),
+            id: None,
+            filter_message: Some("checkout".to_string()),
+            level: Some(4),
+        };
+        real_time.validate().unwrap();
+        let log_value = serde_json::to_value(&real_time).unwrap();
+        assert_eq!(log_value["traceId"], "trace-id");
+        assert_eq!(log_value["filterMsg"], "checkout");
+        let log_query = real_time.to_query();
+        assert!(log_query.contains(&("traceId".to_string(), "trace-id".to_string())));
+        assert!(log_query.contains(&("level".to_string(), "4".to_string())));
+
+        let mut invalid_list = list;
+        invalid_list.limit = 31;
+        assert!(invalid_list.validate().is_err());
+        let mut invalid_performance = performance;
+        invalid_performance.networktype = "5g".to_string();
+        assert!(invalid_performance.validate().is_err());
+        assert!(OperationRequest::new(json!({})).validate().is_err());
+        assert!(OperationRequest::new(json!([])).validate().is_err());
+    }
+
+    #[test]
     fn deserializes_operation_responses() {
         let domain: OperationDomainInfoResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -10612,6 +11830,137 @@ mod tests {
         assert_eq!(real_time.data.expect("data").total, Some(1));
         assert_eq!(real_time.list[0].level.as_deref(), Some("error"));
         assert_eq!(real_time.list[0].trace_id.as_deref(), Some("trace"));
+    }
+
+    #[test]
+    fn validates_production_operation_responses() {
+        let domain: OperationDomainInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "requestdomain": ["https://api.example.com"],
+            "wsrequestdomain": ["wss://ws.example.com"],
+            "request_id": "domain"
+        }))
+        .unwrap();
+        domain.validate().unwrap();
+        assert_eq!(domain.extra["request_id"], "domain");
+
+        let feedback: OperationFeedbackResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "list": [{
+                "record_id": 1,
+                "content": "blank screen",
+                "create_time": 1_783_036_800,
+                "media_id": ["media-1"],
+                "item_extension": true
+            }],
+            "total_num": 21
+        }))
+        .unwrap();
+        feedback.validate().unwrap();
+        assert_eq!(feedback.next_page(1, 20).unwrap(), Some(2));
+        assert_eq!(feedback.list[0].extra["item_extension"], true);
+
+        let gray: OperationGrayReleasePlanResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "gray_release_plan": {
+                "status": 1,
+                "create_timestamp": 1_783_036_800,
+                "default_finish_timestamp": 1_783_123_200,
+                "gray_percentage": 30
+            }
+        }))
+        .unwrap();
+        gray.validate().unwrap();
+        assert_eq!(
+            gray.gray_release_plan
+                .as_ref()
+                .and_then(OperationGrayReleasePlan::status_kind),
+            Some(OperationGrayReleaseStatusKind::Running)
+        );
+
+        let detail: OperationJsErrDetailResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "success": true,
+            "totalCount": 1,
+            "data": [{
+                "Count": 3,
+                "sdkVersion": "3.7.0",
+                "clientVersion": "8.0.0",
+                "errorStackMd5": "d41d8cd98f00b204e9800998ecf8427e",
+                "TimeStamp": "1783036800",
+                "appVersion": "1.0.0",
+                "errorMsgMd5": "d41d8cd98f00b204e9800998ecf8427e",
+                "errorMsg": "TypeError",
+                "errorStack": "stack",
+                "DeviceModel": "iPhone"
+            }]
+        }))
+        .unwrap();
+        detail.validate().unwrap();
+        assert_eq!(detail.data[0].count, Some(3));
+        assert_eq!(detail.data[0].time, Some(1_783_036_800));
+        assert_eq!(detail.data[0].device.as_deref(), Some("iPhone"));
+
+        let performance: OperationPerformanceResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "default_time_data": "{\"list\":[{\"cost_time\":1533}]}",
+            "compare_time_data": "{\"list\":[]}"
+        }))
+        .unwrap();
+        performance.validate().unwrap();
+        assert_eq!(
+            performance.default_time_data_value().unwrap().unwrap()["list"][0]["cost_time"],
+            1533
+        );
+
+        let versions: OperationVersionListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "cvlist": [{
+                "type": 1,
+                "client_version_list": ["8.0.60", "8.0.61"]
+            }]
+        }))
+        .unwrap();
+        versions.validate().unwrap();
+        assert_eq!(
+            versions.cvlist[0].version_type_kind(),
+            Some(OperationVersionTypeKind::Client)
+        );
+
+        let logs: OperationRealTimeLogSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": {
+                "list": [{
+                    "level": 6,
+                    "platform": 1,
+                    "libraryVersion": "3.7.0",
+                    "clientVersion": "8.0.60",
+                    "id": "openid",
+                    "timestamp": 1783036800,
+                    "msg": [{
+                        "time": 1783036799,
+                        "msg": ["checkout", {"order_id": "order-1"}],
+                        "level": 2
+                    }],
+                    "url": "pages/order/detail",
+                    "traceid": "trace-1",
+                    "filterMsg": "checkout"
+                }],
+                "total": 21
+            }
+        }))
+        .unwrap();
+        logs.validate().unwrap();
+        assert_eq!(logs.items()[0].level_bits().unwrap(), Some(6));
+        assert_eq!(logs.items()[0].msg[0].msg[1]["order_id"], "order-1");
+        assert_eq!(logs.next_start(0, 20).unwrap(), Some(1));
+
+        let inconsistent: OperationRealTimeLogSearchResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data": { "total": 0, "list": [{ "timestamp": 1 }] }
+        }))
+        .unwrap();
+        assert!(inconsistent.validate().is_err());
     }
 
     #[test]

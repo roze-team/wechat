@@ -17,7 +17,7 @@ but these areas should be expanded for stricter production parity.
 | Work | 363 | 370 | high |
 | Payment | 165 | 110 | high |
 | Open Platform | 76 | 69 | medium |
-| Mini Program | 214 | 221 | low |
+| Mini Program | 214 | 227 | low |
 | Official Account | 283 | 244 | medium |
 | Open Work | 57 | 43 | medium |
 | Basic Service | 33 | 24 | low |
@@ -52,7 +52,7 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    coverage and production request/response guards. `express` retains all
    16 PowerWeChat methods and adds typed production variants for the four
    upstream open-map operations. Continue DTO normalization across
-   `industry/miniDrama/vod`, `b2b`, `dataCube`, `operation`, and `wxa`.
+   `industry/miniDrama/vod`, `b2b`, `dataCube`, and `wxa`.
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -754,6 +754,32 @@ Implemented on 2026-07-20 in Mini Program immediateDelivery production depth:
   order-state helpers, and reconcile actual delivery fees against delivery
   fees minus coupons.
 
+Implemented on 2026-07-20 in Mini Program operation production depth:
+
+- all 11 current PowerWeChat operation methods remain covered, while typed
+  domain, JS-error list/detail/legacy-search, performance, and real-time-log
+  variants lift production callers off open JSON without removing compatibility
+  entry points;
+- typed requests enforce documented camelCase/snake_case wire fields, real
+  calendar dates, ordered positive timestamps, MD5 identities, query types,
+  sort modes, pagination limits, performance dimensions, supported network
+  types, same-day real-time-log windows in China Standard Time, and log levels
+  before network I/O;
+- the typed real-time-log path uses the official GET query contract, including
+  `traceId` and `filterMsg`, while the PowerWeChat-compatible open-map POST path
+  remains available;
+- JS-error detail/list responses now model real `errorMsg`, `errorStack`,
+  `errorMsgMd5`, `errorStackMd5`, `TimeStamp`, version, device, count, UV/PV,
+  route, plugin, and identity fields with pagination and consistency checks;
+- real-time logs now decode the official nested `data.list` shape, numeric
+  aggregate/message levels, arbitrary structured log arguments, platform,
+  versions, route, trace and filter metadata, while retaining historical
+  top-level-list compatibility;
+- domain, feedback, gray-release, performance, scene, version, and log
+  responses preserve extension fields and expose API-error, duplicate,
+  percentage, schedule, JSON payload, semantic status/version, and next-page
+  validation helpers.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -964,7 +990,7 @@ Recommended implementation order:
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
 3. Mini Program DTO/method-depth review for `industry/miniDrama/vod`, `b2b`,
-   `dataCube`, `operation`, and `wxa`.
+   `dataCube`, and `wxa`.
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
