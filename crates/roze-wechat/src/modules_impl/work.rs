@@ -3911,13 +3911,16 @@ impl Work {
         &self,
         access_token: impl Into<String>,
     ) -> Result<WorkCheckinCorpOptionResponse> {
-        self.inner
+        let response: WorkCheckinCorpOptionResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/getcorpcheckinoption",
                 Some(access_token.into()),
                 Value::Null,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_checkin_option(
@@ -3928,13 +3931,16 @@ impl Work {
     ) -> Result<WorkCheckinOptionResponse> {
         validate_work_checkin_time("rule date", datetime)?;
         validate_work_checkin_userids(&user_id_list)?;
-        self.inner
+        let response: WorkCheckinOptionResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/getcheckinoption",
                 Some(access_token.into()),
                 json!({ "datetime": datetime, "useridlist": user_id_list }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_checkin_data(
@@ -3943,13 +3949,16 @@ impl Work {
         request: WorkCheckinDataRequest,
     ) -> Result<WorkCheckinRecordResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkCheckinRecordResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/getcheckindata",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_checkin_day_data(
@@ -3958,13 +3967,16 @@ impl Work {
         request: WorkCheckinDateRangeRequest,
     ) -> Result<WorkCheckinDayDataResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkCheckinDayDataResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/getcheckin_daydata",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_checkin_month_data(
@@ -3973,13 +3985,16 @@ impl Work {
         request: WorkCheckinDateRangeRequest,
     ) -> Result<WorkCheckinMonthDataResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkCheckinMonthDataResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/getcheckin_monthdata",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_checkin_schedule_list(
@@ -3988,13 +4003,16 @@ impl Work {
         request: WorkCheckinDateRangeRequest,
     ) -> Result<WorkCheckinScheduleListResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkCheckinScheduleListResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/getcheckinschedulist",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_checkin_schedule_list(
@@ -4003,13 +4021,16 @@ impl Work {
         request: WorkCheckinSetScheduleListRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/setcheckinschedulist",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work checkin set schedule list")?;
+        Ok(response)
     }
 
     pub async fn add_checkin_user_face(
@@ -4023,13 +4044,16 @@ impl Work {
             userface: user_face.into(),
         };
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/addcheckinuserface",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work checkin add user face")?;
+        Ok(response)
     }
 
     pub async fn get_hardware_checkin_data(
@@ -4038,13 +4062,16 @@ impl Work {
         request: WorkHardwareCheckinDataRequest,
     ) -> Result<WorkHardwareCheckinDataResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkHardwareCheckinDataResponse = self
+            .inner
             .post(
                 "cgi-bin/hardware/get_hardware_checkin_data",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn punch_checkin_correction(
@@ -4053,13 +4080,16 @@ impl Work {
         request: WorkCheckinPunchCorrectionRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/punch_correction",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work checkin punch correction")?;
+        Ok(response)
     }
 
     pub async fn add_checkin_option(
@@ -4068,13 +4098,16 @@ impl Work {
         request: WorkCheckinOptionMutationRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/add_checkin_option",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work checkin add option")?;
+        Ok(response)
     }
 
     pub async fn update_checkin_option(
@@ -4083,13 +4116,16 @@ impl Work {
         request: WorkCheckinOptionMutationRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/update_checkin_option",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work checkin update option")?;
+        Ok(response)
     }
 
     pub async fn delete_checkin_option(
@@ -4099,13 +4135,16 @@ impl Work {
         effective_now: bool,
     ) -> Result<WorkStatusResponse> {
         validate_work_checkin_positive("group id", group_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/checkin/del_checkin_option",
                 Some(access_token.into()),
                 json!({ "groupid": group_id, "effective_now": effective_now }),
             )
-            .await
+            .await?;
+        response.validate_for("work checkin delete option")?;
+        Ok(response)
     }
 
     pub fn oa_calendar(&self) -> DomainModule {
@@ -25947,6 +25986,97 @@ fn work_checkin_days_in_month(year: i64, month: i64) -> i64 {
     }
 }
 
+fn validate_work_checkin_non_negative(label: &str, value: i64) -> Result<()> {
+    if value < 0 {
+        return Err(WechatError::Config(format!(
+            "work checkin {label} cannot be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_optional_non_negative(label: &str, value: Option<i64>) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_checkin_non_negative(label, value)?;
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_optional_identifier(label: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_checkin_identifier(label, value)?;
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_unique_identifiers(
+    label: &str,
+    values: &[String],
+    require_non_empty: bool,
+) -> Result<()> {
+    if require_non_empty && values.is_empty() {
+        return Err(WechatError::Config(format!(
+            "work checkin {label} cannot be empty"
+        )));
+    }
+    let mut seen = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_work_checkin_identifier(label, value)?;
+        if !seen.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work checkin {label} cannot contain duplicates"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_yearmonth(label: &str, value: i64) -> Result<(i64, i64)> {
+    let year = value / 100;
+    let month = value % 100;
+    if !(1970..=9999).contains(&year) || !(1..=12).contains(&month) {
+        return Err(WechatError::Config(format!(
+            "work checkin {label} must use YYYYMM format"
+        )));
+    }
+    Ok((year, month))
+}
+
+fn validate_work_checkin_date(label: &str, value: i64) -> Result<()> {
+    let year = value / 10_000;
+    let month = value / 100 % 100;
+    let day = value % 100;
+    if !(1970..=9999).contains(&year)
+        || !(1..=12).contains(&month)
+        || !(1..=work_checkin_days_in_month(year, month)).contains(&day)
+    {
+        return Err(WechatError::Config(format!(
+            "work checkin {label} must use a valid YYYYMMDD date"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_checkin_coordinates(lat: Option<i64>, lng: Option<i64>) -> Result<()> {
+    match (lat, lng) {
+        (Some(lat), Some(lng)) => {
+            if !(-90_000_000..=90_000_000).contains(&lat)
+                || !(-180_000_000..=180_000_000).contains(&lng)
+            {
+                return Err(WechatError::Config(
+                    "work checkin coordinates are outside valid latitude/longitude ranges"
+                        .to_string(),
+                ));
+            }
+            Ok(())
+        }
+        (None, None) => Ok(()),
+        _ => Err(WechatError::Config(
+            "work checkin latitude and longitude must be returned together".to_string(),
+        )),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinCorpOptionResponse {
     #[serde(default)]
@@ -25957,6 +26087,28 @@ pub struct WorkCheckinCorpOptionResponse {
     pub group: Vec<WorkCheckinGroup>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinCorpOptionResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work checkin corporation option",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut group_ids = std::collections::HashSet::with_capacity(self.group.len());
+        for group in &self.group {
+            group.validate()?;
+            let group_id = group.require_group_id()?;
+            if !group_ids.insert(group_id) {
+                return Err(WechatError::Config(
+                    "work checkin corporation option cannot contain duplicate group ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -26043,6 +26195,119 @@ pub struct WorkCheckinGroup {
     pub extra: Value,
 }
 
+impl WorkCheckinGroup {
+    pub fn validate(&self) -> Result<()> {
+        self.require_group_id()?;
+        self.require_group_name()?;
+        if let Some(group_type) = self.grouptype {
+            validate_work_checkin_positive("group type", group_type)?;
+        }
+        let mut workdays = std::collections::HashSet::new();
+        for rule in &self.checkindate {
+            rule.validate()?;
+            for day in &rule.workdays {
+                if !workdays.insert(*day) {
+                    return Err(WechatError::Config(
+                        "work checkin group cannot repeat a weekday across date rules".to_string(),
+                    ));
+                }
+            }
+        }
+        let mut special_dates = std::collections::HashSet::new();
+        for workday in &self.spe_workdays {
+            workday.validate()?;
+            if !special_dates.insert(workday.timestamp) {
+                return Err(WechatError::Config(
+                    "work checkin group cannot repeat a special date".to_string(),
+                ));
+            }
+        }
+        for offday in &self.spe_offdays {
+            offday.validate()?;
+            if !special_dates.insert(offday.timestamp) {
+                return Err(WechatError::Config(
+                    "work checkin group cannot repeat a special date".to_string(),
+                ));
+            }
+        }
+        let mut wifi_macs = std::collections::HashSet::with_capacity(self.wifimac_infos.len());
+        for wifi in &self.wifimac_infos {
+            wifi.validate()?;
+            if !wifi_macs.insert(wifi.wifimac.to_ascii_lowercase()) {
+                return Err(WechatError::Config(
+                    "work checkin group cannot repeat a Wi-Fi MAC address".to_string(),
+                ));
+            }
+        }
+        for location in &self.loc_infos {
+            location.validate()?;
+        }
+        for range in &self.range {
+            range.validate()?;
+        }
+        validate_work_checkin_unique_identifiers("white user id", &self.white_users, false)?;
+        if let Some(reporter_info) = &self.reporterinfo {
+            reporter_info.validate()?;
+        }
+        let mut schedule_ids = std::collections::HashSet::with_capacity(self.schedulelist.len());
+        for schedule in &self.schedulelist {
+            schedule.validate()?;
+            if !schedule_ids.insert(schedule.schedule_id) {
+                return Err(WechatError::Config(
+                    "work checkin group cannot repeat a schedule id".to_string(),
+                ));
+            }
+        }
+        if let Some(overtime) = &self.ot_info {
+            overtime.validate()?;
+        }
+        if let Some(overtime) = &self.ot_info_v2 {
+            overtime.validate()?;
+        }
+        if let Some(overtime) = &self.otapplyinfo {
+            overtime.validate()?;
+        }
+        validate_work_checkin_optional_non_negative("create time", self.create_time)?;
+        validate_work_checkin_optional_non_negative("update time", self.uptime)?;
+        validate_work_checkin_optional_identifier("create user id", self.create_userid.as_deref())?;
+        validate_work_checkin_optional_identifier("update user id", self.update_userid.as_deref())?;
+        for (label, value) in [
+            ("make-up count", self.allow_apply_bk_cnt),
+            ("make-up day limit", self.allow_apply_bk_day_limit),
+            ("out-of-range option", self.option_out_range),
+            ("make-up restriction", self.buka_restriction),
+            ("next-month make-up flag", self.buka_limit_next_month),
+            ("off-work interval", self.offwork_interval_time),
+            ("cross-day time", self.span_day_time),
+            ("standard work duration", self.standard_work_duration),
+            ("checkin method type", self.checkin_method_type),
+            ("rule type", self.rule_type),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        if let Some(reminder) = &self.buka_remind {
+            reminder.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn require_group_id(&self) -> Result<i64> {
+        let group_id = self.groupid.ok_or_else(|| {
+            WechatError::Config("work checkin group requires groupid".to_string())
+        })?;
+        validate_work_checkin_positive("group id", group_id)?;
+        Ok(group_id)
+    }
+
+    pub fn require_group_name(&self) -> Result<&str> {
+        let group_name = self.groupname.as_deref().ok_or_else(|| {
+            WechatError::Config("work checkin group requires groupname".to_string())
+        })?;
+        validate_work_checkin_identifier("group name", group_name)?;
+        Ok(group_name)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinDateRule {
     #[serde(default)]
@@ -26069,6 +26334,46 @@ pub struct WorkCheckinDateRule {
     pub late_rule: Option<WorkCheckinLateRule>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinDateRule {
+    pub fn validate(&self) -> Result<()> {
+        if self.workdays.is_empty() {
+            return Err(WechatError::Config(
+                "work checkin date rule requires workdays".to_string(),
+            ));
+        }
+        let mut workdays = std::collections::HashSet::with_capacity(self.workdays.len());
+        for day in &self.workdays {
+            if !(1..=7).contains(day) || !workdays.insert(*day) {
+                return Err(WechatError::Config(
+                    "work checkin date rule requires unique weekdays from 1 through 7".to_string(),
+                ));
+            }
+        }
+        if self.checkintime.is_empty() {
+            return Err(WechatError::Config(
+                "work checkin date rule requires at least one time section".to_string(),
+            ));
+        }
+        for section in &self.checkintime {
+            section.validate_with_rule_flags(false, self.noneed_offwork.unwrap_or(false))?;
+        }
+        for (label, value) in [
+            ("flex time", self.flex_time),
+            ("ahead limit", self.limit_aheadtime),
+            ("flex on-duty time", self.flex_on_duty_time),
+            ("flex off-duty time", self.flex_off_duty_time),
+            ("maximum early arrival", self.max_allow_arrive_early),
+            ("maximum late arrival", self.max_allow_arrive_late),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        if let Some(late_rule) = &self.late_rule {
+            late_rule.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -26105,6 +26410,66 @@ pub struct WorkCheckinTime {
     pub extra: Value,
 }
 
+impl WorkCheckinTime {
+    pub fn validate(&self) -> Result<()> {
+        self.validate_with_rule_flags(false, false)
+    }
+
+    fn validate_with_rule_flags(
+        &self,
+        no_need_checkon: bool,
+        no_need_checkoff: bool,
+    ) -> Result<()> {
+        for (label, value) in [
+            ("time id", self.time_id),
+            ("work second", self.work_sec),
+            ("off-work second", self.off_work_sec),
+            ("work reminder second", self.remind_work_sec),
+            ("off-work reminder second", self.remind_off_work_sec),
+            ("rest begin second", self.rest_begin_time),
+            ("rest end second", self.rest_end_time),
+            ("earliest work second", self.earliest_work_sec),
+            ("latest work second", self.latest_work_sec),
+            ("earliest off-work second", self.earliest_off_work_sec),
+            ("latest off-work second", self.latest_off_work_sec),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        let no_need_checkon = no_need_checkon || self.no_need_checkon.unwrap_or(false);
+        let no_need_checkoff = no_need_checkoff || self.no_need_checkoff.unwrap_or(false);
+        match (self.work_sec, self.off_work_sec) {
+            (Some(work), Some(off_work)) if work == off_work => {
+                return Err(WechatError::Config(
+                    "work checkin time section cannot use identical work and off-work seconds"
+                        .to_string(),
+                ));
+            }
+            (Some(_), Some(_)) => {}
+            (Some(_), None) if no_need_checkoff => {}
+            (None, Some(_)) if no_need_checkon => {}
+            _ => {
+                return Err(WechatError::Config(
+                    "work checkin time section requires both endpoints unless an explicit no-checkin flag permits one endpoint".to_string(),
+                ));
+            }
+        }
+        match (self.rest_begin_time, self.rest_end_time) {
+            (Some(begin), Some(end)) if begin >= end => {
+                return Err(WechatError::Config(
+                    "work checkin rest range must be ordered".to_string(),
+                ));
+            }
+            (Some(_), Some(_)) | (None, None) => {}
+            _ => {
+                return Err(WechatError::Config(
+                    "work checkin rest range must return both endpoints".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinSpecialWorkday {
     pub timestamp: i64,
@@ -26120,6 +26485,18 @@ pub struct WorkCheckinSpecialWorkday {
     pub endtime: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinSpecialWorkday {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_time("special workday timestamp", self.timestamp)?;
+        validate_work_checkin_optional_identifier("special workday notes", self.notes.as_deref())?;
+        for section in &self.checkintime {
+            section.validate()?;
+        }
+        validate_work_checkin_optional_non_negative("special workday type", self.r#type)?;
+        validate_work_checkin_optional_time_range("special workday", self.begtime, self.endtime)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26139,12 +26516,54 @@ pub struct WorkCheckinSpecialOffday {
     pub extra: Value,
 }
 
+impl WorkCheckinSpecialOffday {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_time("special offday timestamp", self.timestamp)?;
+        validate_work_checkin_optional_identifier("special offday notes", self.notes.as_deref())?;
+        for section in &self.checkintime {
+            section.validate()?;
+        }
+        validate_work_checkin_optional_non_negative("special offday type", self.r#type)?;
+        validate_work_checkin_optional_time_range("special offday", self.begtime, self.endtime)
+    }
+}
+
+fn validate_work_checkin_optional_time_range(
+    label: &str,
+    begin: Option<i64>,
+    end: Option<i64>,
+) -> Result<()> {
+    match (begin, end) {
+        (Some(begin), Some(end)) => {
+            validate_work_checkin_time(&format!("{label} begin time"), begin)?;
+            validate_work_checkin_time(&format!("{label} end time"), end)?;
+            if begin >= end {
+                return Err(WechatError::Config(format!(
+                    "work checkin {label} time range must be ordered"
+                )));
+            }
+            Ok(())
+        }
+        (None, None) => Ok(()),
+        _ => Err(WechatError::Config(format!(
+            "work checkin {label} time range must return both endpoints"
+        ))),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinWifi {
     pub wifiname: String,
     pub wifimac: String,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinWifi {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("Wi-Fi name", &self.wifiname)?;
+        validate_work_checkin_identifier("Wi-Fi MAC address", &self.wifimac)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26156,6 +26575,15 @@ pub struct WorkCheckinLocation {
     pub distance: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinLocation {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_coordinates(Some(self.lat), Some(self.lng))?;
+        validate_work_checkin_identifier("location title", &self.loc_title)?;
+        validate_work_checkin_identifier("location detail", &self.loc_detail)?;
+        validate_work_checkin_non_negative("location distance", self.distance)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26170,6 +26598,28 @@ pub struct WorkCheckinRange {
     pub extra: Value,
 }
 
+impl WorkCheckinRange {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_unique_identifiers("range party id", &self.partyid, false)?;
+        validate_work_checkin_unique_identifiers("range user id", &self.userid, false)?;
+        let mut tag_ids = std::collections::HashSet::with_capacity(self.tagid.len());
+        for tag_id in &self.tagid {
+            validate_work_checkin_positive("range tag id", *tag_id)?;
+            if !tag_ids.insert(*tag_id) {
+                return Err(WechatError::Config(
+                    "work checkin range cannot repeat a tag id".to_string(),
+                ));
+            }
+        }
+        if self.partyid.is_empty() && self.userid.is_empty() && self.tagid.is_empty() {
+            return Err(WechatError::Config(
+                "work checkin range requires a party, user, or tag".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinReporterInfo {
     #[serde(default)]
@@ -26180,6 +26630,21 @@ pub struct WorkCheckinReporterInfo {
     pub extra: Value,
 }
 
+impl WorkCheckinReporterInfo {
+    pub fn validate(&self) -> Result<()> {
+        let mut reporters = std::collections::HashSet::with_capacity(self.reporters.len());
+        for reporter in &self.reporters {
+            reporter.validate()?;
+            if !reporters.insert(reporter.userid.as_str()) {
+                return Err(WechatError::Config(
+                    "work checkin reporter list cannot contain duplicate users".to_string(),
+                ));
+            }
+        }
+        validate_work_checkin_optional_non_negative("reporter update time", self.updatetime)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinReporter {
     pub userid: String,
@@ -26187,6 +26652,16 @@ pub struct WorkCheckinReporter {
     pub tagid: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinReporter {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("reporter user id", &self.userid)?;
+        if let Some(tag_id) = self.tagid {
+            validate_work_checkin_positive("reporter tag id", tag_id)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26217,6 +26692,38 @@ pub struct WorkCheckinRuleSchedule {
     pub extra: Value,
 }
 
+impl WorkCheckinRuleSchedule {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_positive("rule schedule id", self.schedule_id)?;
+        validate_work_checkin_identifier("rule schedule name", &self.schedule_name)?;
+        if self.time_section.is_empty() {
+            return Err(WechatError::Config(
+                "work checkin rule schedule requires a time section".to_string(),
+            ));
+        }
+        for section in &self.time_section {
+            section.validate_with_rule_flags(false, self.noneed_offwork.unwrap_or(false))?;
+        }
+        for (label, value) in [
+            ("schedule ahead limit", self.limit_aheadtime),
+            ("schedule off-time limit", self.limit_offtime),
+            ("schedule flex on-duty time", self.flex_on_duty_time),
+            ("schedule flex off-duty time", self.flex_off_duty_time),
+            (
+                "schedule maximum early arrival",
+                self.max_allow_arrive_early,
+            ),
+            ("schedule maximum late arrival", self.max_allow_arrive_late),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        if let Some(late_rule) = &self.late_rule {
+            late_rule.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinLateRule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -26225,6 +26732,29 @@ pub struct WorkCheckinLateRule {
     pub timerules: Vec<WorkCheckinLateTimeRule>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinLateRule {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(WorkCheckinSwitch::Integer(value)) = &self.allow_offwork_after_time {
+            if !matches!(*value, 0 | 1) {
+                return Err(WechatError::Config(
+                    "work checkin late-rule switch must be boolean, zero, or one".to_string(),
+                ));
+            }
+        }
+        for rule in &self.timerules {
+            validate_work_checkin_non_negative(
+                "late-rule off-work threshold",
+                rule.offwork_after_time,
+            )?;
+            validate_work_checkin_non_negative(
+                "late-rule on-work flex time",
+                rule.onwork_flex_time,
+            )?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26255,6 +26785,16 @@ pub struct WorkCheckinOvertimeRule {
     pub extra: Value,
 }
 
+impl WorkCheckinOvertimeRule {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative("overtime rule type", self.r#type)?;
+        if let Some(info) = &self.otcheckinfo {
+            info.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinOvertimeApplyRule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -26273,11 +26813,37 @@ pub struct WorkCheckinOvertimeApplyRule {
     pub extra: Value,
 }
 
+impl WorkCheckinOvertimeApplyRule {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_optional_non_negative("overtime apply update time", self.uptime)?;
+        validate_work_checkin_optional_non_negative(
+            "overtime apply cross-day time",
+            self.ot_nonworkingday_spanday_time,
+        )?;
+        if let Some(info) = &self.ot_workingday_restinfo {
+            info.validate()?;
+        }
+        if let Some(info) = &self.ot_nonworkingday_restinfo {
+            info.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinOvertimeRuleV2 {
     pub workdayconf: WorkCheckinOvertimeWorkdayConfig,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinOvertimeRuleV2 {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative(
+            "overtime compensation type",
+            self.workdayconf.compensation_type,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26298,6 +26864,16 @@ pub struct WorkCheckinCorrectionReminder {
     pub buka_remind_month: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinCorrectionReminder {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_optional_non_negative("make-up reminder day", self.buka_remind_day)?;
+        validate_work_checkin_optional_non_negative(
+            "make-up reminder month",
+            self.buka_remind_month,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26322,6 +26898,50 @@ pub struct WorkCheckinOvertimeCheckInfo {
     pub extra: Value,
 }
 
+impl WorkCheckinOvertimeCheckInfo {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("working-day overtime start", self.ot_workingday_time_start),
+            ("working-day overtime minimum", self.ot_workingday_time_min),
+            ("working-day overtime maximum", self.ot_workingday_time_max),
+            (
+                "non-working-day overtime minimum",
+                self.ot_nonworkingday_time_min,
+            ),
+            (
+                "non-working-day overtime maximum",
+                self.ot_nonworkingday_time_max,
+            ),
+            (
+                "non-working-day overtime cross-day time",
+                self.ot_nonworkingday_spanday_time,
+            ),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        if self
+            .ot_workingday_time_min
+            .zip(self.ot_workingday_time_max)
+            .is_some_and(|(minimum, maximum)| minimum > maximum)
+            || self
+                .ot_nonworkingday_time_min
+                .zip(self.ot_nonworkingday_time_max)
+                .is_some_and(|(minimum, maximum)| minimum > maximum)
+        {
+            return Err(WechatError::Config(
+                "work checkin overtime minimum cannot exceed its maximum".to_string(),
+            ));
+        }
+        if let Some(info) = &self.ot_workingday_restinfo {
+            info.validate()?;
+        }
+        if let Some(info) = &self.ot_nonworkingday_restinfo {
+            info.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinOvertimeRestInfo {
     pub r#type: i64,
@@ -26331,6 +26951,28 @@ pub struct WorkCheckinOvertimeRestInfo {
     pub cal_ottime_rule: Option<WorkCheckinOvertimeCalculatedRest>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinOvertimeRestInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative("overtime rest type", self.r#type)?;
+        if let Some(rule) = &self.fix_time_rule {
+            validate_work_checkin_non_negative("fixed rest begin second", rule.fix_time_begin_sec)?;
+            validate_work_checkin_non_negative("fixed rest end second", rule.fix_time_end_sec)?;
+            if rule.fix_time_begin_sec >= rule.fix_time_end_sec {
+                return Err(WechatError::Config(
+                    "work checkin fixed rest range must be ordered".to_string(),
+                ));
+            }
+        }
+        if let Some(rule) = &self.cal_ottime_rule {
+            for item in &rule.items {
+                validate_work_checkin_non_negative("calculated overtime", item.ot_time)?;
+                validate_work_checkin_non_negative("calculated rest", item.rest_time)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26363,12 +27005,44 @@ pub struct WorkCheckinOptionResponse {
     pub extra: Value,
 }
 
+impl WorkCheckinOptionResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work checkin user option",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.info.len() > 100 {
+            return Err(WechatError::Config(
+                "work checkin user option response cannot exceed 100 users".to_string(),
+            ));
+        }
+        let mut userids = std::collections::HashSet::with_capacity(self.info.len());
+        for info in &self.info {
+            info.validate()?;
+            if !userids.insert(info.userid.as_str()) {
+                return Err(WechatError::Config(
+                    "work checkin user option response cannot contain duplicate users".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinUserOption {
     pub userid: String,
     pub group: WorkCheckinGroup,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinUserOption {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("option user id", &self.userid)?;
+        self.group.validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26379,8 +27053,40 @@ pub struct WorkCheckinRecordResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub checkindata: Vec<WorkCheckinRecord>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_more: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinRecordResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work checkin record",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut records = std::collections::HashSet::with_capacity(self.checkindata.len());
+        for record in &self.checkindata {
+            record.validate()?;
+            let key = (
+                record.require_userid()?,
+                record.require_checkin_time()?,
+                record.schedule_id,
+                record.require_checkin_type()?,
+            );
+            if !records.insert(key) {
+                return Err(WechatError::Config(
+                    "work checkin record response cannot contain duplicate records".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.has_more.unwrap_or(false)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26425,6 +27131,69 @@ pub struct WorkCheckinRecord {
     pub extra: Value,
 }
 
+impl WorkCheckinRecord {
+    pub fn validate(&self) -> Result<()> {
+        self.require_userid()?;
+        self.require_checkin_time()?;
+        self.require_checkin_type()?;
+        validate_work_checkin_optional_identifier("group name", self.groupname.as_deref())?;
+        validate_work_checkin_optional_identifier(
+            "exception type",
+            self.exception_type.as_deref(),
+        )?;
+        validate_work_checkin_optional_identifier(
+            "location title",
+            self.location_title.as_deref(),
+        )?;
+        validate_work_checkin_optional_identifier(
+            "location detail",
+            self.location_detail.as_deref(),
+        )?;
+        validate_work_checkin_optional_identifier("Wi-Fi name", self.wifiname.as_deref())?;
+        validate_work_checkin_optional_identifier("Wi-Fi MAC", self.wifimac.as_deref())?;
+        validate_work_checkin_optional_identifier("device id", self.deviceid.as_deref())?;
+        validate_work_checkin_unique_identifiers("record media id", &self.mediaids, false)?;
+        validate_work_checkin_optional_non_negative(
+            "scheduled checkin time",
+            self.sch_checkin_time,
+        )?;
+        if let Some(group_id) = self.groupid {
+            validate_work_checkin_positive("record group id", group_id)?;
+        }
+        for (label, value) in [
+            ("record schedule id", self.schedule_id),
+            ("record timeline id", self.timeline_id),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        validate_work_checkin_coordinates(self.lat, self.lng)
+    }
+
+    pub fn require_userid(&self) -> Result<&str> {
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work checkin record requires userid".to_string())
+        })?;
+        validate_work_checkin_identifier("record user id", userid)?;
+        Ok(userid)
+    }
+
+    pub fn require_checkin_time(&self) -> Result<i64> {
+        let checkin_time = self.checkin_time.ok_or_else(|| {
+            WechatError::Config("work checkin record requires checkin_time".to_string())
+        })?;
+        validate_work_checkin_time("record checkin time", checkin_time)?;
+        Ok(checkin_time)
+    }
+
+    pub fn require_checkin_type(&self) -> Result<&str> {
+        let checkin_type = self.checkin_type.as_deref().ok_or_else(|| {
+            WechatError::Config("work checkin record requires checkin_type".to_string())
+        })?;
+        validate_work_checkin_identifier("record checkin type", checkin_type)?;
+        Ok(checkin_type)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkHardwareCheckinDataResponse {
     #[serde(default)]
@@ -26437,6 +27206,31 @@ pub struct WorkHardwareCheckinDataResponse {
     pub extra: Value,
 }
 
+impl WorkHardwareCheckinDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work hardware checkin data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut records = std::collections::HashSet::with_capacity(self.checkindata.len());
+        for record in &self.checkindata {
+            record.validate()?;
+            let key = (
+                record.require_userid()?,
+                record.require_checkin_time()?,
+                record.require_device_sn()?,
+            );
+            if !records.insert(key) {
+                return Err(WechatError::Config(
+                    "work hardware checkin response cannot contain duplicate records".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkHardwareCheckinRecord {
     #[serde(default)]
@@ -26447,8 +27241,52 @@ pub struct WorkHardwareCheckinRecord {
     pub device_name: Option<String>,
     #[serde(default)]
     pub device_sn: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkHardwareCheckinRecord {
+    pub fn validate(&self) -> Result<()> {
+        self.require_userid()?;
+        self.require_checkin_time()?;
+        self.require_device_name()?;
+        self.require_device_sn()?;
+        validate_work_checkin_optional_non_negative("hardware upload time", self.upload_time)
+    }
+
+    pub fn require_userid(&self) -> Result<&str> {
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work hardware checkin record requires userid".to_string())
+        })?;
+        validate_work_checkin_identifier("hardware user id", userid)?;
+        Ok(userid)
+    }
+
+    pub fn require_checkin_time(&self) -> Result<i64> {
+        let checkin_time = self.checkin_time.ok_or_else(|| {
+            WechatError::Config("work hardware checkin record requires checkin_time".to_string())
+        })?;
+        validate_work_checkin_time("hardware checkin time", checkin_time)?;
+        Ok(checkin_time)
+    }
+
+    pub fn require_device_name(&self) -> Result<&str> {
+        let name = self.device_name.as_deref().ok_or_else(|| {
+            WechatError::Config("work hardware checkin record requires device_name".to_string())
+        })?;
+        validate_work_checkin_identifier("hardware device name", name)?;
+        Ok(name)
+    }
+
+    pub fn require_device_sn(&self) -> Result<&str> {
+        let serial = self.device_sn.as_deref().ok_or_else(|| {
+            WechatError::Config("work hardware checkin record requires device_sn".to_string())
+        })?;
+        validate_work_checkin_identifier("hardware device serial", serial)?;
+        Ok(serial)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26461,6 +27299,28 @@ pub struct WorkCheckinDayDataResponse {
     pub datas: Vec<WorkCheckinDayData>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinDayDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work checkin day data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut records = std::collections::HashSet::with_capacity(self.datas.len());
+        for data in &self.datas {
+            data.validate()?;
+            let key = (data.base_info.acctid.as_str(), data.base_info.date);
+            if !records.insert(key) {
+                return Err(WechatError::Config(
+                    "work checkin day response cannot contain duplicate user/date records"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 pub type WorkCheckinDataResponse = WorkCheckinDayDataResponse;
@@ -26481,6 +27341,33 @@ pub struct WorkCheckinDayData {
     pub extra: Value,
 }
 
+impl WorkCheckinDayData {
+    pub fn validate(&self) -> Result<()> {
+        self.base_info.validate()?;
+        self.summary_info.validate()?;
+        for exception in &self.exception_infos {
+            exception.validate()?;
+        }
+        let mut approval_numbers =
+            std::collections::HashSet::with_capacity(self.holiday_infos.len());
+        for holiday in &self.holiday_infos {
+            holiday.validate()?;
+            if !approval_numbers.insert(holiday.sp_number.as_str()) {
+                return Err(WechatError::Config(
+                    "work checkin day response cannot repeat a holiday approval number".to_string(),
+                ));
+            }
+        }
+        for item in &self.sp_items {
+            item.validate()?;
+        }
+        if let Some(overtime) = &self.ot_info {
+            overtime.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinDayBaseInfo {
     pub date: i64,
@@ -26495,6 +27382,19 @@ pub struct WorkCheckinDayBaseInfo {
     pub extra: Value,
 }
 
+impl WorkCheckinDayBaseInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_date("day report date", self.date)?;
+        validate_work_checkin_positive("day record type", self.record_type)?;
+        validate_work_checkin_identifier("day user name", &self.name)?;
+        validate_work_checkin_identifier("day extended user name", &self.name_ex)?;
+        validate_work_checkin_identifier("day department name", &self.departs_name)?;
+        validate_work_checkin_identifier("day account id", &self.acctid)?;
+        validate_work_checkin_non_negative("day type", self.day_type)?;
+        self.rule_info.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinDayRuleInfo {
     pub groupid: i64,
@@ -26507,10 +27407,38 @@ pub struct WorkCheckinDayRuleInfo {
     pub extra: Value,
 }
 
+impl WorkCheckinDayRuleInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_positive("day rule group id", self.groupid)?;
+        validate_work_checkin_identifier("day rule group name", &self.groupname)?;
+        validate_work_checkin_non_negative("day schedule id", self.scheduleid)?;
+        if self.scheduleid > 0 {
+            validate_work_checkin_identifier("day schedule name", &self.schedulename)?;
+        }
+        for section in &self.checkintime {
+            section.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinDayTime {
     pub work_sec: i64,
     pub off_work_sec: i64,
+}
+
+impl WorkCheckinDayTime {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative("day work second", self.work_sec)?;
+        validate_work_checkin_non_negative("day off-work second", self.off_work_sec)?;
+        if self.work_sec == self.off_work_sec {
+            return Err(WechatError::Config(
+                "work checkin day time section cannot use identical endpoints".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26524,6 +27452,30 @@ pub struct WorkCheckinDaySummary {
     pub extra: Value,
 }
 
+impl WorkCheckinDaySummary {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("day checkin count", self.checkin_count),
+            ("day regular work duration", self.regular_work_sec),
+            ("day standard work duration", self.standard_work_sec),
+            ("day earliest time", self.earliest_time),
+            ("day latest time", self.lastest_time),
+        ] {
+            validate_work_checkin_non_negative(label, value)?;
+        }
+        if self.checkin_count > 0 {
+            validate_work_checkin_time("day earliest time", self.earliest_time)?;
+            validate_work_checkin_time("day latest time", self.lastest_time)?;
+            if self.earliest_time > self.lastest_time {
+                return Err(WechatError::Config(
+                    "work checkin day earliest time cannot exceed latest time".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinException {
     pub count: i64,
@@ -26531,6 +27483,14 @@ pub struct WorkCheckinException {
     pub exception: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinException {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative("exception count", self.count)?;
+        validate_work_checkin_non_negative("exception duration", self.duration)?;
+        validate_work_checkin_non_negative("exception type", self.exception)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26542,10 +27502,24 @@ pub struct WorkCheckinHoliday {
     pub extra: Value,
 }
 
+impl WorkCheckinHoliday {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("holiday approval number", &self.sp_number)?;
+        self.sp_title.validate("holiday approval title")?;
+        self.sp_description.validate("holiday approval description")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinLocalizedData {
     #[serde(default)]
     pub data: Vec<WorkApprovalLocalizedText>,
+}
+
+impl WorkCheckinLocalizedData {
+    pub fn validate(&self, label: &str) -> Result<()> {
+        validate_work_approval_localized_texts(label, &self.data, None)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26558,6 +27532,21 @@ pub struct WorkCheckinSpItem {
     pub name: String,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinSpItem {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("approval item count", self.count),
+            ("approval item duration", self.duration),
+            ("approval item time type", self.time_type),
+            ("approval item type", self.r#type),
+            ("approval vacation id", self.vacation_id),
+        ] {
+            validate_work_checkin_non_negative(label, value)?;
+        }
+        validate_work_checkin_identifier("approval item name", &self.name)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26582,6 +27571,45 @@ pub struct WorkCheckinDayOvertime {
     pub extra: Value,
 }
 
+impl WorkCheckinDayOvertime {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative("day overtime status", self.ot_status)?;
+        validate_work_checkin_non_negative("day overtime duration", self.ot_duration)?;
+        for duration in &self.exception_duration {
+            validate_work_checkin_non_negative("day overtime exception duration", *duration)?;
+        }
+        for (label, value) in [
+            (
+                "working-day overtime converted to vacation",
+                self.workday_over_as_vacation,
+            ),
+            (
+                "working-day overtime converted to money",
+                self.workday_over_as_money,
+            ),
+            (
+                "rest-day overtime converted to vacation",
+                self.restday_over_as_vacation,
+            ),
+            (
+                "rest-day overtime converted to money",
+                self.restday_over_as_money,
+            ),
+            (
+                "holiday overtime converted to vacation",
+                self.holiday_over_as_vacation,
+            ),
+            (
+                "holiday overtime converted to money",
+                self.holiday_over_as_money,
+            ),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinMonthDataResponse {
     #[serde(default)]
@@ -26592,6 +27620,26 @@ pub struct WorkCheckinMonthDataResponse {
     pub datas: Vec<WorkCheckinMonthData>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinMonthDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work checkin month data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut users = std::collections::HashSet::with_capacity(self.datas.len());
+        for data in &self.datas {
+            data.validate()?;
+            if !users.insert(data.base_info.acctid.as_str()) {
+                return Err(WechatError::Config(
+                    "work checkin month response cannot contain duplicate users".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26608,6 +27656,23 @@ pub struct WorkCheckinMonthData {
     pub extra: Value,
 }
 
+impl WorkCheckinMonthData {
+    pub fn validate(&self) -> Result<()> {
+        self.base_info.validate()?;
+        self.summary_info.validate()?;
+        for exception in &self.exception_infos {
+            exception.validate()?;
+        }
+        for item in &self.sp_items {
+            item.validate()?;
+        }
+        if let Some(overtime) = &self.overwork_info {
+            overtime.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinMonthBaseInfo {
     pub record_type: i64,
@@ -26620,10 +27685,28 @@ pub struct WorkCheckinMonthBaseInfo {
     pub extra: Value,
 }
 
+impl WorkCheckinMonthBaseInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_positive("month record type", self.record_type)?;
+        validate_work_checkin_identifier("month user name", &self.name)?;
+        validate_work_checkin_identifier("month extended user name", &self.name_ex)?;
+        validate_work_checkin_identifier("month department name", &self.departs_name)?;
+        validate_work_checkin_identifier("month account id", &self.acctid)?;
+        self.rule_info.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinMonthRuleInfo {
     pub groupid: i64,
     pub groupname: String,
+}
+
+impl WorkCheckinMonthRuleInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_positive("month rule group id", self.groupid)?;
+        validate_work_checkin_identifier("month rule group name", &self.groupname)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26638,6 +27721,27 @@ pub struct WorkCheckinMonthSummary {
     pub rest_days: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinMonthSummary {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("month work days", self.work_days),
+            ("month exception days", self.except_days),
+            ("month regular work duration", self.regular_work_sec),
+            ("month standard work duration", self.standard_work_sec),
+        ] {
+            validate_work_checkin_non_negative(label, value)?;
+        }
+        validate_work_checkin_optional_non_negative("month regular days", self.regular_days)?;
+        validate_work_checkin_optional_non_negative("month rest days", self.rest_days)?;
+        if self.except_days > self.work_days {
+            return Err(WechatError::Config(
+                "work checkin month exception days cannot exceed work days".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26664,6 +27768,43 @@ pub struct WorkCheckinMonthOvertime {
     pub extra: Value,
 }
 
+impl WorkCheckinMonthOvertime {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("working-day overtime duration", self.workday_over_sec),
+            ("holiday overtime duration", self.holidays_over_sec),
+            ("rest-day overtime duration", self.restdays_over_sec),
+            (
+                "working-day overtime converted to vacation",
+                self.workdays_over_as_vacation,
+            ),
+            (
+                "working-day overtime converted to money",
+                self.workdays_over_as_money,
+            ),
+            (
+                "rest-day overtime converted to vacation",
+                self.restdays_over_as_vacation,
+            ),
+            (
+                "rest-day overtime converted to money",
+                self.restdays_over_as_money,
+            ),
+            (
+                "holiday overtime converted to vacation",
+                self.holidays_over_as_vacation,
+            ),
+            (
+                "holiday overtime converted to money",
+                self.holidays_over_as_money,
+            ),
+        ] {
+            validate_work_checkin_optional_non_negative(label, value)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinScheduleListResponse {
     #[serde(default)]
@@ -26674,6 +27815,26 @@ pub struct WorkCheckinScheduleListResponse {
     pub schedule_list: Vec<WorkCheckinSchedule>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinScheduleListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work checkin schedule list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut users = std::collections::HashSet::with_capacity(self.schedule_list.len());
+        for schedule in &self.schedule_list {
+            schedule.validate()?;
+            if !users.insert((schedule.userid.as_str(), schedule.yearmonth)) {
+                return Err(WechatError::Config(
+                    "work checkin schedule response cannot repeat a user/month".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26687,12 +27848,38 @@ pub struct WorkCheckinSchedule {
     pub extra: Value,
 }
 
+impl WorkCheckinSchedule {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_identifier("schedule user id", &self.userid)?;
+        let (year, month) = validate_work_checkin_yearmonth("schedule yearmonth", self.yearmonth)?;
+        validate_work_checkin_positive("schedule group id", self.groupid)?;
+        validate_work_checkin_identifier("schedule group name", &self.groupname)?;
+        self.schedule.validate(year, month)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinUserSchedule {
     #[serde(rename = "scheduleList", alias = "schedule_list", default)]
     pub schedule_list: Vec<WorkCheckinUserScheduleDay>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinUserSchedule {
+    pub fn validate(&self, year: i64, month: i64) -> Result<()> {
+        let maximum_day = work_checkin_days_in_month(year, month);
+        let mut days = std::collections::HashSet::with_capacity(self.schedule_list.len());
+        for day in &self.schedule_list {
+            if !(1..=maximum_day).contains(&day.day) || !days.insert(day.day) {
+                return Err(WechatError::Config(
+                    "work checkin user schedule requires unique valid calendar days".to_string(),
+                ));
+            }
+            day.schedule_info.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26713,6 +27900,24 @@ pub struct WorkCheckinUserScheduleInfo {
     pub extra: Value,
 }
 
+impl WorkCheckinUserScheduleInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_checkin_non_negative("user schedule id", self.schedule_id)?;
+        if self.schedule_id > 0 {
+            validate_work_checkin_identifier("user schedule name", &self.schedule_name)?;
+            if self.time_section.is_empty() {
+                return Err(WechatError::Config(
+                    "work checkin active user schedule requires a time section".to_string(),
+                ));
+            }
+        }
+        for section in &self.time_section {
+            section.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCheckinUserScheduleTime {
     pub id: i64,
@@ -26722,6 +27927,27 @@ pub struct WorkCheckinUserScheduleTime {
     pub remind_off_work_sec: i64,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCheckinUserScheduleTime {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("user schedule time id", self.id),
+            ("user schedule work second", self.work_sec),
+            ("user schedule off-work second", self.off_work_sec),
+            ("user schedule work reminder", self.remind_work_sec),
+            ("user schedule off-work reminder", self.remind_off_work_sec),
+        ] {
+            validate_work_checkin_non_negative(label, value)?;
+        }
+        if self.work_sec == self.off_work_sec {
+            return Err(WechatError::Config(
+                "work checkin user schedule cannot use identical work and off-work seconds"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48913,6 +50139,328 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_checkin_response_contracts() {
+        let corp_payload = json!({
+            "errcode": 0,
+            "group": [{
+                "grouptype": 1,
+                "groupid": 1,
+                "groupname": "Default",
+                "checkindate": [{
+                    "workdays": [1, 2, 3, 4, 5],
+                    "checkintime": [{
+                        "work_sec": 32_400,
+                        "off_work_sec": 61_200,
+                        "allow_rest": true,
+                        "rest_begin_time": 43_200,
+                        "rest_end_time": 46_800
+                    }]
+                }],
+                "wifimac_infos": [{
+                    "wifiname": "Office",
+                    "wifimac": "00:11:22:33:44:55"
+                }],
+                "loc_infos": [{
+                    "lat": 30_547_030,
+                    "lng": 104_062_890,
+                    "loc_title": "Office",
+                    "loc_detail": "Building A",
+                    "distance": 300
+                }],
+                "range": [{ "userid": ["user"] }],
+                "schedulelist": [{
+                    "schedule_id": 2,
+                    "schedule_name": "Day",
+                    "time_section": [{
+                        "work_sec": 32_400,
+                        "off_work_sec": 61_200
+                    }]
+                }]
+            }]
+        });
+        let corp: WorkCheckinCorpOptionResponse =
+            serde_json::from_value(corp_payload.clone()).unwrap();
+        corp.validate().unwrap();
+        assert_eq!(corp.group[0].require_group_id().unwrap(), 1);
+        assert_eq!(corp.group[0].require_group_name().unwrap(), "Default");
+
+        let mut single_punch = corp_payload.clone();
+        single_punch["group"][0]["checkindate"][0]["noneed_offwork"] = json!(true);
+        single_punch["group"][0]["checkindate"][0]["checkintime"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("off_work_sec");
+        let single_punch: WorkCheckinCorpOptionResponse =
+            serde_json::from_value(single_punch).unwrap();
+        single_punch.validate().unwrap();
+
+        let mut incomplete_section = corp_payload.clone();
+        incomplete_section["group"][0]["checkindate"][0]["checkintime"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("off_work_sec");
+        let incomplete_section: WorkCheckinCorpOptionResponse =
+            serde_json::from_value(incomplete_section).unwrap();
+        assert!(incomplete_section.validate().is_err());
+
+        let api_error: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
+            "errcode": 60001,
+            "errmsg": "secret error"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 60001, .. })
+        ));
+
+        let mut duplicate_group = corp_payload.clone();
+        let duplicate = duplicate_group["group"][0].clone();
+        duplicate_group["group"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        let duplicate_group: WorkCheckinCorpOptionResponse =
+            serde_json::from_value(duplicate_group).unwrap();
+        assert!(duplicate_group.validate().is_err());
+
+        let mut invalid_rest = corp_payload.clone();
+        invalid_rest["group"][0]["checkindate"][0]["checkintime"][0]["rest_end_time"] =
+            json!(43_200);
+        let invalid_rest: WorkCheckinCorpOptionResponse =
+            serde_json::from_value(invalid_rest).unwrap();
+        assert!(invalid_rest.validate().is_err());
+
+        let option_payload = json!({
+            "errcode": 0,
+            "info": [{
+                "userid": "user",
+                "group": { "groupid": 1, "groupname": "Default" }
+            }]
+        });
+        let option: WorkCheckinOptionResponse =
+            serde_json::from_value(option_payload.clone()).unwrap();
+        option.validate().unwrap();
+        let mut duplicate_option = option_payload.clone();
+        let duplicate = duplicate_option["info"][0].clone();
+        duplicate_option["info"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        let duplicate_option: WorkCheckinOptionResponse =
+            serde_json::from_value(duplicate_option).unwrap();
+        assert!(duplicate_option.validate().is_err());
+
+        let record_payload = json!({
+            "errcode": 0,
+            "has_more": true,
+            "checkindata": [{
+                "userid": "user",
+                "checkin_type": "on-duty",
+                "checkin_time": 1_800_000_000_i64,
+                "mediaids": ["media-1"],
+                "groupid": 1,
+                "schedule_id": 2,
+                "lat": 30_547_030,
+                "lng": 104_062_890
+            }]
+        });
+        let record: WorkCheckinRecordResponse =
+            serde_json::from_value(record_payload.clone()).unwrap();
+        record.validate().unwrap();
+        assert!(record.has_more());
+        assert_eq!(record.checkindata[0].require_userid().unwrap(), "user");
+        assert_eq!(
+            record.checkindata[0].require_checkin_type().unwrap(),
+            "on-duty"
+        );
+
+        let mut missing_type = record_payload.clone();
+        missing_type["checkindata"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("checkin_type");
+        let missing_type: WorkCheckinRecordResponse = serde_json::from_value(missing_type).unwrap();
+        assert!(missing_type.validate().is_err());
+
+        let mut half_coordinate = record_payload.clone();
+        half_coordinate["checkindata"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("lng");
+        let half_coordinate: WorkCheckinRecordResponse =
+            serde_json::from_value(half_coordinate).unwrap();
+        assert!(half_coordinate.validate().is_err());
+
+        let mut duplicate_record = record_payload.clone();
+        let duplicate = duplicate_record["checkindata"][0].clone();
+        duplicate_record["checkindata"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        let duplicate_record: WorkCheckinRecordResponse =
+            serde_json::from_value(duplicate_record).unwrap();
+        assert!(duplicate_record.validate().is_err());
+
+        let hardware_payload = json!({
+            "errcode": 0,
+            "checkindata": [{
+                "userid": "user",
+                "checkin_time": 1_800_000_000_i64,
+                "device_name": "Front Door",
+                "device_sn": "SN-1",
+                "upload_time": 1_800_000_001_i64
+            }]
+        });
+        let hardware: WorkHardwareCheckinDataResponse =
+            serde_json::from_value(hardware_payload.clone()).unwrap();
+        hardware.validate().unwrap();
+        assert_eq!(hardware.checkindata[0].require_device_sn().unwrap(), "SN-1");
+        let mut missing_serial = hardware_payload.clone();
+        missing_serial["checkindata"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("device_sn");
+        let missing_serial: WorkHardwareCheckinDataResponse =
+            serde_json::from_value(missing_serial).unwrap();
+        assert!(missing_serial.validate().is_err());
+
+        let day_payload = json!({
+            "errcode": 0,
+            "datas": [{
+                "base_info": {
+                    "date": 20260721,
+                    "record_type": 1,
+                    "name": "Alice",
+                    "name_ex": "Alice",
+                    "departs_name": "Engineering",
+                    "acctid": "user",
+                    "day_type": 1,
+                    "rule_info": {
+                        "groupid": 1,
+                        "groupname": "Default",
+                        "scheduleid": 2,
+                        "schedulename": "Day",
+                        "checkintime": [{
+                            "work_sec": 32_400,
+                            "off_work_sec": 61_200
+                        }]
+                    }
+                },
+                "summary_info": {
+                    "checkin_count": 2,
+                    "regular_work_sec": 28_800,
+                    "standard_work_sec": 28_800,
+                    "earliest_time": 1_800_000_000_i64,
+                    "lastest_time": 1_800_028_800_i64
+                },
+                "exception_infos": [{
+                    "count": 1,
+                    "duration": 300,
+                    "exception": 1
+                }],
+                "holiday_infos": [],
+                "sp_items": [],
+                "ot_info": {
+                    "ot_status": 1,
+                    "ot_duration": 3_600,
+                    "exception_duration": [300]
+                }
+            }]
+        });
+        let day: WorkCheckinDayDataResponse = serde_json::from_value(day_payload.clone()).unwrap();
+        day.validate().unwrap();
+
+        let mut invalid_date = day_payload.clone();
+        invalid_date["datas"][0]["base_info"]["date"] = json!(20260230);
+        let invalid_date: WorkCheckinDayDataResponse =
+            serde_json::from_value(invalid_date).unwrap();
+        assert!(invalid_date.validate().is_err());
+
+        let mut reversed_times = day_payload.clone();
+        reversed_times["datas"][0]["summary_info"]["earliest_time"] = json!(1_800_028_801_i64);
+        let reversed_times: WorkCheckinDayDataResponse =
+            serde_json::from_value(reversed_times).unwrap();
+        assert!(reversed_times.validate().is_err());
+
+        let month_payload = json!({
+            "errcode": 0,
+            "datas": [{
+                "base_info": {
+                    "record_type": 1,
+                    "name": "Alice",
+                    "name_ex": "Alice",
+                    "departs_name": "Engineering",
+                    "acctid": "user",
+                    "rule_info": { "groupid": 1, "groupname": "Default" }
+                },
+                "summary_info": {
+                    "work_days": 22,
+                    "except_days": 1,
+                    "regular_days": 21,
+                    "regular_work_sec": 604_800,
+                    "standard_work_sec": 633_600,
+                    "rest_days": 8
+                },
+                "exception_infos": [],
+                "sp_items": [],
+                "overwork_info": { "workday_over_sec": 3_600 }
+            }]
+        });
+        let month: WorkCheckinMonthDataResponse =
+            serde_json::from_value(month_payload.clone()).unwrap();
+        month.validate().unwrap();
+        let mut impossible_month = month_payload.clone();
+        impossible_month["datas"][0]["summary_info"]["except_days"] = json!(23);
+        let impossible_month: WorkCheckinMonthDataResponse =
+            serde_json::from_value(impossible_month).unwrap();
+        assert!(impossible_month.validate().is_err());
+
+        let schedule_payload = json!({
+            "errcode": 0,
+            "schedule_list": [{
+                "userid": "user",
+                "yearmonth": 202602,
+                "groupid": 1,
+                "groupname": "Default",
+                "schedule": {
+                    "scheduleList": [{
+                        "day": 28,
+                        "schedule_info": {
+                            "schedule_id": 2,
+                            "schedule_name": "Day",
+                            "time_section": [{
+                                "id": 1,
+                                "work_sec": 32_400,
+                                "off_work_sec": 61_200,
+                                "remind_work_sec": 31_800,
+                                "remind_off_work_sec": 60_600
+                            }]
+                        }
+                    }]
+                }
+            }]
+        });
+        let schedule: WorkCheckinScheduleListResponse =
+            serde_json::from_value(schedule_payload.clone()).unwrap();
+        schedule.validate().unwrap();
+        let mut invalid_day = schedule_payload.clone();
+        invalid_day["schedule_list"][0]["schedule"]["scheduleList"][0]["day"] = json!(29);
+        let invalid_day: WorkCheckinScheduleListResponse =
+            serde_json::from_value(invalid_day).unwrap();
+        assert!(invalid_day.validate().is_err());
+
+        let mut duplicate_day = schedule_payload.clone();
+        let duplicate = duplicate_day["schedule_list"][0]["schedule"]["scheduleList"][0].clone();
+        duplicate_day["schedule_list"][0]["schedule"]["scheduleList"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        let duplicate_day: WorkCheckinScheduleListResponse =
+            serde_json::from_value(duplicate_day).unwrap();
+        assert!(duplicate_day.validate().is_err());
+    }
+
+    #[test]
     fn deserializes_work_oa_checkin_approval_and_vacation_responses() {
         let corp_option: WorkCheckinCorpOptionResponse = serde_json::from_value(json!({
             "trace_id": "checkin-corp",
@@ -49002,6 +50550,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        corp_option.validate().unwrap();
         assert_eq!(corp_option.extra["trace_id"], "checkin-corp");
         assert_eq!(corp_option.group[0].groupid, Some(1));
         assert_eq!(corp_option.group[0].groupname.as_deref(), Some("Default"));
@@ -49059,6 +50608,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        option.validate().unwrap();
         assert_eq!(option.extra["trace_id"], "checkin-option");
         assert_eq!(option.info[0].userid, "user");
         assert_eq!(option.info[0].group.groupid, Some(1));
@@ -49084,7 +50634,8 @@ mod tests {
             }]
         }))
         .unwrap();
-        assert_eq!(record.extra["has_more"], false);
+        record.validate().unwrap();
+        assert!(!record.has_more());
         assert_eq!(record.checkindata[0].userid.as_deref(), Some("user"));
         assert_eq!(
             record.checkindata[0].checkin_type.as_deref(),
@@ -49107,12 +50658,10 @@ mod tests {
             }]
         }))
         .unwrap();
+        hardware.validate().unwrap();
         assert_eq!(hardware.checkindata[0].userid.as_deref(), Some("user"));
         assert_eq!(hardware.checkindata[0].device_sn.as_deref(), Some("SN-1"));
-        assert_eq!(
-            hardware.checkindata[0].extra["upload_time"],
-            1_800_000_001_i64
-        );
+        assert_eq!(hardware.checkindata[0].upload_time, Some(1_800_000_001_i64));
         assert_eq!(hardware.extra["request_id"], "hardware-checkin");
 
         let day: WorkCheckinDataResponse = serde_json::from_value(json!({
@@ -49169,6 +50718,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        day.validate().unwrap();
         assert_eq!(day.extra["trace_id"], "checkin-data");
         assert_eq!(day.datas[0].base_info.acctid, "user");
         assert_eq!(day.datas[0].base_info.rule_info.scheduleid, 2);
@@ -49224,6 +50774,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        month.validate().unwrap();
         assert_eq!(month.datas[0].base_info.rule_info.groupid, 1);
         assert_eq!(month.datas[0].summary_info.work_days, 22);
         assert_eq!(month.datas[0].summary_info.extra["month_version"], 2);
@@ -49258,6 +50809,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        sparse_month.validate().unwrap();
         assert_eq!(sparse_month.datas[0].summary_info.regular_days, None);
         assert_eq!(
             sparse_month.datas[0]
@@ -49297,6 +50849,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        schedule.validate().unwrap();
         assert_eq!(schedule.extra["trace_id"], "checkin-schedule");
         assert_eq!(schedule.schedule_list[0].userid, "user");
         assert_eq!(schedule.schedule_list[0].groupid, 2);

@@ -1702,6 +1702,31 @@ Implemented on 2026-07-20 in Work OA checkin depth:
 - checkin rule mutations reject empty payloads and invalid group/range
   identifiers while retaining forward-compatible unknown fields.
 
+Implemented on 2026-07-21 in Work OA checkin response contracts:
+
+- corporation/user rule lookup, raw and hardware records, daily/monthly
+  reports, and schedule lookup now validate API success and response structure
+  at all seven query HTTP boundaries; schedule, face, correction, rule-add,
+  rule-update, and rule-delete status responses are also checked before return;
+- rule groups require stable unique ids and names and recursively validate
+  weekdays, time/rest sections, special dates, Wi-Fi/location/range entries,
+  reporters, schedules, overtime settings, correction reminders, identities,
+  timestamps, counters, and durations while preserving unknown fields;
+- raw records require a user, checkin type, positive timestamp, paired valid
+  coordinates, unique media, and non-negative linked ids; hardware records add
+  checked device name/serial and typed `upload_time`, while raw pagination now
+  exposes typed `has_more` semantics;
+- daily reports validate real `YYYYMMDD` dates, unique user/date records,
+  rule/schedule profiles, ordered summary timestamps, non-negative counts and
+  durations, localized leave approvals, and overtime details; monthly reports
+  enforce unique users, valid rule identities, non-negative totals, and
+  consistent exception/work-day counts;
+- schedule responses validate `YYYYMM`, actual month lengths including leap
+  years, unique user/month and day entries, active/rest schedule semantics, and
+  complete non-negative time sections; focused tests cover API errors,
+  duplicates, missing required fields, half coordinates, impossible dates and
+  totals, reversed timestamps, and invalid calendar days.
+
 Implemented on 2026-07-20 in Work OA journal depth:
 
 - added the two current enterprise-WeChat journal document export endpoints,
