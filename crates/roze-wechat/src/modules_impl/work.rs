@@ -1082,13 +1082,16 @@ impl Work {
     ) -> Result<ExternalContactListResponse> {
         let user_id = user_id.into();
         validate_external_contact_identifier("member userid", &user_id)?;
-        self.inner
+        let response: ExternalContactListResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/externalcontact/list",
                 Some(access_token.into()),
                 vec![("userid".to_string(), user_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_served_external_contacts(
@@ -1097,13 +1100,16 @@ impl Work {
         request: ExternalContactServedListRequest,
     ) -> Result<ExternalContactServedListResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactServedListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/contact_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn external_contact_to_openid(
@@ -1113,13 +1119,16 @@ impl Work {
     ) -> Result<UserIdToOpenIdResponse> {
         let external_user_id = external_user_id.into();
         validate_external_contact_identifier("external userid", &external_user_id)?;
-        self.inner
+        let response: UserIdToOpenIdResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/convert_to_openid",
                 Some(access_token.into()),
                 json!({ "external_userid": external_user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_school_notification_subscribe_qr_code(
@@ -1181,25 +1190,31 @@ impl Work {
         if let Some(cursor) = cursor {
             query.push(("cursor".to_string(), cursor));
         }
-        self.inner
+        let response: ExternalContactDetailResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/externalcontact/get",
                 Some(access_token.into()),
                 query,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_external_contact_follow_users(
         &self,
         access_token: impl Into<String>,
     ) -> Result<ExternalContactFollowUserListResponse> {
-        self.inner
+        let response: ExternalContactFollowUserListResponse = self
+            .inner
             .get(
                 "cgi-bin/externalcontact/get_follow_user_list",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_new_external_user_ids(
@@ -1208,13 +1223,16 @@ impl Work {
         request: WorkExternalUserIdMigrationRequest,
     ) -> Result<WorkExternalUserIdMigrationResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkExternalUserIdMigrationResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_new_external_userid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn external_contact_union_id_to_external_user_id(
@@ -1223,13 +1241,16 @@ impl Work {
         request: WorkUnionIdToExternalUserIdRequest,
     ) -> Result<WorkExternalUserIdConvertResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkExternalUserIdConvertResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/unionid_to_external_userid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn batch_get_external_contacts(
@@ -1238,13 +1259,16 @@ impl Work {
         request: ExternalContactBatchGetRequest,
     ) -> Result<ExternalContactBatchGetResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactBatchGetResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/batch/get_by_user",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_contact_way(
@@ -7028,6 +7052,31 @@ pub struct UserIdToOpenIdResponse {
     pub extra: Value,
 }
 
+impl UserIdToOpenIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "work userid to openid conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let openid = self.openid.as_deref().ok_or_else(|| {
+            WechatError::Config("work userid to openid response requires openid".to_string())
+        })?;
+        validate_work_user_identifier("openid", openid)?;
+        if let Some(appid) = self.appid.as_deref() {
+            validate_work_user_identifier("appid", appid)?;
+        }
+        Ok(())
+    }
+
+    pub fn require_openid(&self) -> Result<&str> {
+        self.validate()?;
+        self.openid.as_deref().ok_or_else(|| {
+            WechatError::Config("work userid to openid response requires openid".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenIdToUserIdRequest {
     pub openid: String,
@@ -7090,6 +7139,35 @@ pub struct WorkUnionIdToExternalUserIdResponse {
 }
 
 impl WorkUnionIdToExternalUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact unionid conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let external_userid = self
+            .external_userid
+            .as_deref()
+            .filter(|value| !value.trim().is_empty());
+        let pending_id = self
+            .pending_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty());
+        if let Some(external_userid) = external_userid {
+            validate_external_contact_identifier("external userid", external_userid)?;
+        }
+        if let Some(pending_id) = pending_id {
+            validate_external_contact_identifier("pending id", pending_id)?;
+        }
+        if external_userid.is_none() && pending_id.is_none() {
+            return Err(WechatError::Config(
+                "external-contact unionid conversion requires external_userid or pending_id"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_external_user_id(&self) -> bool {
         self.external_userid
             .as_deref()
@@ -7159,6 +7237,31 @@ pub struct WorkExternalUserIdMigrationResponse {
 }
 
 impl WorkExternalUserIdMigrationResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact userid migration",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.items.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-contact userid migration cannot exceed 1000 mappings".to_string(),
+            ));
+        }
+        let mut source_ids = std::collections::HashSet::with_capacity(self.items.len());
+        for item in &self.items {
+            item.validate()?;
+            let source_id = item.external_userid.as_deref().unwrap_or_default();
+            if !source_ids.insert(source_id) {
+                return Err(WechatError::Config(
+                    "external-contact userid migration cannot contain duplicate source ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn mapped_count(&self) -> usize {
         self.items.iter().filter(|item| item.is_mapped()).count()
     }
@@ -7187,6 +7290,21 @@ pub struct WorkExternalUserIdMigrationItem {
 }
 
 impl WorkExternalUserIdMigrationItem {
+    pub fn validate(&self) -> Result<()> {
+        let source = self.external_userid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact userid migration item requires external_userid".to_string(),
+            )
+        })?;
+        let target = self.new_external_userid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact userid migration item requires new_external_userid".to_string(),
+            )
+        })?;
+        validate_external_contact_identifier("external userid", source)?;
+        validate_external_contact_identifier("new external userid", target)
+    }
+
     pub fn is_mapped(&self) -> bool {
         self.external_userid
             .as_deref()
@@ -10879,6 +10997,15 @@ pub struct ExternalContactListResponse {
 }
 
 impl ExternalContactListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_external_contact_response_ids("external userid", &self.external_userid, false)
+    }
+
     pub fn unique_contact_count(&self) -> usize {
         self.external_userid
             .iter()
@@ -10947,6 +11074,28 @@ fn validate_external_contact_identifier(label: &str, value: &str) -> Result<()> 
     Ok(())
 }
 
+fn validate_external_contact_response_ids(
+    label: &str,
+    values: &[String],
+    require_values: bool,
+) -> Result<()> {
+    if require_values && values.is_empty() {
+        return Err(WechatError::Config(format!(
+            "external-contact {label} list cannot be empty"
+        )));
+    }
+    let mut unique = std::collections::HashSet::with_capacity(values.len());
+    for value in values {
+        validate_external_contact_identifier(label, value)?;
+        if !unique.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "external-contact {label} list cannot contain duplicates"
+            )));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactServedListResponse {
     #[serde(default)]
@@ -10981,6 +11130,91 @@ pub struct ExternalContactServedInfo {
     pub add_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactServedListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact served list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.info_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-contact served list cannot exceed 1000 rows".to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.info_list.len());
+        for info in &self.info_list {
+            info.validate()?;
+            if !identities.insert(info.identity()) {
+                return Err(WechatError::Config(
+                    "external-contact served list cannot contain duplicate entries".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+}
+
+impl ExternalContactServedInfo {
+    pub fn validate(&self) -> Result<()> {
+        let is_customer = self.is_customer.ok_or_else(|| {
+            WechatError::Config("external-contact served entry requires is_customer".to_string())
+        })?;
+        let tmp_openid = self.tmp_openid.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact served entry requires tmp_openid".to_string())
+        })?;
+        validate_external_contact_identifier("temporary openid", tmp_openid)?;
+        let follow_userid = self.follow_userid.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact served entry requires follow_userid".to_string())
+        })?;
+        validate_external_contact_identifier("follow userid", follow_userid)?;
+        if is_customer {
+            let external_userid = self.external_userid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact served customer requires external_userid".to_string(),
+                )
+            })?;
+            validate_external_contact_identifier("external userid", external_userid)?;
+        } else {
+            let chat_id = self.chat_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact served group entry requires chat_id".to_string(),
+                )
+            })?;
+            validate_external_contact_identifier("chat id", chat_id)?;
+        }
+        if self.add_time.is_some_and(|add_time| add_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact served entry add_time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn identity(&self) -> String {
+        if self.is_customer == Some(true) {
+            format!(
+                "customer:{}",
+                self.external_userid.as_deref().unwrap_or_default()
+            )
+        } else {
+            format!(
+                "group:{}:{}",
+                self.chat_id.as_deref().unwrap_or_default(),
+                self.tmp_openid.as_deref().unwrap_or_default()
+            )
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11066,6 +11300,15 @@ pub struct ExternalContactFollowUserListResponse {
 }
 
 impl ExternalContactFollowUserListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact follow-user list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_external_contact_response_ids("follow userid", &self.follow_user, false)
+    }
+
     pub fn unique_member_count(&self) -> usize {
         self.follow_user
             .iter()
@@ -11096,6 +11339,50 @@ pub struct ExternalContactDetailResponse {
 }
 
 impl ExternalContactDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact detail",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.external_contact
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact detail response requires external_contact".to_string(),
+                )
+            })?
+            .validate()?;
+        let mut userids = std::collections::HashSet::with_capacity(self.follow_user.len());
+        for follow in &self.follow_user {
+            follow.validate()?;
+            let userid = follow.userid.as_deref().unwrap_or_default();
+            if !userids.insert(userid) {
+                return Err(WechatError::Config(
+                    "external-contact detail cannot contain duplicate follow users".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn require_contact(&self) -> Result<&ExternalContactInfo> {
+        self.validate()?;
+        self.external_contact.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact detail response requires external_contact".to_string(),
+            )
+        })
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
     pub fn has_contact(&self) -> bool {
         self.external_contact
             .as_ref()
@@ -11138,6 +11425,38 @@ pub struct ExternalContactBatchGetResponse {
 }
 
 impl ExternalContactBatchGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_response_success(
+            "external-contact batch get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut contact_ids =
+            std::collections::HashSet::with_capacity(self.external_contact_list.len());
+        for item in &self.external_contact_list {
+            item.validate()?;
+            let contact_id = item
+                .external_contact
+                .as_ref()
+                .and_then(|contact| contact.external_userid.as_deref())
+                .unwrap_or_default();
+            if !contact_ids.insert(contact_id) {
+                return Err(WechatError::Config(
+                    "external-contact batch response cannot contain duplicate contacts".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
     pub fn complete_item_count(&self) -> usize {
         self.external_contact_list
             .iter()
@@ -11178,6 +11497,23 @@ pub struct ExternalContactBatchItem {
 }
 
 impl ExternalContactBatchItem {
+    pub fn validate(&self) -> Result<()> {
+        self.external_contact
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "external-contact batch item requires external_contact".to_string(),
+                )
+            })?
+            .validate()?;
+        self.follow_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("external-contact batch item requires follow_info".to_string())
+            })?
+            .validate()
+    }
+
     pub fn has_contact(&self) -> bool {
         self.external_contact
             .as_ref()
@@ -11237,6 +11573,27 @@ pub enum WorkContactGender {
 }
 
 impl ExternalContactInfo {
+    pub fn validate(&self) -> Result<()> {
+        let external_userid = self.external_userid.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact info requires external_userid".to_string())
+        })?;
+        validate_external_contact_identifier("external userid", external_userid)?;
+        if self
+            .contact_type
+            .is_some_and(|contact_type| contact_type <= 0)
+        {
+            return Err(WechatError::Config(
+                "external-contact type must be positive".to_string(),
+            ));
+        }
+        if self.gender.is_some_and(|gender| gender < 0) {
+            return Err(WechatError::Config(
+                "external-contact gender cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.external_userid
             .as_deref()
@@ -11387,6 +11744,63 @@ pub struct ExternalContactFollowInfo {
 }
 
 impl ExternalContactFollowInfo {
+    pub fn validate(&self) -> Result<()> {
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact follow info requires userid".to_string())
+        })?;
+        validate_external_contact_identifier("follow userid", userid)?;
+        if self.createtime.is_some_and(|createtime| createtime <= 0) {
+            return Err(WechatError::Config(
+                "external-contact follow createtime must be positive".to_string(),
+            ));
+        }
+        if self.add_way.is_some_and(|add_way| add_way < 0) {
+            return Err(WechatError::Config(
+                "external-contact follow add_way cannot be negative".to_string(),
+            ));
+        }
+        let mut tag_ids = std::collections::HashSet::new();
+        for tag in &self.tags {
+            let tag_id = tag.tag_id.as_deref().ok_or_else(|| {
+                WechatError::Config("external-contact follow tag requires tag_id".to_string())
+            })?;
+            validate_external_contact_identifier("follow tag id", tag_id)?;
+            if tag.r#type.is_some_and(|kind| kind <= 0) {
+                return Err(WechatError::Config(
+                    "external-contact follow tag type must be positive".to_string(),
+                ));
+            }
+            if !tag_ids.insert(tag_id) {
+                return Err(WechatError::Config(
+                    "external-contact follow tags must be unique".to_string(),
+                ));
+            }
+        }
+        for tag_id in &self.tag_id {
+            validate_external_contact_identifier("follow tag id", tag_id)?;
+            if !tag_ids.insert(tag_id.as_str()) {
+                return Err(WechatError::Config(
+                    "external-contact follow tags must be unique".to_string(),
+                ));
+            }
+        }
+        validate_external_contact_response_ids("remark mobile", &self.remark_mobiles, false)?;
+        if let Some(oper_userid) = self.oper_userid.as_deref() {
+            validate_external_contact_identifier("operator userid", oper_userid)?;
+        }
+        if self
+            .wechat_channels
+            .as_ref()
+            .and_then(|channels| channels.source)
+            .is_some_and(|source| source < 0)
+        {
+            return Err(WechatError::Config(
+                "external-contact channels source cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_identity(&self) -> bool {
         self.userid
             .as_deref()
@@ -34522,6 +34936,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(list.external_userid[0], "wm-external");
+        assert!(list.validate().is_ok());
         assert_eq!(list.unique_contact_count(), 1);
         assert!(!list.has_duplicate_contacts());
         assert_eq!(list.extra["next_openid"], "open-cursor");
@@ -34533,6 +34948,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(follow_users.follow_user[1], "user-b");
+        assert!(follow_users.validate().is_ok());
         assert_eq!(follow_users.unique_member_count(), 2);
         assert!(!follow_users.has_duplicate_members());
         assert_eq!(follow_users.extra["department_scope"][0], 1);
@@ -34587,7 +35003,12 @@ mod tests {
             "detail_extra": true
         }))
         .unwrap();
+        assert!(detail.validate().is_ok());
         assert!(detail.has_contact());
+        assert_eq!(
+            detail.require_contact().unwrap().external_userid.as_deref(),
+            Some("wm-external")
+        );
         assert_eq!(detail.identified_follow_user_count(), 1);
         assert_eq!(detail.unique_follow_user_count(), 1);
         assert!(!detail.has_duplicate_follow_users());
@@ -34697,6 +35118,8 @@ mod tests {
         assert!(!detail.follow_user[0].is_assigned());
         assert_eq!(detail.follow_user[0].extra["tag_source"], "crm");
         assert_eq!(detail.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(detail.next_cursor(), Some("cursor"));
+        assert!(detail.has_more());
         assert_eq!(detail.extra["detail_extra"], true);
 
         let batch: ExternalContactBatchGetResponse = serde_json::from_value(json!({
@@ -34723,6 +35146,7 @@ mod tests {
             "batch_extra": "batch-extra"
         }))
         .unwrap();
+        assert!(batch.validate().is_ok());
         assert_eq!(
             batch.external_contact_list[0]
                 .external_contact
@@ -34771,6 +35195,8 @@ mod tests {
             "item-extra"
         );
         assert_eq!(batch.next_cursor.as_deref(), Some("next"));
+        assert_eq!(batch.next_cursor(), Some("next"));
+        assert!(batch.has_more());
         assert_eq!(batch.extra["batch_extra"], "batch-extra");
 
         let duplicate_list: ExternalContactListResponse = serde_json::from_value(json!({
@@ -34791,6 +35217,68 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(incomplete_batch.complete_item_count(), 0);
+    }
+
+    #[test]
+    fn validates_external_contact_base_response_contracts() {
+        let duplicate_list: ExternalContactListResponse = serde_json::from_value(json!({
+            "external_userid": ["external", "external"]
+        }))
+        .unwrap();
+        assert!(duplicate_list.validate().is_err());
+
+        let invalid_served: ExternalContactServedListResponse = serde_json::from_value(json!({
+            "info_list": [{
+                "is_customer": false,
+                "tmp_openid": "temporary",
+                "follow_userid": "owner",
+                "add_time": 1
+            }]
+        }))
+        .unwrap();
+        assert!(invalid_served.validate().is_err());
+
+        let duplicate_followers: ExternalContactDetailResponse = serde_json::from_value(json!({
+            "external_contact": { "external_userid": "external" },
+            "follow_user": [{ "userid": "user" }, { "userid": "user" }]
+        }))
+        .unwrap();
+        assert!(duplicate_followers.validate().is_err());
+
+        let incomplete_batch: ExternalContactBatchGetResponse = serde_json::from_value(json!({
+            "external_contact_list": [{
+                "external_contact": { "external_userid": "external" }
+            }]
+        }))
+        .unwrap();
+        assert!(incomplete_batch.validate().is_err());
+
+        let empty_conversion: WorkUnionIdToExternalUserIdResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(empty_conversion.validate().is_err());
+
+        let duplicate_migration: WorkExternalUserIdMigrationResponse =
+            serde_json::from_value(json!({
+                "items": [
+                    {
+                        "external_userid": "old",
+                        "new_external_userid": "new-one"
+                    },
+                    {
+                        "external_userid": "old",
+                        "new_external_userid": "new-two"
+                    }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_migration.validate().is_err());
+
+        let api_error: ExternalContactFollowUserListResponse =
+            serde_json::from_value(json!({ "errcode": 40003, "errmsg": "invalid user" })).unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40003, .. })
+        ));
     }
 
     #[test]
@@ -34838,6 +35326,7 @@ mod tests {
             "snapshot_id": "served-list"
         }))
         .unwrap();
+        assert!(served.validate().is_ok());
         assert_eq!(served.info_list[0].is_customer, Some(true));
         assert_eq!(
             served.info_list[0].external_userid.as_deref(),
@@ -34851,6 +35340,8 @@ mod tests {
             Some("External contact")
         );
         assert_eq!(served.next_cursor.as_deref(), Some("cursor"));
+        assert_eq!(served.next_cursor(), Some("cursor"));
+        assert!(served.has_more());
         assert_eq!(served.extra["snapshot_id"], "served-list");
 
         let result_request = serde_json::to_value(ExternalContactGroupMessageResultRequest {
@@ -36157,6 +36648,7 @@ mod tests {
             Some("new-external")
         );
         assert_eq!(converted.mapped_count(), 1);
+        assert!(converted.validate().is_ok());
         assert_eq!(converted.changed_count(), 1);
         assert!(converted.items[0].is_mapped());
         assert!(converted.items[0].is_changed());
@@ -39476,6 +39968,8 @@ mod tests {
                 .unwrap();
 
         assert_eq!(to_openid.openid.as_deref(), Some("openid"));
+        assert!(to_openid.validate().is_ok());
+        assert_eq!(to_openid.require_openid().unwrap(), "openid");
         assert_eq!(to_openid.appid.as_deref(), Some("wxappid"));
         assert_eq!(to_openid.extra["convert_source"], "userid");
         assert_eq!(to_userid.userid.as_deref(), Some("user"));
@@ -40113,6 +40607,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(union.external_userid.as_deref(), Some("external"));
+        assert!(union.validate().is_ok());
         assert!(union.has_external_user_id());
         assert!(!union.is_pending());
         assert_eq!(union.extra["convert_scene"], "union");
@@ -40120,6 +40615,7 @@ mod tests {
         let pending_union: WorkUnionIdToExternalUserIdResponse =
             serde_json::from_value(json!({ "pending_id": "pending" })).unwrap();
         assert!(!pending_union.has_external_user_id());
+        assert!(pending_union.validate().is_ok());
         assert!(pending_union.is_pending());
 
         let pending: WorkExternalUserIdToPendingIdResponse = serde_json::from_value(json!({

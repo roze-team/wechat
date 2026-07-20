@@ -2031,6 +2031,27 @@ Implemented on 2026-07-20 in Work external-contact customer-base depth:
   pending, mapped, changed, and lookup helpers without discarding extension
   fields.
 
+Implemented on 2026-07-20 in Work external-contact customer-base response
+contracts:
+
+- customer list, served-contact list, external-userid-to-openid, detail,
+  follow-user list, external-userid migration, unionid conversion, and batch
+  detail operations now validate responses before leaving the HTTP boundary;
+- customer and follower lists reject blank or duplicate identities, served
+  entries require their customer or group-chat identity shape plus owner,
+  temporary openid, and positive optional add time, and cursors normalize
+  whitespace-only values;
+- detail responses require an identified customer and unique valid follow
+  users, while batch responses require complete customer/follow pairs and
+  reject duplicate customers;
+- follow records validate positive optional creation times, non-negative
+  forward-compatible add-way/channel-source values, unique typed and compact
+  tag ids, valid tag types, operator ids, and unique nonblank remark mobiles;
+- openid conversion requires a usable openid, unionid conversion requires at
+  least one resolved or pending identity while retaining the observed combined
+  response form, and migration results require at most 1000 unique complete
+  source-to-target mappings.
+
 Implemented on 2026-07-20 in Payment merchant-service workflow depth:
 
 - complaint list, detail, negotiation-history, reply, completion,
