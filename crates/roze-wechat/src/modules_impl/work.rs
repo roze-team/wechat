@@ -4157,17 +4157,21 @@ impl Work {
         access_token: impl Into<String>,
         kind: Option<i64>,
     ) -> Result<WorkMsgAuditPermitUsersResponse> {
-        let mut query = Vec::new();
-        if let Some(kind) = kind {
-            query.push(("type".to_string(), kind.to_string()));
+        if kind.is_some_and(|kind| kind <= 0) {
+            return Err(WechatError::Config(
+                "message-audit permit-user type must be positive".to_string(),
+            ));
         }
-        self.inner
-            .get_with_query(
+        let response: WorkMsgAuditPermitUsersResponse = self
+            .inner
+            .post(
                 "cgi-bin/msgaudit/get_permit_user_list",
                 Some(access_token.into()),
-                query,
+                kind.map_or_else(|| json!({}), |kind| json!({ "type": kind })),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn msg_audit_chat_data(
@@ -4175,13 +4179,17 @@ impl Work {
         access_token: impl Into<String>,
         request: MsgAuditChatDataRequest,
     ) -> Result<WorkMsgAuditChatDataResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkMsgAuditChatDataResponse = self
+            .inner
             .post(
                 "cgi-bin/msgaudit/get_chatdata",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn msg_audit_room(
@@ -4189,13 +4197,18 @@ impl Work {
         access_token: impl Into<String>,
         room_id: impl Into<String>,
     ) -> Result<WorkMsgAuditRoomResponse> {
-        self.inner
+        let room_id = room_id.into();
+        validate_work_msg_audit_identifier("room id", &room_id)?;
+        let response: WorkMsgAuditRoomResponse = self
+            .inner
             .post(
                 "cgi-bin/msgaudit/groupchat/get",
                 Some(access_token.into()),
-                json!({ "roomid": room_id.into() }),
+                json!({ "roomid": room_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn msg_audit_check_single_agree(
@@ -4204,13 +4217,16 @@ impl Work {
         request: WorkMsgAuditCheckSingleAgreeRequest,
     ) -> Result<WorkMsgAuditAgreeResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkMsgAuditAgreeResponse = self
+            .inner
             .post(
                 "cgi-bin/msgaudit/check_single_agree",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_single()?;
+        Ok(response)
     }
 
     pub async fn msg_audit_check_room_agree(
@@ -4218,13 +4234,18 @@ impl Work {
         access_token: impl Into<String>,
         room_id: impl Into<String>,
     ) -> Result<WorkMsgAuditAgreeResponse> {
-        self.inner
+        let room_id = room_id.into();
+        validate_work_msg_audit_identifier("room id", &room_id)?;
+        let response: WorkMsgAuditAgreeResponse = self
+            .inner
             .post(
                 "cgi-bin/msgaudit/check_room_agree",
                 Some(access_token.into()),
-                json!({ "roomid": room_id.into() }),
+                json!({ "roomid": room_id }),
             )
-            .await
+            .await?;
+        response.validate_room()?;
+        Ok(response)
     }
 
     pub async fn msg_audit_robot_info(
@@ -4232,13 +4253,18 @@ impl Work {
         access_token: impl Into<String>,
         robot_id: impl Into<String>,
     ) -> Result<WorkMsgAuditRobotInfoResponse> {
-        self.inner
+        let robot_id = robot_id.into();
+        validate_work_msg_audit_identifier("robot id", &robot_id)?;
+        let response: WorkMsgAuditRobotInfoResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/msgaudit/get_robot_info",
                 Some(access_token.into()),
-                vec![("robot_id".to_string(), robot_id.into())],
+                vec![("robot_id".to_string(), robot_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn oa(&self) -> DomainModule {
@@ -28023,6 +28049,35 @@ pub struct MsgAuditChatDataRequest {
     pub timeout: i64,
 }
 
+impl MsgAuditChatDataRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.seq < 0 {
+            return Err(WechatError::Config(
+                "message-audit chat-data sequence cannot be negative".to_string(),
+            ));
+        }
+        if !(1..=1_000).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "message-audit chat-data limit must be between 1 and 1000".to_string(),
+            ));
+        }
+        if self.timeout < 0 {
+            return Err(WechatError::Config(
+                "message-audit chat-data timeout cannot be negative".to_string(),
+            ));
+        }
+        for (label, value) in [
+            ("proxy", self.proxy.as_deref()),
+            ("proxy password", self.passwd.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_work_msg_audit_identifier(label, value)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMsgAuditCheckSingleAgreeRequest {
     pub info: Vec<WorkMsgAuditConversationPair>,
@@ -28036,24 +28091,21 @@ impl WorkMsgAuditCheckSingleAgreeRequest {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.info.is_empty() {
+        if self.info.is_empty() || self.info.len() > 100 {
             return Err(WechatError::Config(
-                "message-audit agreement query requires at least one conversation pair".to_string(),
+                "message-audit agreement query requires 1 to 100 conversation pairs".to_string(),
             ));
         }
-        if self.info.iter().any(|item| item.userid.trim().is_empty()) {
-            return Err(WechatError::Config(
-                "message-audit agreement query userid cannot be empty".to_string(),
-            ));
-        }
-        if self
-            .info
-            .iter()
-            .any(|item| item.external_openid.trim().is_empty())
-        {
-            return Err(WechatError::Config(
-                "message-audit agreement query external OpenID cannot be empty".to_string(),
-            ));
+        let mut pairs = HashSet::with_capacity(self.info.len());
+        for item in &self.info {
+            validate_work_msg_audit_identifier("agreement userid", &item.userid)?;
+            validate_work_msg_audit_identifier("agreement external OpenID", &item.external_openid)?;
+            if !pairs.insert((item.userid.as_str(), item.external_openid.as_str())) {
+                return Err(WechatError::Config(
+                    "message-audit agreement query cannot contain duplicate conversation pairs"
+                        .to_string(),
+                ));
+            }
         }
         Ok(())
     }
@@ -28087,6 +28139,21 @@ pub struct WorkMsgAuditPermitUsersResponse {
     pub extra: Value,
 }
 
+impl WorkMsgAuditPermitUsersResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "message-audit permit-user list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_msg_audit_unique_identifiers("permit userid", &self.ids)
+    }
+
+    pub fn contains(&self, user_id: &str) -> bool {
+        self.ids.iter().any(|candidate| candidate == user_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkMsgAuditChatDataResponse {
     #[serde(default)]
@@ -28097,6 +28164,49 @@ pub struct WorkMsgAuditChatDataResponse {
     pub chatdata: Vec<WorkMsgAuditChatData>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMsgAuditChatDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "message-audit chat data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.chatdata.len() > 1_000 {
+            return Err(WechatError::Config(
+                "message-audit chat-data response cannot exceed 1000 records".to_string(),
+            ));
+        }
+        let mut sequences = HashSet::with_capacity(self.chatdata.len());
+        let mut message_ids = HashSet::with_capacity(self.chatdata.len());
+        let mut previous_sequence = None;
+        for record in &self.chatdata {
+            record.validate()?;
+            let sequence = record.seq.expect("validated chat-data sequence");
+            if !sequences.insert(sequence)
+                || previous_sequence.is_some_and(|previous| sequence <= previous)
+            {
+                return Err(WechatError::Config(
+                    "message-audit chat-data sequences must be unique and strictly increasing"
+                        .to_string(),
+                ));
+            }
+            previous_sequence = Some(sequence);
+            let message_id = record.msgid.as_deref().expect("validated message id");
+            if !message_ids.insert(message_id) {
+                return Err(WechatError::Config(
+                    "message-audit chat-data response cannot repeat message ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn checkpoint_sequence(&self) -> Result<Option<i64>> {
+        self.validate()?;
+        Ok(self.chatdata.last().and_then(|record| record.seq))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28113,6 +28223,30 @@ pub struct WorkMsgAuditChatData {
     pub encrypt_chat_msg: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMsgAuditChatData {
+    pub fn validate(&self) -> Result<()> {
+        if self.seq.is_none_or(|sequence| sequence < 0) {
+            return Err(WechatError::Config(
+                "message-audit chat-data record requires a non-negative sequence".to_string(),
+            ));
+        }
+        validate_work_msg_audit_required_identifier("message id", self.msgid.as_deref())?;
+        if self.publickey_ver.is_none_or(|version| version <= 0) {
+            return Err(WechatError::Config(
+                "message-audit chat-data record requires a positive public-key version".to_string(),
+            ));
+        }
+        validate_work_msg_audit_required_identifier(
+            "encrypted random key",
+            self.encrypt_random_key.as_deref(),
+        )?;
+        validate_work_msg_audit_required_identifier(
+            "encrypted chat message",
+            self.encrypt_chat_msg.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28143,6 +28277,56 @@ pub struct WorkMsgAuditRoomMember {
     pub jointime: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMsgAuditRoomResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "message-audit group-chat detail",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.roomname.is_none() {
+            return Err(WechatError::Config(
+                "message-audit group-chat response requires roomname".to_string(),
+            ));
+        }
+        validate_work_msg_audit_required_identifier("room creator", self.creator.as_deref())?;
+        if self.room_create_time.is_none_or(|timestamp| timestamp <= 0) {
+            return Err(WechatError::Config(
+                "message-audit group-chat response requires positive room_create_time".to_string(),
+            ));
+        }
+        let mut member_ids = HashSet::with_capacity(self.members.len());
+        for member in &self.members {
+            member.validate()?;
+            let member_id = member.memberid.as_deref().expect("validated member id");
+            if !member_ids.insert(member_id) {
+                return Err(WechatError::Config(
+                    "message-audit group-chat response cannot repeat members".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn member(&self, member_id: &str) -> Option<&WorkMsgAuditRoomMember> {
+        self.members
+            .iter()
+            .find(|member| member.memberid.as_deref() == Some(member_id))
+    }
+}
+
+impl WorkMsgAuditRoomMember {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_msg_audit_required_identifier("room member id", self.memberid.as_deref())?;
+        if self.jointime.is_none_or(|timestamp| timestamp <= 0) {
+            return Err(WechatError::Config(
+                "message-audit room member requires positive jointime".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28199,6 +28383,34 @@ impl WorkMsgAuditAgreeStatusKind {
 }
 
 impl WorkMsgAuditAgreeInfo {
+    fn validate(&self, require_user_id: bool) -> Result<()> {
+        if require_user_id {
+            validate_work_msg_audit_required_identifier(
+                "agreement userid",
+                self.userid.as_deref(),
+            )?;
+        } else if let Some(user_id) = self.userid.as_deref() {
+            validate_work_msg_audit_identifier("agreement userid", user_id)?;
+        }
+        validate_work_msg_audit_required_identifier(
+            "agreement external OpenID",
+            self.external_openid.as_deref(),
+        )?;
+        let status = self.agree_status.as_deref().ok_or_else(|| {
+            WechatError::Config("message-audit agreement record requires agree_status".to_string())
+        })?;
+        validate_work_msg_audit_identifier("agreement status", status)?;
+        if self
+            .status_change_time
+            .is_none_or(|timestamp| timestamp <= 0)
+        {
+            return Err(WechatError::Config(
+                "message-audit agreement record requires positive status_change_time".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<WorkMsgAuditAgreeStatusKind> {
         self.agree_status
             .as_deref()
@@ -28217,6 +28429,42 @@ impl WorkMsgAuditAgreeInfo {
 }
 
 impl WorkMsgAuditAgreeResponse {
+    pub fn validate_single(&self) -> Result<()> {
+        self.validate(true)
+    }
+
+    pub fn validate_room(&self) -> Result<()> {
+        self.validate(false)
+    }
+
+    fn validate(&self, require_user_id: bool) -> Result<()> {
+        validate_work_response_success(
+            "message-audit agreement query",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.agreeinfo.len() > 100 {
+            return Err(WechatError::Config(
+                "message-audit agreement response cannot exceed 100 records".to_string(),
+            ));
+        }
+        let mut identities = HashSet::with_capacity(self.agreeinfo.len());
+        for agreement in &self.agreeinfo {
+            agreement.validate(require_user_id)?;
+            let identity = (
+                agreement.userid.as_deref().unwrap_or_default(),
+                agreement.external_openid.as_deref().unwrap_or_default(),
+            );
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "message-audit agreement response cannot repeat conversation identities"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn all_agreed(&self) -> bool {
         !self.agreeinfo.is_empty() && self.agreeinfo.iter().all(WorkMsgAuditAgreeInfo::is_agreed)
     }
@@ -28234,7 +28482,7 @@ pub struct WorkMsgAuditRobotInfoResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "data")]
     pub robot_info: Option<WorkMsgAuditRobotInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
@@ -28250,6 +28498,68 @@ pub struct WorkMsgAuditRobotInfo {
     pub creator_userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMsgAuditRobotInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "message-audit robot info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.robot_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("message-audit robot response requires data".to_string())
+            })?
+            .validate()
+    }
+
+    pub fn require_robot_info(&self) -> Result<&WorkMsgAuditRobotInfo> {
+        self.validate()?;
+        self.robot_info.as_ref().ok_or_else(|| {
+            WechatError::Config("message-audit robot response requires data".to_string())
+        })
+    }
+}
+
+impl WorkMsgAuditRobotInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_msg_audit_required_identifier("robot id", self.robot_id.as_deref())?;
+        validate_work_msg_audit_required_identifier("robot name", self.name.as_deref())?;
+        validate_work_msg_audit_required_identifier(
+            "robot creator userid",
+            self.creator_userid.as_deref(),
+        )
+    }
+}
+
+fn validate_work_msg_audit_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "message-audit {label} cannot be blank or contain control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_msg_audit_required_identifier(label: &str, value: Option<&str>) -> Result<()> {
+    let value = value
+        .ok_or_else(|| WechatError::Config(format!("message-audit response requires {label}")))?;
+    validate_work_msg_audit_identifier(label, value)
+}
+
+fn validate_work_msg_audit_unique_identifiers(label: &str, values: &[String]) -> Result<()> {
+    let mut unique = HashSet::with_capacity(values.len());
+    for value in values {
+        validate_work_msg_audit_identifier(label, value)?;
+        if !unique.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "message-audit {label} values must be unique"
+            )));
+        }
+    }
+    Ok(())
 }
 
 pub const WORK_AIBOT_CMD_SUBSCRIBE: &str = "aibot_subscribe";
@@ -65242,14 +65552,15 @@ mod tests {
 
     #[test]
     fn serializes_msg_audit_requests_and_responses() {
-        let value = serde_json::to_value(MsgAuditChatDataRequest {
+        let chat_data_request = MsgAuditChatDataRequest {
             seq: 1,
             limit: 100,
             proxy: None,
             passwd: None,
             timeout: 10,
-        })
-        .unwrap();
+        };
+        chat_data_request.validate().unwrap();
+        let value = serde_json::to_value(chat_data_request).unwrap();
 
         assert_eq!(value["seq"], 1);
         assert_eq!(value["limit"], 100);
@@ -65269,6 +65580,12 @@ mod tests {
         assert!(WorkMsgAuditCheckSingleAgreeRequest::new([])
             .validate()
             .is_err());
+        assert!(WorkMsgAuditCheckSingleAgreeRequest::new([
+            WorkMsgAuditConversationPair::new("user", "openid"),
+            WorkMsgAuditConversationPair::new("user", "openid"),
+        ])
+        .validate()
+        .is_err());
         assert!(
             WorkMsgAuditCheckSingleAgreeRequest::new([WorkMsgAuditConversationPair::new(
                 " ", "openid"
@@ -65296,6 +65613,8 @@ mod tests {
         assert_eq!(permit.ids[0], "user");
         assert_eq!(permit.ids[1], "external-openid");
         assert_eq!(permit.extra["request_id"], "permit-users");
+        assert!(permit.validate().is_ok());
+        assert!(permit.contains("user"));
 
         let chat_data: WorkMsgAuditChatDataResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -65315,6 +65634,8 @@ mod tests {
         assert_eq!(chat_data.chatdata[0].publickey_ver, Some(2));
         assert_eq!(chat_data.chatdata[0].extra["chat_type"], "single");
         assert_eq!(chat_data.extra["next_seq"], 2);
+        assert!(chat_data.validate().is_ok());
+        assert_eq!(chat_data.checkpoint_sequence().unwrap(), Some(1));
 
         let room: WorkMsgAuditRoomResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -65330,6 +65651,8 @@ mod tests {
         assert_eq!(room.members[0].memberid.as_deref(), Some("user"));
         assert_eq!(room.members[0].extra["member_role"], "owner");
         assert_eq!(room.extra["room_status"], "active");
+        assert!(room.validate().is_ok());
+        assert!(room.member("user").is_some());
 
         let agree: WorkMsgAuditAgreeResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -65357,6 +65680,7 @@ mod tests {
         assert_eq!(agree.agreeinfo[0].status_change_time, Some(1_720_000_003));
         assert_eq!(agree.agreeinfo[0].extra["source"], "single");
         assert_eq!(agree.extra["agree_total"], 1);
+        assert!(agree.validate_single().is_ok());
 
         let room_agree: WorkMsgAuditAgreeResponse = serde_json::from_value(json!({
             "agreeinfo": [{
@@ -65365,7 +65689,8 @@ mod tests {
                 "status_change_time": 1_720_000_004
             }, {
                 "exteranalopenid": "future",
-                "agree_status": "Pending"
+                "agree_status": "Pending",
+                "status_change_time": 1_720_000_005
             }]
         }))
         .unwrap();
@@ -65376,6 +65701,8 @@ mod tests {
             room_agree.agreeinfo[1].status_kind(),
             Some(WorkMsgAuditAgreeStatusKind::Other)
         );
+        assert!(room_agree.validate_room().is_ok());
+        assert!(room_agree.validate_single().is_err());
 
         let empty_agree: WorkMsgAuditAgreeResponse =
             serde_json::from_value(json!({ "agreeinfo": [] })).unwrap();
@@ -65384,7 +65711,7 @@ mod tests {
 
         let robot: WorkMsgAuditRobotInfoResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "robot_info": {
+            "data": {
                 "robot_id": "robot",
                 "name": "Robot",
                 "creator_userid": "creator",
@@ -65394,10 +65721,91 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(robot.extra["request_id"], "robot-info");
-        let robot_info = robot.robot_info.unwrap();
+        assert!(robot.validate().is_ok());
+        let robot_info = robot.require_robot_info().unwrap();
         assert_eq!(robot_info.robot_id.as_deref(), Some("robot"));
         assert_eq!(robot_info.creator_userid.as_deref(), Some("creator"));
         assert_eq!(robot_info.extra["robot_status"], "enabled");
+    }
+
+    #[test]
+    fn validates_msg_audit_response_contracts() {
+        assert!(MsgAuditChatDataRequest {
+            seq: -1,
+            limit: 1_001,
+            proxy: None,
+            passwd: None,
+            timeout: -1,
+        }
+        .validate()
+        .is_err());
+
+        let api_error: WorkMsgAuditPermitUsersResponse = serde_json::from_value(json!({
+            "errcode": 301052,
+            "errmsg": "archive expired"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 301052, .. })
+        ));
+
+        let duplicate_permit: WorkMsgAuditPermitUsersResponse =
+            serde_json::from_value(json!({ "ids": ["user", "user"] })).unwrap();
+        assert!(duplicate_permit.validate().is_err());
+
+        let duplicate_sequences: WorkMsgAuditChatDataResponse = serde_json::from_value(json!({
+            "chatdata": [{
+                "seq": 2,
+                "msgid": "two",
+                "publickey_ver": 1,
+                "encrypt_random_key": "key",
+                "encrypt_chat_msg": "cipher"
+            }, {
+                "seq": 1,
+                "msgid": "one",
+                "publickey_ver": 1,
+                "encrypt_random_key": "key",
+                "encrypt_chat_msg": "cipher"
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_sequences.validate().is_err());
+        let incomplete_cipher: WorkMsgAuditChatDataResponse = serde_json::from_value(json!({
+            "chatdata": [{
+                "seq": 1,
+                "msgid": "message",
+                "publickey_ver": 1,
+                "encrypt_random_key": "key"
+            }]
+        }))
+        .unwrap();
+        assert!(incomplete_cipher.validate().is_err());
+
+        let duplicate_members: WorkMsgAuditRoomResponse = serde_json::from_value(json!({
+            "roomname": "room",
+            "creator": "creator",
+            "room_create_time": 100,
+            "members": [
+                { "memberid": "user", "jointime": 101 },
+                { "memberid": "user", "jointime": 102 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_members.validate().is_err());
+
+        let incomplete_agreement: WorkMsgAuditAgreeResponse = serde_json::from_value(json!({
+            "agreeinfo": [{
+                "exteranalopenid": "external",
+                "agree_status": "Agree"
+            }]
+        }))
+        .unwrap();
+        assert!(incomplete_agreement.validate_room().is_err());
+
+        let missing_robot: WorkMsgAuditRobotInfoResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_robot.validate().is_err());
     }
 
     #[test]

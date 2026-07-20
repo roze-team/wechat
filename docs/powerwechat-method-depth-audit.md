@@ -90,6 +90,22 @@ Implemented on 2026-07-21 in Work account-service Channels entry depth:
   shop nickname for scenes 4-5, rejects missing/nonpositive scenes and unsafe
   names, while retaining unknown future positive scene codes.
 
+Implemented on 2026-07-21 in Work message-audit response depth:
+
+- The permit-user operation now uses the documented POST JSON contract instead
+  of sending `type` through a GET query, and all six message-audit network exits
+  validate requests and WeCom API responses before returning data.
+- Chat-data polling validates bounds, encrypted-record completeness, unique
+  strictly increasing sequences, message identity, and public-key versions;
+  a checked maximum-sequence checkpoint helper supports durable polling
+  without skipping the first record of the next fetch.
+- Internal-room details enforce creator, creation time, unique members, and
+  join times; single and room agreement responses apply their distinct user
+  identity rules, timestamps, batch limits, and duplicate detection.
+- Robot responses now read the documented `data` object (while retaining the
+  prior field alias), require complete robot identity, and expose a checked
+  accessor; permit-user results reject blank or duplicate identities.
+
 Implemented on 2026-07-21 in Work group-robot message depth:
 
 - The group-robot send path now validates webhook keys, request payloads, and
