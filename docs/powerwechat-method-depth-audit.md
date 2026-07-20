@@ -1323,6 +1323,25 @@ Implemented on 2026-07-20 in Work OA journal depth:
   record, template, document, and job identifiers, while statistics queries
   enforce the documented one-year maximum window.
 
+Implemented on 2026-07-20 in Work OA living depth:
+
+- create, modify, cancel, replay deletion, WeChat viewing-code, member-list,
+  detail, watch-stat, and share-attribution paths now validate their required
+  identities and request contracts before network I/O;
+- create and modify requests enforce positive start/duration values, the
+  documented title and description boundaries, live types 0 through 4,
+  non-negative reminder offsets, positive legacy agent ids, and non-empty
+  changes for modifications;
+- activity-only cover/share/detail fields require live type 4, and activity
+  image lists enforce non-empty unique media ids plus the five-image limit;
+- member live-list pagination exposes a first-page constructor and enforces
+  the 1-to-100 row boundary, while list and watch-stat responses expose
+  explicit continuation helpers;
+- live type, lifecycle status, replay status, and external-viewer type now
+  expose forward-compatible semantic enums and terminal/replay helpers;
+- external watch-stat records now retain inviter member and external-contact
+  identities in addition to unknown upstream extension fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
