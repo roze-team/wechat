@@ -152,6 +152,20 @@ Implemented on 2026-07-21 in Work media integrity depth:
   structured `+json` variants, so a successful JSON envelope cannot be
   mistaken for media bytes.
 
+Implemented on 2026-07-21 in Work application-message response depth:
+
+- Generic and convenience template-card sends now preserve the card type
+  through response validation; button, vote, and multiple-choice interaction
+  cards require the one-time `response_code` needed by the update endpoint.
+- Checked response-code accessors distinguish an update-capable interactive
+  send from ordinary cards without ad hoc optional-string handling.
+- Message IDs and template-card response codes require printable values within
+  a 512-byte boundary, rejecting blank, control-character, and oversized
+  upstream identifiers.
+- Pipe-delimited invalid user, unlicensed user, department, and tag lists now
+  enforce the same 1000/100/100 response boundaries as their request scopes;
+  task-card update failures enforce the 1000-user limit as well.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream

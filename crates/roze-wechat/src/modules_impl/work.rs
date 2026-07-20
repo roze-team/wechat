@@ -3610,12 +3610,20 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkMessage,
     ) -> Result<MessageSendResponse> {
+        let template_card_type = request
+            .template_card
+            .as_ref()
+            .map(WorkTemplateCard::card_type_kind);
         request.validate()?;
         let response: MessageSendResponse = self
             .inner
             .post("cgi-bin/message/send", Some(access_token.into()), request)
             .await?;
-        response.validate_send()?;
+        if let Some(card_type) = template_card_type {
+            response.validate_template_card_send(card_type)?;
+        } else {
+            response.validate_send()?;
+        }
         Ok(response)
     }
 
@@ -3803,14 +3811,18 @@ impl Work {
         audience: WorkMessageAudience,
         template_card: WorkTemplateCard,
     ) -> Result<MessageSendResponse> {
-        self.send_message_payload(
-            access_token,
-            audience,
-            WorkMessageTypeKind::TemplateCard.as_code(),
-            "template_card",
-            to_value(template_card)?,
-        )
-        .await
+        let card_type = template_card.card_type_kind();
+        let response = self
+            .send_message_payload(
+                access_token,
+                audience,
+                WorkMessageTypeKind::TemplateCard.as_code(),
+                "template_card",
+                to_value(template_card)?,
+            )
+            .await?;
+        response.validate_template_card_send(card_type)?;
+        Ok(response)
     }
 
     pub async fn send_task_card_message(
@@ -11692,6 +11704,7 @@ impl WorkTaskCardUpdateResponse {
         validate_work_message_response_recipient_string(
             "task-card invalid users",
             self.invaliduser.as_deref(),
+            1_000,
         )
     }
 
@@ -14391,9 +14404,18 @@ fn work_message_recipient_ids(value: Option<&str>) -> impl Iterator<Item = &str>
 impl MessageSendResponse {
     pub fn validate_send(&self) -> Result<()> {
         self.validate_common("work send application message")?;
-        self.message_id().ok_or_else(|| {
+        let message_id = self.message_id().ok_or_else(|| {
             WechatError::Config("work message send response requires msgid".to_string())
         })?;
+        validate_work_message_response_token("message id", message_id, 512)?;
+        Ok(())
+    }
+
+    pub fn validate_template_card_send(&self, card_type: WorkTemplateCardTypeKind) -> Result<()> {
+        self.validate_send()?;
+        if card_type.is_interactive() {
+            self.require_response_code()?;
+        }
         Ok(())
     }
 
@@ -14403,22 +14425,23 @@ impl MessageSendResponse {
 
     fn validate_common(&self, operation: &str) -> Result<()> {
         validate_work_response_success(operation, self.errcode, self.errmsg.as_deref())?;
-        for (label, value) in [
-            ("invalid users", self.invaliduser.as_deref()),
-            ("invalid departments", self.invalidparty.as_deref()),
-            ("invalid tags", self.invalidtag.as_deref()),
-            ("unlicensed users", self.unlicenseduser.as_deref()),
+        for (label, value, maximum) in [
+            ("invalid users", self.invaliduser.as_deref(), 1_000),
+            ("invalid departments", self.invalidparty.as_deref(), 100),
+            ("invalid tags", self.invalidtag.as_deref(), 100),
+            ("unlicensed users", self.unlicenseduser.as_deref(), 1_000),
         ] {
-            validate_work_message_response_recipient_string(label, value)?;
+            validate_work_message_response_recipient_string(label, value, maximum)?;
         }
-        if self
-            .response_code
-            .as_deref()
-            .is_some_and(|code| code.trim().is_empty())
-        {
-            return Err(WechatError::Config(
-                "work message response_code cannot be blank".to_string(),
-            ));
+        if let Some(message_id) = self.msgid.as_deref() {
+            validate_work_message_response_token("message id", message_id, 512)?;
+        }
+        if let Some(response_code) = self.response_code.as_deref() {
+            validate_work_message_response_token(
+                "template-card response code",
+                response_code,
+                512,
+            )?;
         }
         Ok(())
     }
@@ -14434,6 +14457,22 @@ impl MessageSendResponse {
         self.message_id().ok_or_else(|| {
             WechatError::Config("work message send response requires msgid".to_string())
         })
+    }
+
+    pub fn response_code(&self) -> Option<&str> {
+        self.response_code
+            .as_deref()
+            .filter(|response_code| !response_code.trim().is_empty())
+    }
+
+    pub fn require_response_code(&self) -> Result<&str> {
+        let response_code = self.response_code().ok_or_else(|| {
+            WechatError::Config(
+                "interactive work template-card response requires response_code".to_string(),
+            )
+        })?;
+        validate_work_message_response_token("template-card response code", response_code, 512)?;
+        Ok(response_code)
     }
 
     pub fn invalid_users(&self) -> Vec<&str> {
@@ -14579,7 +14618,11 @@ impl WorkExternalContactSchoolMessageSendResponse {
     }
 }
 
-fn validate_work_message_response_recipient_string(label: &str, value: Option<&str>) -> Result<()> {
+fn validate_work_message_response_recipient_string(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
     let Some(value) = value else {
         return Ok(());
     };
@@ -14594,6 +14637,25 @@ fn validate_work_message_response_recipient_string(label: &str, value: Option<&s
                 "work message response {label} must contain unique non-empty pipe-delimited ids"
             )));
         }
+    }
+    if seen.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "work message response {label} cannot contain more than {maximum} ids"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_message_response_token(
+    label: &str,
+    value: &str,
+    maximum_bytes: usize,
+) -> Result<()> {
+    if value.trim().is_empty() || value.len() > maximum_bytes || value.chars().any(char::is_control)
+    {
+        return Err(WechatError::Config(format!(
+            "work message response {label} must contain 1 to {maximum_bytes} printable UTF-8 bytes"
+        )));
     }
     Ok(())
 }
@@ -47593,7 +47655,12 @@ mod tests {
         }))
         .unwrap();
         assert!(sent.validate_send().is_ok());
+        assert!(sent
+            .validate_template_card_send(WorkTemplateCardTypeKind::ButtonInteraction)
+            .is_ok());
         assert_eq!(sent.require_message_id().unwrap(), "message-id");
+        assert_eq!(sent.response_code(), Some("response-code"));
+        assert_eq!(sent.require_response_code().unwrap(), "response-code");
         assert_eq!(sent.invalid_recipient_count(), 2);
 
         let api_error: MessageSendResponse = serde_json::from_value(json!({
@@ -47611,6 +47678,34 @@ mod tests {
         }))
         .unwrap();
         assert!(duplicate_recipients.validate_send().is_err());
+        let missing_interactive_code: MessageSendResponse =
+            serde_json::from_value(json!({ "msgid": "message-id" })).unwrap();
+        assert!(missing_interactive_code
+            .validate_template_card_send(WorkTemplateCardTypeKind::TextNotice)
+            .is_ok());
+        assert!(missing_interactive_code
+            .validate_template_card_send(WorkTemplateCardTypeKind::VoteInteraction)
+            .is_err());
+        let invalid_message_id: MessageSendResponse = serde_json::from_value(json!({
+            "msgid": "message\nid"
+        }))
+        .unwrap();
+        assert!(invalid_message_id.validate_send().is_err());
+        let invalid_response_code: MessageSendResponse = serde_json::from_value(json!({
+            "msgid": "message-id",
+            "response_code": "x".repeat(513)
+        }))
+        .unwrap();
+        assert!(invalid_response_code.validate_send().is_err());
+        let excessive_departments: MessageSendResponse = serde_json::from_value(json!({
+            "msgid": "message-id",
+            "invalidparty": (0..101)
+                .map(|index| format!("party-{index}"))
+                .collect::<Vec<_>>()
+                .join("|")
+        }))
+        .unwrap();
+        assert!(excessive_departments.validate_send().is_err());
         let update_without_message_id: MessageSendResponse =
             serde_json::from_value(json!({ "errcode": 0 })).unwrap();
         assert!(update_without_message_id.validate_update().is_ok());
@@ -47649,6 +47744,14 @@ mod tests {
         let malformed_task_update: WorkTaskCardUpdateResponse =
             serde_json::from_value(json!({ "invaliduser": "bad-user||other" })).unwrap();
         assert!(malformed_task_update.validate().is_err());
+        let excessive_task_users: WorkTaskCardUpdateResponse = serde_json::from_value(json!({
+            "invaliduser": (0..1001)
+                .map(|index| format!("user-{index}"))
+                .collect::<Vec<_>>()
+                .join("|")
+        }))
+        .unwrap();
+        assert!(excessive_task_users.validate().is_err());
 
         let linked: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
             "invaliduser": ["Corp/bad-user"],
