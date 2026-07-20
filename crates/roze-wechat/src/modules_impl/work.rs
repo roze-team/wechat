@@ -2395,13 +2395,16 @@ impl Work {
         request: ExternalContactMomentListRequest,
     ) -> Result<ExternalContactMomentListResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactMomentListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_moment_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_moment_tasks(
@@ -2413,13 +2416,16 @@ impl Work {
     ) -> Result<ExternalContactMomentTaskResponse> {
         let request = ExternalContactMomentPageRequest::new(moment_id, cursor, limit);
         request.validate()?;
-        self.inner
+        let response: ExternalContactMomentTaskResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_moment_task",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_moment_customer_list(
@@ -2432,13 +2438,16 @@ impl Work {
     ) -> Result<ExternalContactMomentCustomerListResponse> {
         let request = ExternalContactMomentUserPageRequest::new(moment_id, user_id, cursor, limit);
         request.validate()?;
-        self.inner
+        let response: ExternalContactMomentCustomerListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_moment_customer_list",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_customer_list()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_moment_send_result(
@@ -2451,13 +2460,16 @@ impl Work {
     ) -> Result<ExternalContactMomentCustomerListResponse> {
         let request = ExternalContactMomentUserPageRequest::new(moment_id, user_id, cursor, limit);
         request.validate_send_result()?;
-        self.inner
+        let response: ExternalContactMomentCustomerListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_moment_send_result",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_send_result()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_moment_comments(
@@ -2468,13 +2480,16 @@ impl Work {
     ) -> Result<ExternalContactMomentCommentResponse> {
         let request = ExternalContactMomentUserRequest::new(moment_id, user_id);
         request.validate()?;
-        self.inner
+        let response: ExternalContactMomentCommentResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_moment_comments",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_external_contact_moment_task(
@@ -2483,13 +2498,16 @@ impl Work {
         request: ExternalContactMomentTaskRequest,
     ) -> Result<ExternalContactMomentTaskCreateResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactMomentTaskCreateResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/add_moment_task",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn cancel_external_contact_moment_task(
@@ -2520,13 +2538,16 @@ impl Work {
                 "external-contact moment job id cannot exceed 64 bytes".to_string(),
             ));
         }
-        self.inner
+        let response: ExternalContactMomentTaskResultResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/externalcontact/get_moment_task_result",
                 Some(access_token.into()),
                 vec![("jobid".to_string(), job_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_user_behavior_data(
@@ -18066,6 +18087,49 @@ pub struct ExternalContactMomentListResponse {
     pub extra: Value,
 }
 
+impl ExternalContactMomentListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_response_success(
+            "external-contact moment list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.moment_list.len() > 100 {
+            return Err(WechatError::Config(
+                "external-contact moment list cannot exceed 100 rows".to_string(),
+            ));
+        }
+        let mut moment_ids = std::collections::HashSet::with_capacity(self.moment_list.len());
+        for moment in &self.moment_list {
+            moment.validate()?;
+            let moment_id = moment.moment_id.as_deref().unwrap_or_default();
+            if !moment_ids.insert(moment_id) {
+                return Err(WechatError::Config(
+                    "external-contact moment list cannot contain duplicate moment ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(&self, moment_id: &str) -> Option<&ExternalContactMomentSummary> {
+        self.moment_list.iter().find(|moment| {
+            moment
+                .moment_id
+                .as_deref()
+                .is_some_and(|value| value == moment_id)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentSummary {
     #[serde(default)]
@@ -18095,6 +18159,64 @@ pub struct ExternalContactMomentSummary {
 }
 
 impl ExternalContactMomentSummary {
+    pub fn validate(&self) -> Result<()> {
+        let moment_id = self.moment_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact moment summary requires moment_id".to_string())
+        })?;
+        validate_external_contact_identifier("moment id", moment_id)?;
+        let creator = self.creator.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact moment summary requires creator".to_string())
+        })?;
+        validate_external_contact_identifier("moment creator", creator)?;
+        if self.create_time.is_none_or(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact moment summary requires a positive create time".to_string(),
+            ));
+        }
+        if self.create_type.is_none_or(|create_type| create_type < 0) {
+            return Err(WechatError::Config(
+                "external-contact moment summary requires a non-negative create type".to_string(),
+            ));
+        }
+        if self
+            .visible_type
+            .is_none_or(|visible_type| visible_type < 0)
+        {
+            return Err(WechatError::Config(
+                "external-contact moment summary requires a non-negative visible type".to_string(),
+            ));
+        }
+        if self.attachments.len() > 9 || self.image.len() > 9 {
+            return Err(WechatError::Config(
+                "external-contact moment summary cannot exceed 9 attachments or images".to_string(),
+            ));
+        }
+        if self.text.is_none()
+            && self.attachments.is_empty()
+            && self.image.is_empty()
+            && self.video.is_none()
+            && self.link.is_none()
+        {
+            return Err(WechatError::Config(
+                "external-contact moment summary requires text or media content".to_string(),
+            ));
+        }
+        validate_external_contact_message_response_content(self.text.as_ref(), &self.attachments)?;
+        for image in &self.image {
+            validate_external_contact_moment_response_image(image)?;
+        }
+        if let Some(video) = &self.video {
+            video.validate()?;
+        }
+        if let Some(link) = &self.link {
+            validate_external_contact_moment_response_link(link)?;
+        }
+        if let Some(location) = &self.location {
+            location.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn create_type_kind(&self) -> Option<ExternalContactMomentCreateTypeKind> {
         self.create_type
             .map(ExternalContactMomentCreateTypeKind::from_code)
@@ -18150,6 +18272,13 @@ pub struct ExternalContactMomentVideo {
     pub extra: Value,
 }
 
+impl ExternalContactMomentVideo {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_media_id("moment video", self.media_id.as_deref())?;
+        validate_external_contact_media_id("moment video thumbnail", self.thumb_media_id.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentLocation {
     #[serde(default)]
@@ -18160,6 +18289,39 @@ pub struct ExternalContactMomentLocation {
     pub name: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactMomentLocation {
+    pub fn validate(&self) -> Result<()> {
+        let latitude = parse_external_contact_moment_coordinate(
+            "latitude",
+            self.latitude.as_deref(),
+            -90.0,
+            90.0,
+        )?;
+        let longitude = parse_external_contact_moment_coordinate(
+            "longitude",
+            self.longitude.as_deref(),
+            -180.0,
+            180.0,
+        )?;
+        if !latitude.is_finite() || !longitude.is_finite() {
+            return Err(WechatError::Config(
+                "external-contact moment coordinates must be finite".to_string(),
+            ));
+        }
+        if self
+            .name
+            .as_deref()
+            .is_some_and(|name| name.trim().is_empty() || name.len() > 128)
+        {
+            return Err(WechatError::Config(
+                "external-contact moment location name must contain 1 to 128 UTF-8 bytes"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18176,6 +18338,54 @@ pub struct ExternalContactMomentTaskResponse {
     pub extra: Value,
 }
 
+impl ExternalContactMomentTaskResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_response_success(
+            "external-contact moment task list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.task_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "external-contact moment task list cannot exceed 1000 rows".to_string(),
+            ));
+        }
+        let mut user_ids = std::collections::HashSet::with_capacity(self.task_list.len());
+        for task in &self.task_list {
+            task.validate()?;
+            let user_id = task.userid.as_deref().unwrap_or_default();
+            if !user_ids.insert(user_id) {
+                return Err(WechatError::Config(
+                    "external-contact moment task list cannot contain duplicate user ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(&self, user_id: &str) -> Option<&ExternalContactMomentTask> {
+        self.task_list
+            .iter()
+            .find(|task| task.userid.as_deref().is_some_and(|value| value == user_id))
+    }
+
+    pub fn published_count(&self) -> usize {
+        self.task_list
+            .iter()
+            .filter(|task| task.is_published())
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentTask {
     #[serde(default)]
@@ -18189,8 +18399,30 @@ pub struct ExternalContactMomentTask {
 }
 
 impl ExternalContactMomentTask {
+    pub fn validate(&self) -> Result<()> {
+        let user_id = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact moment task requires userid".to_string())
+        })?;
+        validate_external_contact_identifier("moment task userid", user_id)?;
+        let status = self.effective_publish_status().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact moment task requires publish_status or status".to_string(),
+            )
+        })?;
+        if status < 0 {
+            return Err(WechatError::Config(
+                "external-contact moment task status cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn effective_publish_status(&self) -> Option<i64> {
+        self.publish_status.or(self.status)
+    }
+
     pub fn publish_status_kind(&self) -> Option<ExternalContactMomentPublishStatusKind> {
-        self.publish_status
+        self.effective_publish_status()
             .map(ExternalContactMomentPublishStatusKind::from_code)
     }
 
@@ -18235,6 +18467,65 @@ pub struct ExternalContactMomentCustomerListResponse {
     pub extra: Value,
 }
 
+impl ExternalContactMomentCustomerListResponse {
+    pub fn validate_customer_list(&self) -> Result<()> {
+        self.validate_with_limit("external-contact moment customer list", 1_000)
+    }
+
+    pub fn validate_send_result(&self) -> Result<()> {
+        self.validate_with_limit("external-contact moment send result", 5_000)
+    }
+
+    fn validate_with_limit(&self, operation: &str, maximum_rows: usize) -> Result<()> {
+        validate_external_contact_moment_response_success(
+            operation,
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.customer_list.len() > maximum_rows {
+            return Err(WechatError::Config(format!(
+                "{operation} cannot exceed {maximum_rows} rows"
+            )));
+        }
+        let mut external_user_ids =
+            std::collections::HashSet::with_capacity(self.customer_list.len());
+        for customer in &self.customer_list {
+            customer.validate()?;
+            let external_user_id = customer.external_userid.as_deref().unwrap_or_default();
+            if !external_user_ids.insert(external_user_id) {
+                return Err(WechatError::Config(format!(
+                    "{operation} cannot contain duplicate external user ids"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn find(&self, external_user_id: &str) -> Option<&ExternalContactMomentCustomer> {
+        self.customer_list.iter().find(|customer| {
+            customer
+                .external_userid
+                .as_deref()
+                .is_some_and(|value| value == external_user_id)
+        })
+    }
+
+    pub fn published_count(&self) -> usize {
+        self.customer_list
+            .iter()
+            .filter(|customer| customer.is_published())
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentCustomer {
     #[serde(default)]
@@ -18250,8 +18541,35 @@ pub struct ExternalContactMomentCustomer {
 }
 
 impl ExternalContactMomentCustomer {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(user_id) = self.userid.as_deref() {
+            validate_external_contact_identifier("moment customer userid", user_id)?;
+        }
+        let external_user_id = self.external_userid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact moment customer requires external_userid".to_string(),
+            )
+        })?;
+        validate_external_contact_identifier("moment customer external userid", external_user_id)?;
+        let status = self.effective_publish_status().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact moment customer requires publish_status or status".to_string(),
+            )
+        })?;
+        if status < 0 {
+            return Err(WechatError::Config(
+                "external-contact moment customer status cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn effective_publish_status(&self) -> Option<i64> {
+        self.publish_status.or(self.status)
+    }
+
     pub fn publish_status_kind(&self) -> Option<ExternalContactMomentPublishStatusKind> {
-        self.publish_status
+        self.effective_publish_status()
             .map(ExternalContactMomentPublishStatusKind::from_code)
     }
 
@@ -18275,6 +18593,57 @@ pub struct ExternalContactMomentCommentResponse {
     pub next_cursor: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactMomentCommentResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_response_success(
+            "external-contact moment comments",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut comment_ids = std::collections::HashSet::with_capacity(self.comment_list.len());
+        for comment in &self.comment_list {
+            comment.validate()?;
+            let comment_id = comment.comment_id.as_deref().unwrap_or_default();
+            if !comment_ids.insert(comment_id) {
+                return Err(WechatError::Config(
+                    "external-contact moment comments cannot contain duplicate comment ids"
+                        .to_string(),
+                ));
+            }
+        }
+        let mut like_identities = std::collections::HashSet::with_capacity(self.like_list.len());
+        for like in &self.like_list {
+            like.validate()?;
+            let identity = (
+                like.userid
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty()),
+                like.external_userid
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty()),
+            );
+            if !like_identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "external-contact moment likes cannot contain duplicate identities".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor().is_some()
+    }
+
+    pub fn next_cursor(&self) -> Option<&str> {
+        normalized_external_contact_cursor(self.next_cursor.as_deref())
+    }
+
+    pub fn interaction_count(&self) -> usize {
+        self.comment_list.len() + self.like_list.len()
+    }
 }
 
 pub trait ExternalContactCursorPage {
@@ -18339,6 +18708,36 @@ pub struct ExternalContactMomentComment {
     pub extra: Value,
 }
 
+impl ExternalContactMomentComment {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_interaction_identity(
+            "comment",
+            self.userid.as_deref(),
+            self.external_userid.as_deref(),
+        )?;
+        let comment_id = self.comment_id.as_deref().ok_or_else(|| {
+            WechatError::Config("external-contact moment comment requires comment_id".to_string())
+        })?;
+        validate_external_contact_identifier("moment comment id", comment_id)?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact moment comment create time must be positive".to_string(),
+            ));
+        }
+        if self
+            .content
+            .as_deref()
+            .is_none_or(|content| content.trim().is_empty() || content.len() > 4_000)
+        {
+            return Err(WechatError::Config(
+                "external-contact moment comment content must contain 1 to 4000 UTF-8 bytes"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentLike {
     #[serde(default)]
@@ -18349,6 +18748,22 @@ pub struct ExternalContactMomentLike {
     pub create_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactMomentLike {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_interaction_identity(
+            "like",
+            self.userid.as_deref(),
+            self.external_userid.as_deref(),
+        )?;
+        if self.create_time.is_some_and(|create_time| create_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact moment like create time must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18605,6 +19020,37 @@ pub struct ExternalContactMomentTaskCreateResponse {
     pub extra: Value,
 }
 
+impl ExternalContactMomentTaskCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_response_success(
+            "external-contact moment task creation",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let job_id = self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact moment task creation response requires jobid".to_string(),
+            )
+        })?;
+        validate_external_contact_identifier("moment job id", job_id)?;
+        if job_id.len() > 64 {
+            return Err(WechatError::Config(
+                "external-contact moment job id cannot exceed 64 bytes".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn require_job_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.jobid.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "external-contact moment task creation response requires jobid".to_string(),
+            )
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentTaskResultResponse {
     #[serde(default)]
@@ -18622,6 +19068,44 @@ pub struct ExternalContactMomentTaskResultResponse {
 }
 
 impl ExternalContactMomentTaskResultResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_moment_response_success(
+            "external-contact moment task result",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let status = self.status.ok_or_else(|| {
+            WechatError::Config("external-contact moment task result requires status".to_string())
+        })?;
+        if status <= 0 {
+            return Err(WechatError::Config(
+                "external-contact moment task result status must be positive".to_string(),
+            ));
+        }
+        if self
+            .result_type
+            .as_deref()
+            .is_none_or(|result_type| result_type.trim().is_empty() || result_type.len() > 64)
+        {
+            return Err(WechatError::Config(
+                "external-contact moment task result type must contain 1 to 64 bytes".to_string(),
+            ));
+        }
+        if self.is_finished() {
+            self.result
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "finished external-contact moment task requires result".to_string(),
+                    )
+                })?
+                .validate()?;
+        } else if let Some(result) = &self.result {
+            result.validate()?;
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<WorkAsyncJobStatusKind> {
         self.status.map(WorkAsyncJobStatusKind::from)
     }
@@ -18633,11 +19117,19 @@ impl ExternalContactMomentTaskResultResponse {
 
     pub fn succeeded(&self) -> bool {
         self.is_finished()
-            && self
-                .result
-                .as_ref()
-                .and_then(|result| result.errcode)
-                .is_none_or(|errcode| errcode == 0)
+            && self.result.as_ref().is_some_and(|result| {
+                result.errcode.is_none_or(|errcode| errcode == 0)
+                    && result
+                        .moment_id
+                        .as_deref()
+                        .is_some_and(|moment_id| !moment_id.trim().is_empty())
+            })
+    }
+
+    pub fn has_partial_failures(&self) -> bool {
+        self.result
+            .as_ref()
+            .is_some_and(ExternalContactMomentTaskResult::has_partial_failures)
     }
 }
 
@@ -18659,6 +19151,48 @@ pub struct ExternalContactMomentTaskResult {
     pub extra: Value,
 }
 
+impl ExternalContactMomentTaskResult {
+    pub fn validate(&self) -> Result<()> {
+        if self.errcode.is_none_or(|errcode| errcode == 0) {
+            let moment_id = self.moment_id.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "successful external-contact moment task result requires moment_id".to_string(),
+                )
+            })?;
+            validate_external_contact_identifier("moment id", moment_id)?;
+        } else if self
+            .errmsg
+            .as_deref()
+            .is_none_or(|message| message.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "failed external-contact moment task result requires errmsg".to_string(),
+            ));
+        }
+        if let Some(invalid_senders) = &self.invalid_sender_list {
+            invalid_senders.validate()?;
+        }
+        if let Some(invalid_contacts) = &self.invalid_external_contact_list {
+            invalid_contacts.validate()?;
+        }
+        validate_external_contact_message_identifiers("invalid chat", &self.invalid_chat_list)
+    }
+
+    pub fn failure_count(&self) -> usize {
+        self.invalid_sender_list.as_ref().map_or(0, |senders| {
+            senders.user_list.len() + senders.department_list.len()
+        }) + self
+            .invalid_external_contact_list
+            .as_ref()
+            .map_or(0, |contacts| contacts.tag_list.len())
+            + self.invalid_chat_list.len()
+    }
+
+    pub fn has_partial_failures(&self) -> bool {
+        self.failure_count() > 0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentInvalidSenderList {
     #[serde(default)]
@@ -18669,12 +19203,130 @@ pub struct ExternalContactMomentInvalidSenderList {
     pub extra: Value,
 }
 
+impl ExternalContactMomentInvalidSenderList {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_message_identifiers("invalid sender", &self.user_list)?;
+        if self
+            .department_list
+            .iter()
+            .any(|department_id| *department_id <= 0)
+            || has_duplicate_i64s(&self.department_list)
+        {
+            return Err(WechatError::Config(
+                "external-contact moment invalid departments must be positive and unique"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactMomentInvalidExternalContactList {
     #[serde(default)]
     pub tag_list: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactMomentInvalidExternalContactList {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_message_identifiers("invalid tag", &self.tag_list)
+    }
+}
+
+fn validate_external_contact_moment_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn normalized_external_contact_cursor(cursor: Option<&str>) -> Option<&str> {
+    cursor.filter(|cursor| !cursor.trim().is_empty())
+}
+
+fn validate_external_contact_moment_response_image(
+    image: &ExternalContactMessageImage,
+) -> Result<()> {
+    let has_media = image
+        .media_id
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let has_url = image
+        .pic_url
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty());
+    if !has_media && !has_url {
+        return Err(WechatError::Config(
+            "external-contact moment image requires media_id or pic_url".to_string(),
+        ));
+    }
+    if let Some(url) = image.pic_url.as_deref() {
+        validate_external_contact_message_url("moment image pic_url", url)?;
+    }
+    Ok(())
+}
+
+fn validate_external_contact_moment_response_link(link: &ExternalContactMessageLink) -> Result<()> {
+    validate_external_contact_message_string("moment link title", link.title.as_deref(), 128)?;
+    validate_external_contact_message_string("moment link URL", link.url.as_deref(), 2_048)?;
+    validate_external_contact_message_url(
+        "moment link URL",
+        link.url.as_deref().unwrap_or_default(),
+    )?;
+    if let Some(pic_url) = link.picurl.as_deref() {
+        validate_external_contact_message_url("moment link picture URL", pic_url)?;
+    }
+    Ok(())
+}
+
+fn parse_external_contact_moment_coordinate(
+    label: &str,
+    value: Option<&str>,
+    minimum: f64,
+    maximum: f64,
+) -> Result<f64> {
+    let value = value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            WechatError::Config(format!(
+                "external-contact moment location {label} is required"
+            ))
+        })?;
+    let coordinate = value.parse::<f64>().map_err(|_| {
+        WechatError::Config(format!(
+            "external-contact moment location {label} must be numeric"
+        ))
+    })?;
+    if !coordinate.is_finite() || !(minimum..=maximum).contains(&coordinate) {
+        return Err(WechatError::Config(format!(
+            "external-contact moment location {label} must be between {minimum} and {maximum}"
+        )));
+    }
+    Ok(coordinate)
+}
+
+fn validate_external_contact_moment_interaction_identity(
+    kind: &str,
+    user_id: Option<&str>,
+    external_user_id: Option<&str>,
+) -> Result<()> {
+    let user_id = user_id.filter(|value| !value.trim().is_empty());
+    let external_user_id = external_user_id.filter(|value| !value.trim().is_empty());
+    if user_id.is_none() && external_user_id.is_none() {
+        return Err(WechatError::Config(format!(
+            "external-contact moment {kind} requires userid or external_userid"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36612,6 +37264,10 @@ mod tests {
             "total": 1
         }))
         .unwrap();
+        moments.validate().unwrap();
+        assert!(moments.has_more());
+        assert_eq!(moments.next_cursor(), Some("cursor"));
+        assert!(moments.find("moment").is_some());
         assert_eq!(moments.moment_list[0].moment_id.as_deref(), Some("moment"));
         assert_eq!(moments.moment_list[0].creator.as_deref(), Some("creator"));
         assert_eq!(
@@ -36659,6 +37315,10 @@ mod tests {
             "task_total": 1
         }))
         .unwrap();
+        tasks.validate().unwrap();
+        assert!(tasks.has_more());
+        assert_eq!(tasks.published_count(), 0);
+        assert!(tasks.find("user").is_some());
         assert_eq!(tasks.task_list[0].userid.as_deref(), Some("user"));
         assert_eq!(tasks.task_list[0].publish_status, Some(2));
         assert_eq!(
@@ -36688,6 +37348,9 @@ mod tests {
             "customer_total": 1
         }))
         .unwrap();
+        customers.validate_customer_list().unwrap();
+        assert_eq!(customers.published_count(), 1);
+        assert!(customers.find("external").is_some());
         assert_eq!(
             customers.customer_list[0].external_userid.as_deref(),
             Some("external")
@@ -36717,6 +37380,8 @@ mod tests {
             "interaction_total": 2
         }))
         .unwrap();
+        comments.validate().unwrap();
+        assert_eq!(comments.interaction_count(), 2);
         assert_eq!(comments.comment_list[0].userid.as_deref(), Some("user"));
         assert_eq!(
             comments.comment_list[0].comment_id.as_deref(),
@@ -36732,6 +37397,8 @@ mod tests {
 
         let created: ExternalContactMomentTaskCreateResponse =
             serde_json::from_value(json!({ "jobid": "job", "trace_id": "trace" })).unwrap();
+        created.validate().unwrap();
+        assert_eq!(created.require_job_id().unwrap(), "job");
         assert_eq!(created.jobid.as_deref(), Some("job"));
         assert_eq!(created.extra["trace_id"], "trace");
 
@@ -36755,6 +37422,8 @@ mod tests {
             "result_source": "async"
         }))
         .unwrap();
+        result.validate().unwrap();
+        assert!(result.has_partial_failures());
         assert_eq!(result.status, Some(3));
         assert_eq!(result.result_type.as_deref(), Some("add_moment_task"));
         assert_eq!(result.status_kind(), Some(WorkAsyncJobStatusKind::Finished));
@@ -36775,6 +37444,7 @@ mod tests {
             "invalid-tag"
         );
         assert_eq!(result_payload.extra["invalid_reason"], "none");
+        assert_eq!(result_payload.failure_count(), 3);
         assert_eq!(result.extra["result_source"], "async");
 
         let strategy_range = serde_json::to_value(ExternalContactMomentStrategyRangeRequest {
@@ -36999,6 +37669,172 @@ mod tests {
             0.75
         );
         assert_eq!(statistic_response.extra["report_id"], "report-1");
+    }
+
+    #[test]
+    fn rejects_invalid_external_contact_moment_responses() {
+        let api_error: ExternalContactMomentListResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid parameter"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let moment = ExternalContactMomentSummary {
+            moment_id: Some("moment".to_string()),
+            creator: Some("creator".to_string()),
+            create_time: Some(100),
+            create_type: Some(8),
+            visible_type: Some(9),
+            text: Some(ExternalContactMessageText::new("hello")),
+            attachments: Vec::new(),
+            image: Vec::new(),
+            video: None,
+            link: None,
+            location: None,
+            extra: Value::Null,
+        };
+        moment.validate().unwrap();
+        let duplicate_moments = ExternalContactMomentListResponse {
+            errcode: Some(0),
+            errmsg: None,
+            moment_list: vec![moment.clone(), moment],
+            next_cursor: Some(" ".to_string()),
+            extra: Value::Null,
+        };
+        assert!(duplicate_moments.validate().is_err());
+        assert!(!duplicate_moments.has_more());
+        assert_eq!(duplicate_moments.next_cursor(), None);
+
+        let alias_task = ExternalContactMomentTask {
+            userid: Some("member".to_string()),
+            publish_status: None,
+            status: Some(8),
+            extra: Value::Null,
+        };
+        alias_task.validate().unwrap();
+        let duplicate_tasks = ExternalContactMomentTaskResponse {
+            errcode: Some(0),
+            errmsg: None,
+            task_list: vec![alias_task.clone(), alias_task],
+            next_cursor: None,
+            extra: Value::Null,
+        };
+        assert!(duplicate_tasks.validate().is_err());
+
+        let customers = (0..1_001)
+            .map(|index| ExternalContactMomentCustomer {
+                userid: Some("member".to_string()),
+                external_userid: Some(format!("external-{index}")),
+                publish_status: None,
+                status: Some(8),
+                extra: Value::Null,
+            })
+            .collect();
+        let customer_page = ExternalContactMomentCustomerListResponse {
+            errcode: Some(0),
+            errmsg: None,
+            customer_list: customers,
+            next_cursor: None,
+            extra: Value::Null,
+        };
+        assert!(customer_page.validate_customer_list().is_err());
+        customer_page.validate_send_result().unwrap();
+
+        ExternalContactMomentCustomer {
+            userid: None,
+            external_userid: Some("external".to_string()),
+            publish_status: Some(1),
+            status: None,
+            extra: Value::Null,
+        }
+        .validate()
+        .unwrap();
+
+        let missing_status = ExternalContactMomentCustomer {
+            userid: Some("member".to_string()),
+            external_userid: Some("external".to_string()),
+            publish_status: None,
+            status: None,
+            extra: Value::Null,
+        };
+        assert!(missing_status.validate().is_err());
+
+        let comment = ExternalContactMomentComment {
+            external_userid: None,
+            userid: Some("member".to_string()),
+            comment_id: Some("comment".to_string()),
+            create_time: None,
+            content: Some("hello".to_string()),
+            extra: Value::Null,
+        };
+        let duplicate_comments = ExternalContactMomentCommentResponse {
+            errcode: Some(0),
+            errmsg: None,
+            comment_list: vec![comment.clone(), comment],
+            like_list: Vec::new(),
+            next_cursor: None,
+            extra: Value::Null,
+        };
+        assert!(duplicate_comments.validate().is_err());
+
+        let missing_job: ExternalContactMomentTaskCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_job.validate().is_err());
+
+        let processing: ExternalContactMomentTaskResultResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "status": 1,
+            "type": "add_moment_task"
+        }))
+        .unwrap();
+        processing.validate().unwrap();
+        assert!(!processing.is_finished());
+
+        let missing_result: ExternalContactMomentTaskResultResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "status": 3,
+                "type": "add_moment_task"
+            }))
+            .unwrap();
+        assert!(missing_result.validate().is_err());
+        assert!(!missing_result.succeeded());
+
+        let failed: ExternalContactMomentTaskResultResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "status": 3,
+            "type": "add_moment_task",
+            "result": {
+                "errcode": 40058,
+                "errmsg": "invalid parameter"
+            }
+        }))
+        .unwrap();
+        failed.validate().unwrap();
+        assert!(!failed.succeeded());
+
+        let successful_without_moment: ExternalContactMomentTaskResultResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "status": 3,
+                "type": "add_moment_task",
+                "result": { "errcode": 0 }
+            }))
+            .unwrap();
+        assert!(successful_without_moment.validate().is_err());
+
+        assert!(ExternalContactMomentLocation {
+            latitude: Some("91".to_string()),
+            longitude: Some("113.3".to_string()),
+            name: Some("invalid".to_string()),
+            extra: Value::Null,
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]

@@ -1532,6 +1532,25 @@ depth:
   expose `stat_time`, migration counts are typed, and offset responses expose
   a pagination helper.
 
+Implemented on 2026-07-20 in Work external-contact moment response contracts:
+
+- moment list, member-task, selected-customer, send-result, interaction,
+  creation, and asynchronous-result operations now validate successful
+  responses at the HTTP boundary and surface nonzero Work API codes;
+- list responses enforce their documented 100, 1000, and 5000-row boundaries,
+  reject duplicate moment, member, customer, comment, and like identities,
+  normalize blank cursors, and expose checked lookup and aggregate helpers;
+- moment summaries require stable identity, creator, timestamp, creation and
+  visibility metadata, plus real text or media content; image, video, link,
+  location, media-id, URL, coordinate, and item-count contracts are checked;
+- task and customer records accept both current `publish_status` and
+  compatibility `status` fields, reject missing or negative values, retain
+  unknown non-negative states, and expose published-count helpers;
+- task creation requires a bounded job id, while asynchronous results
+  distinguish in-progress and finished payloads, require a moment id only for
+  successful completion, preserve typed business failures, and report invalid
+  sender, department, tag, and chat counts.
+
 Implemented on 2026-07-18 in Work OA meeting and meeting-room depth:
 
 - meeting create/update requests now model the current `admin_userid`,
