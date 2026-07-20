@@ -3395,9 +3395,12 @@ impl Work {
         request: WorkMessage,
     ) -> Result<MessageSendResponse> {
         request.validate()?;
-        self.inner
+        let response: MessageSendResponse = self
+            .inner
             .post("cgi-bin/message/send", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_send()?;
+        Ok(response)
     }
 
     pub async fn get_message_statistics(
@@ -3405,13 +3408,16 @@ impl Work {
         access_token: impl Into<String>,
         time_type: WorkMessageStatisticsTimeKind,
     ) -> Result<WorkMessageStatisticsResponse> {
-        self.inner
+        let response: WorkMessageStatisticsResponse = self
+            .inner
             .post(
                 "cgi-bin/message/get_statistics",
                 Some(access_token.into()),
                 WorkMessageStatisticsRequest::new(time_type),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn send_text_message(
@@ -3641,9 +3647,12 @@ impl Work {
             object.insert("msgtype".to_string(), Value::String(msg_type.to_string()));
             object.insert(payload_key.to_string(), payload);
         }
-        self.inner
+        let response: MessageSendResponse = self
+            .inner
             .post("cgi-bin/message/send", Some(access_token.into()), body)
-            .await
+            .await?;
+        response.validate_send()?;
+        Ok(response)
     }
 
     pub async fn recall_message(
@@ -3653,13 +3662,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let msg_id = msg_id.into();
         validate_work_message_identifier("message id", &msg_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/message/recall",
                 Some(access_token.into()),
                 json!({ "msgid": msg_id }),
             )
-            .await
+            .await?;
+        response.validate_for("work recall application message")?;
+        Ok(response)
     }
 
     pub async fn update_template_card_message(
@@ -3668,13 +3680,16 @@ impl Work {
         request: WorkTemplateCardUpdateRequest,
     ) -> Result<MessageSendResponse> {
         request.validate()?;
-        self.inner
+        let response: MessageSendResponse = self
+            .inner
             .post(
                 "cgi-bin/message/update_template_card",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_update()?;
+        Ok(response)
     }
 
     pub async fn update_task_card_message(
@@ -3683,13 +3698,16 @@ impl Work {
         request: WorkTaskCardUpdateRequest,
     ) -> Result<WorkTaskCardUpdateResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkTaskCardUpdateResponse = self
+            .inner
             .post(
                 "cgi-bin/message/update_taskcard",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn send_linked_corp_message(
@@ -3698,13 +3716,16 @@ impl Work {
         request: WorkLinkedCorpMessage,
     ) -> Result<WorkLinkedCorpMessageSendResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkLinkedCorpMessageSendResponse = self
+            .inner
             .post(
                 "cgi-bin/linkedcorp/message/send",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn send_external_contact_school_message(
@@ -3713,13 +3734,16 @@ impl Work {
         request: WorkExternalContactSchoolMessage,
     ) -> Result<WorkExternalContactSchoolMessageSendResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkExternalContactSchoolMessageSendResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/message/send",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn menu(&self) -> DomainModule {
@@ -6663,9 +6687,13 @@ impl Work {
         access_token: impl Into<String>,
         request: AppChatCreateRequest,
     ) -> Result<WorkAppChatCreateResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkAppChatCreateResponse = self
+            .inner
             .post("cgi-bin/appchat/create", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn appchat_update(
@@ -6673,9 +6701,13 @@ impl Work {
         access_token: impl Into<String>,
         request: AppChatUpdateRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/appchat/update", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work update appchat")?;
+        Ok(response)
     }
 
     pub async fn appchat_get(
@@ -6683,13 +6715,18 @@ impl Work {
         access_token: impl Into<String>,
         chat_id: impl Into<String>,
     ) -> Result<WorkAppChatGetResponse> {
-        self.inner
+        let chat_id = chat_id.into();
+        validate_work_message_identifier("appchat id", &chat_id)?;
+        let response: WorkAppChatGetResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/appchat/get",
                 Some(access_token.into()),
-                vec![("chatid".to_string(), chat_id.into())],
+                vec![("chatid".to_string(), chat_id)],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn appchat_send(
@@ -6698,9 +6735,12 @@ impl Work {
         request: AppChatMessage,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/appchat/send", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work send appchat message")?;
+        Ok(response)
     }
 
     pub async fn send_group_robot_message(
@@ -9276,8 +9316,44 @@ pub struct WorkMessageStatisticsResponse {
 }
 
 impl WorkMessageStatisticsResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work get application-message statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut agent_ids = std::collections::HashSet::new();
+        for item in &self.statistics {
+            item.validate()?;
+            let agent_id = item.agentid.unwrap_or_default();
+            if !agent_ids.insert(agent_id) {
+                return Err(WechatError::Config(
+                    "work message statistics cannot contain duplicate agent ids".to_string(),
+                ));
+            }
+        }
+        self.checked_total_count()?;
+        Ok(())
+    }
+
     pub fn total_count(&self) -> i64 {
-        self.statistics.iter().filter_map(|item| item.count).sum()
+        self.statistics
+            .iter()
+            .filter_map(|item| item.count)
+            .fold(0_i64, i64::saturating_add)
+    }
+
+    pub fn checked_total_count(&self) -> Result<i64> {
+        self.statistics
+            .iter()
+            .filter_map(|item| item.count)
+            .try_fold(0_i64, |total, count| {
+                total.checked_add(count).ok_or_else(|| {
+                    WechatError::Config(
+                        "work message statistics total count overflowed i64".to_string(),
+                    )
+                })
+            })
     }
 
     pub fn by_agent_id(&self, agent_id: i64) -> Option<&WorkMessageStatistic> {
@@ -9297,6 +9373,31 @@ pub struct WorkMessageStatistic {
     pub count: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkMessageStatistic {
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid.is_none_or(|agent_id| agent_id <= 0) {
+            return Err(WechatError::Config(
+                "work message statistic requires a positive agentid".to_string(),
+            ));
+        }
+        if self.count.is_none_or(|count| count < 0) {
+            return Err(WechatError::Config(
+                "work message statistic requires a non-negative count".to_string(),
+            ));
+        }
+        if self
+            .app_name
+            .as_deref()
+            .is_some_and(|name| name.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work message statistic app_name cannot be blank".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9343,6 +9444,18 @@ pub struct WorkTaskCardUpdateResponse {
 }
 
 impl WorkTaskCardUpdateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work update task-card message",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_message_response_recipient_string(
+            "task-card invalid users",
+            self.invaliduser.as_deref(),
+        )
+    }
+
     pub fn invalid_users(&self) -> Vec<&str> {
         work_message_recipient_ids(self.invaliduser.as_deref()).collect()
     }
@@ -11791,6 +11904,53 @@ fn work_message_recipient_ids(value: Option<&str>) -> impl Iterator<Item = &str>
 }
 
 impl MessageSendResponse {
+    pub fn validate_send(&self) -> Result<()> {
+        self.validate_common("work send application message")?;
+        self.message_id().ok_or_else(|| {
+            WechatError::Config("work message send response requires msgid".to_string())
+        })?;
+        Ok(())
+    }
+
+    pub fn validate_update(&self) -> Result<()> {
+        self.validate_common("work update template-card message")
+    }
+
+    fn validate_common(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(operation, self.errcode, self.errmsg.as_deref())?;
+        for (label, value) in [
+            ("invalid users", self.invaliduser.as_deref()),
+            ("invalid departments", self.invalidparty.as_deref()),
+            ("invalid tags", self.invalidtag.as_deref()),
+            ("unlicensed users", self.unlicenseduser.as_deref()),
+        ] {
+            validate_work_message_response_recipient_string(label, value)?;
+        }
+        if self
+            .response_code
+            .as_deref()
+            .is_some_and(|code| code.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work message response_code cannot be blank".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn message_id(&self) -> Option<&str> {
+        self.msgid
+            .as_deref()
+            .filter(|message_id| !message_id.trim().is_empty())
+    }
+
+    pub fn require_message_id(&self) -> Result<&str> {
+        self.validate_send()?;
+        self.message_id().ok_or_else(|| {
+            WechatError::Config("work message send response requires msgid".to_string())
+        })
+    }
+
     pub fn invalid_users(&self) -> Vec<&str> {
         work_message_recipient_ids(self.invaliduser.as_deref()).collect()
     }
@@ -11847,6 +12007,25 @@ pub struct WorkLinkedCorpMessageSendResponse {
 }
 
 impl WorkLinkedCorpMessageSendResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work send linked-corp message",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_message_response_id_list(
+            "linked-corp invalid users",
+            &self.invaliduser,
+            1_000,
+        )?;
+        validate_work_message_response_id_list(
+            "linked-corp invalid departments",
+            &self.invalidparty,
+            100,
+        )?;
+        validate_work_message_response_id_list("linked-corp invalid tags", &self.invalidtag, 100)
+    }
+
     pub fn invalid_recipient_count(&self) -> usize {
         self.invaliduser.len() + self.invalidparty.len() + self.invalidtag.len()
     }
@@ -11875,6 +12054,34 @@ pub struct WorkExternalContactSchoolMessageSendResponse {
 }
 
 impl WorkExternalContactSchoolMessageSendResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work send school notification",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_message_response_id_list(
+            "school invalid external users",
+            &self.invalid_external_user,
+            1_000,
+        )?;
+        validate_work_message_response_id_list(
+            "school invalid parent users",
+            &self.invalid_parent_userid,
+            1_000,
+        )?;
+        validate_work_message_response_id_list(
+            "school invalid student users",
+            &self.invalid_student_userid,
+            1_000,
+        )?;
+        validate_work_message_response_id_list(
+            "school invalid departments",
+            &self.invalid_party,
+            100,
+        )
+    }
+
     pub fn invalid_recipient_count(&self) -> usize {
         self.invalid_external_user.len()
             + self.invalid_parent_userid.len()
@@ -11885,6 +12092,41 @@ impl WorkExternalContactSchoolMessageSendResponse {
     pub fn has_delivery_failures(&self) -> bool {
         self.invalid_recipient_count() != 0
     }
+}
+
+fn validate_work_message_response_recipient_string(label: &str, value: Option<&str>) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.is_empty() {
+        return Ok(());
+    }
+    let mut seen = std::collections::HashSet::new();
+    for recipient in value.split('|') {
+        let recipient = recipient.trim();
+        if recipient.is_empty() || !seen.insert(recipient) {
+            return Err(WechatError::Config(format!(
+                "work message response {label} must contain unique non-empty pipe-delimited ids"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_work_message_response_id_list(
+    label: &str,
+    values: &[String],
+    maximum: usize,
+) -> Result<()> {
+    if values.len() > maximum
+        || values.iter().any(|value| value.trim().is_empty())
+        || has_duplicate_strings(values)
+    {
+        return Err(WechatError::Config(format!(
+            "work message response {label} must contain at most {maximum} unique non-empty ids"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24964,6 +25206,28 @@ pub struct AppChatCreateRequest {
     pub chatid: Option<String>,
 }
 
+impl AppChatCreateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_message_identifier("appchat name", &self.name)?;
+        validate_work_message_identifier("appchat owner", &self.owner)?;
+        if self.userlist.is_empty() {
+            return Err(WechatError::Config(
+                "work appchat creation requires at least one member".to_string(),
+            ));
+        }
+        validate_work_message_id_list("appchat members", &self.userlist, 2_000)?;
+        if !self.userlist.iter().any(|user| user == &self.owner) {
+            return Err(WechatError::Config(
+                "work appchat owner must appear in the member list".to_string(),
+            ));
+        }
+        if let Some(chat_id) = &self.chatid {
+            validate_work_message_identifier("appchat id", chat_id)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAppChatCreateResponse {
     #[serde(default)]
@@ -24974,6 +25238,27 @@ pub struct WorkAppChatCreateResponse {
     pub chatid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAppChatCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work create appchat",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let chat_id = self.chatid.as_deref().ok_or_else(|| {
+            WechatError::Config("work appchat create response requires chatid".to_string())
+        })?;
+        validate_work_message_identifier("appchat id", chat_id)
+    }
+
+    pub fn require_chat_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.chatid.as_deref().ok_or_else(|| {
+            WechatError::Config("work appchat create response requires chatid".to_string())
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24988,6 +25273,25 @@ pub struct WorkAppChatGetResponse {
     pub extra: Value,
 }
 
+impl WorkAppChatGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success("work get appchat", self.errcode, self.errmsg.as_deref())?;
+        self.chat_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work appchat response requires chat_info".to_string())
+            })?
+            .validate()
+    }
+
+    pub fn require_chat(&self) -> Result<&WorkAppChatInfo> {
+        self.validate()?;
+        self.chat_info.as_ref().ok_or_else(|| {
+            WechatError::Config("work appchat response requires chat_info".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAppChatInfo {
     #[serde(default)]
@@ -25000,6 +25304,33 @@ pub struct WorkAppChatInfo {
     pub userlist: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkAppChatInfo {
+    pub fn validate(&self) -> Result<()> {
+        let chat_id = self
+            .chatid
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("work appchat info requires chatid".to_string()))?;
+        validate_work_message_identifier("appchat id", chat_id)?;
+        let owner = self
+            .owner
+            .as_deref()
+            .ok_or_else(|| WechatError::Config("work appchat info requires owner".to_string()))?;
+        validate_work_message_identifier("appchat owner", owner)?;
+        if self.userlist.is_empty() {
+            return Err(WechatError::Config(
+                "work appchat info requires at least one member".to_string(),
+            ));
+        }
+        validate_work_message_id_list("appchat members", &self.userlist, 2_000)?;
+        if !self.userlist.iter().any(|user| user == owner) {
+            return Err(WechatError::Config(
+                "work appchat response owner must appear in the member list".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36800,6 +37131,48 @@ pub struct AppChatUpdateRequest {
     pub del_user_list: Option<Vec<String>>,
 }
 
+impl AppChatUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_message_identifier("appchat id", &self.chatid)?;
+        if self.name.is_none()
+            && self.owner.is_none()
+            && self.add_user_list.is_none()
+            && self.del_user_list.is_none()
+        {
+            return Err(WechatError::Config(
+                "work appchat update requires at least one changed field".to_string(),
+            ));
+        }
+        if let Some(name) = &self.name {
+            validate_work_message_identifier("appchat name", name)?;
+        }
+        if let Some(owner) = &self.owner {
+            validate_work_message_identifier("appchat owner", owner)?;
+        }
+        for (label, users) in [
+            ("appchat added members", self.add_user_list.as_deref()),
+            ("appchat removed members", self.del_user_list.as_deref()),
+        ] {
+            if let Some(users) = users {
+                if users.is_empty() {
+                    return Err(WechatError::Config(format!(
+                        "work message {label} cannot be an empty update"
+                    )));
+                }
+                validate_work_message_id_list(label, users, 2_000)?;
+            }
+        }
+        if let (Some(added), Some(removed)) = (&self.add_user_list, &self.del_user_list) {
+            if added.iter().any(|user| removed.contains(user)) {
+                return Err(WechatError::Config(
+                    "work appchat update cannot add and remove the same member".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppChatMessage {
     pub chatid: String,
@@ -37549,6 +37922,8 @@ mod tests {
         assert_eq!(crm.app_name.as_deref(), Some("CRM"));
         assert_eq!(crm.extra["failed_count"], 2);
         assert_eq!(response.extra["statistic_date"], "2026-07-17");
+        assert!(response.validate().is_ok());
+        assert_eq!(response.checked_total_count().unwrap(), 20);
 
         let update: WorkTaskCardUpdateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -37562,6 +37937,132 @@ mod tests {
         );
         assert!(update.has_delivery_failures());
         assert_eq!(update.extra["request_id"], "task-update");
+        assert!(update.validate().is_ok());
+    }
+
+    #[test]
+    fn validates_work_message_response_contracts() {
+        let sent: MessageSendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "msgid": "message-id",
+            "invaliduser": "bad-user|inactive-user",
+            "response_code": "response-code"
+        }))
+        .unwrap();
+        assert!(sent.validate_send().is_ok());
+        assert_eq!(sent.require_message_id().unwrap(), "message-id");
+        assert_eq!(sent.invalid_recipient_count(), 2);
+
+        let api_error: MessageSendResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid message"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate_send(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+        let duplicate_recipients: MessageSendResponse = serde_json::from_value(json!({
+            "msgid": "message-id",
+            "invaliduser": "bad-user|bad-user"
+        }))
+        .unwrap();
+        assert!(duplicate_recipients.validate_send().is_err());
+        let update_without_message_id: MessageSendResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(update_without_message_id.validate_update().is_ok());
+        assert!(update_without_message_id.validate_send().is_err());
+
+        let statistics: WorkMessageStatisticsResponse = serde_json::from_value(json!({
+            "statistics": [
+                { "agentid": 100001, "count": 10 },
+                { "agentid": 100002, "count": 20 }
+            ]
+        }))
+        .unwrap();
+        assert!(statistics.validate().is_ok());
+        assert_eq!(statistics.checked_total_count().unwrap(), 30);
+        let duplicate_statistics: WorkMessageStatisticsResponse = serde_json::from_value(json!({
+            "statistics": [
+                { "agentid": 100001, "count": 1 },
+                { "agentid": 100001, "count": 2 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_statistics.validate().is_err());
+        let overflow_statistics: WorkMessageStatisticsResponse = serde_json::from_value(json!({
+            "statistics": [
+                { "agentid": 100001, "count": i64::MAX },
+                { "agentid": 100002, "count": 1 }
+            ]
+        }))
+        .unwrap();
+        assert!(overflow_statistics.validate().is_err());
+        assert_eq!(overflow_statistics.total_count(), i64::MAX);
+
+        let task_update: WorkTaskCardUpdateResponse =
+            serde_json::from_value(json!({ "invaliduser": "bad-user" })).unwrap();
+        assert!(task_update.validate().is_ok());
+        let malformed_task_update: WorkTaskCardUpdateResponse =
+            serde_json::from_value(json!({ "invaliduser": "bad-user||other" })).unwrap();
+        assert!(malformed_task_update.validate().is_err());
+
+        let linked: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
+            "invaliduser": ["Corp/bad-user"],
+            "invalidparty": ["Corp/bad-party"]
+        }))
+        .unwrap();
+        assert!(linked.validate().is_ok());
+        let duplicate_linked: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
+            "invalidtag": ["Corp/tag", "Corp/tag"]
+        }))
+        .unwrap();
+        assert!(duplicate_linked.validate().is_err());
+
+        let school: WorkExternalContactSchoolMessageSendResponse = serde_json::from_value(json!({
+            "invalid_external_user": ["external-user"],
+            "invalid_party": ["party"]
+        }))
+        .unwrap();
+        assert!(school.validate().is_ok());
+        let blank_school: WorkExternalContactSchoolMessageSendResponse =
+            serde_json::from_value(json!({ "invalid_parent_userid": [""] })).unwrap();
+        assert!(blank_school.validate().is_err());
+
+        let create_chat = AppChatCreateRequest {
+            name: "Project".to_string(),
+            owner: "owner".to_string(),
+            userlist: vec!["owner".to_string(), "member".to_string()],
+            chatid: Some("chat-id".to_string()),
+        };
+        assert!(create_chat.validate().is_ok());
+        let missing_owner = AppChatCreateRequest {
+            userlist: vec!["member".to_string()],
+            ..create_chat
+        };
+        assert!(missing_owner.validate().is_err());
+
+        let update_chat = AppChatUpdateRequest {
+            chatid: "chat-id".to_string(),
+            name: None,
+            owner: None,
+            add_user_list: Some(vec!["member".to_string()]),
+            del_user_list: Some(vec!["member".to_string()]),
+        };
+        assert!(update_chat.validate().is_err());
+        let empty_update = AppChatUpdateRequest {
+            add_user_list: None,
+            del_user_list: None,
+            ..update_chat
+        };
+        assert!(empty_update.validate().is_err());
+
+        let created_chat: WorkAppChatCreateResponse =
+            serde_json::from_value(json!({ "chatid": "chat-id" })).unwrap();
+        assert_eq!(created_chat.require_chat_id().unwrap(), "chat-id");
+        let missing_chat: WorkAppChatGetResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_chat.validate().is_err());
     }
 
     #[test]
@@ -37728,10 +38229,13 @@ mod tests {
         assert_eq!(response.msgid.as_deref(), Some("msg"));
         assert_eq!(response.response_code.as_deref(), Some("response"));
         assert_eq!(response.extra["request_id"], "req-1");
+        assert!(response.validate_send().is_err());
 
         let delivered: MessageSendResponse =
             serde_json::from_value(json!({ "errcode": 0, "errmsg": "ok" })).unwrap();
         assert!(!delivered.has_delivery_failures());
+        assert!(delivered.validate_update().is_ok());
+        assert!(delivered.validate_send().is_err());
     }
 
     #[test]
@@ -37830,6 +38334,7 @@ mod tests {
         assert_eq!(linked_response.invalid_recipient_count(), 3);
         assert!(linked_response.has_delivery_failures());
         assert_eq!(linked_response.extra["msgid"], "linked-msg");
+        assert!(linked_response.validate().is_ok());
 
         let school_body = serde_json::to_value(WorkExternalContactSchoolMessage {
             recv_scope: Some(0),
@@ -37922,6 +38427,7 @@ mod tests {
         assert_eq!(school_response.invalid_recipient_count(), 4);
         assert!(school_response.has_delivery_failures());
         assert_eq!(school_response.extra["send_id"], "school-send");
+        assert!(school_response.validate().is_ok());
     }
 
     #[test]
@@ -50691,7 +51197,7 @@ mod tests {
         let create = serde_json::to_value(AppChatCreateRequest {
             name: "chat".to_string(),
             owner: "owner".to_string(),
-            userlist: vec!["user".to_string()],
+            userlist: vec!["owner".to_string(), "user".to_string()],
             chatid: Some("chatid".to_string()),
         })
         .unwrap();
@@ -50699,7 +51205,7 @@ mod tests {
         assert_eq!(appchat_message.msgtype_kind(), WorkMessageTypeKind::Text);
         let message = serde_json::to_value(appchat_message).unwrap();
 
-        assert_eq!(create["userlist"][0], "user");
+        assert_eq!(create["userlist"][1], "user");
         assert_eq!(message["chatid"], "chatid");
         assert_eq!(message["text"]["content"], "hello");
         assert!(message.get("image").is_none());
@@ -50790,6 +51296,7 @@ mod tests {
         .unwrap();
         assert_eq!(created.chatid.as_deref(), Some("chatid"));
         assert_eq!(created.extra["request_id"], "appchat-create");
+        assert!(created.validate().is_ok());
 
         let got: WorkAppChatGetResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -50798,17 +51305,18 @@ mod tests {
                 "chatid": "chatid",
                 "name": "chat",
                 "owner": "owner",
-                "userlist": ["user"],
-                "member_count": 1
+                "userlist": ["owner", "user"],
+                "member_count": 2
             }
         }))
         .unwrap();
         assert_eq!(got.extra["trace_id"], "appchat-get");
+        assert!(got.validate().is_ok());
         let chat = got.chat_info.unwrap();
         assert_eq!(chat.chatid.as_deref(), Some("chatid"));
         assert_eq!(chat.owner.as_deref(), Some("owner"));
-        assert_eq!(chat.userlist[0], "user");
-        assert_eq!(chat.extra["member_count"], 1);
+        assert_eq!(chat.userlist[1], "user");
+        assert_eq!(chat.extra["member_count"], 2);
     }
 
     #[test]

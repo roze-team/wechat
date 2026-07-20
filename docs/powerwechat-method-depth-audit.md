@@ -1841,6 +1841,23 @@ Implemented on 2026-07-20 in current Work OA WeDrive endpoint depth:
 
 Implemented on 2026-07-20 in Work application-message depth:
 
+- ordinary sends, statistics, recall, template-card and task-card updates,
+  linked-corporation sends, and school notifications now validate Work API
+  success before leaving the HTTP boundary;
+- ordinary send responses require a checked message ID, while template-card
+  update responses use a separate contract because the update endpoint does
+  not return a new message ID;
+- pipe-delimited invalid and unlicensed recipients now reject blank segments
+  and duplicates, and linked-corporation plus school failure lists enforce
+  their documented recipient limits and expose aggregate partial-failure
+  counts;
+- application-message statistics require unique positive agent IDs and
+  non-negative counts, reject arithmetic overflow through a checked total
+  helper, and keep a saturating compatibility total for existing callers;
+- AppChat create, update, get, and send paths now validate requests and
+  successful responses, including chat identity, required owners, unique
+  members, owner membership, actual update patches, and disjoint add/remove
+  sets;
 - application-message audiences now enforce the documented 1000-member,
   100-department, and 100-tag limits, reject blank and duplicate recipients,
   and accept duplicate-check windows through the documented four-hour
