@@ -2630,6 +2630,53 @@ impl PaymentOrderResponse {
         self.trade_state_kind()
             .is_some_and(PaymentTradeStateKind::is_success)
     }
+
+    pub fn effective_appid(&self) -> Option<&str> {
+        self.sub_appid
+            .as_deref()
+            .or(self.appid.as_deref())
+            .or(self.sp_appid.as_deref())
+    }
+
+    pub fn effective_mchid(&self) -> Option<&str> {
+        self.sub_mchid
+            .as_deref()
+            .or(self.mchid.as_deref())
+            .or(self.sp_mchid.as_deref())
+    }
+
+    pub fn promotion_total(&self) -> Result<i64> {
+        payment_promotion_total(&self.promotion_detail)
+    }
+
+    pub fn assert_amount_reconciles(&self) -> Result<()> {
+        let amount = self
+            .amount
+            .as_ref()
+            .ok_or_else(|| WechatError::Config("payment order amount is missing".to_string()))?;
+        amount.assert_reconciles(&self.promotion_detail)
+    }
+
+    pub fn verify_paid_order(
+        &self,
+        expected_mchid: &str,
+        expected_out_trade_no: &str,
+        expected_total: i64,
+        expected_currency: &str,
+    ) -> Result<()> {
+        verify_paid_transaction(
+            self.trade_state.as_deref(),
+            self.effective_mchid(),
+            self.out_trade_no.as_deref(),
+            self.transaction_id.as_deref(),
+            self.amount.as_ref(),
+            &self.promotion_detail,
+            expected_mchid,
+            expected_out_trade_no,
+            expected_total,
+            expected_currency,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6065,7 +6112,70 @@ pub struct PaymentResource {
     pub original_type: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaymentNotificationEventKind {
+    TransactionSuccess,
+    RefundSuccess,
+    RefundAbnormal,
+    RefundClosed,
+    Complaint,
+    Other,
+}
+
+impl PaymentNotificationEventKind {
+    pub fn from_code(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "TRANSACTION.SUCCESS" => Self::TransactionSuccess,
+            "REFUND.SUCCESS" => Self::RefundSuccess,
+            "REFUND.ABNORMAL" => Self::RefundAbnormal,
+            "REFUND.CLOSED" => Self::RefundClosed,
+            value if value.starts_with("COMPLAINT.") => Self::Complaint,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn is_refund(self) -> bool {
+        matches!(
+            self,
+            Self::RefundSuccess | Self::RefundAbnormal | Self::RefundClosed
+        )
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::TransactionSuccess | Self::RefundSuccess | Self::RefundClosed
+        )
+    }
+}
+
 impl PaymentNotification {
+    pub fn event_kind(&self) -> PaymentNotificationEventKind {
+        PaymentNotificationEventKind::from_code(&self.event_type)
+    }
+
+    pub fn idempotency_key(&self) -> &str {
+        &self.id
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.id, "payment notification id", 36)?;
+        validate_payment_text(&self.create_time, "payment notification create time", 32)?;
+        chrono::DateTime::parse_from_rfc3339(&self.create_time).map_err(|_| {
+            WechatError::Config(
+                "payment notification create time must use RFC3339 format".to_string(),
+            )
+        })?;
+        validate_payment_identifier(&self.event_type, "payment notification event type", 32)?;
+        if self.resource_type != "encrypt-resource" {
+            return Err(WechatError::Config(
+                "payment notification resource type must be encrypt-resource".to_string(),
+            ));
+        }
+        validate_payment_text(&self.summary, "payment notification summary", 64)?;
+        self.resource.validate()
+    }
+
     pub fn decrypt_resource<T>(&self, api_v3_key: &str) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
@@ -6079,11 +6189,87 @@ impl PaymentNotification {
         Ok(serde_json::from_slice(&plaintext)?)
     }
 
+    pub fn decrypt_transaction_resource(
+        &self,
+        api_v3_key: &str,
+    ) -> Result<PaymentTransactionNotification> {
+        self.validate_typed_resource(
+            PaymentNotificationEventKind::TransactionSuccess,
+            "transaction",
+        )?;
+        self.decrypt_resource(api_v3_key)
+    }
+
+    pub fn decrypt_refund_resource(&self, api_v3_key: &str) -> Result<PaymentRefundNotification> {
+        self.validate()?;
+        if !self.event_kind().is_refund() {
+            return Err(WechatError::Config(format!(
+                "payment notification event {} is not a refund event",
+                self.event_type
+            )));
+        }
+        self.validate_original_type("refund")?;
+        self.decrypt_resource(api_v3_key)
+    }
+
     pub fn decrypt_complaint_resource(
         &self,
         api_v3_key: &str,
     ) -> Result<ComplaintNotificationResource> {
+        self.validate_typed_resource(PaymentNotificationEventKind::Complaint, "complaint")?;
         self.decrypt_resource(api_v3_key)
+    }
+
+    fn validate_typed_resource(
+        &self,
+        expected_event: PaymentNotificationEventKind,
+        expected_original_type: &str,
+    ) -> Result<()> {
+        self.validate()?;
+        if self.event_kind() != expected_event {
+            return Err(WechatError::Config(format!(
+                "payment notification event {} does not match the requested {:?} resource",
+                self.event_type, expected_event
+            )));
+        }
+        self.validate_original_type(expected_original_type)
+    }
+
+    fn validate_original_type(&self, expected: &str) -> Result<()> {
+        let actual = self.resource.original_type.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "payment notification original resource type is missing".to_string(),
+            )
+        })?;
+        if !actual.eq_ignore_ascii_case(expected) {
+            return Err(WechatError::Config(format!(
+                "payment notification original resource type {actual} does not match {expected}"
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl PaymentResource {
+    pub fn validate(&self) -> Result<()> {
+        if self.algorithm != "AEAD_AES_256_GCM" {
+            return Err(WechatError::Config(format!(
+                "unsupported payment notification algorithm: {}",
+                self.algorithm
+            )));
+        }
+        validate_payment_text(
+            &self.ciphertext,
+            "payment notification ciphertext",
+            1_048_576,
+        )?;
+        validate_payment_text(&self.nonce, "payment notification nonce", 32)?;
+        if self.associated_data.chars().count() > 16 {
+            return Err(WechatError::Config(
+                "payment notification associated data cannot exceed 16 characters".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -6202,6 +6388,52 @@ impl PaymentTransactionNotification {
         self.trade_state_kind()
             .is_some_and(PaymentTradeStateKind::is_success)
     }
+
+    pub fn effective_appid(&self) -> Option<&str> {
+        self.sub_appid
+            .as_deref()
+            .or(self.appid.as_deref())
+            .or(self.sp_appid.as_deref())
+    }
+
+    pub fn effective_mchid(&self) -> Option<&str> {
+        self.sub_mchid
+            .as_deref()
+            .or(self.mchid.as_deref())
+            .or(self.sp_mchid.as_deref())
+    }
+
+    pub fn promotion_total(&self) -> Result<i64> {
+        payment_promotion_total(&self.promotion_detail)
+    }
+
+    pub fn assert_amount_reconciles(&self) -> Result<()> {
+        let amount = self.amount.as_ref().ok_or_else(|| {
+            WechatError::Config("payment notification amount is missing".to_string())
+        })?;
+        amount.assert_reconciles(&self.promotion_detail)
+    }
+
+    pub fn verify_paid_transaction(
+        &self,
+        expected_mchid: &str,
+        expected_out_trade_no: &str,
+        expected_total: i64,
+        expected_currency: &str,
+    ) -> Result<()> {
+        verify_paid_transaction(
+            self.trade_state.as_deref(),
+            self.effective_mchid(),
+            self.out_trade_no.as_deref(),
+            self.transaction_id.as_deref(),
+            self.amount.as_ref(),
+            &self.promotion_detail,
+            expected_mchid,
+            expected_out_trade_no,
+            expected_total,
+            expected_currency,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6282,6 +6514,128 @@ pub struct PaymentPromotionGoodsDetail {
     pub extra: Value,
 }
 
+impl PaymentTransactionAmount {
+    pub fn assert_reconciles(&self, promotions: &[PaymentPromotionDetail]) -> Result<()> {
+        let total = required_non_negative_payment_amount(self.total, "payment total")?;
+        let payer_total =
+            required_non_negative_payment_amount(self.payer_total, "payment payer total")?;
+        if payer_total > total {
+            return Err(WechatError::Config(
+                "payment payer total cannot exceed the order total".to_string(),
+            ));
+        }
+        if let (Some(currency), Some(payer_currency)) =
+            (self.currency.as_deref(), self.payer_currency.as_deref())
+        {
+            if !currency.eq_ignore_ascii_case(payer_currency) {
+                return Err(WechatError::Config(format!(
+                    "payment currency {currency} does not match payer currency {payer_currency}"
+                )));
+            }
+        }
+        let promotion_total = payment_promotion_total(promotions)?;
+        let reconciled = payer_total.checked_add(promotion_total).ok_or_else(|| {
+            WechatError::Config("payment reconciliation amount exceeds i64".to_string())
+        })?;
+        if reconciled != total {
+            return Err(WechatError::Config(format!(
+                "payment payer total {payer_total} plus promotion total {promotion_total} does not match order total {total}"
+            )));
+        }
+        Ok(())
+    }
+}
+
+fn required_non_negative_payment_amount(value: Option<i64>, field: &str) -> Result<i64> {
+    let value = value
+        .ok_or_else(|| WechatError::Config(format!("{field} is required for reconciliation")))?;
+    if value < 0 {
+        return Err(WechatError::Config(format!("{field} cannot be negative")));
+    }
+    Ok(value)
+}
+
+fn payment_promotion_total(promotions: &[PaymentPromotionDetail]) -> Result<i64> {
+    promotions.iter().try_fold(0_i64, |total, promotion| {
+        let amount =
+            required_non_negative_payment_amount(promotion.amount, "payment promotion amount")?;
+        total
+            .checked_add(amount)
+            .ok_or_else(|| WechatError::Config("payment promotion total exceeds i64".to_string()))
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn verify_paid_transaction(
+    trade_state: Option<&str>,
+    actual_mchid: Option<&str>,
+    actual_out_trade_no: Option<&str>,
+    transaction_id: Option<&str>,
+    amount: Option<&PaymentTransactionAmount>,
+    promotions: &[PaymentPromotionDetail],
+    expected_mchid: &str,
+    expected_out_trade_no: &str,
+    expected_total: i64,
+    expected_currency: &str,
+) -> Result<()> {
+    if trade_state.map(PaymentTradeStateKind::from_code) != Some(PaymentTradeStateKind::Success) {
+        return Err(WechatError::Config(format!(
+            "payment transaction is not successful: {}",
+            trade_state.unwrap_or("missing trade state")
+        )));
+    }
+    validate_payment_identifier(expected_mchid, "expected payment merchant id", 32)?;
+    validate_payment_identifier(
+        expected_out_trade_no,
+        "expected payment merchant order number",
+        32,
+    )?;
+    if actual_mchid != Some(expected_mchid) {
+        return Err(WechatError::Config(format!(
+            "payment merchant id {} does not match expected {expected_mchid}",
+            actual_mchid.unwrap_or("missing")
+        )));
+    }
+    if actual_out_trade_no != Some(expected_out_trade_no) {
+        return Err(WechatError::Config(format!(
+            "payment merchant order number {} does not match expected {expected_out_trade_no}",
+            actual_out_trade_no.unwrap_or("missing")
+        )));
+    }
+    validate_payment_identifier(
+        transaction_id.unwrap_or_default(),
+        "payment transaction id",
+        32,
+    )?;
+    if expected_total <= 0 {
+        return Err(WechatError::Config(
+            "expected payment total must be positive".to_string(),
+        ));
+    }
+    validate_payment_identifier(expected_currency, "expected payment currency", 16)?;
+    let amount = amount
+        .ok_or_else(|| WechatError::Config("payment transaction amount is missing".to_string()))?;
+    if amount.total != Some(expected_total) {
+        return Err(WechatError::Config(format!(
+            "payment total {} does not match expected {expected_total}",
+            amount
+                .total
+                .map_or_else(|| "missing".to_string(), |value| value.to_string())
+        )));
+    }
+    if !amount
+        .currency
+        .as_deref()
+        .is_some_and(|currency| currency.eq_ignore_ascii_case(expected_currency))
+    {
+        return Err(WechatError::Config(format!(
+            "payment currency {} does not match expected {expected_currency}",
+            amount.currency.as_deref().unwrap_or("missing")
+        )));
+    }
+    amount.assert_reconciles(promotions)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentRefundNotification {
     #[serde(default)]
@@ -6321,6 +6675,40 @@ impl PaymentRefundNotification {
         self.refund_status_kind()
             .is_some_and(PaymentRefundStatusKind::is_success)
     }
+
+    pub fn effective_mchid(&self) -> Option<&str> {
+        self.sub_mchid.as_deref().or(self.mchid.as_deref())
+    }
+
+    pub fn verify_successful_refund(
+        &self,
+        expected_mchid: &str,
+        expected_out_trade_no: &str,
+        expected_out_refund_no: &str,
+        expected_total: i64,
+        expected_refund: i64,
+    ) -> Result<()> {
+        if !self.is_success() {
+            return Err(WechatError::Config(format!(
+                "payment refund is not successful: {}",
+                self.refund_status.as_deref().unwrap_or("missing status")
+            )));
+        }
+        verify_payment_refund_identity(
+            self.effective_mchid(),
+            self.out_trade_no.as_deref(),
+            self.out_refund_no.as_deref(),
+            self.transaction_id.as_deref(),
+            self.refund_id.as_deref(),
+            expected_mchid,
+            expected_out_trade_no,
+            expected_out_refund_no,
+        )?;
+        let amount = self.amount.as_ref().ok_or_else(|| {
+            WechatError::Config("payment refund notification amount is missing".to_string())
+        })?;
+        amount.verify(expected_total, expected_refund)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6335,6 +6723,94 @@ pub struct PaymentRefundNotificationAmount {
     pub payer_refund: Option<i64>,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl PaymentRefundNotificationAmount {
+    pub fn verify(&self, expected_total: i64, expected_refund: i64) -> Result<()> {
+        if expected_total <= 0 || expected_refund <= 0 || expected_refund > expected_total {
+            return Err(WechatError::Config(
+                "expected payment refund amounts must be positive and refund cannot exceed total"
+                    .to_string(),
+            ));
+        }
+        if self.total != Some(expected_total) {
+            return Err(WechatError::Config(format!(
+                "payment refund total {} does not match expected {expected_total}",
+                self.total
+                    .map_or_else(|| "missing".to_string(), |value| value.to_string())
+            )));
+        }
+        if self.refund != Some(expected_refund) {
+            return Err(WechatError::Config(format!(
+                "payment refund amount {} does not match expected {expected_refund}",
+                self.refund
+                    .map_or_else(|| "missing".to_string(), |value| value.to_string())
+            )));
+        }
+        let payer_total =
+            required_non_negative_payment_amount(self.payer_total, "payment refund payer total")?;
+        let payer_refund =
+            required_non_negative_payment_amount(self.payer_refund, "payment refund payer refund")?;
+        if payer_total > expected_total
+            || payer_refund > payer_total
+            || payer_refund > expected_refund
+        {
+            return Err(WechatError::Config(
+                "payment refund payer amounts exceed their corresponding totals".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn verify_payment_refund_identity(
+    actual_mchid: Option<&str>,
+    actual_out_trade_no: Option<&str>,
+    actual_out_refund_no: Option<&str>,
+    transaction_id: Option<&str>,
+    refund_id: Option<&str>,
+    expected_mchid: &str,
+    expected_out_trade_no: &str,
+    expected_out_refund_no: &str,
+) -> Result<()> {
+    validate_payment_identifier(expected_mchid, "expected payment merchant id", 32)?;
+    validate_payment_identifier(
+        expected_out_trade_no,
+        "expected payment merchant order number",
+        32,
+    )?;
+    validate_payment_identifier(
+        expected_out_refund_no,
+        "expected payment merchant refund number",
+        64,
+    )?;
+    for (actual, expected, field) in [
+        (actual_mchid, expected_mchid, "payment merchant id"),
+        (
+            actual_out_trade_no,
+            expected_out_trade_no,
+            "payment merchant order number",
+        ),
+        (
+            actual_out_refund_no,
+            expected_out_refund_no,
+            "payment merchant refund number",
+        ),
+    ] {
+        if actual != Some(expected) {
+            return Err(WechatError::Config(format!(
+                "{field} {} does not match expected {expected}",
+                actual.unwrap_or("missing")
+            )));
+        }
+    }
+    validate_payment_identifier(
+        transaction_id.unwrap_or_default(),
+        "payment transaction id",
+        32,
+    )?;
+    validate_payment_identifier(refund_id.unwrap_or_default(), "payment refund id", 32)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6393,17 +6869,18 @@ mod tests {
         PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
         PayScoreServiceOrderResponse, PayScoreTimeRange, PaymentBillDownloadRequest,
         PaymentCredentials, PaymentDownloadHasher, PaymentDownloadedBill,
-        PaymentDownloadedBillFile, PaymentNotification, PaymentOrderResponse,
-        PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse,
-        PaymentTradeStateKind, PaymentTransactionNotification, PaymentTransferBillNotification,
-        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
-        ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
-        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
-        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
-        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
-        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard,
-        TransferBatchQuery, TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        PaymentDownloadedBillFile, PaymentNotification, PaymentNotificationEventKind,
+        PaymentOrderResponse, PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource,
+        PaymentStatusResponse, PaymentTradeStateKind, PaymentTransactionNotification,
+        PaymentTransferBillNotification, PrepayResponse, ProfitSharingBillRequest,
+        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
+        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
+        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
+        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundDetailResponse, RefundRequest,
+        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
+        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
+        TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard, TransferBatchQuery,
+        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
         TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
         TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
         UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
@@ -6434,10 +6911,72 @@ mod tests {
 
         let value: serde_json::Value = notification.decrypt_resource(key).unwrap();
         assert_eq!(value, json!({ "trade_state": "SUCCESS" }));
+        let transaction = notification.decrypt_transaction_resource(key).unwrap();
+        assert!(transaction.is_paid());
+        assert_eq!(
+            notification.event_kind(),
+            PaymentNotificationEventKind::TransactionSuccess
+        );
+        assert!(notification.event_kind().is_terminal());
+        assert_eq!(notification.idempotency_key(), "id");
         assert_eq!(
             notification.resource.original_type.as_deref(),
             Some("transaction")
         );
+    }
+
+    #[test]
+    fn rejects_mismatched_payment_notification_resources() {
+        let key = "0123456789abcdef0123456789abcdef";
+        let nonce = "nonce-123456";
+        let ciphertext =
+            crypto::payment_v3_encrypt_for_test(key, nonce, "", br#"{"refund_status":"SUCCESS"}"#)
+                .unwrap();
+        let mut notification = PaymentNotification {
+            id: "notice-1".to_string(),
+            create_time: "2026-07-20T10:00:00+08:00".to_string(),
+            event_type: "REFUND.SUCCESS".to_string(),
+            resource_type: "encrypt-resource".to_string(),
+            resource: PaymentResource {
+                algorithm: "AEAD_AES_256_GCM".to_string(),
+                ciphertext,
+                nonce: nonce.to_string(),
+                associated_data: String::new(),
+                original_type: Some("refund".to_string()),
+            },
+            summary: "refund succeeded".to_string(),
+        };
+
+        assert_eq!(
+            notification.event_kind(),
+            PaymentNotificationEventKind::RefundSuccess
+        );
+        assert!(notification.event_kind().is_refund());
+        let refund = notification.decrypt_refund_resource(key).unwrap();
+        assert!(refund.is_success());
+        let event_error = notification
+            .decrypt_transaction_resource(key)
+            .expect_err("refund event cannot be decoded as a transaction");
+        assert!(event_error.to_string().contains("does not match"));
+
+        notification.resource.original_type = Some("transaction".to_string());
+        let type_error = notification
+            .decrypt_refund_resource(key)
+            .expect_err("refund event with transaction resource must fail");
+        assert!(type_error.to_string().contains("does not match refund"));
+
+        notification.resource.algorithm = "AES-CBC".to_string();
+        let algorithm_error = notification
+            .validate()
+            .expect_err("unsupported algorithms must fail");
+        assert!(algorithm_error.to_string().contains("unsupported"));
+
+        notification.resource.algorithm = "AEAD_AES_256_GCM".to_string();
+        notification.create_time = "not-a-time".to_string();
+        let time_error = notification
+            .validate()
+            .expect_err("invalid notification time must fail");
+        assert!(time_error.to_string().contains("RFC3339"));
     }
 
     #[test]
@@ -6530,7 +7069,7 @@ mod tests {
             "success_time": "2026-07-17T10:00:00+08:00",
             "amount": {
                 "total": 100,
-                "payer_total": 100,
+                "payer_total": 90,
                 "currency": "CNY",
                 "settlement_rate": "1.0"
             },
@@ -6566,6 +7105,13 @@ mod tests {
             Some(PaymentTradeStateKind::Success)
         );
         assert!(order.is_paid());
+        order
+            .verify_paid_order("sub-mchid", "out-1", 100, "CNY")
+            .unwrap();
+        order.assert_amount_reconciles().unwrap();
+        assert_eq!(order.promotion_total().unwrap(), 10);
+        assert_eq!(order.effective_mchid(), Some("sub-mchid"));
+        assert_eq!(order.effective_appid(), Some("sub-app"));
         assert!(order.trade_state_kind().expect("trade state").is_terminal());
         assert_eq!(
             PaymentTradeStateKind::from_code("notpay"),
@@ -6618,6 +7164,66 @@ mod tests {
     }
 
     #[test]
+    fn rejects_payment_transaction_identity_and_amount_mismatches() {
+        let order: PaymentOrderResponse = serde_json::from_value(json!({
+            "mchid": "merchant-1",
+            "out_trade_no": "order-1",
+            "transaction_id": "transaction-1",
+            "trade_state": "SUCCESS",
+            "amount": {
+                "total": 100,
+                "payer_total": 80,
+                "currency": "CNY",
+                "payer_currency": "CNY"
+            },
+            "promotion_detail": [{
+                "coupon_id": "coupon-1",
+                "amount": 10
+            }]
+        }))
+        .unwrap();
+
+        let reconciliation_error = order
+            .assert_amount_reconciles()
+            .expect_err("unbalanced payer and promotion amounts must fail");
+        assert!(reconciliation_error
+            .to_string()
+            .contains("does not match order total"));
+
+        let merchant_error = order
+            .verify_paid_order("merchant-2", "order-1", 100, "CNY")
+            .expect_err("merchant mismatch must fail");
+        assert!(merchant_error.to_string().contains("merchant id"));
+
+        let order_error = order
+            .verify_paid_order("merchant-1", "order-2", 100, "CNY")
+            .expect_err("merchant order mismatch must fail");
+        assert!(order_error.to_string().contains("merchant order number"));
+
+        let currency_error = order
+            .verify_paid_order("merchant-1", "order-1", 100, "USD")
+            .expect_err("currency mismatch must fail");
+        assert!(currency_error.to_string().contains("currency"));
+
+        let overflow: PaymentOrderResponse = serde_json::from_value(json!({
+            "amount": {
+                "total": 9223372036854775807_i64,
+                "payer_total": 0,
+                "currency": "CNY"
+            },
+            "promotion_detail": [
+                {"amount": 9223372036854775807_i64},
+                {"amount": 1}
+            ]
+        }))
+        .unwrap();
+        let overflow_error = overflow
+            .promotion_total()
+            .expect_err("promotion aggregation overflow must fail");
+        assert!(overflow_error.to_string().contains("exceeds i64"));
+    }
+
+    #[test]
     fn deserializes_payment_notify_payloads() {
         let transaction: PaymentTransactionNotification = serde_json::from_value(json!({
             "appid": "wx-app",
@@ -6628,7 +7234,7 @@ mod tests {
             "trade_state": "SUCCESS",
             "amount": {
                 "total": 100,
-                "payer_total": 100,
+                "payer_total": 90,
                 "currency": "CNY",
                 "settlement_rate": "1.0"
             },
@@ -6662,6 +7268,13 @@ mod tests {
             Some(PaymentTradeStateKind::Success)
         );
         assert!(transaction.is_paid());
+        transaction
+            .verify_paid_transaction("mchid", "out-1", 100, "CNY")
+            .unwrap();
+        transaction.assert_amount_reconciles().unwrap();
+        assert_eq!(transaction.promotion_total().unwrap(), 10);
+        assert_eq!(transaction.effective_mchid(), Some("mchid"));
+        assert_eq!(transaction.effective_appid(), Some("wx-app"));
         let amount = transaction.amount.as_ref().expect("amount");
         assert_eq!(amount.total, Some(100));
         assert_eq!(amount.extra["settlement_rate"], "1.0");
@@ -6710,6 +7323,9 @@ mod tests {
             Some(PaymentRefundStatusKind::Success)
         );
         assert!(refund.is_success());
+        refund
+            .verify_successful_refund("mchid", "out-1", "out-refund-1", 100, 100)
+            .unwrap();
         let refund_amount = refund.amount.as_ref().expect("refund amount");
         assert_eq!(refund_amount.payer_refund, Some(100));
         assert_eq!(refund_amount.extra["settlement_refund"], 100);
@@ -6727,6 +7343,57 @@ mod tests {
         .unwrap();
         assert_eq!(transfer.out_bill_no, "bill-1");
         assert_eq!(transfer.openid.as_deref(), Some("openid"));
+    }
+
+    #[test]
+    fn rejects_payment_refund_identity_and_amount_mismatches() {
+        let refund: PaymentRefundNotification = serde_json::from_value(json!({
+            "mchid": "merchant-1",
+            "transaction_id": "transaction-1",
+            "out_trade_no": "order-1",
+            "refund_id": "refund-1",
+            "out_refund_no": "merchant-refund-1",
+            "refund_status": "SUCCESS",
+            "amount": {
+                "total": 100,
+                "refund": 50,
+                "payer_total": 100,
+                "payer_refund": 50
+            }
+        }))
+        .unwrap();
+
+        let identity_error = refund
+            .verify_successful_refund("merchant-1", "order-1", "merchant-refund-2", 100, 50)
+            .expect_err("merchant refund number mismatch must fail");
+        assert!(identity_error
+            .to_string()
+            .contains("merchant refund number"));
+
+        let amount_error = refund
+            .verify_successful_refund("merchant-1", "order-1", "merchant-refund-1", 100, 40)
+            .expect_err("refund amount mismatch must fail");
+        assert!(amount_error.to_string().contains("refund amount"));
+
+        let invalid_payer_amounts: PaymentRefundNotification = serde_json::from_value(json!({
+            "mchid": "merchant-1",
+            "transaction_id": "transaction-1",
+            "out_trade_no": "order-1",
+            "refund_id": "refund-1",
+            "out_refund_no": "merchant-refund-1",
+            "refund_status": "SUCCESS",
+            "amount": {
+                "total": 100,
+                "refund": 50,
+                "payer_total": 100,
+                "payer_refund": 60
+            }
+        }))
+        .unwrap();
+        let payer_error = invalid_payer_amounts
+            .verify_successful_refund("merchant-1", "order-1", "merchant-refund-1", 100, 50)
+            .expect_err("payer refund above refund total must fail");
+        assert!(payer_error.to_string().contains("payer amounts"));
     }
 
     #[test]

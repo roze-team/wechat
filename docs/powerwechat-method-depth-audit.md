@@ -1668,6 +1668,27 @@ Implemented on 2026-07-20 in Payment bill download and statement depth:
   errors instead of panicking in debug builds or wrapping in release builds;
 - summary count reconciliation now uses checked `usize` to `i64` conversion.
 
+Implemented on 2026-07-20 in Payment notification and order verification depth:
+
+- notification envelopes now expose forward-compatible typed transaction,
+  refund-success, refund-abnormal, refund-closed, complaint, and unknown event
+  semantics plus stable notification IDs for idempotency keys;
+- typed transaction, refund, and complaint resource decryptors validate the
+  RFC3339 notification time, encrypted-resource marker, AES-256-GCM algorithm,
+  field boundaries, event type, and original resource type before decryption,
+  preventing a valid ciphertext from being decoded under the wrong workflow;
+- order-query and transaction-notification responses expose effective
+  app/merchant identities across direct and partner modes, checked promotion
+  totals, and explicit payer-total plus promotion reconciliation;
+- paid-order verification checks successful state, merchant identity,
+  merchant order number, nonempty WeChat transaction number, exact total, and
+  case-insensitive currency before application code accepts a payment;
+- successful-refund verification checks merchant, order, merchant-refund,
+  WeChat transaction, and WeChat refund identities together with total,
+  refund, payer-total, and payer-refund boundaries;
+- all promotion and reconciliation arithmetic is checked for overflow and
+  returns typed configuration errors on inconsistent financial data.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
