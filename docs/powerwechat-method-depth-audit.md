@@ -1306,6 +1306,23 @@ Implemented on 2026-07-20 in Work OA checkin depth:
 - checkin rule mutations reject empty payloads and invalid group/range
   identifiers while retaining forward-compatible unknown fields.
 
+Implemented on 2026-07-20 in Work OA journal depth:
+
+- added the two current enterprise-WeChat journal document export endpoints,
+  `oa/journal/export_doc` and `oa/journal/get_export_doc_result`, which are
+  absent from the compared PowerWeChat journal client;
+- document exports use typed request, task, and polling-result DTOs, preserve
+  unknown upstream fields, and expose completed-result and download-URL
+  helpers for production polling workers;
+- record-list and statistics timestamps now serialize as the numeric Unix
+  values required by the official wire contract instead of JSON strings;
+- record queries validate positive ordered timestamps, the one-month window,
+  non-negative cursors, the 1-to-100 page boundary, supported unique filters,
+  and non-empty filter values before network I/O;
+- detail, statistics, export, and export-result paths validate required
+  record, template, document, and job identifiers, while statistics queries
+  enforce the documented one-year maximum window.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

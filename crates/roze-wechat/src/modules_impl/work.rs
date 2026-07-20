@@ -3794,6 +3794,7 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkJournalRecordListRequest,
     ) -> Result<WorkJournalRecordListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/journal/get_record_list",
@@ -3808,11 +3809,13 @@ impl Work {
         access_token: impl Into<String>,
         journal_uuid: impl Into<String>,
     ) -> Result<WorkJournalRecordDetailResponse> {
+        let journal_uuid = journal_uuid.into();
+        validate_work_journal_identifier("record id", &journal_uuid, 256)?;
         self.inner
             .post(
                 "cgi-bin/oa/journal/get_record_detail",
                 Some(access_token.into()),
-                json!({ "journaluuid": journal_uuid.into() }),
+                json!({ "journaluuid": journal_uuid }),
             )
             .await
     }
@@ -3822,11 +3825,43 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkJournalStatListRequest,
     ) -> Result<WorkJournalStatListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/oa/journal/get_stat_list",
                 Some(access_token.into()),
                 request,
+            )
+            .await
+    }
+
+    pub async fn export_journal_doc(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkJournalExportDocRequest,
+    ) -> Result<WorkJournalExportDocResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/oa/journal/export_doc",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn get_journal_export_doc_result(
+        &self,
+        access_token: impl Into<String>,
+        job_id: impl Into<String>,
+    ) -> Result<WorkJournalExportDocResultResponse> {
+        let job_id = job_id.into();
+        validate_work_journal_identifier("export job id", &job_id, 64)?;
+        self.inner
+            .post(
+                "cgi-bin/oa/journal/get_export_doc_result",
+                Some(access_token.into()),
+                json!({ "jobid": job_id }),
             )
             .await
     }
@@ -18813,12 +18848,65 @@ pub struct WorkDialRecordResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalRecordListRequest {
-    pub starttime: String,
-    pub endtime: String,
-    pub cursor: String,
+    pub starttime: i64,
+    pub endtime: i64,
+    pub cursor: i64,
     pub limit: i64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub filters: Vec<WorkJournalFilter>,
+}
+
+impl WorkJournalRecordListRequest {
+    pub fn first_page(starttime: i64, endtime: i64, limit: i64) -> Self {
+        Self {
+            starttime,
+            endtime,
+            cursor: 0,
+            limit,
+            filters: Vec::new(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_journal_time_range(
+            "record query",
+            self.starttime,
+            self.endtime,
+            31 * 86_400,
+        )?;
+        if self.cursor < 0 {
+            return Err(WechatError::Config(
+                "work journal record cursor cannot be negative".to_string(),
+            ));
+        }
+        if !(1..=100).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "work journal record limit must be between 1 and 100".to_string(),
+            ));
+        }
+        for filter in &self.filters {
+            if !matches!(
+                filter.key.as_str(),
+                "creator" | "department" | "template_id"
+            ) {
+                return Err(WechatError::Config(
+                    "work journal filter key must be creator, department, or template_id"
+                        .to_string(),
+                ));
+            }
+            validate_work_journal_identifier("filter value", &filter.value, 256)?;
+        }
+        if self.filters.iter().enumerate().any(|(index, filter)| {
+            self.filters[index + 1..]
+                .iter()
+                .any(|other| filter.key == other.key)
+        }) {
+            return Err(WechatError::Config(
+                "work journal filters cannot contain duplicate keys".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18898,8 +18986,20 @@ pub struct WorkJournalRecordDetailResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkJournalStatListRequest {
     pub template_id: String,
-    pub starttime: String,
-    pub endtime: String,
+    pub starttime: i64,
+    pub endtime: i64,
+}
+
+impl WorkJournalStatListRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_journal_identifier("template id", &self.template_id, 256)?;
+        validate_work_journal_time_range(
+            "statistics query",
+            self.starttime,
+            self.endtime,
+            366 * 86_400,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19005,6 +19105,101 @@ pub struct WorkJournalStatListResponse {
     pub stat_list: Vec<WorkJournalStat>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalExportDocRequest {
+    pub journaluuid: String,
+    pub docid: String,
+}
+
+impl WorkJournalExportDocRequest {
+    pub fn new(journal_uuid: impl Into<String>, doc_id: impl Into<String>) -> Self {
+        Self {
+            journaluuid: journal_uuid.into(),
+            docid: doc_id.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_journal_identifier("record id", &self.journaluuid, 256)?;
+        validate_work_journal_identifier("document id", &self.docid, 256)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalExportDocResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub jobid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkJournalExportDocResultResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub status: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkJournalExportDocResultResponse {
+    pub fn is_completed(&self) -> bool {
+        self.status == Some(2)
+    }
+
+    pub fn download_url(&self) -> Option<&str> {
+        self.is_completed().then_some(self.url.as_deref()).flatten()
+    }
+}
+
+fn validate_work_journal_identifier(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(WechatError::Config(format!(
+            "work journal {label} cannot be empty"
+        )));
+    }
+    if value.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "work journal {label} cannot exceed {maximum} bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_journal_time_range(
+    label: &str,
+    starttime: i64,
+    endtime: i64,
+    maximum_span: i64,
+) -> Result<()> {
+    if starttime <= 0 || endtime <= 0 {
+        return Err(WechatError::Config(format!(
+            "work journal {label} timestamps must be positive"
+        )));
+    }
+    if starttime > endtime {
+        return Err(WechatError::Config(format!(
+            "work journal {label} starttime cannot exceed endtime"
+        )));
+    }
+    if endtime - starttime > maximum_span {
+        return Err(WechatError::Config(format!(
+            "work journal {label} time range is too large"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31001,9 +31196,9 @@ mod tests {
         assert_eq!(approval_update["template_id"], "template-1");
 
         let journal = serde_json::to_value(WorkJournalRecordListRequest {
-            starttime: "1800000000".to_string(),
-            endtime: "1800086400".to_string(),
-            cursor: "0".to_string(),
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
+            cursor: 0,
             limit: 100,
             filters: vec![WorkJournalFilter {
                 key: "template_id".to_string(),
@@ -31011,13 +31206,14 @@ mod tests {
             }],
         })
         .unwrap();
-        assert_eq!(journal["starttime"], "1800000000");
+        assert_eq!(journal["starttime"], 1_800_000_000);
+        assert_eq!(journal["cursor"], 0);
         assert_eq!(journal["filters"][0]["key"], "template_id");
 
         let stat = serde_json::to_value(WorkJournalStatListRequest {
             template_id: "template-1".to_string(),
-            starttime: "1800000000".to_string(),
-            endtime: "1800086400".to_string(),
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
         })
         .unwrap();
         assert_eq!(stat["template_id"], "template-1");
@@ -31320,6 +31516,102 @@ mod tests {
     }
 
     #[test]
+    fn validates_work_oa_journal_queries_and_exports() {
+        let first_page =
+            WorkJournalRecordListRequest::first_page(1_800_000_000, 1_800_086_400, 100);
+        assert!(first_page.validate().is_ok());
+        assert_eq!(first_page.cursor, 0);
+
+        let filtered = WorkJournalRecordListRequest {
+            filters: vec![
+                WorkJournalFilter {
+                    key: "creator".to_string(),
+                    value: "user".to_string(),
+                },
+                WorkJournalFilter {
+                    key: "department".to_string(),
+                    value: "1".to_string(),
+                },
+                WorkJournalFilter {
+                    key: "template_id".to_string(),
+                    value: "template-1".to_string(),
+                },
+            ],
+            ..first_page.clone()
+        };
+        assert!(filtered.validate().is_ok());
+
+        for request in [
+            WorkJournalRecordListRequest {
+                limit: 0,
+                ..first_page.clone()
+            },
+            WorkJournalRecordListRequest {
+                cursor: -1,
+                ..first_page.clone()
+            },
+            WorkJournalRecordListRequest {
+                endtime: first_page.starttime + 32 * 86_400,
+                ..first_page.clone()
+            },
+            WorkJournalRecordListRequest {
+                filters: vec![WorkJournalFilter {
+                    key: "unsupported".to_string(),
+                    value: "value".to_string(),
+                }],
+                ..first_page.clone()
+            },
+            WorkJournalRecordListRequest {
+                filters: vec![
+                    WorkJournalFilter {
+                        key: "creator".to_string(),
+                        value: "user-1".to_string(),
+                    },
+                    WorkJournalFilter {
+                        key: "creator".to_string(),
+                        value: "user-2".to_string(),
+                    },
+                ],
+                ..first_page.clone()
+            },
+        ] {
+            assert!(request.validate().is_err());
+        }
+
+        let stat = WorkJournalStatListRequest {
+            template_id: "template-1".to_string(),
+            starttime: 1_800_000_000,
+            endtime: 1_800_086_400,
+        };
+        assert!(stat.validate().is_ok());
+        assert!(WorkJournalStatListRequest {
+            template_id: String::new(),
+            ..stat.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkJournalStatListRequest {
+            endtime: stat.starttime + 367 * 86_400,
+            ..stat
+        }
+        .validate()
+        .is_err());
+
+        let export = WorkJournalExportDocRequest::new("journal-1", "doc-1");
+        assert!(export.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(&export).unwrap(),
+            json!({ "journaluuid": "journal-1", "docid": "doc-1" })
+        );
+        assert!(WorkJournalExportDocRequest::new("", "doc-1")
+            .validate()
+            .is_err());
+        assert!(WorkJournalExportDocRequest::new("journal-1", "")
+            .validate()
+            .is_err());
+    }
+
+    #[test]
     fn deserializes_work_oa_approval_journal_and_schedule_responses() {
         let approval: WorkApprovalCreateTemplateResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -31339,6 +31631,31 @@ mod tests {
         assert_eq!(records.next_cursor, Some(10));
         assert_eq!(records.endflag, Some(0));
         assert_eq!(records.extra["trace_id"], "journal-list");
+
+        let export: WorkJournalExportDocResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "jobid": "job-1",
+            "trace_id": "journal-export"
+        }))
+        .unwrap();
+        assert_eq!(export.jobid.as_deref(), Some("job-1"));
+        assert_eq!(export.extra["trace_id"], "journal-export");
+
+        let export_result: WorkJournalExportDocResultResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "errmsg": "ok",
+            "status": 2,
+            "url": "https://example.com/journal.docx",
+            "expires_in": 300
+        }))
+        .unwrap();
+        assert!(export_result.is_completed());
+        assert_eq!(
+            export_result.download_url(),
+            Some("https://example.com/journal.docx")
+        );
+        assert_eq!(export_result.extra["expires_in"], 300);
 
         let detail: WorkJournalRecordDetailResponse = serde_json::from_value(json!({
             "trace_id": "journal-detail",
