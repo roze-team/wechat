@@ -1567,6 +1567,23 @@ depth:
   active-expiry, conversion-rate, customer-identity, and received-message
   semantics while preserving extension fields.
 
+Implemented on 2026-07-20 in Work external-contact product-album depth:
+
+- add, update, delete, get, and list operations now validate their request
+  contracts before network I/O;
+- descriptions enforce the documented 300-character boundary, prices enforce
+  the 0 to 5,000,000-cent range, and optional product codes enforce the
+  128-byte ASCII letter-or-digit contract while updates can explicitly clear
+  an existing product code;
+- product creation requires one to nine unique image media ids, update requests
+  require at least one changed field, and request attachments serialize only
+  the exact official `image` wire type;
+- list requests expose checked first-page and next-page constructors, enforce
+  the 100-item page boundary, and reject blank continuation cursors;
+- response DTOs expose product-presence, image-count, and price-format helpers,
+  while optional image payloads and flattened extension fields preserve
+  forward compatibility with future attachment and response fields.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

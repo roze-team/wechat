@@ -1960,6 +1960,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactProductAlbumAddRequest,
     ) -> Result<ExternalContactProductAlbumAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/add_product_album",
@@ -1974,6 +1975,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactProductAlbumUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/update_product_album",
@@ -1988,11 +1990,13 @@ impl Work {
         access_token: impl Into<String>,
         product_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
+        let product_id = product_id.into();
+        validate_external_contact_product_id(&product_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/delete_product_album",
                 Some(access_token.into()),
-                json!({ "product_id": product_id.into() }),
+                json!({ "product_id": product_id }),
             )
             .await
     }
@@ -2002,6 +2006,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalContactProductAlbumListRequest,
     ) -> Result<ExternalContactProductAlbumListResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_product_album_list",
@@ -2016,11 +2021,13 @@ impl Work {
         access_token: impl Into<String>,
         product_id: impl Into<String>,
     ) -> Result<ExternalContactProductAlbumResponse> {
+        let product_id = product_id.into();
+        validate_external_contact_product_id(&product_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/get_product_album",
                 Some(access_token.into()),
-                json!({ "product_id": product_id.into() }),
+                json!({ "product_id": product_id }),
             )
             .await
     }
@@ -13772,6 +13779,30 @@ pub struct ExternalContactProductAlbumAddRequest {
     pub attachments: Vec<ExternalContactProductAttachment>,
 }
 
+impl ExternalContactProductAlbumAddRequest {
+    pub fn new(
+        description: impl Into<String>,
+        price: i64,
+        attachments: impl IntoIterator<Item = ExternalContactProductAttachment>,
+    ) -> Self {
+        Self {
+            description: description.into(),
+            price,
+            product_sn: None,
+            attachments: attachments.into_iter().collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_product_description(&self.description)?;
+        validate_external_contact_product_price(self.price)?;
+        if let Some(product_sn) = &self.product_sn {
+            validate_external_contact_product_sn(product_sn, false)?;
+        }
+        validate_external_contact_product_attachments(&self.attachments)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactProductAlbumUpdateRequest {
     pub product_id: String,
@@ -13785,11 +13816,50 @@ pub struct ExternalContactProductAlbumUpdateRequest {
     pub attachments: Vec<ExternalContactProductAttachment>,
 }
 
+impl ExternalContactProductAlbumUpdateRequest {
+    pub fn new(product_id: impl Into<String>) -> Self {
+        Self {
+            product_id: product_id.into(),
+            description: None,
+            price: None,
+            product_sn: None,
+            attachments: Vec::new(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_product_id(&self.product_id)?;
+        if self.description.is_none()
+            && self.price.is_none()
+            && self.product_sn.is_none()
+            && self.attachments.is_empty()
+        {
+            return Err(WechatError::Config(
+                "external-contact product update requires at least one changed field".to_string(),
+            ));
+        }
+        if let Some(description) = &self.description {
+            validate_external_contact_product_description(description)?;
+        }
+        if let Some(price) = self.price {
+            validate_external_contact_product_price(price)?;
+        }
+        if let Some(product_sn) = &self.product_sn {
+            validate_external_contact_product_sn(product_sn, true)?;
+        }
+        if !self.attachments.is_empty() {
+            validate_external_contact_product_attachments(&self.attachments)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactProductAttachment {
     #[serde(rename = "type")]
     pub attachment_type: String,
-    pub image: ExternalContactProductImage,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<ExternalContactProductImage>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -13798,11 +13868,51 @@ impl ExternalContactProductAttachment {
     pub fn image(media_id: impl Into<String>) -> Self {
         Self {
             attachment_type: "image".to_string(),
-            image: ExternalContactProductImage {
+            image: Some(ExternalContactProductImage {
                 media_id: media_id.into(),
                 extra: Value::Null,
-            },
+            }),
             extra: Value::Null,
+        }
+    }
+
+    pub fn kind(&self) -> ExternalContactProductAttachmentKind {
+        ExternalContactProductAttachmentKind::from_code(&self.attachment_type)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.attachment_type != "image" {
+            return Err(WechatError::Config(
+                "external-contact product attachments only support image".to_string(),
+            ));
+        }
+        let media_id = self
+            .image
+            .as_ref()
+            .map(|image| image.media_id.as_str())
+            .unwrap_or_default();
+        validate_external_contact_media_id("product image", Some(media_id))?;
+        if media_id.len() > 512 {
+            return Err(WechatError::Config(
+                "external-contact product image media id cannot exceed 512 UTF-8 bytes".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalContactProductAttachmentKind {
+    Image,
+    Other,
+}
+
+impl ExternalContactProductAttachmentKind {
+    pub fn from_code(value: &str) -> Self {
+        if value.eq_ignore_ascii_case("image") {
+            Self::Image
+        } else {
+            Self::Other
         }
     }
 }
@@ -13826,11 +13936,39 @@ pub struct ExternalContactProductAlbumAddResponse {
     pub extra: Value,
 }
 
+impl ExternalContactProductAlbumAddResponse {
+    pub fn has_product_id(&self) -> bool {
+        self.product_id
+            .as_deref()
+            .is_some_and(|product_id| !product_id.trim().is_empty())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactProductAlbumListRequest {
     pub limit: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+}
+
+impl ExternalContactProductAlbumListRequest {
+    pub fn first_page(limit: i64) -> Self {
+        Self {
+            limit,
+            cursor: None,
+        }
+    }
+
+    pub fn next_page(limit: i64, cursor: impl Into<String>) -> Self {
+        Self {
+            limit,
+            cursor: Some(cursor.into()),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_page(self.cursor.as_deref(), Some(self.limit), 100)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13847,6 +13985,15 @@ pub struct ExternalContactProductAlbumListResponse {
     pub extra: Value,
 }
 
+impl ExternalContactProductAlbumListResponse {
+    pub fn total_image_count(&self) -> usize {
+        self.product_list
+            .iter()
+            .map(ExternalContactProductAlbum::image_count)
+            .sum()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactProductAlbumResponse {
     #[serde(default)]
@@ -13857,6 +14004,14 @@ pub struct ExternalContactProductAlbumResponse {
     pub product: Option<ExternalContactProductAlbum>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactProductAlbumResponse {
+    pub fn has_product(&self) -> bool {
+        self.product
+            .as_ref()
+            .is_some_and(ExternalContactProductAlbum::has_identity)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13875,6 +14030,105 @@ pub struct ExternalContactProductAlbum {
     pub attachments: Vec<ExternalContactProductAttachment>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactProductAlbum {
+    pub fn has_identity(&self) -> bool {
+        self.product_id
+            .as_deref()
+            .is_some_and(|product_id| !product_id.trim().is_empty())
+    }
+
+    pub fn image_count(&self) -> usize {
+        self.attachments
+            .iter()
+            .filter(|attachment| {
+                matches!(
+                    attachment.kind(),
+                    ExternalContactProductAttachmentKind::Image
+                )
+            })
+            .count()
+    }
+
+    pub fn price_parts(&self) -> Option<(i64, u8)> {
+        let price = self.price?;
+        (price >= 0).then_some((price / 100, (price % 100) as u8))
+    }
+
+    pub fn formatted_price(&self) -> Option<String> {
+        let (yuan, cents) = self.price_parts()?;
+        Some(format!("{yuan}.{cents:02}"))
+    }
+}
+
+fn validate_external_contact_product_id(product_id: &str) -> Result<()> {
+    validate_external_contact_identifier("product id", product_id)?;
+    if product_id.len() > 128 {
+        return Err(WechatError::Config(
+            "external-contact product id cannot exceed 128 UTF-8 bytes".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_product_description(description: &str) -> Result<()> {
+    let character_count = description.chars().count();
+    if description.trim().is_empty() || character_count > 300 {
+        return Err(WechatError::Config(
+            "external-contact product description must contain 1 to 300 characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_product_price(price: i64) -> Result<()> {
+    if !(0..=5_000_000).contains(&price) {
+        return Err(WechatError::Config(
+            "external-contact product price must be between 0 and 5000000 cents".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_product_sn(product_sn: &str, allow_empty: bool) -> Result<()> {
+    if product_sn.is_empty() && allow_empty {
+        return Ok(());
+    }
+    if product_sn.is_empty()
+        || product_sn.len() > 128
+        || !product_sn.bytes().all(|byte| byte.is_ascii_alphanumeric())
+    {
+        return Err(WechatError::Config(
+            "external-contact product code must contain 1 to 128 ASCII letters or digits"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_product_attachments(
+    attachments: &[ExternalContactProductAttachment],
+) -> Result<()> {
+    if !(1..=9).contains(&attachments.len()) {
+        return Err(WechatError::Config(
+            "external-contact product requires 1 to 9 image attachments".to_string(),
+        ));
+    }
+    for attachment in attachments {
+        attachment.validate()?;
+    }
+    let media_ids = attachments
+        .iter()
+        .filter_map(|attachment| attachment.image.as_ref())
+        .map(|image| image.media_id.as_str())
+        .collect::<Vec<_>>();
+    if has_duplicate_strings(&media_ids) {
+        return Err(WechatError::Config(
+            "external-contact product image media ids must be unique".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32847,37 +33101,33 @@ mod tests {
 
     #[test]
     fn serializes_external_contact_product_album_lifecycle() {
-        let add = serde_json::to_value(ExternalContactProductAlbumAddRequest {
-            description: "Roze subscription".to_string(),
-            price: 19900,
-            product_sn: Some("ROZE-001".to_string()),
-            attachments: vec![ExternalContactProductAttachment::image("media")],
-        })
-        .unwrap();
+        let mut add_request = ExternalContactProductAlbumAddRequest::new(
+            "Roze subscription",
+            19900,
+            [ExternalContactProductAttachment::image("media")],
+        );
+        add_request.product_sn = Some("ROZE001".to_string());
+        add_request.validate().unwrap();
+        let add = serde_json::to_value(add_request).unwrap();
         assert_eq!(add["description"], "Roze subscription");
         assert_eq!(add["price"], 19900);
-        assert_eq!(add["product_sn"], "ROZE-001");
+        assert_eq!(add["product_sn"], "ROZE001");
         assert_eq!(add["attachments"][0]["type"], "image");
         assert_eq!(add["attachments"][0]["image"]["media_id"], "media");
 
-        let update = serde_json::to_value(ExternalContactProductAlbumUpdateRequest {
-            product_id: "product".to_string(),
-            description: Some("Roze annual subscription".to_string()),
-            price: Some(29900),
-            product_sn: None,
-            attachments: Vec::new(),
-        })
-        .unwrap();
+        let mut update_request = ExternalContactProductAlbumUpdateRequest::new("product");
+        update_request.description = Some("Roze annual subscription".to_string());
+        update_request.price = Some(29900);
+        update_request.validate().unwrap();
+        let update = serde_json::to_value(update_request).unwrap();
         assert_eq!(update["product_id"], "product");
         assert_eq!(update["price"], 29900);
         assert!(update.get("product_sn").is_none());
         assert!(update.get("attachments").is_none());
 
-        let list_request = serde_json::to_value(ExternalContactProductAlbumListRequest {
-            limit: 50,
-            cursor: None,
-        })
-        .unwrap();
+        let page_request = ExternalContactProductAlbumListRequest::first_page(50);
+        page_request.validate().unwrap();
+        let list_request = serde_json::to_value(page_request).unwrap();
         assert_eq!(list_request["limit"], 50);
         assert!(list_request.get("cursor").is_none());
 
@@ -32887,14 +33137,19 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(added.product_id.as_deref(), Some("product"));
+        assert!(added.has_product_id());
         assert_eq!(added.extra["request_id"], "product-add");
 
         let list: ExternalContactProductAlbumListResponse = serde_json::from_value(json!({
             "product_list": [{
                 "product_id": "product",
-                "product_sn": "ROZE-001",
+                "product_sn": "ROZE001",
                 "description": "Roze subscription",
                 "price": 19900,
+                "attachments": [{
+                    "type": "image",
+                    "image": { "media_id": "list-media" }
+                }],
                 "catalog": "software"
             }],
             "next_cursor": "cursor",
@@ -32903,6 +33158,11 @@ mod tests {
         .unwrap();
         assert_eq!(list.product_list[0].product_id.as_deref(), Some("product"));
         assert_eq!(list.product_list[0].price, Some(19900));
+        assert_eq!(
+            list.product_list[0].formatted_price().as_deref(),
+            Some("199.00")
+        );
+        assert_eq!(list.total_image_count(), 1);
         assert_eq!(list.product_list[0].extra["catalog"], "software");
         assert_eq!(list.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(list.extra["product_total"], 1);
@@ -32910,7 +33170,7 @@ mod tests {
         let detail: ExternalContactProductAlbumResponse = serde_json::from_value(json!({
             "product": {
                 "product_id": "product",
-                "product_sn": "ROZE-001",
+                "product_sn": "ROZE001",
                 "description": "Roze subscription",
                 "price": 19900,
                 "create_time": 1_720_000_000,
@@ -32928,13 +33188,93 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(detail.extra["request_id"], "product-detail");
-        let product = detail.product.expect("product");
+        assert!(detail.has_product());
+        let product = detail.product.as_ref().expect("product");
+        assert!(product.has_identity());
         assert_eq!(product.create_time, Some(1_720_000_000));
+        assert_eq!(product.image_count(), 1);
+        assert_eq!(product.price_parts(), Some((199, 0)));
         assert_eq!(product.attachments[0].attachment_type, "image");
-        assert_eq!(product.attachments[0].image.media_id, "media");
-        assert_eq!(product.attachments[0].image.extra["image_hash"], "sha256");
+        let image = product.attachments[0].image.as_ref().expect("image");
+        assert_eq!(image.media_id, "media");
+        assert_eq!(image.extra["image_hash"], "sha256");
         assert_eq!(product.attachments[0].extra["attachment_version"], 2);
         assert_eq!(product.extra["updated_at"], 1_720_000_001_i64);
+
+        let future_attachment: ExternalContactProductAttachment = serde_json::from_value(json!({
+            "type": "video",
+            "video": { "media_id": "future-media" }
+        }))
+        .unwrap();
+        assert_eq!(
+            future_attachment.kind(),
+            ExternalContactProductAttachmentKind::Other
+        );
+        assert!(future_attachment.image.is_none());
+        assert_eq!(future_attachment.extra["video"]["media_id"], "future-media");
+
+        let oversized_description = ExternalContactProductAlbumAddRequest::new(
+            "商".repeat(301),
+            0,
+            [ExternalContactProductAttachment::image("media")],
+        );
+        assert!(oversized_description.validate().is_err());
+        let overpriced = ExternalContactProductAlbumAddRequest::new(
+            "product",
+            5_000_001,
+            [ExternalContactProductAttachment::image("media")],
+        );
+        assert!(overpriced.validate().is_err());
+        let mut invalid_code = ExternalContactProductAlbumAddRequest::new(
+            "product",
+            100,
+            [ExternalContactProductAttachment::image("media")],
+        );
+        invalid_code.product_sn = Some("ROZE-001".to_string());
+        assert!(invalid_code.validate().is_err());
+        let duplicate_images = ExternalContactProductAlbumAddRequest::new(
+            "product",
+            100,
+            [
+                ExternalContactProductAttachment::image("media"),
+                ExternalContactProductAttachment::image("media"),
+            ],
+        );
+        assert!(duplicate_images.validate().is_err());
+        let uppercase_image = ExternalContactProductAlbumAddRequest::new(
+            "product",
+            100,
+            [ExternalContactProductAttachment {
+                attachment_type: "IMAGE".to_string(),
+                image: Some(ExternalContactProductImage {
+                    media_id: "media".to_string(),
+                    extra: Value::Null,
+                }),
+                extra: Value::Null,
+            }],
+        );
+        assert!(uppercase_image.validate().is_err());
+        let too_many_images = ExternalContactProductAlbumAddRequest::new(
+            "product",
+            100,
+            (0..10).map(|index| ExternalContactProductAttachment::image(format!("media-{index}"))),
+        );
+        assert!(too_many_images.validate().is_err());
+        assert!(ExternalContactProductAlbumUpdateRequest::new("product")
+            .validate()
+            .is_err());
+        let mut clear_code = ExternalContactProductAlbumUpdateRequest::new("product");
+        clear_code.product_sn = Some(String::new());
+        clear_code.validate().unwrap();
+        assert!(
+            ExternalContactProductAlbumListRequest::next_page(101, "cursor")
+                .validate()
+                .is_err()
+        );
+        assert!(ExternalContactProductAlbumListRequest::next_page(100, " ")
+            .validate()
+            .is_err());
+        assert!(validate_external_contact_product_id(" ").is_err());
     }
 
     #[test]
