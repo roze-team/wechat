@@ -1149,13 +1149,16 @@ impl Work {
         subscribe_mode: i64,
     ) -> Result<WorkStatusResponse> {
         validate_school_notification_subscribe_mode(subscribe_mode)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/set_subscribe_mode",
                 Some(access_token.into()),
                 json!({ "subscribe_mode": subscribe_mode }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact set school subscribe mode")?;
+        Ok(response)
     }
 
     pub async fn get_school_notification_subscribe_mode(
@@ -1332,13 +1335,16 @@ impl Work {
         request: ContactWayUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/update_contact_way",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact update contact way")?;
+        Ok(response)
     }
 
     pub async fn delete_contact_way(
@@ -1348,13 +1354,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let config_id = config_id.into();
         validate_contact_way_config_id(&config_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/del_contact_way",
                 Some(access_token.into()),
                 json!({ "config_id": config_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete contact way")?;
+        Ok(response)
     }
 
     pub async fn close_external_temp_chat(
@@ -1367,13 +1376,16 @@ impl Work {
         let external_userid = external_userid.into();
         validate_external_contact_identifier("member userid", &user_id)?;
         validate_external_contact_identifier("external userid", &external_userid)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/close_temp_chat",
                 Some(access_token.into()),
                 json!({ "userid": user_id, "external_userid": external_userid }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact close temporary chat")?;
+        Ok(response)
     }
 
     pub async fn remark_external_contact(
@@ -1382,13 +1394,16 @@ impl Work {
         request: ExternalContactRemarkRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/remark",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact update remark")?;
+        Ok(response)
     }
 
     pub async fn get_corp_tag_list(
@@ -1441,11 +1456,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact corporate tag edit",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact corporate tag edit")?;
         Ok(response)
     }
 
@@ -1463,11 +1474,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact corporate tag delete",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact corporate tag delete")?;
         Ok(response)
     }
 
@@ -1485,11 +1492,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact mark tag",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact mark tag")?;
         Ok(response)
     }
 
@@ -1638,13 +1641,16 @@ impl Work {
         request: ExternalGroupChatJoinWayUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/update_join_way",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact update group-chat join way")?;
+        Ok(response)
     }
 
     pub async fn delete_external_group_chat_join_way(
@@ -1654,13 +1660,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let config_id = config_id.into();
         validate_external_group_chat_identifier("join-way config id", &config_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/del_join_way",
                 Some(access_token.into()),
                 json!({ "config_id": config_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete group-chat join way")?;
+        Ok(response)
     }
 
     pub async fn get_new_external_group_chat_user_ids(
@@ -1669,13 +1678,16 @@ impl Work {
         request: ExternalGroupChatUserIdMigrationRequest,
     ) -> Result<WorkExternalUserIdMigrationResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkExternalUserIdMigrationResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/get_new_external_userid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_external_contact_moment_strategies(
@@ -1776,13 +1788,16 @@ impl Work {
         strategy_id: i64,
     ) -> Result<WorkStatusResponse> {
         validate_external_strategy_id(strategy_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/moment_strategy/del",
                 Some(access_token.into()),
                 json!({ "strategy_id": strategy_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete moment strategy")?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_strategy_tag_list(
@@ -1835,11 +1850,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact strategy tag edit",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact strategy tag edit")?;
         Ok(response)
     }
 
@@ -1857,11 +1868,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact strategy tag delete",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact strategy tag delete")?;
         Ok(response)
     }
 
@@ -1889,13 +1896,16 @@ impl Work {
         request: ExternalGroupWelcomeTemplateUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/edit",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact edit group welcome template")?;
+        Ok(response)
     }
 
     pub async fn get_external_group_welcome_template(
@@ -1925,13 +1935,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let request = ExternalGroupWelcomeTemplateDeleteRequest::new(template_id, agent_id);
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/del",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete group welcome template")?;
+        Ok(response)
     }
 
     pub async fn list_customer_acquisition_links(
@@ -1995,13 +2008,16 @@ impl Work {
         request: CustomerAcquisitionLinkUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/update_link",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact update customer-acquisition link")?;
+        Ok(response)
     }
 
     pub async fn delete_customer_acquisition_link(
@@ -2011,13 +2027,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let link_id = link_id.into();
         validate_customer_acquisition_link_id(&link_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/customer_acquisition/delete_link",
                 Some(access_token.into()),
                 json!({ "link_id": link_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete customer-acquisition link")?;
+        Ok(response)
     }
 
     pub async fn add_external_contact_intercept_rule(
@@ -2041,13 +2060,16 @@ impl Work {
         request: ExternalContactInterceptRuleUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/update_intercept_rule",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact update intercept rule")?;
+        Ok(response)
     }
 
     pub async fn delete_external_contact_intercept_rule(
@@ -2057,13 +2079,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let rule_id = rule_id.into();
         validate_external_contact_intercept_rule_id(&rule_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/del_intercept_rule",
                 Some(access_token.into()),
                 json!({ "rule_id": rule_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete intercept rule")?;
+        Ok(response)
     }
 
     pub async fn list_external_contact_intercept_rules(
@@ -2115,13 +2140,16 @@ impl Work {
         request: ExternalContactProductAlbumUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/update_product_album",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact update product album")?;
+        Ok(response)
     }
 
     pub async fn delete_external_contact_product_album(
@@ -2131,13 +2159,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let product_id = product_id.into();
         validate_external_contact_product_id(&product_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/delete_product_album",
                 Some(access_token.into()),
                 json!({ "product_id": product_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact delete product album")?;
+        Ok(response)
     }
 
     pub async fn list_external_contact_product_albums(
@@ -2344,13 +2375,16 @@ impl Work {
         request: ExternalContactWelcomeMessageRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/send_welcome_msg",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact send welcome message")?;
+        Ok(response)
     }
 
     pub async fn remind_external_contact_group_message_send(
@@ -2360,13 +2394,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let msg_id = msg_id.into();
         validate_external_contact_group_message_id(&msg_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/remind_groupmsg_send",
                 Some(access_token.into()),
                 json!({ "msgid": msg_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact remind group message send")?;
+        Ok(response)
     }
 
     pub async fn cancel_external_contact_group_message_send(
@@ -2376,13 +2413,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let msg_id = msg_id.into();
         validate_external_contact_group_message_id(&msg_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/cancel_groupmsg_send",
                 Some(access_token.into()),
                 json!({ "msgid": msg_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact cancel group message send")?;
+        Ok(response)
     }
 
     pub async fn transfer_external_customer(
@@ -2406,13 +2446,16 @@ impl Work {
         request: ExternalContactUnassignedTransferRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/transfer",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("external-contact transfer unassigned customer")?;
+        Ok(response)
     }
 
     pub async fn query_external_customer_transfer_result(
@@ -2603,13 +2646,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let moment_id = moment_id.into();
         validate_external_contact_identifier("moment id", &moment_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/cancel_moment_task",
                 Some(access_token.into()),
                 json!({ "moment_id": moment_id }),
             )
-            .await
+            .await?;
+        response.validate_for("external-contact cancel moment task")?;
+        Ok(response)
     }
 
     pub async fn get_external_contact_moment_task_result(
@@ -2773,11 +2819,7 @@ impl Work {
                 request,
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact customer strategy edit",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact customer strategy edit")?;
         Ok(response)
     }
 
@@ -2795,11 +2837,7 @@ impl Work {
                 json!({ "strategy_id": strategy_id }),
             )
             .await?;
-        validate_external_contact_response_success(
-            "external-contact customer strategy delete",
-            response.errcode,
-            response.errmsg.as_deref(),
-        )?;
+        response.validate_for("external-contact customer strategy delete")?;
         Ok(response)
     }
 
@@ -7054,7 +7092,7 @@ pub struct UserIdToOpenIdResponse {
 
 impl UserIdToOpenIdResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "work userid to openid conversion",
             self.errcode,
             self.errmsg.as_deref(),
@@ -7140,7 +7178,7 @@ pub struct WorkUnionIdToExternalUserIdResponse {
 
 impl WorkUnionIdToExternalUserIdResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact unionid conversion",
             self.errcode,
             self.errmsg.as_deref(),
@@ -7238,7 +7276,7 @@ pub struct WorkExternalUserIdMigrationResponse {
 
 impl WorkExternalUserIdMigrationResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact userid migration",
             self.errcode,
             self.errmsg.as_deref(),
@@ -7994,6 +8032,16 @@ pub struct WorkStatusResponse {
     pub errmsg: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkStatusResponse {
+    pub fn validate_for(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(operation, self.errcode, self.errmsg.as_deref())
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.errcode.is_none_or(|code| code == 0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10998,7 +11046,7 @@ pub struct ExternalContactListResponse {
 
 impl ExternalContactListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -11134,7 +11182,7 @@ pub struct ExternalContactServedInfo {
 
 impl ExternalContactServedListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact served list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -11301,7 +11349,7 @@ pub struct ExternalContactFollowUserListResponse {
 
 impl ExternalContactFollowUserListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact follow-user list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -11340,7 +11388,7 @@ pub struct ExternalContactDetailResponse {
 
 impl ExternalContactDetailResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact detail",
             self.errcode,
             self.errmsg.as_deref(),
@@ -11426,7 +11474,7 @@ pub struct ExternalContactBatchGetResponse {
 
 impl ExternalContactBatchGetResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact batch get",
             self.errcode,
             self.errmsg.as_deref(),
@@ -12974,7 +13022,7 @@ pub struct CorpTagListResponse {
 
 impl CorpTagListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact corporate tag list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -13068,7 +13116,7 @@ pub struct CorpTagAddResponse {
 
 impl CorpTagAddResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact corporate tag add",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14240,7 +14288,7 @@ pub struct ExternalContactMomentStrategyListResponse {
 
 impl ExternalContactMomentStrategyListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact moment strategy list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14293,7 +14341,7 @@ pub struct ExternalContactMomentStrategyResponse {
 
 impl ExternalContactMomentStrategyResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact moment strategy get",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14334,7 +14382,7 @@ pub struct ExternalContactMomentStrategyRangeResponse {
 
 impl ExternalContactMomentStrategyRangeResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact moment strategy range",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14398,7 +14446,7 @@ pub struct ExternalContactMomentStrategyCreateResponse {
 
 impl ExternalContactMomentStrategyCreateResponse {
     pub fn validate_create(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact moment strategy create",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14412,7 +14460,7 @@ impl ExternalContactMomentStrategyCreateResponse {
     }
 
     pub fn validate_edit(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact moment strategy edit",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14433,7 +14481,7 @@ impl ExternalContactMomentStrategyCreateResponse {
     }
 }
 
-fn validate_external_contact_response_success(
+fn validate_work_response_success(
     operation: &str,
     errcode: Option<i64>,
     errmsg: Option<&str>,
@@ -14744,7 +14792,7 @@ pub struct ExternalContactStrategyTagListResponse {
 
 impl ExternalContactStrategyTagListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact strategy tag list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -14776,7 +14824,7 @@ pub struct ExternalContactStrategyTagAddResponse {
 
 impl ExternalContactStrategyTagAddResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact strategy tag add",
             self.errcode,
             self.errmsg.as_deref(),
@@ -20873,7 +20921,7 @@ impl ExternalContactCustomerStrategy {
 
 impl ExternalContactCustomerStrategyListResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact customer strategy list",
             self.errcode,
             self.errmsg.as_deref(),
@@ -20914,7 +20962,7 @@ impl ExternalContactCustomerStrategyListResponse {
 
 impl ExternalContactCustomerStrategyResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact customer strategy get",
             self.errcode,
             self.errmsg.as_deref(),
@@ -20955,7 +21003,7 @@ pub struct ExternalContactCustomerStrategyRangeResponse {
 
 impl ExternalContactCustomerStrategyRangeResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact customer strategy range",
             self.errcode,
             self.errmsg.as_deref(),
@@ -21018,7 +21066,7 @@ pub struct ExternalContactCustomerStrategyCreateResponse {
 
 impl ExternalContactCustomerStrategyCreateResponse {
     pub fn validate(&self) -> Result<()> {
-        validate_external_contact_response_success(
+        validate_work_response_success(
             "external-contact customer strategy create",
             self.errcode,
             self.errmsg.as_deref(),
@@ -39853,6 +39901,40 @@ mod tests {
         .unwrap();
         assert_eq!(ticket.ticket.as_deref(), Some("ticket"));
         assert_eq!(ticket.extra["issued_at"], 1_800_000_000);
+    }
+
+    #[test]
+    fn validates_work_status_response_contracts() {
+        let implicit_success: WorkStatusResponse =
+            serde_json::from_value(json!({ "request_id": "implicit" })).unwrap();
+        assert!(implicit_success.is_success());
+        assert!(implicit_success
+            .validate_for("external-contact mutation")
+            .is_ok());
+
+        let explicit_success: WorkStatusResponse =
+            serde_json::from_value(json!({ "errcode": 0, "errmsg": "ok" })).unwrap();
+        assert!(explicit_success.is_success());
+        assert!(explicit_success
+            .validate_for("external-contact mutation")
+            .is_ok());
+
+        let api_error: WorkStatusResponse =
+            serde_json::from_value(json!({ "errcode": 40058, "errmsg": "invalid parameter" }))
+                .unwrap();
+        assert!(!api_error.is_success());
+        assert!(matches!(
+            api_error.validate_for("external-contact mutation"),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let fallback_error: WorkStatusResponse =
+            serde_json::from_value(json!({ "errcode": 50001 })).unwrap();
+        assert!(matches!(
+            fallback_error.validate_for("external-contact fallback"),
+            Err(WechatError::Api { code: 50001, message })
+                if message == "external-contact fallback"
+        ));
     }
 
     #[test]

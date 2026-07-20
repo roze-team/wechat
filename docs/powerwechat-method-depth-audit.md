@@ -2052,6 +2052,23 @@ contracts:
   response form, and migration results require at most 1000 unique complete
   source-to-target mappings.
 
+Implemented on 2026-07-20 in Work external-contact mutation-status response
+contracts:
+
+- `WorkStatusResponse` now exposes reusable checked success and operation-aware
+  validation helpers, preserving extension fields while converting every
+  nonzero Work API code into `WechatError::Api`;
+- all 28 external-contact status mutations now validate at the HTTP boundary,
+  covering school subscription, contact ways, temporary chats, remarks, tags,
+  group-chat join ways, moment/customer strategies, welcome templates,
+  customer-acquisition links, intercept rules, product albums, welcome/group
+  messages, unassigned-customer transfer, and moment cancellation;
+- omitted and explicit-zero error codes remain successful for compatibility,
+  while error messages fall back to the concrete operation name when WeCom
+  omits `errmsg`;
+- group-chat external-userid migration now also applies the shared complete,
+  unique, at-most-1000 mapping response contract before returning.
+
 Implemented on 2026-07-20 in Payment merchant-service workflow depth:
 
 - complaint list, detail, negotiation-history, reply, completion,
