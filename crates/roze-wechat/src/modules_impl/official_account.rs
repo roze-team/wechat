@@ -6775,6 +6775,28 @@ pub struct MaterialMediaResponse {
     pub extra: Value,
 }
 
+impl MaterialMediaResponse {
+    pub fn require_media_id(&self) -> Result<&str> {
+        ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
+        let media_id = self.media_id.as_deref().ok_or_else(|| {
+            WechatError::Config("material upload response is missing media id".to_string())
+        })?;
+        validate_material_required("response media id", media_id)?;
+        Ok(media_id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
+        if let Some(media_id) = self.media_id.as_deref() {
+            validate_material_required("response media id", media_id)?;
+        }
+        if let Some(url) = self.url.as_deref() {
+            validate_material_http_url("response URL", url)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaterialUploadKind {
     Image,
@@ -6887,6 +6909,16 @@ impl MaterialListRequest {
     }
 }
 
+fn ensure_material_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or("material operation failed").to_string(),
+        });
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_material_articles(articles: &[Article]) -> Result<()> {
     if articles.is_empty() || articles.len() > 8 {
         return Err(WechatError::Config(
@@ -6956,6 +6988,30 @@ impl MaterialListItem {
             .transpose()
             .map_err(WechatError::from)
     }
+
+    pub fn require_media_id(&self) -> Result<&str> {
+        let media_id = self.media_id.as_deref().ok_or_else(|| {
+            WechatError::Config("material list item is missing media id".to_string())
+        })?;
+        validate_material_required("list item media id", media_id)?;
+        Ok(media_id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_media_id()?;
+        if self.update_time.is_some_and(|update_time| update_time < 0) {
+            return Err(WechatError::Config(
+                "material list item update time cannot be negative".to_string(),
+            ));
+        }
+        if let Some(url) = self.url.as_deref() {
+            validate_material_http_url("list item URL", url)?;
+        }
+        if let Some(content) = self.news_content()? {
+            content.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6968,6 +7024,19 @@ pub struct MaterialNewsContent {
     pub update_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl MaterialNewsContent {
+    pub fn validate(&self) -> Result<()> {
+        if self.create_time.is_some_and(|create_time| create_time < 0)
+            || self.update_time.is_some_and(|update_time| update_time < 0)
+        {
+            return Err(WechatError::Config(
+                "material news timestamps cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6986,6 +7055,83 @@ pub struct MaterialListResponse {
     pub extra: Value,
 }
 
+impl MaterialListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.total_count.is_some_and(|count| count < 0)
+            || self.item_count.is_some_and(|count| count < 0)
+        {
+            return Err(WechatError::Config(
+                "material list counts cannot be negative".to_string(),
+            ));
+        }
+        if let Some(item_count) = self.item_count {
+            let actual_count = i64::try_from(self.item.len()).map_err(|_| {
+                WechatError::Config("material list item count exceeds i64".to_string())
+            })?;
+            if item_count != actual_count {
+                return Err(WechatError::Config(format!(
+                    "material list item_count {item_count} does not match {} decoded items",
+                    self.item.len()
+                )));
+            }
+        }
+        if self
+            .total_count
+            .zip(self.item_count)
+            .is_some_and(|(total, page)| page > total)
+        {
+            return Err(WechatError::Config(
+                "material list item_count cannot exceed total_count".to_string(),
+            ));
+        }
+        let mut media_ids = HashSet::with_capacity(self.item.len());
+        for item in &self.item {
+            item.validate()?;
+            let media_id = item.require_media_id()?;
+            if !media_ids.insert(media_id.trim()) {
+                return Err(WechatError::Config(
+                    "material list contains duplicate media ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, media_id: &str) -> Option<&MaterialListItem> {
+        self.item
+            .iter()
+            .find(|item| item.media_id.as_deref() == Some(media_id))
+    }
+
+    pub fn next_offset(&self, current_offset: i64) -> Result<Option<i64>> {
+        self.validate()?;
+        if current_offset < 0 {
+            return Err(WechatError::Config(
+                "material list current offset cannot be negative".to_string(),
+            ));
+        }
+        let page_count = match self.item_count {
+            Some(item_count) => item_count,
+            None => i64::try_from(self.item.len()).map_err(|_| {
+                WechatError::Config("material list item count exceeds i64".to_string())
+            })?,
+        };
+        let next_offset = current_offset.checked_add(page_count).ok_or_else(|| {
+            WechatError::Config("material list next offset overflowed".to_string())
+        })?;
+        match self.total_count {
+            Some(total_count) if next_offset < total_count && page_count == 0 => {
+                Err(WechatError::Config(
+                    "material list cannot advance an empty non-terminal page".to_string(),
+                ))
+            }
+            Some(total_count) if next_offset < total_count => Ok(Some(next_offset)),
+            _ => Ok(None),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaterialStatsResponse {
     #[serde(default)]
@@ -7002,6 +7148,44 @@ pub struct MaterialStatsResponse {
     pub news_count: Option<i64>,
     #[serde(flatten)]
     pub extra: Value,
+}
+
+impl MaterialStatsResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
+        if [
+            self.voice_count,
+            self.video_count,
+            self.image_count,
+            self.news_count,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|count| count < 0)
+        {
+            return Err(WechatError::Config(
+                "material statistics counts cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn total_count(&self) -> Result<i64> {
+        self.validate()?;
+        [
+            self.voice_count,
+            self.video_count,
+            self.image_count,
+            self.news_count,
+        ]
+        .into_iter()
+        .flatten()
+        .try_fold(0_i64, |total, count| {
+            total.checked_add(count).ok_or_else(|| {
+                WechatError::Config("material statistics total count overflowed".to_string())
+            })
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

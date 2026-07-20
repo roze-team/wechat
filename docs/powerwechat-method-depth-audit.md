@@ -42,8 +42,9 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
 
 3. Open Platform authorizer depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for authorizer mini-program release/audit,
-   privacy, domain, tester, material, and aggregate account flows.
+   Release/audit, privacy, domain, tester, and permanent-material workflows
+   now have production response guards. Continue aggregate account and
+   authorizer Official Account workflow depth.
 
 4. Mini Program depth:
    exact endpoint coverage is now green after filtering scanner-only
@@ -1144,6 +1145,29 @@ Implemented on 2026-07-20 in Open Platform authorizer release workflow depth:
   consistency, while plan responses expose a direct active-release helper;
 - support-version responses reject blank current versions, negative UV counts,
   and percentages outside zero through one hundred before rollout decisions.
+
+Implemented on 2026-07-20 in Open Platform authorizer domain, tester, privacy,
+and shared permanent-material response depth:
+
+- domain mutation responses normalize string/object result variants, expose
+  configured and invalid result sets, distinguish non-ICP failures, validate
+  required domain identities, preserve future fields, and provide an explicit
+  all-applied guard for deployment workflows;
+- tester bind responses require a nonblank `userstr`, while tester lists
+  validate member identities, timestamps, unique `userstr` and WeChat-id
+  values, and expose direct lookup by either identity;
+- privacy setting responses validate API errors, code-state flags, versions,
+  timestamps, setting/SDK/description uniqueness, and absolute evidence URLs;
+  code-detected privacy keys can be compared against declared settings before
+  an audit submission;
+- privacy extension uploads and interface applications require their returned
+  media/audit ids, while interface lists validate unique API identities and
+  expose lookup, action-required, and all-approved semantics without rejecting
+  future status codes;
+- the shared Official Account/Open Platform material DTOs now validate API
+  errors, media ids, URLs, timestamps, decoded page counts, unique items, and
+  non-negative statistics; checked next-page and aggregate-count helpers
+  reject stalled pagination and integer overflow.
 
 Implemented on 2026-07-18 in Official Account draft, publish, and menu depth:
 
