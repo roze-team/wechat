@@ -2491,6 +2491,31 @@ Implemented on 2026-07-20 in Payment notification and order verification depth:
 - all promotion and reconciliation arithmetic is checked for overflow and
   returns typed configuration errors on inconsistent financial data.
 
+Implemented on 2026-07-21 in Work OA WeDoc response-contract depth:
+
+- 28 public boundaries across document lifecycle, sharing and authorization,
+  VIP accounts, legacy content, image upload, administrators, document batch
+  updates, spreadsheets, and collection forms now validate requests before
+  transport and typed responses before returning application data;
+- all typed WeDoc responses propagate nonzero WeChat `errcode` values, while
+  successful create/read/share/upload operations require their documented
+  identifiers, payload envelopes, versions, content, or absolute HTTP(S) URLs;
+- document/form targets enforce exactly one wire identity, member and
+  administrator changes reject missing or duplicate identities, permission
+  departments and VIP lists require unique valid identifiers, and paginated
+  responses require a cursor whenever `has_more` is true;
+- spreadsheet reads require typed `data.result` envelopes, unique sheet ids,
+  nonnegative dimensions and offsets, while batches require 1-to-100
+  unambiguous operations and exactly one result variant per response item;
+- form creation/modification, statistic queries, and answer reads validate
+  titles, question and repeated ids, time/page ranges, positive unique answer
+  ids, required response envelopes, nonnegative counters, timestamps, and
+  duplicate records;
+- realistic lifecycle/content/spreadsheet fixtures now execute the same
+  validators used by network methods, with a dedicated failure matrix for API
+  errors, missing payloads, malformed URLs, cursor breaks, duplicate
+  identities, and ambiguous spreadsheet operations.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

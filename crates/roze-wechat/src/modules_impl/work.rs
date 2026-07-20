@@ -4979,13 +4979,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocCreateDocumentRequest,
     ) -> Result<WorkWeDocCreateDocumentResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocCreateDocumentResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/create_doc",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn rename_wedoc_document(
@@ -4993,13 +4997,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocRenameDocumentRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/rename_doc",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc rename document")?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_document(
@@ -5007,9 +5015,13 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocDocumentTargetRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/wedoc/del_doc", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work WeDoc delete document")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_document_base_info(
@@ -5017,13 +5029,18 @@ impl Work {
         access_token: impl Into<String>,
         docid: impl Into<String>,
     ) -> Result<WorkWeDocDocumentBaseInfoResponse> {
-        self.inner
+        let docid = docid.into();
+        validate_wedoc_identifier("document id", &docid)?;
+        let response: WorkWeDocDocumentBaseInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/get_doc_base_info",
                 Some(access_token.into()),
-                json!({ "docid": docid.into() }),
+                json!({ "docid": docid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn share_wedoc_document(
@@ -5031,13 +5048,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocDocumentTargetRequest,
     ) -> Result<WorkWeDocShareDocumentResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocShareDocumentResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/doc_share",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_document_auth(
@@ -5045,13 +5066,18 @@ impl Work {
         access_token: impl Into<String>,
         docid: impl Into<String>,
     ) -> Result<WorkWeDocDocumentAuthResponse> {
-        self.inner
+        let docid = docid.into();
+        validate_wedoc_identifier("document id", &docid)?;
+        let response: WorkWeDocDocumentAuthResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/doc_get_auth",
                 Some(access_token.into()),
-                json!({ "docid": docid.into() }),
+                json!({ "docid": docid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn modify_wedoc_document_join_rule(
@@ -5059,13 +5085,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocModifyJoinRuleRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/mod_doc_join_rule",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc modify document join rule")?;
+        Ok(response)
     }
 
     pub async fn modify_wedoc_document_members(
@@ -5073,13 +5103,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocModifyMembersRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/mod_doc_member",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc modify document members")?;
+        Ok(response)
     }
 
     pub async fn modify_wedoc_document_safety_setting(
@@ -5087,13 +5121,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocModifySafetySettingRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/mod_doc_safty_setting",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc modify document safety setting")?;
+        Ok(response)
     }
 
     pub async fn batch_add_wedoc_vip_accounts(
@@ -5101,13 +5139,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocVipBatchRequest,
     ) -> Result<WorkWeDocVipBatchResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocVipBatchResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/vip/batch_add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("batch add")?;
+        Ok(response)
     }
 
     pub async fn batch_delete_wedoc_vip_accounts(
@@ -5115,13 +5157,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocVipBatchRequest,
     ) -> Result<WorkWeDocVipBatchResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocVipBatchResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/vip/batch_del",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate("batch delete")?;
+        Ok(response)
     }
 
     pub async fn list_wedoc_vip_accounts(
@@ -5129,9 +5175,13 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocVipListRequest,
     ) -> Result<WorkWeDocVipListResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocVipListResponse = self
+            .inner
             .post("cgi-bin/wedoc/vip/list", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_document_data(
@@ -5139,13 +5189,18 @@ impl Work {
         access_token: impl Into<String>,
         docid: impl Into<String>,
     ) -> Result<WorkWeDocDocumentDataResponse> {
-        self.inner
+        let docid = docid.into();
+        validate_wedoc_identifier("document id", &docid)?;
+        let response: WorkWeDocDocumentDataResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/document/get",
                 Some(access_token.into()),
-                json!({ "docid": docid.into() }),
+                json!({ "docid": docid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_content_data(
@@ -5153,13 +5208,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocGetContentDataRequest,
     ) -> Result<WorkWeDocContentDataResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocContentDataResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/get_doc_data",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn modify_wedoc_content(
@@ -5167,9 +5226,13 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocModifyContentRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post("cgi-bin/wedoc/mod_doc", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("work WeDoc modify content")?;
+        Ok(response)
     }
 
     pub async fn upload_wedoc_image_from_bytes(
@@ -5178,18 +5241,28 @@ impl Work {
         file_name: impl Into<String>,
         data: Vec<u8>,
     ) -> Result<WorkWeDocImageUploadResponse> {
+        let file_name = file_name.into();
+        validate_wedoc_identifier("image file name", &file_name)?;
+        if data.is_empty() {
+            return Err(WechatError::Config(
+                "work WeDoc image upload data cannot be empty".to_string(),
+            ));
+        }
         let form = reqwest::multipart::Form::new().part(
             "media",
-            reqwest::multipart::Part::bytes(data).file_name(file_name.into()),
+            reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
-        self.inner
+        let response: WorkWeDocImageUploadResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/wedoc/upload_doc_image",
                 Some(access_token.into()),
                 Vec::new(),
                 form,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_wedoc_admin(
@@ -5197,13 +5270,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocAdminRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/add_admin",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc add administrator")?;
+        Ok(response)
     }
 
     pub async fn delete_wedoc_admin(
@@ -5211,13 +5288,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocAdminRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/del_admin",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc delete administrator")?;
+        Ok(response)
     }
 
     pub async fn list_wedoc_admins(
@@ -5225,13 +5306,18 @@ impl Work {
         access_token: impl Into<String>,
         docid: impl Into<String>,
     ) -> Result<WorkWeDocAdminListResponse> {
-        self.inner
+        let docid = docid.into();
+        validate_wedoc_identifier("document id", &docid)?;
+        let response: WorkWeDocAdminListResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/get_admin_list",
                 Some(access_token.into()),
-                json!({ "docid": docid.into() }),
+                json!({ "docid": docid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn batch_update_wedoc_document(
@@ -5240,13 +5326,16 @@ impl Work {
         request: WorkWeDocDocumentBatchUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/document/batch_update",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc batch update document")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_spreadsheet_properties(
@@ -5254,13 +5343,18 @@ impl Work {
         access_token: impl Into<String>,
         docid: impl Into<String>,
     ) -> Result<WorkWeDocSpreadsheetPropertiesResponse> {
-        self.inner
+        let docid = docid.into();
+        validate_wedoc_identifier("document id", &docid)?;
+        let response: WorkWeDocSpreadsheetPropertiesResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/spreadsheet/get_sheet_properties",
                 Some(access_token.into()),
-                json!({ "docid": docid.into() }),
+                json!({ "docid": docid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_spreadsheet_range_data(
@@ -5268,13 +5362,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSpreadsheetRangeRequest,
     ) -> Result<WorkWeDocSpreadsheetRangeResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocSpreadsheetRangeResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/spreadsheet/get_sheet_range_data",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn batch_update_wedoc_spreadsheet(
@@ -5282,13 +5380,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocSpreadsheetBatchUpdateRequest,
     ) -> Result<WorkWeDocSpreadsheetBatchUpdateResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocSpreadsheetBatchUpdateResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/spreadsheet/batch_update",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_wedoc_smartsheet(
@@ -5639,13 +5741,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocCreateFormRequest,
     ) -> Result<WorkWeDocCreateFormResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocCreateFormResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/create_collect",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn modify_wedoc_form(
@@ -5653,13 +5759,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocModifyFormRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/modify_collect",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work WeDoc modify form")?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_form_info(
@@ -5667,13 +5777,18 @@ impl Work {
         access_token: impl Into<String>,
         formid: impl Into<String>,
     ) -> Result<WorkWeDocFormInfoResponse> {
-        self.inner
+        let formid = formid.into();
+        validate_wedoc_identifier("form id", &formid)?;
+        let response: WorkWeDocFormInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/get_form_info",
                 Some(access_token.into()),
-                json!({ "formid": formid.into() }),
+                json!({ "formid": formid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_form_statistics(
@@ -5681,13 +5796,17 @@ impl Work {
         access_token: impl Into<String>,
         requests: Vec<WorkWeDocFormStatisticRequest>,
     ) -> Result<WorkWeDocFormStatisticsResponse> {
-        self.inner
+        validate_wedoc_form_statistic_requests(&requests)?;
+        let response: WorkWeDocFormStatisticsResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/get_form_statistic",
                 Some(access_token.into()),
                 requests,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_wedoc_form_answers(
@@ -5695,13 +5814,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkWeDocFormAnswerRequest,
     ) -> Result<WorkWeDocFormAnswersResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkWeDocFormAnswersResponse = self
+            .inner
             .post(
                 "cgi-bin/wedoc/get_form_answer",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn oa_living(&self) -> DomainModule {
@@ -39093,6 +39216,936 @@ pub struct WorkWeDocFormDurationReply {
     pub extra: Value,
 }
 
+fn validate_wedoc_identifier(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work WeDoc {label} must be non-empty and cannot contain control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_http_url(label: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("work WeDoc {label} URL is invalid: {error}"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "work WeDoc {label} must be an absolute HTTP(S) URL"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_wedoc_target(docid: Option<&str>, formid: Option<&str>) -> Result<()> {
+    match (docid, formid) {
+        (Some(docid), None) => validate_wedoc_identifier("document id", docid),
+        (None, Some(formid)) => validate_wedoc_identifier("form id", formid),
+        _ => Err(WechatError::Config(
+            "work WeDoc target requires exactly one of docid or formid".to_string(),
+        )),
+    }
+}
+
+fn validate_wedoc_unique_identifiers(label: &str, values: &[String]) -> Result<()> {
+    if values
+        .iter()
+        .any(|value| validate_wedoc_identifier(label, value).is_err())
+        || has_duplicate_strings(values)
+    {
+        return Err(WechatError::Config(format!(
+            "work WeDoc {label} values must be unique and valid"
+        )));
+    }
+    Ok(())
+}
+
+impl WorkWeDocCreateDocumentRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(spaceid) = self.spaceid.as_deref() {
+            validate_wedoc_identifier("space id", spaceid)?;
+        }
+        if let Some(fatherid) = self.fatherid.as_deref() {
+            validate_wedoc_identifier("parent id", fatherid)?;
+        }
+        if self.doc_type <= 0 {
+            return Err(WechatError::Config(
+                "work WeDoc document type must be positive".to_string(),
+            ));
+        }
+        validate_wedoc_identifier("document name", &self.doc_name)?;
+        validate_wedoc_unique_identifiers("administrator user id", &self.admin_users)
+    }
+}
+
+impl WorkWeDocCreateDocumentResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc create document",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.require_docid()?;
+        if let Some(url) = self.url.as_deref() {
+            validate_wedoc_http_url("document", url)?;
+        }
+        Ok(())
+    }
+
+    pub fn require_docid(&self) -> Result<&str> {
+        let docid = self.docid.as_deref().ok_or_else(|| {
+            WechatError::Config("work WeDoc create document response requires docid".to_string())
+        })?;
+        validate_wedoc_identifier("document id", docid)?;
+        Ok(docid)
+    }
+}
+
+impl WorkWeDocRenameDocumentRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_target(self.docid.as_deref(), self.formid.as_deref())?;
+        validate_wedoc_identifier("new name", &self.new_name)
+    }
+}
+
+impl WorkWeDocDocumentTargetRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_target(self.docid.as_deref(), self.formid.as_deref())
+    }
+}
+
+impl WorkWeDocDocumentBaseInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get document base info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let info = self.doc_base_info.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "work WeDoc document base-info response requires doc_base_info".to_string(),
+            )
+        })?;
+        if let Some(docid) = info.docid.as_deref() {
+            validate_wedoc_identifier("document id", docid)?;
+        }
+        if let Some(name) = info.doc_name.as_deref() {
+            validate_wedoc_identifier("document name", name)?;
+        }
+        if info.create_time.is_some_and(|value| value < 0)
+            || info.modify_time.is_some_and(|value| value < 0)
+            || info.doc_type.is_some_and(|value| value <= 0)
+        {
+            return Err(WechatError::Config(
+                "work WeDoc document base-info values cannot be negative or invalid".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocShareDocumentResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc share document",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let url = self.share_url.as_deref().ok_or_else(|| {
+            WechatError::Config("work WeDoc share response requires share_url".to_string())
+        })?;
+        validate_wedoc_http_url("share", url)
+    }
+}
+
+impl WorkWeDocDocumentAuthResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get document authorization",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut members = HashSet::with_capacity(self.doc_member_list.len());
+        for member in &self.doc_member_list {
+            let identity = member
+                .userid
+                .as_deref()
+                .or(member.tmp_external_userid.as_deref())
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work WeDoc authorization member requires an identity".to_string(),
+                    )
+                })?;
+            validate_wedoc_identifier("authorization member id", identity)?;
+            if !members.insert((member.member_type, identity)) {
+                return Err(WechatError::Config(
+                    "work WeDoc authorization members cannot contain duplicates".to_string(),
+                ));
+            }
+        }
+        let mut departments = HashSet::with_capacity(self.co_auth_list.len());
+        for department in &self.co_auth_list {
+            let id = department.departmentid.ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDoc department authorization requires departmentid".to_string(),
+                )
+            })?;
+            if id <= 0 || !departments.insert((department.member_type, id)) {
+                return Err(WechatError::Config(
+                    "work WeDoc department authorization ids must be positive and unique"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocModifyJoinRuleRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        if self.enable_corp_internal.is_none()
+            && self.corp_internal_auth.is_none()
+            && self.enable_corp_external.is_none()
+            && self.corp_external_auth.is_none()
+            && self.corp_internal_approve_only_by_admin.is_none()
+            && self.corp_external_approve_only_by_admin.is_none()
+            && self.ban_share_external.is_none()
+            && self.update_co_auth_list.is_none()
+            && self.co_auth_list.is_empty()
+        {
+            return Err(WechatError::Config(
+                "work WeDoc join-rule update requires at least one change".to_string(),
+            ));
+        }
+        let mut departments = HashSet::with_capacity(self.co_auth_list.len());
+        for item in &self.co_auth_list {
+            let id = item.departmentid.ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDoc join-rule department requires departmentid".to_string(),
+                )
+            })?;
+            if id <= 0 || !departments.insert(id) {
+                return Err(WechatError::Config(
+                    "work WeDoc join-rule department ids must be positive and unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocModifyMembersRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        if self.update_file_member_list.is_empty() && self.del_file_member_list.is_empty() {
+            return Err(WechatError::Config(
+                "work WeDoc member update requires additions or deletions".to_string(),
+            ));
+        }
+        let mut identities = HashSet::new();
+        for member in self
+            .update_file_member_list
+            .iter()
+            .chain(self.del_file_member_list.iter())
+        {
+            let identity = member
+                .userid
+                .as_deref()
+                .or(member.tmp_external_userid.as_deref())
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work WeDoc document member requires an identity".to_string(),
+                    )
+                })?;
+            validate_wedoc_identifier("document member id", identity)?;
+            if !identities.insert((member.member_type, identity)) {
+                return Err(WechatError::Config(
+                    "work WeDoc document member changes cannot contain duplicates".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocModifySafetySettingRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        if self.enable_readonly_copy.is_none() && self.watermark.is_none() {
+            return Err(WechatError::Config(
+                "work WeDoc safety-setting update requires at least one change".to_string(),
+            ));
+        }
+        if let Some(text) = self
+            .watermark
+            .as_ref()
+            .and_then(|watermark| watermark.text.as_deref())
+        {
+            validate_wedoc_identifier("watermark text", text)?;
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocVipBatchRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.userid_list.is_empty() {
+            return Err(WechatError::Config(
+                "work WeDoc VIP batch requires at least one userid".to_string(),
+            ));
+        }
+        validate_wedoc_unique_identifiers("VIP userid", &self.userid_list)
+    }
+}
+
+impl WorkWeDocVipBatchResponse {
+    pub fn validate(&self, operation: &str) -> Result<()> {
+        validate_work_response_success(
+            &format!("work WeDoc VIP {operation}"),
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_unique_identifiers("successful VIP userid", &self.succ_userid_list)?;
+        validate_wedoc_unique_identifiers("failed VIP userid", &self.fail_userid_list)?;
+        let successful: HashSet<_> = self.succ_userid_list.iter().collect();
+        if self
+            .fail_userid_list
+            .iter()
+            .any(|userid| successful.contains(userid))
+        {
+            return Err(WechatError::Config(
+                "work WeDoc VIP response cannot report a userid as both successful and failed"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocVipListRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+            || self.limit.is_some_and(|limit| !(1..=1000).contains(&limit))
+        {
+            return Err(WechatError::Config(
+                "work WeDoc VIP list cursor must be non-empty and limit must be 1..=1000"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocVipListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc list VIP accounts",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_wedoc_unique_identifiers("VIP userid", &self.userid_list)?;
+        if self.has_more == Some(true)
+            && self
+                .next_cursor
+                .as_deref()
+                .is_none_or(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work WeDoc VIP list response requires next_cursor when has_more is true"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocDocumentDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get document data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.version.is_none_or(|version| version < 0) || self.document.is_none() {
+            return Err(WechatError::Config(
+                "work WeDoc document-data response requires a nonnegative version and document"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocGetContentDataRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)
+    }
+}
+
+impl WorkWeDocContentDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get content data",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(docid) = self.docid.as_deref() {
+            validate_wedoc_identifier("document id", docid)?;
+        }
+        if self.effective_content().is_none() {
+            return Err(WechatError::Config(
+                "work WeDoc content response requires content or doc_content".to_string(),
+            ));
+        }
+        if self.has_more == Some(true)
+            && self
+                .next_cursor
+                .as_deref()
+                .is_none_or(|cursor| cursor.trim().is_empty())
+        {
+            return Err(WechatError::Config(
+                "work WeDoc content response requires next_cursor when has_more is true"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocModifyContentRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        if self.requests.is_none() && self.extra.as_object().is_none_or(Map::is_empty) {
+            return Err(WechatError::Config(
+                "work WeDoc content update requires requests".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocImageUploadResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc upload image",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(url) = self.effective_url() {
+            validate_wedoc_http_url("image", url)?;
+        }
+        if self.effective_url().is_none()
+            && self.fileid.as_deref().is_none_or(str::is_empty)
+            && self.imageid.as_deref().is_none_or(str::is_empty)
+            && self.media_id.as_deref().is_none_or(str::is_empty)
+        {
+            return Err(WechatError::Config(
+                "work WeDoc image-upload response requires an URL or media identifier".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocAdminRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        match (self.userid.as_deref(), self.open_userid.as_deref()) {
+            (Some(userid), None) => validate_wedoc_identifier("administrator userid", userid)?,
+            (None, Some(open_userid)) => {
+                validate_wedoc_identifier("administrator open_userid", open_userid)?
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "work WeDoc administrator requires exactly one identity".to_string(),
+                ))
+            }
+        }
+        if self.account_type.is_some_and(|value| value <= 0) {
+            return Err(WechatError::Config(
+                "work WeDoc administrator account type must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocAdminListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc list administrators",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if let Some(docid) = self.docid.as_deref() {
+            validate_wedoc_identifier("document id", docid)?;
+        }
+        let mut identities = HashSet::with_capacity(self.admin_list.len());
+        for admin in &self.admin_list {
+            let identity = match (admin.userid.as_deref(), admin.open_userid.as_deref()) {
+                (Some(userid), None) => userid,
+                (None, Some(open_userid)) => open_userid,
+                _ => {
+                    return Err(WechatError::Config(
+                        "work WeDoc administrator response item requires exactly one identity"
+                            .to_string(),
+                    ))
+                }
+            };
+            validate_wedoc_identifier("administrator identity", identity)?;
+            if !identities.insert((admin.account_type, identity)) {
+                return Err(WechatError::Config(
+                    "work WeDoc administrator response cannot contain duplicates".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSpreadsheetRangeRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        validate_wedoc_identifier("sheet id", &self.sheet_id)?;
+        validate_wedoc_identifier("spreadsheet range", &self.range)
+    }
+}
+
+impl WorkWeDocSpreadsheetPropertiesResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get spreadsheet properties",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut sheet_ids = HashSet::with_capacity(self.properties.len());
+        for property in &self.properties {
+            let sheet_id = property.sheet_id.as_deref().ok_or_else(|| {
+                WechatError::Config("work WeDoc spreadsheet property requires sheet_id".to_string())
+            })?;
+            validate_wedoc_identifier("sheet id", sheet_id)?;
+            if !sheet_ids.insert(sheet_id) {
+                return Err(WechatError::Config(
+                    "work WeDoc spreadsheet properties cannot contain duplicate sheet ids"
+                        .to_string(),
+                ));
+            }
+            if property.row_count.is_some_and(|value| value < 0)
+                || property.column_count.is_some_and(|value| value < 0)
+            {
+                return Err(WechatError::Config(
+                    "work WeDoc spreadsheet dimensions cannot be negative".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSpreadsheetRangeResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get spreadsheet range",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let result = self
+            .data
+            .as_ref()
+            .and_then(|data| data.result.as_ref())
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work WeDoc spreadsheet range response requires data.result".to_string(),
+                )
+            })?;
+        if result.start_row.is_some_and(|value| value < 0)
+            || result.start_column.is_some_and(|value| value < 0)
+        {
+            return Err(WechatError::Config(
+                "work WeDoc spreadsheet range offsets cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSpreadsheetBatchUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("document id", &self.docid)?;
+        if self.requests.is_empty() || self.requests.len() > 100 {
+            return Err(WechatError::Config(
+                "work WeDoc spreadsheet batch requires 1..=100 operations".to_string(),
+            ));
+        }
+        for request in &self.requests {
+            let known = [
+                request.add_sheet_request.is_some(),
+                request.delete_sheet_request.is_some(),
+                request.update_range_request.is_some(),
+                request.delete_dimension_request.is_some(),
+            ]
+            .into_iter()
+            .filter(|present| *present)
+            .count();
+            let future_operations = request.extra.as_object().map_or(0, Map::len);
+            if known > 1
+                || (known == 0 && future_operations != 1)
+                || (known == 1 && future_operations > 0)
+            {
+                return Err(WechatError::Config(
+                    "work WeDoc spreadsheet update requires exactly one operation".to_string(),
+                ));
+            }
+            if let Some(add) = request.add_sheet_request.as_ref() {
+                validate_wedoc_identifier("sheet title", &add.title)?;
+                if add.row_count <= 0 || add.column_count <= 0 {
+                    return Err(WechatError::Config(
+                        "work WeDoc added sheet dimensions must be positive".to_string(),
+                    ));
+                }
+            }
+            if let Some(delete) = request.delete_sheet_request.as_ref() {
+                validate_wedoc_identifier("sheet id", &delete.sheet_id)?;
+            }
+            if let Some(update) = request.update_range_request.as_ref() {
+                validate_wedoc_identifier("sheet id", &update.sheet_id)?;
+            }
+            if let Some(delete) = request.delete_dimension_request.as_ref() {
+                validate_wedoc_identifier("sheet id", &delete.sheet_id)?;
+                if !matches!(
+                    delete.dimension.to_ascii_uppercase().as_str(),
+                    "ROW" | "ROWS" | "COLUMN" | "COLUMNS"
+                ) || delete.start_index < 0
+                    || delete.end_index <= delete.start_index
+                {
+                    return Err(WechatError::Config(
+                        "work WeDoc deleted dimension must be ROWS/COLUMNS with a valid range"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocSpreadsheetBatchUpdateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc batch update spreadsheet",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let data = self.data.as_ref().ok_or_else(|| {
+            WechatError::Config("work WeDoc spreadsheet batch response requires data".to_string())
+        })?;
+        for response in &data.responses {
+            let known = [
+                response.add_sheet_response.is_some(),
+                response.delete_sheet_response.is_some(),
+                response.update_range_response.is_some(),
+                response.delete_dimension_response.is_some(),
+            ]
+            .into_iter()
+            .filter(|present| *present)
+            .count();
+            if known > 1 || (known == 0 && response.extra.as_object().is_none_or(Map::is_empty)) {
+                return Err(WechatError::Config(
+                    "work WeDoc spreadsheet batch response requires exactly one operation result"
+                        .to_string(),
+                ));
+            }
+            if response
+                .update_range_response
+                .as_ref()
+                .and_then(|result| result.updated_cells)
+                .is_some_and(|value| value < 0)
+                || response
+                    .delete_dimension_response
+                    .as_ref()
+                    .and_then(|result| result.deleted)
+                    .is_some_and(|value| value < 0)
+            {
+                return Err(WechatError::Config(
+                    "work WeDoc spreadsheet mutation counts cannot be negative".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocCreateFormRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(spaceid) = self.spaceid.as_deref() {
+            validate_wedoc_identifier("space id", spaceid)?;
+        }
+        if let Some(fatherid) = self.fatherid.as_deref() {
+            validate_wedoc_identifier("parent id", fatherid)?;
+        }
+        self.form_info.validate_for_request(true)
+    }
+}
+
+impl WorkWeDocCreateFormResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc create form",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.require_formid().map(|_| ())
+    }
+
+    pub fn require_formid(&self) -> Result<&str> {
+        let formid = self.formid.as_deref().ok_or_else(|| {
+            WechatError::Config("work WeDoc create form response requires formid".to_string())
+        })?;
+        validate_wedoc_identifier("form id", formid)?;
+        Ok(formid)
+    }
+}
+
+impl WorkWeDocModifyFormRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.oper <= 0 {
+            return Err(WechatError::Config(
+                "work WeDoc form operation must be positive".to_string(),
+            ));
+        }
+        validate_wedoc_identifier("form id", &self.formid)?;
+        self.form_info.validate_for_request(false)
+    }
+}
+
+impl WorkWeDocFormInfo {
+    fn validate_for_request(&self, require_title: bool) -> Result<()> {
+        if let Some(formid) = self.formid.as_deref() {
+            validate_wedoc_identifier("form id", formid)?;
+        }
+        if require_title && self.form_title.as_deref().is_none_or(str::is_empty) {
+            return Err(WechatError::Config(
+                "work WeDoc form title is required".to_string(),
+            ));
+        }
+        if let Some(title) = self.form_title.as_deref() {
+            validate_wedoc_identifier("form title", title)?;
+        }
+        validate_wedoc_unique_identifiers("form repeated id", &self.repeated_id)?;
+        if let Some(question) = self.form_question.as_ref() {
+            let mut ids = HashSet::with_capacity(question.items.len());
+            for item in &question.items {
+                if item.question_id.is_some_and(|id| id <= 0)
+                    || item.question_id.is_some_and(|id| !ids.insert(id))
+                    || item.pos.is_some_and(|position| position < 0)
+                {
+                    return Err(WechatError::Config(
+                        "work WeDoc form questions require positive unique ids and valid positions"
+                            .to_string(),
+                    ));
+                }
+                if let Some(title) = item.title.as_deref() {
+                    validate_wedoc_identifier("question title", title)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocFormInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get form info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.form_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("work WeDoc form-info response requires form_info".to_string())
+            })?
+            .validate_for_request(false)
+    }
+}
+
+impl WorkWeDocFormStatisticRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("form repeated id", &self.repeated_id)?;
+        if self.req_type <= 0
+            || self.start_time.is_some_and(|value| value < 0)
+            || self.end_time.is_some_and(|value| value < 0)
+            || matches!((self.start_time, self.end_time), (Some(start), Some(end)) if end < start)
+            || self.limit.is_some_and(|limit| !(1..=1000).contains(&limit))
+            || self.cursor.is_some_and(|cursor| cursor < 0)
+        {
+            return Err(WechatError::Config(
+                "work WeDoc form-statistics request contains an invalid type, time, page, or cursor"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_wedoc_form_statistic_requests(
+    requests: &[WorkWeDocFormStatisticRequest],
+) -> Result<()> {
+    if requests.is_empty() {
+        return Err(WechatError::Config(
+            "work WeDoc form-statistics query requires at least one request".to_string(),
+        ));
+    }
+    let mut repeated_ids = HashSet::with_capacity(requests.len());
+    for request in requests {
+        request.validate()?;
+        if !repeated_ids.insert(&request.repeated_id) {
+            return Err(WechatError::Config(
+                "work WeDoc form-statistics requests cannot repeat repeated_id".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+impl WorkWeDocFormStatisticsResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get form statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut repeated_ids = HashSet::with_capacity(self.statistic_list.len());
+        for statistic in &self.statistic_list {
+            let repeated_id = statistic.repeated_id.as_deref().ok_or_else(|| {
+                WechatError::Config("work WeDoc form statistic requires repeated_id".to_string())
+            })?;
+            validate_wedoc_identifier("form repeated id", repeated_id)?;
+            if !repeated_ids.insert(repeated_id)
+                || statistic.fill_cnt.is_some_and(|value| value < 0)
+                || statistic.fill_user_cnt.is_some_and(|value| value < 0)
+                || statistic.unfill_user_cnt.is_some_and(|value| value < 0)
+                || statistic.cursor.is_some_and(|value| value < 0)
+            {
+                return Err(WechatError::Config(
+                    "work WeDoc form-statistics response contains duplicate ids or negative counts"
+                        .to_string(),
+                ));
+            }
+            if statistic.has_more == Some(true) && statistic.cursor.is_none() {
+                return Err(WechatError::Config(
+                    "work WeDoc form statistic requires cursor when has_more is true".to_string(),
+                ));
+            }
+            let mut answer_ids = HashSet::with_capacity(statistic.submit_users.len());
+            for submitter in &statistic.submit_users {
+                let identity = submitter
+                    .userid
+                    .as_deref()
+                    .or(submitter.tmp_external_userid.as_deref())
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "work WeDoc form submitter requires an identity".to_string(),
+                        )
+                    })?;
+                validate_wedoc_identifier("form submitter id", identity)?;
+                let answer_id = submitter.answer_id.ok_or_else(|| {
+                    WechatError::Config("work WeDoc form submitter requires answer_id".to_string())
+                })?;
+                if answer_id <= 0
+                    || !answer_ids.insert(answer_id)
+                    || submitter.submit_time.is_some_and(|value| value < 0)
+                {
+                    return Err(WechatError::Config(
+                        "work WeDoc form submitters require positive unique answers and valid times"
+                            .to_string(),
+                    ));
+                }
+            }
+            let mut unfilled = HashSet::with_capacity(statistic.unfill_users.len());
+            for user in &statistic.unfill_users {
+                let userid = user.userid.as_deref().ok_or_else(|| {
+                    WechatError::Config("work WeDoc unfilled form user requires userid".to_string())
+                })?;
+                validate_wedoc_identifier("unfilled form userid", userid)?;
+                if !unfilled.insert(userid) {
+                    return Err(WechatError::Config(
+                        "work WeDoc unfilled form users cannot contain duplicates".to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocFormAnswerRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_wedoc_identifier("form repeated id", &self.repeated_id)?;
+        if self.answer_ids.is_empty()
+            || self.answer_ids.iter().any(|answer_id| *answer_id <= 0)
+            || has_duplicate_i64(&self.answer_ids)
+        {
+            return Err(WechatError::Config(
+                "work WeDoc form answer ids must be positive, unique, and non-empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkWeDocFormAnswersResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work WeDoc get form answers",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let answers = self.answer.as_ref().ok_or_else(|| {
+            WechatError::Config("work WeDoc form-answer response requires answer".to_string())
+        })?;
+        let mut answer_ids = HashSet::with_capacity(answers.answer_list.len());
+        for answer in &answers.answer_list {
+            let answer_id = answer.answer_id.ok_or_else(|| {
+                WechatError::Config("work WeDoc form answer requires answer_id".to_string())
+            })?;
+            if answer_id <= 0 || !answer_ids.insert(answer_id) {
+                return Err(WechatError::Config(
+                    "work WeDoc form answer ids must be positive and unique".to_string(),
+                ));
+            }
+            if answer.ctime.is_some_and(|value| value < 0)
+                || answer.mtime.is_some_and(|value| value < 0)
+            {
+                return Err(WechatError::Config(
+                    "work WeDoc form answer timestamps cannot be negative".to_string(),
+                ));
+            }
+            if let Some(reply) = answer.reply.as_ref() {
+                let mut question_ids = HashSet::with_capacity(reply.items.len());
+                for item in &reply.items {
+                    let question_id = item.question_id.ok_or_else(|| {
+                        WechatError::Config(
+                            "work WeDoc form reply item requires question_id".to_string(),
+                        )
+                    })?;
+                    if question_id <= 0 || !question_ids.insert(question_id) {
+                        return Err(WechatError::Config(
+                            "work WeDoc form reply question ids must be positive and unique"
+                                .to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkLivingCreateRequest {
     pub anchor_userid: String,
@@ -55031,6 +56084,7 @@ mod tests {
             "trace_id": "auth"
         }))
         .unwrap();
+        auth.validate().unwrap();
         let access_rule = auth.access_rule.expect("access rule");
         assert_eq!(access_rule.corp_internal_auth, Some(1));
         assert_eq!(access_rule.extra["rule_version"], 2);
@@ -55056,6 +56110,7 @@ mod tests {
             "request_id": "batch"
         }))
         .unwrap();
+        batch.validate("batch add").unwrap();
         assert_eq!(batch.succ_userid_list[0], "user-1");
         assert_eq!(batch.fail_userid_list[0], "user-2");
         assert_eq!(batch.extra["request_id"], "batch");
@@ -55067,6 +56122,7 @@ mod tests {
             "total": 2
         }))
         .unwrap();
+        list.validate().unwrap();
         assert_eq!(list.has_more, Some(true));
         assert_eq!(list.next_cursor.as_deref(), Some("next"));
         assert_eq!(list.userid_list[1], "user-2");
@@ -55203,12 +56259,13 @@ mod tests {
         .unwrap();
         assert!(known_and_unknown.validate().is_err());
 
-        let range = serde_json::to_value(WorkWeDocSpreadsheetRangeRequest {
+        let range_request = WorkWeDocSpreadsheetRangeRequest {
             docid: "sheet-doc".to_string(),
             sheet_id: "sheet-1".to_string(),
             range: "A1:B2".to_string(),
-        })
-        .unwrap();
+        };
+        range_request.validate().unwrap();
+        let range = serde_json::to_value(range_request).unwrap();
         assert_eq!(range["sheet_id"], "sheet-1");
         assert_eq!(range["range"], "A1:B2");
 
@@ -55272,6 +56329,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        batch.validate().unwrap();
         let batch = serde_json::to_value(batch).unwrap();
         assert_eq!(
             batch["requests"][0]["add_sheet_request"]["title"],
@@ -55313,6 +56371,7 @@ mod tests {
             "request_id": "document"
         }))
         .unwrap();
+        document.validate().unwrap();
         assert_eq!(document.version, Some(8));
         assert_eq!(
             document.document.as_ref().expect("document")["document_id"],
@@ -55331,6 +56390,7 @@ mod tests {
             "trace_id": "properties"
         }))
         .unwrap();
+        properties.validate().unwrap();
         assert_eq!(
             properties.properties[0].sheet_id.as_deref(),
             Some("sheet-1")
@@ -55379,6 +56439,7 @@ mod tests {
             "trace_id": "range"
         }))
         .unwrap();
+        range.validate().unwrap();
         let data = range.data.as_ref().expect("range data");
         let grid = data.result.as_ref().expect("grid data");
         let cell = &grid.rows[0].values[0];
@@ -55442,6 +56503,7 @@ mod tests {
             "request_id": "batch-update"
         }))
         .unwrap();
+        update.validate().unwrap();
         let data = update.data.as_ref().expect("batch data");
         let add = data.responses[0]
             .add_sheet_response
@@ -55499,6 +56561,7 @@ mod tests {
             "request_id": "create-doc"
         }))
         .unwrap();
+        create.validate().unwrap();
         assert_eq!(create.docid.as_deref(), Some("doc-1"));
         assert_eq!(create.extra["request_id"], "create-doc");
 
@@ -55514,6 +56577,7 @@ mod tests {
             "trace_id": "doc-info"
         }))
         .unwrap();
+        info.validate().unwrap();
         let base = info.doc_base_info.expect("document base info");
         assert_eq!(base.doc_type, Some(10));
         assert_eq!(base.extra["owner_userid"], "manager");
@@ -55524,6 +56588,7 @@ mod tests {
             "expires_in": 3600
         }))
         .unwrap();
+        share.validate().unwrap();
         assert_eq!(
             share.share_url.as_deref(),
             Some("https://example.com/share")
@@ -55560,6 +56625,7 @@ mod tests {
             "trace_id": "form-info"
         }))
         .unwrap();
+        form.validate().unwrap();
         let form_info = form.form_info.expect("form info");
         assert_eq!(form_info.repeated_id[0], "cycle-1");
         let questions = form_info.form_question.expect("form questions");
@@ -55601,6 +56667,7 @@ mod tests {
             "trace_id": "statistics"
         }))
         .unwrap();
+        statistics.validate().unwrap();
         assert_eq!(statistics.statistic_list[0].fill_cnt, Some(2));
         assert_eq!(
             statistics.statistic_list[0].submit_users[0].extra["source"],
@@ -55669,6 +56736,7 @@ mod tests {
             "trace_id": "answers"
         }))
         .unwrap();
+        answers.validate().unwrap();
         let answer = &answers.answer.as_ref().expect("answer list").answer_list[0];
         let reply = answer.reply.as_ref().expect("answer reply");
         assert_eq!(reply.items[0].text_reply.as_deref(), Some("Production"));
@@ -55711,6 +56779,179 @@ mod tests {
             "list"
         );
         assert_eq!(answers.extra["trace_id"], "answers");
+    }
+
+    #[test]
+    fn validates_work_wedoc_document_spreadsheet_and_form_response_contracts() {
+        let api_error: WorkWeDocCreateDocumentResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid parameter",
+            "docid": "doc-1"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let missing_docid: WorkWeDocCreateDocumentResponse =
+            serde_json::from_value(json!({ "url": "https://example.com/doc" })).unwrap();
+        assert!(missing_docid.validate().is_err());
+        let invalid_share: WorkWeDocShareDocumentResponse =
+            serde_json::from_value(json!({ "share_url": "javascript:alert(1)" })).unwrap();
+        assert!(invalid_share.validate().is_err());
+        let missing_info: WorkWeDocDocumentBaseInfoResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_info.validate().is_err());
+
+        let overlapping_vip: WorkWeDocVipBatchResponse = serde_json::from_value(json!({
+            "succ_userid_list": ["user-1"],
+            "fail_userid_list": ["user-1"]
+        }))
+        .unwrap();
+        assert!(overlapping_vip.validate("batch add").is_err());
+        let incomplete_page: WorkWeDocVipListResponse = serde_json::from_value(json!({
+            "has_more": true,
+            "userid_list": ["user-1"]
+        }))
+        .unwrap();
+        assert!(incomplete_page.validate().is_err());
+        let duplicate_admins: WorkWeDocAdminListResponse = serde_json::from_value(json!({
+            "admin_list": [
+                { "userid": "user-1", "type": 1 },
+                { "userid": "user-1", "type": 1 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_admins.validate().is_err());
+        let ambiguous_admin: WorkWeDocAdminListResponse = serde_json::from_value(json!({
+            "admin_list": [{
+                "userid": "user-1",
+                "open_userid": "open-user-1",
+                "type": 1
+            }]
+        }))
+        .unwrap();
+        assert!(ambiguous_admin.validate().is_err());
+
+        let missing_document: WorkWeDocDocumentDataResponse =
+            serde_json::from_value(json!({ "version": 1 })).unwrap();
+        assert!(missing_document.validate().is_err());
+        let missing_content: WorkWeDocContentDataResponse =
+            serde_json::from_value(json!({ "docid": "doc-1" })).unwrap();
+        assert!(missing_content.validate().is_err());
+        let incomplete_content_page: WorkWeDocContentDataResponse = serde_json::from_value(json!({
+            "content": {},
+            "has_more": true
+        }))
+        .unwrap();
+        assert!(incomplete_content_page.validate().is_err());
+        let missing_image_identity: WorkWeDocImageUploadResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_image_identity.validate().is_err());
+
+        let duplicate_sheets: WorkWeDocSpreadsheetPropertiesResponse =
+            serde_json::from_value(json!({
+                "properties": [
+                    { "sheet_id": "sheet-1" },
+                    { "sheet_id": "sheet-1" }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_sheets.validate().is_err());
+        let missing_range_data: WorkWeDocSpreadsheetRangeResponse =
+            serde_json::from_value(json!({ "data": {} })).unwrap();
+        assert!(missing_range_data.validate().is_err());
+        let ambiguous_batch: WorkWeDocSpreadsheetBatchUpdateRequest =
+            serde_json::from_value(json!({
+                "docid": "doc-1",
+                "requests": [{
+                    "add_sheet_request": {
+                        "title": "Summary",
+                        "row_count": 10,
+                        "column_count": 10
+                    },
+                    "delete_sheet_request": { "sheet_id": "sheet-1" }
+                }]
+            }))
+            .unwrap();
+        assert!(ambiguous_batch.validate().is_err());
+        let ambiguous_batch_response: WorkWeDocSpreadsheetBatchUpdateResponse =
+            serde_json::from_value(json!({
+                "data": {
+                    "responses": [{
+                        "update_range_response": { "updated_cells": 1 },
+                        "delete_dimension_response": { "deleted": 1 }
+                    }]
+                }
+            }))
+            .unwrap();
+        assert!(ambiguous_batch_response.validate().is_err());
+
+        let missing_formid: WorkWeDocCreateFormResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_formid.validate().is_err());
+        let missing_form_info: WorkWeDocFormInfoResponse =
+            serde_json::from_value(json!({})).unwrap();
+        assert!(missing_form_info.validate().is_err());
+        let duplicate_statistics: WorkWeDocFormStatisticsResponse = serde_json::from_value(json!({
+            "statistic_list": [
+                { "repeated_id": "cycle-1" },
+                { "repeated_id": "cycle-1" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_statistics.validate().is_err());
+        let incomplete_statistic_page: WorkWeDocFormStatisticsResponse =
+            serde_json::from_value(json!({
+                "statistic_list": [{
+                    "repeated_id": "cycle-1",
+                    "has_more": true
+                }]
+            }))
+            .unwrap();
+        assert!(incomplete_statistic_page.validate().is_err());
+        let duplicate_answers: WorkWeDocFormAnswersResponse = serde_json::from_value(json!({
+            "answer": {
+                "answer_list": [
+                    { "answer_id": 1 },
+                    { "answer_id": 1 }
+                ]
+            }
+        }))
+        .unwrap();
+        assert!(duplicate_answers.validate().is_err());
+        let duplicate_reply_questions: WorkWeDocFormAnswersResponse =
+            serde_json::from_value(json!({
+                "answer": {
+                    "answer_list": [{
+                        "answer_id": 1,
+                        "reply": {
+                            "items": [
+                                { "question_id": 1 },
+                                { "question_id": 1 }
+                            ]
+                        }
+                    }]
+                }
+            }))
+            .unwrap();
+        assert!(duplicate_reply_questions.validate().is_err());
+
+        assert!(WorkWeDocDocumentTargetRequest {
+            docid: Some("doc-1".to_string()),
+            formid: Some("form-1".to_string()),
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDocVipBatchRequest {
+            userid_list: vec!["user-1".to_string(), "user-1".to_string()],
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDocFormAnswerRequest {
+            repeated_id: "cycle-1".to_string(),
+            answer_ids: vec![1, 1],
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
