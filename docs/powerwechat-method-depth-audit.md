@@ -1498,6 +1498,28 @@ Implemented on 2026-07-20 in Work user, tag, and identity-conversion depth:
 - tag membership results expose parsed invalid user ids, aggregate failure
   counts, and partial-failure detection.
 
+Implemented on 2026-07-20 in Work external-contact group-message lifecycle
+depth:
+
+- group-message list, member-task, send-result, legacy result, welcome,
+  reminder, and cancellation operations now validate their request contracts
+  before network I/O;
+- list requests enforce supported chat and filter types, ordered positive time
+  ranges of at most one month, nonblank creators and cursors, and the
+  documented 100-item page boundary;
+- member-task and send-result requests now serialize the current official
+  `cursor` field instead of PowerWeChat's legacy `msgcursorid`, enforce the
+  1000-item page boundary, and reject blank message or member identities;
+- template audiences and tag groups reject blank or duplicate identifiers,
+  while text, image, link, mini-program, video, and file payloads enforce
+  matching message types, required fields, limits, and absolute HTTP(S) URLs;
+- welcome messages require a nonblank callback code and real text or
+  attachment content, enforce the nine-attachment boundary, and reuse the
+  payload validation applied to group-message templates;
+- group-message creation, member-task, and delivery-result DTOs expose
+  forward-compatible semantic status helpers plus aggregate pending, sent,
+  and failure counts, treating a blank next cursor as the final page.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not
