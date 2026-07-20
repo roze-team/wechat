@@ -279,18 +279,30 @@ impl MiniProgram {
         DomainModule::new(self.inner.clone(), "mini_program.data_cube")
     }
 
+    pub async fn daily_summary(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRange,
+    ) -> Result<DataCubeDailySummaryResponse> {
+        self.post_data_cube(
+            "datacube/getweanalysisappiddailysummarytrend",
+            access_token,
+            request,
+        )
+        .await
+    }
+
     pub async fn daily_visit_trend(
         &self,
         access_token: impl Into<String>,
         request: DataCubeDateRange,
     ) -> Result<DataCubeVisitTrendResponse> {
-        self.inner
-            .post(
-                "datacube/getweanalysisappiddailyvisittrend",
-                Some(access_token.into()),
-                request,
-            )
-            .await
+        self.post_data_cube(
+            "datacube/getweanalysisappiddailyvisittrend",
+            access_token,
+            request,
+        )
+        .await
     }
 
     pub async fn weekly_visit_trend(
@@ -298,13 +310,12 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: DataCubeDateRange,
     ) -> Result<DataCubeVisitTrendResponse> {
-        self.inner
-            .post(
-                "datacube/getweanalysisappidweeklyvisittrend",
-                Some(access_token.into()),
-                request,
-            )
-            .await
+        self.post_data_cube(
+            "datacube/getweanalysisappidweeklyvisittrend",
+            access_token,
+            request,
+        )
+        .await
     }
 
     pub async fn monthly_visit_trend(
@@ -312,13 +323,25 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: DataCubeDateRange,
     ) -> Result<DataCubeVisitTrendResponse> {
-        self.inner
-            .post(
-                "datacube/getweanalysisappidmonthlyvisittrend",
-                Some(access_token.into()),
-                request,
-            )
-            .await
+        self.post_data_cube(
+            "datacube/getweanalysisappidmonthlyvisittrend",
+            access_token,
+            request,
+        )
+        .await
+    }
+
+    pub async fn visit_distribution(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRange,
+    ) -> Result<DataCubeVisitDistributionResponse> {
+        self.post_data_cube(
+            "datacube/getweanalysisappidvisitdistribution",
+            access_token,
+            request,
+        )
+        .await
     }
 
     pub async fn daily_retain_info(
@@ -326,13 +349,38 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: DataCubeDateRange,
     ) -> Result<DataCubeRetainInfoResponse> {
-        self.inner
-            .post(
-                "datacube/getweanalysisappiddailyretaininfo",
-                Some(access_token.into()),
-                request,
-            )
-            .await
+        self.post_data_cube(
+            "datacube/getweanalysisappiddailyretaininfo",
+            access_token,
+            request,
+        )
+        .await
+    }
+
+    pub async fn weekly_retain_info(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRange,
+    ) -> Result<DataCubeRetainInfoResponse> {
+        self.post_data_cube(
+            "datacube/getweanalysisappidweeklyretaininfo",
+            access_token,
+            request,
+        )
+        .await
+    }
+
+    pub async fn monthly_retain_info(
+        &self,
+        access_token: impl Into<String>,
+        request: DataCubeDateRange,
+    ) -> Result<DataCubeRetainInfoResponse> {
+        self.post_data_cube(
+            "datacube/getweanalysisappidmonthlyretaininfo",
+            access_token,
+            request,
+        )
+        .await
     }
 
     pub async fn visit_page(
@@ -340,13 +388,12 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: DataCubeDateRange,
     ) -> Result<DataCubeVisitPageResponse> {
-        self.inner
-            .post(
-                "datacube/getweanalysisappidvisitpage",
-                Some(access_token.into()),
-                request,
-            )
-            .await
+        self.post_data_cube(
+            "datacube/getweanalysisappidvisitpage",
+            access_token,
+            request,
+        )
+        .await
     }
 
     pub async fn user_portrait(
@@ -354,13 +401,12 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: DataCubeDateRange,
     ) -> Result<DataCubeUserPortraitResponse> {
-        self.inner
-            .post(
-                "datacube/getweanalysisappiduserportrait",
-                Some(access_token.into()),
-                request,
-            )
-            .await
+        self.post_data_cube(
+            "datacube/getweanalysisappiduserportrait",
+            access_token,
+            request,
+        )
+        .await
     }
 
     pub async fn performance_data(
@@ -368,13 +414,27 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: DataCubePerformanceDataRequest,
     ) -> Result<DataCubePerformanceDataResponse> {
-        self.inner
-            .post(
-                "wxa/business/performance/boot",
-                Some(access_token.into()),
-                request,
-            )
+        self.post_data_cube("wxa/business/performance/boot", access_token, request)
             .await
+    }
+
+    async fn post_data_cube<B, R>(
+        &self,
+        path: &'static str,
+        access_token: impl Into<String>,
+        request: B,
+    ) -> Result<R>
+    where
+        B: Serialize + DataCubeRequestContract,
+        R: for<'de> Deserialize<'de> + DataCubeResponseContract,
+    {
+        request.validate_contract()?;
+        let response: R = self
+            .inner
+            .post(path, Some(access_token.into()), request)
+            .await?;
+        response.validate_contract()?;
+        Ok(response)
     }
 
     pub fn live_broadcast(&self) -> DomainModule {
@@ -3826,6 +3886,30 @@ pub struct DataCubeDateRange {
     pub end_date: String,
 }
 
+impl DataCubeDateRange {
+    pub fn validate(&self) -> Result<()> {
+        let begin = parse_data_cube_date("begin date", &self.begin_date)?;
+        let end = parse_data_cube_date("end date", &self.end_date)?;
+        if end < begin {
+            return Err(WechatError::Config(
+                "mini-program data-cube end date cannot precede begin date".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn days_inclusive(&self) -> Result<i64> {
+        let begin = parse_data_cube_date("begin date", &self.begin_date)?;
+        let end = parse_data_cube_date("end date", &self.end_date)?;
+        if end < begin {
+            return Err(WechatError::Config(
+                "mini-program data-cube end date cannot precede begin date".to_string(),
+            ));
+        }
+        Ok((end - begin).num_days() + 1)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniformMessageRequest {
     pub touser: String,
@@ -3844,13 +3928,126 @@ pub struct UpdatableMessageRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataCubePerformanceDataRequest {
-    pub cost_time_type: i64,
-    pub default_start_time: i64,
-    pub default_end_time: i64,
-    pub device: i64,
-    pub networktype: i64,
+    pub time: DataCubePerformanceTime,
+    pub module: String,
+    pub params: Vec<DataCubePerformanceParam>,
+}
+
+impl DataCubePerformanceDataRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.time.validate()?;
+        validate_data_cube_required("performance module", &self.module)?;
+        if self.params.is_empty() {
+            return Err(WechatError::Config(
+                "mini-program data-cube performance params cannot be empty".to_string(),
+            ));
+        }
+        let mut fields = std::collections::HashSet::with_capacity(self.params.len());
+        for param in &self.params {
+            param.validate()?;
+            if !fields.insert(param.field.trim()) {
+                return Err(WechatError::Config(
+                    "mini-program data-cube performance params contain duplicate fields"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubePerformanceTime {
+    pub begin_timestamp: i64,
+    pub end_timestamp: i64,
+}
+
+impl DataCubePerformanceTime {
+    pub fn validate(&self) -> Result<()> {
+        if self.begin_timestamp <= 0 || self.end_timestamp <= 0 {
+            return Err(WechatError::Config(
+                "mini-program data-cube performance timestamps must be positive".to_string(),
+            ));
+        }
+        if self.end_timestamp <= self.begin_timestamp {
+            return Err(WechatError::Config(
+                "mini-program data-cube performance end timestamp must follow begin timestamp"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubePerformanceParam {
+    pub field: String,
+    pub value: String,
+}
+
+impl DataCubePerformanceParam {
+    pub fn validate(&self) -> Result<()> {
+        validate_data_cube_required("performance param field", &self.field)?;
+        validate_data_cube_required("performance param value", &self.value)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeDailySummaryResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub list: Vec<DataCubeDailySummaryItem>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl DataCubeDailySummaryResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut periods = std::collections::HashSet::with_capacity(self.list.len());
+        for item in &self.list {
+            item.validate()?;
+            let period = item.ref_date.as_deref().unwrap_or_default();
+            if !periods.insert(period) {
+                return Err(WechatError::Config(
+                    "mini-program data-cube summary response contains duplicate periods"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeDailySummaryItem {
+    #[serde(default)]
+    pub ref_date: Option<String>,
+    #[serde(default)]
+    pub visit_total: Option<i64>,
+    #[serde(default)]
+    pub share_pv: Option<i64>,
+    #[serde(default)]
+    pub share_uv: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeDailySummaryItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_data_cube_ref_period(self.ref_date.as_deref())?;
+        for (kind, value) in [
+            ("total visits", self.visit_total),
+            ("share page views", self.share_pv),
+            ("share users", self.share_uv),
+        ] {
+            validate_data_cube_nonnegative(kind, value)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3861,6 +4058,25 @@ pub struct DataCubeVisitTrendResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub list: Vec<DataCubeVisitTrendItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeVisitTrendResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut periods = std::collections::HashSet::with_capacity(self.list.len());
+        for item in &self.list {
+            item.validate()?;
+            let period = item.ref_date.as_deref().unwrap_or_default();
+            if !periods.insert(period) {
+                return Err(WechatError::Config(
+                    "mini-program data-cube trend response contains duplicate periods".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3881,8 +4097,30 @@ pub struct DataCubeVisitTrendItem {
     pub stay_time_session: Option<f64>,
     #[serde(default)]
     pub visit_depth: Option<f64>,
-    #[serde(flatten)]
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl DataCubeVisitTrendItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_data_cube_ref_period(self.ref_date.as_deref())?;
+        for (kind, value) in [
+            ("session count", self.session_cnt),
+            ("visit page views", self.visit_pv),
+            ("visit users", self.visit_uv),
+            ("new visit users", self.visit_uv_new),
+        ] {
+            validate_data_cube_nonnegative(kind, value)?;
+        }
+        for (kind, value) in [
+            ("user stay time", self.stay_time_uv),
+            ("session stay time", self.stay_time_session),
+            ("visit depth", self.visit_depth),
+        ] {
+            validate_data_cube_nonnegative_float(kind, value)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3892,9 +4130,22 @@ pub struct DataCubeRetainInfoResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
+    pub ref_date: Option<String>,
+    #[serde(default)]
     pub visit_uv_new: Vec<DataCubeRetainInfoItem>,
     #[serde(default)]
     pub visit_uv: Vec<DataCubeRetainInfoItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeRetainInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_data_cube_ref_period(self.ref_date.as_deref())?;
+        validate_data_cube_retain_items("new-user retention", &self.visit_uv_new)?;
+        validate_data_cube_retain_items("active-user retention", &self.visit_uv)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3903,6 +4154,8 @@ pub struct DataCubeRetainInfoItem {
     pub key: Option<i64>,
     #[serde(default)]
     pub value: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3912,7 +4165,30 @@ pub struct DataCubeVisitPageResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
+    pub ref_date: Option<String>,
+    #[serde(default)]
     pub list: Vec<DataCubeVisitPageItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeVisitPageResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_data_cube_ref_period(self.ref_date.as_deref())?;
+        let mut paths = std::collections::HashSet::with_capacity(self.list.len());
+        for item in &self.list {
+            item.validate()?;
+            let path = item.page_path.as_deref().unwrap_or_default();
+            if !paths.insert(path) {
+                return Err(WechatError::Config(
+                    "mini-program data-cube page response contains duplicate page paths"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3933,8 +4209,112 @@ pub struct DataCubeVisitPageItem {
     pub page_share_pv: Option<i64>,
     #[serde(default)]
     pub page_share_uv: Option<i64>,
-    #[serde(flatten)]
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl DataCubeVisitPageItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_data_cube_response_required("page path", self.page_path.as_deref())?;
+        for (kind, value) in [
+            ("page visit page views", self.page_visit_pv),
+            ("page visit users", self.page_visit_uv),
+            ("entry-page views", self.entrypage_pv),
+            ("exit-page views", self.exitpage_pv),
+            ("page share views", self.page_share_pv),
+            ("page share users", self.page_share_uv),
+        ] {
+            validate_data_cube_nonnegative(kind, value)?;
+        }
+        validate_data_cube_nonnegative_float("page stay time", self.page_staytime_pv)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitDistributionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub ref_date: Option<String>,
+    #[serde(default)]
+    pub list: Vec<DataCubeVisitDistributionDimension>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeVisitDistributionResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_data_cube_ref_period(self.ref_date.as_deref())?;
+        let mut indexes = std::collections::HashSet::with_capacity(self.list.len());
+        for dimension in &self.list {
+            dimension.validate()?;
+            let index = dimension.index.as_deref().unwrap_or_default();
+            if !indexes.insert(index) {
+                return Err(WechatError::Config(
+                    "mini-program data-cube distribution response contains duplicate indexes"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitDistributionDimension {
+    #[serde(default)]
+    pub index: Option<String>,
+    #[serde(default)]
+    pub item_list: Vec<DataCubeVisitDistributionItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeVisitDistributionDimension {
+    pub fn validate(&self) -> Result<()> {
+        validate_data_cube_response_required("distribution index", self.index.as_deref())?;
+        let mut keys = std::collections::HashSet::with_capacity(self.item_list.len());
+        for item in &self.item_list {
+            item.validate()?;
+            let key = serde_json::to_string(item.key.as_ref().unwrap_or(&Value::Null))?;
+            if !keys.insert(key) {
+                return Err(WechatError::Config(
+                    "mini-program data-cube distribution dimension contains duplicate keys"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeVisitDistributionItem {
+    #[serde(default)]
+    pub key: Option<Value>,
+    #[serde(default)]
+    pub value: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeVisitDistributionItem {
+    pub fn validate(&self) -> Result<()> {
+        match self.key.as_ref() {
+            Some(Value::String(value)) if !value.trim().is_empty() => {}
+            Some(Value::Number(_)) => {}
+            _ => {
+                return Err(WechatError::Config(
+                    "mini-program data-cube distribution item key must be a string or number"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_data_cube_nonnegative("distribution value", self.value)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3944,9 +4324,101 @@ pub struct DataCubeUserPortraitResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub visit_uv_new: Option<Value>,
+    pub ref_date: Option<String>,
     #[serde(default)]
-    pub visit_uv: Option<Value>,
+    pub visit_uv_new: Option<DataCubeUserPortrait>,
+    #[serde(default)]
+    pub visit_uv: Option<DataCubeUserPortrait>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeUserPortraitResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_data_cube_ref_period(self.ref_date.as_deref())?;
+        self.visit_uv_new
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program data-cube portrait response is missing new-user portrait"
+                        .to_string(),
+                )
+            })?
+            .validate()?;
+        self.visit_uv
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program data-cube portrait response is missing active-user portrait"
+                        .to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DataCubeUserPortrait {
+    #[serde(default)]
+    pub province: Vec<DataCubeUserPortraitItem>,
+    #[serde(default)]
+    pub city: Vec<DataCubeUserPortraitItem>,
+    #[serde(default)]
+    pub genders: Vec<DataCubeUserPortraitItem>,
+    #[serde(default)]
+    pub platforms: Vec<DataCubeUserPortraitItem>,
+    #[serde(default)]
+    pub devices: Vec<DataCubeUserPortraitItem>,
+    #[serde(default)]
+    pub ages: Vec<DataCubeUserPortraitItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeUserPortrait {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, items) in [
+            ("province", self.province.as_slice()),
+            ("city", self.city.as_slice()),
+            ("gender", self.genders.as_slice()),
+            ("platform", self.platforms.as_slice()),
+            ("device", self.devices.as_slice()),
+            ("age", self.ages.as_slice()),
+        ] {
+            validate_data_cube_portrait_items(kind, items)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCubeUserPortraitItem {
+    #[serde(default)]
+    pub id: Option<Value>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub value: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DataCubeUserPortraitItem {
+    pub fn validate(&self) -> Result<()> {
+        match self.id.as_ref() {
+            Some(Value::String(value)) if !value.trim().is_empty() => {}
+            Some(Value::Number(_)) => {}
+            _ => {
+                return Err(WechatError::Config(
+                    "mini-program data-cube portrait item id must be a string or number"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_data_cube_response_required("portrait item name", self.name.as_deref())?;
+        validate_data_cube_nonnegative("portrait item value", self.value)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3956,9 +4428,193 @@ pub struct DataCubePerformanceDataResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub data: Vec<Value>,
-    #[serde(flatten)]
+    pub data: Option<Value>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl DataCubePerformanceDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_data_cube_response_success(self.errcode, self.errmsg.as_deref())?;
+        match self.data.as_ref() {
+            Some(Value::Object(_)) => Ok(()),
+            Some(_) => Err(WechatError::Config(
+                "mini-program data-cube performance data must be a JSON object".to_string(),
+            )),
+            None => Err(WechatError::Config(
+                "mini-program data-cube performance response is missing data".to_string(),
+            )),
+        }
+    }
+}
+
+trait DataCubeRequestContract {
+    fn validate_contract(&self) -> Result<()>;
+}
+
+impl DataCubeRequestContract for DataCubeDateRange {
+    fn validate_contract(&self) -> Result<()> {
+        self.validate()
+    }
+}
+
+impl DataCubeRequestContract for DataCubePerformanceDataRequest {
+    fn validate_contract(&self) -> Result<()> {
+        self.validate()
+    }
+}
+
+trait DataCubeResponseContract {
+    fn validate_contract(&self) -> Result<()>;
+}
+
+macro_rules! impl_data_cube_response_contract {
+    ($($response:ty),+ $(,)?) => {
+        $(
+            impl DataCubeResponseContract for $response {
+                fn validate_contract(&self) -> Result<()> {
+                    self.validate()
+                }
+            }
+        )+
+    };
+}
+
+impl_data_cube_response_contract!(
+    DataCubeDailySummaryResponse,
+    DataCubeVisitTrendResponse,
+    DataCubeRetainInfoResponse,
+    DataCubeVisitPageResponse,
+    DataCubeVisitDistributionResponse,
+    DataCubeUserPortraitResponse,
+    DataCubePerformanceDataResponse,
+);
+
+fn parse_data_cube_date(kind: &str, value: &str) -> Result<chrono::NaiveDate> {
+    chrono::NaiveDate::parse_from_str(value.trim(), "%Y%m%d").map_err(|error| {
+        WechatError::Config(format!(
+            "mini-program data-cube {kind} must use YYYYMMDD: {error}"
+        ))
+    })
+}
+
+fn validate_data_cube_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program data-cube {kind} is required"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_data_cube_response_required(kind: &str, value: Option<&str>) -> Result<()> {
+    match value {
+        Some(value) => validate_data_cube_required(kind, value),
+        None => Err(WechatError::Config(format!(
+            "mini-program data-cube response is missing {kind}"
+        ))),
+    }
+}
+
+fn validate_data_cube_ref_period(value: Option<&str>) -> Result<()> {
+    let value = value.ok_or_else(|| {
+        WechatError::Config(
+            "mini-program data-cube response is missing reference period".to_string(),
+        )
+    })?;
+    let value = value.trim();
+    if value.len() == 8 {
+        parse_data_cube_date("reference date", value)?;
+        return Ok(());
+    }
+    if value.len() == 6 {
+        chrono::NaiveDate::parse_from_str(&format!("{value}01"), "%Y%m%d").map_err(|error| {
+            WechatError::Config(format!(
+                "mini-program data-cube reference month must use YYYYMM: {error}"
+            ))
+        })?;
+        return Ok(());
+    }
+    if value.len() == 17 && value.as_bytes().get(8) == Some(&b'-') {
+        let begin = parse_data_cube_date("reference-period begin date", &value[..8])?;
+        let end = parse_data_cube_date("reference-period end date", &value[9..])?;
+        if end < begin {
+            return Err(WechatError::Config(
+                "mini-program data-cube reference period is reversed".to_string(),
+            ));
+        }
+        return Ok(());
+    }
+    Err(WechatError::Config(
+        "mini-program data-cube reference period must use YYYYMMDD, YYYYMM, or YYYYMMDD-YYYYMMDD"
+            .to_string(),
+    ))
+}
+
+fn validate_data_cube_nonnegative(kind: &str, value: Option<i64>) -> Result<()> {
+    let value = value.ok_or_else(|| {
+        WechatError::Config(format!("mini-program data-cube response is missing {kind}"))
+    })?;
+    if value < 0 {
+        return Err(WechatError::Config(format!(
+            "mini-program data-cube {kind} cannot be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_data_cube_nonnegative_float(kind: &str, value: Option<f64>) -> Result<()> {
+    if let Some(value) = value {
+        if !value.is_finite() || value < 0.0 {
+            return Err(WechatError::Config(format!(
+                "mini-program data-cube {kind} must be finite and non-negative"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_data_cube_retain_items(kind: &str, items: &[DataCubeRetainInfoItem]) -> Result<()> {
+    let mut keys = std::collections::HashSet::with_capacity(items.len());
+    for item in items {
+        validate_data_cube_nonnegative(&format!("{kind} key"), item.key)?;
+        validate_data_cube_nonnegative(&format!("{kind} value"), item.value)?;
+        if !keys.insert(item.key.unwrap_or_default()) {
+            return Err(WechatError::Config(format!(
+                "mini-program data-cube {kind} contains duplicate keys"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_data_cube_portrait_items(kind: &str, items: &[DataCubeUserPortraitItem]) -> Result<()> {
+    let mut identities = std::collections::HashSet::with_capacity(items.len());
+    for item in items {
+        item.validate()?;
+        let identity = (
+            serde_json::to_string(item.id.as_ref().unwrap_or(&Value::Null))?,
+            item.name.as_deref().unwrap_or_default(),
+        );
+        if !identities.insert(identity) {
+            return Err(WechatError::Config(format!(
+                "mini-program data-cube {kind} portrait contains duplicate items"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_data_cube_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program data-cube operation failed")
+                .to_string(),
+        });
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14184,30 +14840,61 @@ mod tests {
     }
 
     #[test]
-    fn serializes_data_cube_date_range() {
-        let value = serde_json::to_value(DataCubeDateRange {
+    fn serializes_and_validates_data_cube_requests() {
+        let range = DataCubeDateRange {
             begin_date: "20260704".to_string(),
-            end_date: "20260704".to_string(),
-        })
-        .unwrap();
+            end_date: "20260710".to_string(),
+        };
+        range.validate().unwrap();
+        assert_eq!(range.days_inclusive().unwrap(), 7);
+        let value = serde_json::to_value(&range).unwrap();
 
         assert_eq!(
             value,
-            json!({ "begin_date": "20260704", "end_date": "20260704" })
+            json!({ "begin_date": "20260704", "end_date": "20260710" })
         );
 
-        let performance = serde_json::to_value(DataCubePerformanceDataRequest {
-            cost_time_type: 1,
-            default_start_time: 1,
-            default_end_time: 2,
-            device: 1,
-            networktype: 1,
-            extra: serde_json::Value::Null,
-        })
+        let performance_request = DataCubePerformanceDataRequest {
+            time: DataCubePerformanceTime {
+                begin_timestamp: 1783094400,
+                end_timestamp: 1783180800,
+            },
+            module: "10022".to_string(),
+            params: vec![
+                DataCubePerformanceParam {
+                    field: "networktype".to_string(),
+                    value: "-1".to_string(),
+                },
+                DataCubePerformanceParam {
+                    field: "device_level".to_string(),
+                    value: "-1".to_string(),
+                },
+            ],
+        };
+        performance_request.validate().unwrap();
+        let performance = serde_json::to_value(performance_request).unwrap();
+        assert_eq!(performance["time"]["begin_timestamp"], 1783094400_i64);
+        assert_eq!(performance["module"], "10022");
+        assert_eq!(performance["params"][0]["field"], "networktype");
+        assert!(performance.get("cost_time_type").is_none());
+    }
+
+    #[test]
+    fn deserializes_and_validates_data_cube_responses() {
+        let summary: DataCubeDailySummaryResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "list": [{
+                "ref_date": "20260704",
+                "visit_total": 391,
+                "share_pv": 572,
+                "share_uv": 383,
+                "future_field": "kept"
+            }]
+        }))
         .unwrap();
-        assert_eq!(performance["cost_time_type"], 1);
-        assert_eq!(performance["networktype"], 1);
-        assert!(performance.get("extra").is_none());
+        assert_eq!(summary.list[0].visit_total, Some(391));
+        assert_eq!(summary.list[0].extra["future_field"], "kept");
+        summary.validate().unwrap();
 
         let trend: DataCubeVisitTrendResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -14227,16 +14914,20 @@ mod tests {
         assert_eq!(trend.list[0].ref_date.as_deref(), Some("20260704"));
         assert_eq!(trend.list[0].visit_pv, Some(20));
         assert_eq!(trend.list[0].extra["extra_field"], "kept");
+        trend.validate().unwrap();
 
         let retain: DataCubeRetainInfoResponse = serde_json::from_value(json!({
+            "ref_date": "20260704-20260710",
             "visit_uv_new": [{ "key": 0, "value": 10 }],
             "visit_uv": [{ "key": 1, "value": 8 }]
         }))
         .unwrap();
         assert_eq!(retain.visit_uv_new[0].value, Some(10));
         assert_eq!(retain.visit_uv[0].key, Some(1));
+        retain.validate().unwrap();
 
         let page: DataCubeVisitPageResponse = serde_json::from_value(json!({
+            "ref_date": "20260704",
             "list": [{
                 "page_path": "pages/index",
                 "page_visit_pv": 20,
@@ -14253,25 +14944,139 @@ mod tests {
         assert_eq!(page.list[0].page_path.as_deref(), Some("pages/index"));
         assert_eq!(page.list[0].page_share_pv, Some(1));
         assert_eq!(page.list[0].extra["extra_field"], "kept");
+        page.validate().unwrap();
+
+        let distribution: DataCubeVisitDistributionResponse = serde_json::from_value(json!({
+            "ref_date": "20260704",
+            "list": [{
+                "index": "access_source_session_cnt",
+                "item_list": [
+                    { "key": 1, "value": 10 },
+                    { "key": "search", "value": 5 }
+                ]
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            distribution.list[0].index.as_deref(),
+            Some("access_source_session_cnt")
+        );
+        distribution.validate().unwrap();
 
         let portrait: DataCubeUserPortraitResponse = serde_json::from_value(json!({
+            "ref_date": "202607",
             "visit_uv_new": { "province": [{ "id": 1, "name": "Beijing", "value": 10 }] },
             "visit_uv": { "city": [{ "id": 1, "name": "Beijing", "value": 8 }] }
         }))
         .unwrap();
         assert_eq!(
-            portrait.visit_uv_new.unwrap()["province"][0]["name"],
-            "Beijing"
+            portrait.visit_uv_new.as_ref().unwrap().province[0]
+                .name
+                .as_deref(),
+            Some("Beijing")
         );
+        portrait.validate().unwrap();
 
         let performance_response: DataCubePerformanceDataResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "data": [{ "cost_time": 100, "count": 2 }],
+            "data": { "body": [{ "cost_time": 100, "count": 2 }] },
             "extra_field": "kept"
         }))
         .unwrap();
-        assert_eq!(performance_response.data[0]["cost_time"], 100);
+        assert_eq!(
+            performance_response.data.as_ref().unwrap()["body"][0]["cost_time"],
+            100
+        );
         assert_eq!(performance_response.extra["extra_field"], "kept");
+        performance_response.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_inconsistent_data_cube_contracts() {
+        assert!(DataCubeDateRange {
+            begin_date: "20260710".to_string(),
+            end_date: "20260704".to_string(),
+        }
+        .validate()
+        .is_err());
+        assert!(DataCubeDateRange {
+            begin_date: "20260230".to_string(),
+            end_date: "20260301".to_string(),
+        }
+        .validate()
+        .is_err());
+        assert!(DataCubePerformanceDataRequest {
+            time: DataCubePerformanceTime {
+                begin_timestamp: 2,
+                end_timestamp: 1,
+            },
+            module: "10022".to_string(),
+            params: vec![DataCubePerformanceParam {
+                field: "networktype".to_string(),
+                value: "-1".to_string(),
+            }],
+        }
+        .validate()
+        .is_err());
+        assert!(DataCubePerformanceDataRequest {
+            time: DataCubePerformanceTime {
+                begin_timestamp: 1,
+                end_timestamp: 2,
+            },
+            module: "10022".to_string(),
+            params: vec![
+                DataCubePerformanceParam {
+                    field: "networktype".to_string(),
+                    value: "-1".to_string(),
+                },
+                DataCubePerformanceParam {
+                    field: "networktype".to_string(),
+                    value: "wifi".to_string(),
+                },
+            ],
+        }
+        .validate()
+        .is_err());
+
+        let api_error: DataCubeVisitTrendResponse = serde_json::from_value(json!({
+            "errcode": 40013,
+            "errmsg": "invalid appid"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40013, .. })
+        ));
+
+        let duplicate_pages: DataCubeVisitPageResponse = serde_json::from_value(json!({
+            "ref_date": "20260704",
+            "list": [
+                {
+                    "page_path": "pages/index",
+                    "page_visit_pv": 1,
+                    "page_visit_uv": 1,
+                    "entrypage_pv": 1,
+                    "exitpage_pv": 1,
+                    "page_share_pv": 0,
+                    "page_share_uv": 0
+                },
+                {
+                    "page_path": "pages/index",
+                    "page_visit_pv": 1,
+                    "page_visit_uv": 1,
+                    "entrypage_pv": 1,
+                    "exitpage_pv": 1,
+                    "page_share_pv": 0,
+                    "page_share_uv": 0
+                }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_pages.validate().is_err());
+
+        let invalid_performance: DataCubePerformanceDataResponse =
+            serde_json::from_value(json!({ "data": [] })).unwrap();
+        assert!(invalid_performance.validate().is_err());
     }
 
     #[test]

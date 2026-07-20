@@ -51,10 +51,10 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    documentation paths. `liveBroadcast` now has one-to-one PowerWeChat method
    coverage and production request/response guards. `express` retains all
    16 PowerWeChat methods and adds typed production variants for the four
-   upstream open-map operations. Continue DTO normalization across `dataCube`.
-   The current PowerWeChat `b2b`, `industry/miniDrama/vod`, and
-   `wxa/sec/order` surfaces now have production request/response guards,
-   semantic status models, and pagination helpers.
+   upstream open-map operations. The current PowerWeChat `b2b`, `dataCube`,
+   `industry/miniDrama/vod`, and `wxa/sec/order` surfaces now have one-to-one
+   method coverage, production request/response guards, semantic models, and
+   pagination or time-range helpers where applicable.
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -855,6 +855,27 @@ Implemented on 2026-07-20 in Mini Program `b2b` production depth:
   non-negative balances/timestamps, HTTPS bill URLs, and ended-day balance
   reconciliation provide production response guards.
 
+Implemented on 2026-07-20 in Mini Program `dataCube` production depth:
+
+- all 11 current PowerWeChat daily-summary, performance, daily/weekly/monthly
+  visit-trend, visit-distribution, daily/weekly/monthly retention, visit-page,
+  and user-portrait methods now have one-to-one Rust wrappers; the previously
+  missing summary, distribution, weekly-retention, and monthly-retention
+  endpoints are present;
+- every request validates before HTTP I/O; date ranges require valid ordered
+  `YYYYMMDD` values and expose an inclusive-day helper;
+- performance requests now use PowerWeChat's current nested
+  `time/module/params` wire contract, with positive ordered timestamps,
+  required module/parameter values, and duplicate-field rejection, replacing
+  the incompatible legacy flat fields;
+- typed visit-distribution dimensions/items and user-portrait
+  dimensions/items replace unstructured payloads while preserving extension
+  fields; retention and page responses now retain their upstream `ref_date`;
+- response guards cover API failures, supported daily/monthly/range reference
+  periods, non-negative finite metrics, duplicate periods/pages/distribution
+  indexes/items/portrait items, retention keys, required identities, and
+  object-shaped performance data.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -1064,9 +1085,8 @@ Recommended implementation order:
    partner flows, statement variants, and typed response normalization.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
-3. Mini Program DTO/method-depth review for `dataCube`.
-4. Payment remaining notify/order/refund DTO normalization and helper variants.
-5. Continue cross-family DTO hardening where endpoint coverage is already green.
+3. Payment remaining notify/order/refund DTO normalization and helper variants.
+4. Continue cross-family DTO hardening where endpoint coverage is already green.
 
 Implemented on 2026-07-18 in Work OA WeDoc smart-sheet field depth:
 
