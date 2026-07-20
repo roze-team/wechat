@@ -51,10 +51,10 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    documentation paths. `liveBroadcast` now has one-to-one PowerWeChat method
    coverage and production request/response guards. `express` retains all
    16 PowerWeChat methods and adds typed production variants for the four
-   upstream open-map operations. Continue DTO normalization across
-   `industry/miniDrama/vod`, `b2b`, and `dataCube`. The current
-   PowerWeChat `wxa/sec/order` surface now has production request/response
-   guards and pagination helpers.
+   upstream open-map operations. Continue DTO normalization across `b2b` and
+   `dataCube`. The current PowerWeChat `industry/miniDrama/vod` and
+   `wxa/sec/order` surfaces now have production request/response guards and
+   pagination helpers.
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -806,6 +806,34 @@ Implemented on 2026-07-20 in Mini Program `wxa/sec/order` production depth:
   pages without a cursor; a typed next-page helper preserves the current
   filters.
 
+Implemented on 2026-07-20 in Mini Program `industry/miniDrama/vod` production
+depth:
+
+- all 27 current PowerWeChat VOD, drama-audit, CDN, package, authorization,
+  account-authorization, and flush-drama workflows remain covered, and every
+  request-bearing path now validates before network or multipart I/O;
+- URL and file uploads validate HTTPS sources, supported media/cover formats,
+  non-empty bounded payloads, media names, and source context; multipart
+  uploads omit absent cover parts and propagate source context;
+- chunked uploads enforce resource types, 1-100 part numbers, 5 MiB chunks,
+  non-empty etags, unique contiguous completion manifests, and distinct media
+  replacements;
+- media queries, playback links, drama submissions and updates validate
+  positive identities, ordered time windows, pagination, the two-hour
+  playback expiry, referrer-domain lists, episode-count consistency,
+  conditional qualification evidence/costs, actor counts and metadata, audit
+  modes, CDN intervals, authorization expiry, and flush-list uniqueness;
+- responses now model PowerWeChat task type/error/finish data, media expiry,
+  file size and original/MP4/HLS URLs, audit evidence, full drama metadata and
+  episode references, CDN log dates, and the actual traffic-package schema;
+  `package_id` is string-typed with numeric drift compatibility, and per-drama
+  authorization results decode the upstream `errcode` field;
+- response guards reject outer and per-item API failures, invalid task/audit
+  states, missing completed-task media, duplicate media/dramas/packages or
+  authorization objects, malformed URLs, impossible timestamps/counts,
+  out-of-order CDN usage, and over-consumed traffic packages; semantic status,
+  package remaining, and next-page helpers are available.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -1015,8 +1043,7 @@ Recommended implementation order:
    partner flows, statement variants, and typed response normalization.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
-3. Mini Program DTO/method-depth review for `industry/miniDrama/vod`, `b2b`,
-   and `dataCube`.
+3. Mini Program DTO/method-depth review for `b2b` and `dataCube`.
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 

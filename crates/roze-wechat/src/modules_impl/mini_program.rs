@@ -2122,6 +2122,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaVideoMediaUploadByUrlRequest,
     ) -> Result<MiniDramaVideoMediaUploadByUrlResponse> {
+        request.validate()?;
         self.inner
             .post("wxa/sec/vod/pullupload", Some(access_token.into()), request)
             .await
@@ -2132,28 +2133,33 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaVideoMediaUploadByFileRequest,
     ) -> Result<MiniDramaVideoMediaUploadByFileResponse> {
-        let form = reqwest::multipart::Form::new()
-            .part(
-                "media_data",
-                reqwest::multipart::Part::bytes(request.media_data)
-                    .file_name(request.media_name.clone()),
-            )
-            .part(
+        request.validate()?;
+        let mut form = reqwest::multipart::Form::new().part(
+            "media_data",
+            reqwest::multipart::Part::bytes(request.media_data)
+                .file_name(request.media_name.clone()),
+        );
+        if let Some(cover_data) = request.cover_data {
+            form = form.part(
                 "cover_data",
-                reqwest::multipart::Part::bytes(request.cover_data.unwrap_or_default())
-                    .file_name("cover"),
+                reqwest::multipart::Part::bytes(cover_data).file_name("cover"),
             );
+        }
+        let mut headers = vec![
+            ("media_type".to_string(), request.media_type),
+            ("cover_type".to_string(), request.cover_type),
+            ("media_name".to_string(), request.media_name),
+        ];
+        if let Some(source_context) = request.source_context {
+            headers.push(("source_context".to_string(), source_context));
+        }
         self.inner
             .post_multipart_with_headers(
                 "wxa/sec/vod/singlefileupload",
                 Some(access_token.into()),
                 Vec::new(),
                 form,
-                vec![
-                    ("media_type".to_string(), request.media_type),
-                    ("cover_type".to_string(), request.cover_type),
-                    ("media_name".to_string(), request.media_name),
-                ],
+                headers,
             )
             .await
     }
@@ -2163,6 +2169,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         task_id: i64,
     ) -> Result<MiniDramaVideoMediaTaskResponse> {
+        validate_mini_drama_positive("upload task id", task_id)?;
         self.inner
             .post(
                 "wxa/sec/vod/gettask",
@@ -2177,6 +2184,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaVideoApplyChunkUploadRequest,
     ) -> Result<MiniDramaVideoApplyChunkUploadResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/applyupload",
@@ -2191,6 +2199,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaVideoChunkUploadRequest,
     ) -> Result<MiniDramaVideoChunkUploadResponse> {
+        request.validate()?;
         let form = reqwest::multipart::Form::new().part(
             "data",
             reqwest::multipart::Part::bytes(request.data).file_name("chunk"),
@@ -2218,6 +2227,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaVideoChunkUploadCompleteRequest,
     ) -> Result<MiniDramaVideoChunkUploadCompleteResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/commitupload",
@@ -2232,12 +2242,10 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaMediaListRequest,
     ) -> Result<MiniDramaMediaListResponse> {
+        let request = request.normalized();
+        request.validate()?;
         self.inner
-            .post(
-                "wxa/sec/vod/listmedia",
-                Some(access_token.into()),
-                request.normalized(),
-            )
+            .post("wxa/sec/vod/listmedia", Some(access_token.into()), request)
             .await
     }
 
@@ -2246,6 +2254,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         media_id: i64,
     ) -> Result<MiniDramaMediaInfoResponse> {
+        validate_mini_drama_positive("media id", media_id)?;
         self.inner
             .post(
                 "wxa/sec/vod/getmedia",
@@ -2260,6 +2269,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaMediaLinkRequest,
     ) -> Result<MiniDramaMediaLinkResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/getmedialink",
@@ -2274,6 +2284,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         media_id: i64,
     ) -> Result<WechatStatusResponse> {
+        validate_mini_drama_positive("media id", media_id)?;
         self.inner
             .post(
                 "wxa/sec/vod/deletemedia",
@@ -2288,6 +2299,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaSubmitAuditRequest,
     ) -> Result<MiniDramaSubmitAuditResponse> {
+        request.validate()?;
         self.inner
             .post("wxa/sec/vod/auditdrama", Some(access_token.into()), request)
             .await
@@ -2298,12 +2310,10 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaListRequest,
     ) -> Result<MiniDramaListResponse> {
+        let request = request.normalized();
+        request.validate()?;
         self.inner
-            .post(
-                "wxa/sec/vod/listdramas",
-                Some(access_token.into()),
-                request.normalized(),
-            )
+            .post("wxa/sec/vod/listdramas", Some(access_token.into()), request)
             .await
     }
 
@@ -2312,6 +2322,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         drama_id: i64,
     ) -> Result<MiniDramaInfoResponse> {
+        validate_mini_drama_positive("drama id", drama_id)?;
         self.inner
             .post(
                 "wxa/sec/vod/getdrama",
@@ -2326,6 +2337,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaSubmitReplaceAuditRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/submitreplacedramamedias",
@@ -2340,6 +2352,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaReplaceAuditedMediaRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/replacedramamedia",
@@ -2354,6 +2367,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaUpdateInfoRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/modifydramabasicinfo",
@@ -2368,6 +2382,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAuditInfoRequest,
     ) -> Result<MiniDramaAuditInfoResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/getdramalatestauditinfo",
@@ -2382,6 +2397,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaCdnInfoRequest,
     ) -> Result<MiniDramaCdnUsageResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/getcdnusagedata",
@@ -2396,6 +2412,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaCdnInfoRequest,
     ) -> Result<MiniDramaCdnLogsResponse> {
+        request.validate()?;
         self.inner
             .post("wxa/sec/vod/getcdnlogs", Some(access_token.into()), request)
             .await
@@ -2406,11 +2423,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaListRequest,
     ) -> Result<MiniDramaPackageListResponse> {
+        let request = request.normalized();
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/listpackages",
                 Some(access_token.into()),
-                request.normalized(),
+                request,
             )
             .await
     }
@@ -2420,6 +2439,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAuthorizationRequest,
     ) -> Result<MiniDramaAuthorizationResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/authorizedrama",
@@ -2434,6 +2454,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAuthorizationRequest,
     ) -> Result<MiniDramaAuthorizationResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/deauthorizedrama",
@@ -2448,11 +2469,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAuthorizationSearchRequest,
     ) -> Result<MiniDramaAuthorizationSearchResponse> {
+        let request = request.normalized();
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/getauthorizeobjects",
                 Some(access_token.into()),
-                request.normalized(),
+                request,
             )
             .await
     }
@@ -2462,11 +2485,13 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAuthorizedBySearchRequest,
     ) -> Result<MiniDramaAuthorizationSearchResponse> {
+        let request = request.normalized();
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/getauthorizedobjects",
                 Some(access_token.into()),
-                request.normalized(),
+                request,
             )
             .await
     }
@@ -2476,6 +2501,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAccountAuthorizationRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/authorizeapp",
@@ -2490,6 +2516,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaAccountAuthorizationRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxa/sec/vod/deauthorizeapp",
@@ -2530,6 +2557,7 @@ impl MiniProgram {
         access_token: impl Into<String>,
         request: MiniDramaSetFlushDramaRequest,
     ) -> Result<WechatStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "wxadrama/developersetflushdrama",
@@ -6043,6 +6071,17 @@ pub struct MiniDramaVideoMediaUploadByUrlRequest {
     pub source_context: Option<String>,
 }
 
+impl MiniDramaVideoMediaUploadByUrlRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_https_url("media URL", &self.media_url)?;
+        if let Some(cover_url) = self.cover_url.as_deref() {
+            validate_mini_drama_https_url("cover URL", cover_url)?;
+        }
+        validate_mini_drama_media_name(&self.media_name)?;
+        validate_mini_drama_optional("source context", self.source_context.as_deref())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MiniDramaVideoMediaUploadByFileRequest {
     pub media_name: String,
@@ -6050,6 +6089,7 @@ pub struct MiniDramaVideoMediaUploadByFileRequest {
     pub media_data: Vec<u8>,
     pub cover_type: String,
     pub cover_data: Option<Vec<u8>>,
+    pub source_context: Option<String>,
 }
 
 impl MiniDramaVideoMediaUploadByFileRequest {
@@ -6060,7 +6100,19 @@ impl MiniDramaVideoMediaUploadByFileRequest {
             media_data,
             cover_type: "JPEG".to_string(),
             cover_data: None,
+            source_context: None,
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_media_name(&self.media_name)?;
+        validate_mini_drama_media_type(&self.media_type)?;
+        validate_mini_drama_bytes("media data", &self.media_data, 500 * 1024 * 1024)?;
+        validate_mini_drama_cover_type(&self.cover_type)?;
+        if let Some(cover_data) = &self.cover_data {
+            validate_mini_drama_bytes("cover data", cover_data, 10 * 1024 * 1024)?;
+        }
+        validate_mini_drama_optional("source context", self.source_context.as_deref())
     }
 }
 
@@ -6070,6 +6122,23 @@ pub struct MiniDramaVideoChunkUploadRequest {
     pub part_number: i64,
     pub resource_type: i64,
     pub data: Vec<u8>,
+}
+
+impl MiniDramaVideoChunkUploadRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required("upload id", &self.upload_id)?;
+        if !(1..=100).contains(&self.part_number) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama part number must be between 1 and 100".to_string(),
+            ));
+        }
+        if !(1..=2).contains(&self.resource_type) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama resource type must be 1 or 2".to_string(),
+            ));
+        }
+        validate_mini_drama_bytes("chunk data", &self.data, 5 * 1024 * 1024)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6082,10 +6151,33 @@ pub struct MiniDramaVideoApplyChunkUploadRequest {
     pub source_context: Option<String>,
 }
 
+impl MiniDramaVideoApplyChunkUploadRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_media_name(&self.media_name)?;
+        validate_mini_drama_media_type(&self.media_type)?;
+        if let Some(cover_type) = self.cover_type.as_deref() {
+            validate_mini_drama_cover_type(cover_type)?;
+        }
+        validate_mini_drama_optional("source context", self.source_context.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaPartInfo {
     pub part_number: i64,
     pub etag: String,
+}
+
+impl MiniDramaPartInfo {
+    pub fn validate(&self) -> Result<()> {
+        if !(1..=100).contains(&self.part_number) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama completed part number must be between 1 and 100"
+                    .to_string(),
+            ));
+        }
+        validate_mini_drama_required("part etag", &self.etag)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6094,6 +6186,17 @@ pub struct MiniDramaVideoChunkUploadCompleteRequest {
     pub media_part_infos: Vec<MiniDramaPartInfo>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub cover_part_infos: Vec<MiniDramaPartInfo>,
+}
+
+impl MiniDramaVideoChunkUploadCompleteRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required("upload id", &self.upload_id)?;
+        validate_mini_drama_parts("media", &self.media_part_infos)?;
+        if !self.cover_part_infos.is_empty() {
+            validate_mini_drama_parts("cover", &self.cover_part_infos)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -6126,6 +6229,17 @@ impl MiniDramaMediaListRequest {
         }
         self
     }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.drama_id.is_some_and(|id| id <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama media-list drama id must be positive".to_string(),
+            ));
+        }
+        validate_mini_drama_optional("media name", self.media_name.as_deref())?;
+        validate_mini_drama_optional_time_range(self.start_time, self.end_time)?;
+        validate_mini_drama_page(self.limit, self.offset)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6142,6 +6256,32 @@ pub struct MiniDramaMediaLinkRequest {
     pub href: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bkref: Option<String>,
+}
+
+impl MiniDramaMediaLinkRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("media id", self.media_id)?;
+        let now = chrono::Utc::now().timestamp();
+        if self.t <= now || self.t > now.saturating_add(2 * 60 * 60) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama media-link expiry must be within the next 2 hours"
+                    .to_string(),
+            ));
+        }
+        validate_mini_drama_optional("media-link identifier", self.us.as_deref())?;
+        if self.expr.is_some_and(|seconds| seconds < 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama preview duration cannot be negative".to_string(),
+            ));
+        }
+        if self.rlimit.is_some_and(|limit| !(1..=9).contains(&limit)) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama media-link IP limit must be between 1 and 9".to_string(),
+            ));
+        }
+        validate_mini_drama_domain_list("allow referrer", self.href.as_deref())?;
+        validate_mini_drama_domain_list("deny referrer", self.bkref.as_deref())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6174,10 +6314,77 @@ pub struct MiniDramaSubmitAuditRequest {
     pub replace_media_list: Vec<MiniDramaReplaceInfo>,
 }
 
+impl MiniDramaSubmitAuditRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.drama_id.is_some_and(|id| id <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama audit drama id must be positive".to_string(),
+            ));
+        }
+        validate_mini_drama_required("drama name", &self.name)?;
+        validate_mini_drama_text_limit("drama name", &self.name, 100)?;
+        validate_mini_drama_positive("media count", self.media_count)?;
+        validate_mini_drama_positive_ids("media id list", &self.media_id_list, 100)?;
+        if self.media_id_list.len() as i64 != self.media_count {
+            return Err(WechatError::Config(
+                "mini-program mini-drama media count must match the media id list".to_string(),
+            ));
+        }
+        validate_mini_drama_required("description", &self.description)?;
+        validate_mini_drama_text_limit("description", &self.description, 300)?;
+        validate_mini_drama_required("recommendations", &self.recommendations)?;
+        validate_mini_drama_text_limit("recommendations", &self.recommendations, 15)?;
+        for (kind, value) in [
+            ("cover material id", self.cover_material_id.as_str()),
+            ("producer", self.producer.as_str()),
+            (
+                "authorized material id",
+                self.authorized_material_id.as_str(),
+            ),
+        ] {
+            validate_mini_drama_required(kind, value)?;
+        }
+        validate_mini_drama_optional(
+            "promotion poster material id",
+            self.promotion_poster_material_id.as_deref(),
+        )?;
+        validate_mini_drama_qualification(
+            self.qualification_type,
+            self.registration_number.as_deref(),
+            self.qualification_certificate_material_id.as_deref(),
+            self.cost_commitment_letter_material_id.as_deref(),
+            self.cost_of_production,
+        )?;
+        if self
+            .expedited
+            .is_some_and(|value| !(0..=1).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama expedited flag must be 0 or 1".to_string(),
+            ));
+        }
+        self.actor_list.validate()?;
+        validate_mini_drama_replacements(&self.replace_media_list)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaReplaceInfo {
     pub old: i64,
     pub new: i64,
+}
+
+impl MiniDramaReplaceInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("old media id", self.old)?;
+        validate_mini_drama_positive("new media id", self.new)?;
+        if self.old == self.new {
+            return Err(WechatError::Config(
+                "mini-program mini-drama replacement media ids must differ".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -6202,6 +6409,18 @@ impl MiniDramaListRequest {
         }
         self
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_page(self.limit, self.offset)
+    }
+
+    fn effective_limit(&self) -> i64 {
+        self.limit.unwrap_or(100)
+    }
+
+    fn effective_offset(&self) -> i64 {
+        self.offset.unwrap_or(0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6210,11 +6429,37 @@ pub struct MiniDramaSubmitReplaceAuditRequest {
     pub replace_media_list: Vec<MiniDramaReplaceInfo>,
 }
 
+impl MiniDramaSubmitReplaceAuditRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("drama id", self.drama_id)?;
+        if self.replace_media_list.is_empty() {
+            return Err(WechatError::Config(
+                "mini-program mini-drama replacement audit requires media replacements".to_string(),
+            ));
+        }
+        validate_mini_drama_replacements(&self.replace_media_list)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaReplaceAuditedMediaRequest {
     pub drama_id: i64,
     pub old_media_id: i64,
     pub new_media_id: i64,
+}
+
+impl MiniDramaReplaceAuditedMediaRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("drama id", self.drama_id)?;
+        validate_mini_drama_positive("old media id", self.old_media_id)?;
+        validate_mini_drama_positive("new media id", self.new_media_id)?;
+        if self.old_media_id == self.new_media_id {
+            return Err(WechatError::Config(
+                "mini-program mini-drama audited replacement media ids must differ".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6244,10 +6489,100 @@ pub struct MiniDramaUpdateInfoRequest {
     pub cost_commitment_letter_material_id: Option<String>,
 }
 
+impl MiniDramaUpdateInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("drama id", self.drama_id)?;
+        if self.description.is_none()
+            && self.cover_material_id.is_none()
+            && self.recommendations.is_none()
+            && self.promotion_poster_material_id.is_none()
+            && self.alternate_name.is_none()
+            && self.actor_list.is_none()
+            && self.qualification_type.is_none()
+            && self.qualification_certificate_material_id.is_none()
+            && self.registration_number.is_none()
+            && self.cost_of_production.is_none()
+            && self.cost_commitment_letter_material_id.is_none()
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama update requires at least one changed field".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("description", self.description.as_deref()),
+            ("cover material id", self.cover_material_id.as_deref()),
+            ("recommendations", self.recommendations.as_deref()),
+            (
+                "promotion poster material id",
+                self.promotion_poster_material_id.as_deref(),
+            ),
+            ("alternate name", self.alternate_name.as_deref()),
+            (
+                "qualification certificate material id",
+                self.qualification_certificate_material_id.as_deref(),
+            ),
+            ("registration number", self.registration_number.as_deref()),
+            (
+                "cost commitment letter material id",
+                self.cost_commitment_letter_material_id.as_deref(),
+            ),
+        ] {
+            validate_mini_drama_optional(kind, value)?;
+        }
+        if let Some(description) = self.description.as_deref() {
+            validate_mini_drama_text_limit("description", description, 300)?;
+        }
+        if let Some(recommendations) = self.recommendations.as_deref() {
+            validate_mini_drama_text_limit("recommendations", recommendations, 15)?;
+        }
+        if let Some(actor_list) = &self.actor_list {
+            actor_list.validate()?;
+        }
+        if let Some(qualification_type) = self.qualification_type {
+            validate_mini_drama_qualification(
+                qualification_type,
+                self.registration_number.as_deref(),
+                self.qualification_certificate_material_id.as_deref(),
+                self.cost_commitment_letter_material_id.as_deref(),
+                self.cost_of_production,
+            )?;
+        } else if self
+            .cost_of_production
+            .is_some_and(|cost| !(1..=29).contains(&cost))
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama production cost must be between 1 and 29".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaActorList {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub actor: Vec<MiniDramaActor>,
+}
+
+impl MiniDramaActorList {
+    pub fn validate(&self) -> Result<()> {
+        if !(2..=5).contains(&self.actor.len()) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama actor list must contain between 2 and 5 actors"
+                    .to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.actor.len());
+        for actor in &self.actor {
+            actor.validate()?;
+            if !identities.insert((actor.name.trim(), actor.role.trim())) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama actor list contains duplicate actor roles".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6258,10 +6593,45 @@ pub struct MiniDramaActor {
     pub profile: String,
 }
 
+impl MiniDramaActor {
+    pub fn validate(&self) -> Result<()> {
+        for (kind, value) in [
+            ("actor name", self.name.as_str()),
+            ("actor photo material id", self.photo_material_id.as_str()),
+            ("actor role", self.role.as_str()),
+            ("actor profile", self.profile.as_str()),
+        ] {
+            validate_mini_drama_required(kind, value)?;
+        }
+        validate_mini_drama_text_limit("actor name", &self.name, 30)?;
+        validate_mini_drama_text_limit("actor role", &self.role, 30)?;
+        let profile_length = self.profile.chars().count();
+        if !(20..=100).contains(&profile_length) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama actor profile must contain between 20 and 100 characters"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaAuditInfoRequest {
     pub drama_id: i64,
     pub audit_type: i64,
+}
+
+impl MiniDramaAuditInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("drama id", self.drama_id)?;
+        if !(0..=3).contains(&self.audit_type) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama audit type must be between 0 and 3".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6272,12 +6642,32 @@ pub struct MiniDramaCdnInfoRequest {
     pub data_interval: Option<i64>,
 }
 
+impl MiniDramaCdnInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_time_range(self.start_time, self.end_time)?;
+        if self.data_interval.is_some_and(|interval| interval <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama CDN data interval must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaAuthorizationRequest {
     pub authorized_appid: String,
     pub drama_id: Vec<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authz_expire_time: Option<i64>,
+}
+
+impl MiniDramaAuthorizationRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_appid("authorized appid", &self.authorized_appid)?;
+        validate_mini_drama_positive_ids("authorized drama ids", &self.drama_id, 100)?;
+        validate_mini_drama_expiry(self.authz_expire_time)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6291,6 +6681,11 @@ impl MiniDramaAuthorizationSearchRequest {
     fn normalized(mut self) -> Self {
         self.page = self.page.normalized();
         self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_positive("drama id", self.drama_id)?;
+        self.page.validate()
     }
 }
 
@@ -6306,6 +6701,11 @@ impl MiniDramaAuthorizedBySearchRequest {
         self.page = self.page.normalized();
         self
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_appid("authorizer appid", &self.authorizer_appid)?;
+        self.page.validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6315,9 +6715,37 @@ pub struct MiniDramaAccountAuthorizationRequest {
     pub authz_expire_time: Option<i64>,
 }
 
+impl MiniDramaAccountAuthorizationRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_appid("authorized appid", &self.authorized_appid)?;
+        validate_mini_drama_expiry(self.authz_expire_time)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaSetFlushDramaRequest {
     pub list: Vec<MiniDramaFlushDramaInfo>,
+}
+
+impl MiniDramaSetFlushDramaRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.list.is_empty() || self.list.len() > 100 {
+            return Err(WechatError::Config(
+                "mini-program mini-drama flush list must contain between 1 and 100 entries"
+                    .to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.list.len());
+        for drama in &self.list {
+            drama.validate()?;
+            if !identities.insert((drama.src_appid.trim(), drama.drama_id.trim())) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama flush list contains duplicate dramas".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6325,6 +6753,15 @@ pub struct MiniDramaFlushDramaInfo {
     pub src_appid: String,
     pub drama_id: String,
     pub drama_name: String,
+}
+
+impl MiniDramaFlushDramaInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_appid("source appid", &self.src_appid)?;
+        validate_mini_drama_required("flush drama id", &self.drama_id)?;
+        validate_mini_drama_required("flush drama name", &self.drama_name)?;
+        validate_mini_drama_text_limit("flush drama name", &self.drama_name, 100)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6335,6 +6772,8 @@ pub struct MiniDramaVideoMediaUploadByUrlResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub task_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6345,6 +6784,8 @@ pub struct MiniDramaVideoMediaUploadByFileResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6354,13 +6795,19 @@ pub struct MiniDramaVideoMediaTaskInfo {
     #[serde(default)]
     pub task_id: Option<i64>,
     #[serde(default)]
+    pub task_type: Option<i64>,
+    #[serde(default)]
     pub status: Option<i64>,
     #[serde(default)]
-    pub media_id: Option<i64>,
+    pub errcode: Option<i64>,
     #[serde(default)]
+    pub media_id: Option<i64>,
+    #[serde(default, alias = "errmsg")]
     pub err_msg: Option<String>,
     #[serde(default)]
     pub create_time: Option<i64>,
+    #[serde(default)]
+    pub finish_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
@@ -6375,6 +6822,8 @@ pub struct MiniDramaVideoMediaTaskResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub task_info: Option<MiniDramaVideoMediaTaskInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6385,6 +6834,8 @@ pub struct MiniDramaVideoApplyChunkUploadResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub upload_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6395,6 +6846,8 @@ pub struct MiniDramaVideoChunkUploadResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub etag: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6405,12 +6858,16 @@ pub struct MiniDramaVideoChunkUploadCompleteResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_id: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaMediaInfo {
     #[serde(default)]
     pub media_id: Option<i64>,
+    #[serde(default)]
+    pub drama_id: Option<i64>,
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
@@ -6425,6 +6882,18 @@ pub struct MiniDramaMediaInfo {
     pub duration: Option<i64>,
     #[serde(default)]
     pub size: Option<i64>,
+    #[serde(default)]
+    pub file_size: Option<i64>,
+    #[serde(default)]
+    pub expire_time: Option<i64>,
+    #[serde(default)]
+    pub original_url: Option<String>,
+    #[serde(default)]
+    pub mp4_url: Option<String>,
+    #[serde(default)]
+    pub hls_url: Option<String>,
+    #[serde(default)]
+    pub audit_detail: Option<MiniDramaAuditDetail>,
     #[serde(default)]
     pub create_time: Option<i64>,
     #[serde(default)]
@@ -6441,6 +6910,8 @@ pub struct MiniDramaMediaListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_info_list: Vec<MiniDramaMediaInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6451,6 +6922,8 @@ pub struct MiniDramaMediaInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_info: Option<MiniDramaMediaInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6461,6 +6934,8 @@ pub struct MiniDramaMediaLinkResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub media_info: Option<MiniDramaMediaInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6471,6 +6946,8 @@ pub struct MiniDramaSubmitAuditResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub drama_id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6480,21 +6957,45 @@ pub struct MiniDramaInfo {
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
+    pub playwright: Option<String>,
+    #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub media_count: Option<i64>,
     #[serde(default)]
     pub cover_material_id: Option<String>,
     #[serde(default)]
+    pub production_license: Option<String>,
+    #[serde(default)]
+    pub cover_url: Option<String>,
+    #[serde(default)]
     pub promotion_poster_material_id: Option<String>,
     #[serde(default)]
+    pub promotion_poster: Option<String>,
+    #[serde(default)]
     pub producer: Option<String>,
+    #[serde(default)]
+    pub recommendations: Option<String>,
     #[serde(default)]
     pub status: Option<i64>,
     #[serde(default)]
     pub create_time: Option<i64>,
     #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default)]
+    pub media_list: Vec<MiniDramaMediaReference>,
+    #[serde(default)]
+    pub audit_detail: Option<MiniDramaAuditDetail>,
+    #[serde(default)]
+    pub actor_list: Option<MiniDramaActorList>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MiniDramaMediaReference {
+    #[serde(default)]
+    pub media_id: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -6507,6 +7008,8 @@ pub struct MiniDramaListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub drama_info_list: Vec<MiniDramaInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6517,6 +7020,8 @@ pub struct MiniDramaInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub drama_info: Option<MiniDramaInfo>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6532,7 +7037,11 @@ pub struct MiniDramaAuditDetail {
     #[serde(default)]
     pub create_time: Option<i64>,
     #[serde(default)]
+    pub audit_time: Option<i64>,
+    #[serde(default)]
     pub update_time: Option<i64>,
+    #[serde(default)]
+    pub evidence_material_id_list: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -6545,6 +7054,8 @@ pub struct MiniDramaAuditInfoResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub audit_detail: Option<MiniDramaAuditDetail>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6571,10 +7082,14 @@ pub struct MiniDramaCdnUsageResponse {
     pub data_interval: Option<i64>,
     #[serde(default)]
     pub item_list: Vec<MiniDramaCdnUsageItem>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaCdnLog {
+    #[serde(default)]
+    pub date: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
     #[serde(default)]
@@ -6599,22 +7114,28 @@ pub struct MiniDramaCdnLogsResponse {
     pub domestic_cdn_logs: Vec<MiniDramaCdnLog>,
     #[serde(default)]
     pub total_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaPackageInfo {
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub package_id: Option<String>,
     #[serde(default)]
-    pub package_id: Option<i64>,
+    pub order_id: Option<i64>,
     #[serde(default)]
-    pub drama_id: Option<i64>,
+    pub all: Option<i64>,
     #[serde(default)]
-    pub name: Option<String>,
+    pub used: Option<i64>,
+    #[serde(default)]
+    pub is_deleted: Option<i64>,
     #[serde(default)]
     pub status: Option<i64>,
     #[serde(default)]
-    pub create_time: Option<i64>,
+    pub start_time: Option<i64>,
     #[serde(default)]
-    pub update_time: Option<i64>,
+    pub end_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -6629,6 +7150,8 @@ pub struct MiniDramaPackageListResponse {
     pub package_list: Vec<MiniDramaPackageInfo>,
     #[serde(default)]
     pub total_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6637,7 +7160,7 @@ pub struct MiniDramaAuthorizationResult {
     pub drama_id: Option<i64>,
     #[serde(default)]
     pub authorized_appid: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "errcode", alias = "result_code")]
     pub result_code: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
@@ -6653,13 +7176,15 @@ pub struct MiniDramaAuthorizationResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub result: Vec<MiniDramaAuthorizationResult>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiniDramaAuthorizationObject {
     #[serde(default)]
     pub drama_id: Option<i64>,
-    #[serde(default)]
+    #[serde(default, alias = "authorizer_appid")]
     pub authorized_appid: Option<String>,
     #[serde(default)]
     pub authorized_time: Option<i64>,
@@ -6679,6 +7204,8 @@ pub struct MiniDramaAuthorizationSearchResponse {
     pub objects: Vec<MiniDramaAuthorizationObject>,
     #[serde(default)]
     pub total_count: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6689,6 +7216,1037 @@ pub struct MiniDramaAccountAuthorizationSearchResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub objects: Vec<MiniDramaAuthorizationObject>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MiniDramaUploadTaskStatusKind {
+    Waiting,
+    Processing,
+    Completed,
+    Failed,
+    Other(i64),
+}
+
+impl From<i64> for MiniDramaUploadTaskStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            1 => Self::Waiting,
+            2 => Self::Processing,
+            3 => Self::Completed,
+            4 => Self::Failed,
+            other => Self::Other(other),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MiniDramaAuditStatusKind {
+    Invalid,
+    Reviewing,
+    Rejected,
+    Approved,
+    Other(i64),
+}
+
+impl From<i64> for MiniDramaAuditStatusKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Invalid,
+            1 => Self::Reviewing,
+            2 => Self::Rejected,
+            3 => Self::Approved,
+            other => Self::Other(other),
+        }
+    }
+}
+
+impl MiniDramaVideoMediaUploadByUrlResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_required_positive_option("upload task id", self.task_id)
+    }
+}
+
+impl MiniDramaVideoMediaUploadByFileResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_required_positive_option("uploaded media id", self.media_id)
+    }
+}
+
+impl MiniDramaVideoMediaTaskInfo {
+    pub fn task_status_kind(&self) -> Option<MiniDramaUploadTaskStatusKind> {
+        self.status.map(MiniDramaUploadTaskStatusKind::from)
+    }
+
+    pub fn task_identity(&self) -> Option<i64> {
+        self.task_id.or(self.id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required_nonnegative_option("task identity", self.task_identity())?;
+        if self.task_type.is_some_and(|kind| kind <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama task type must be positive".to_string(),
+            ));
+        }
+        if self.status.is_some_and(|status| !(1..=4).contains(&status)) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama task response has an invalid status".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("task create time", self.create_time),
+            ("task finish time", self.finish_time),
+            ("task update time", self.update_time),
+        ] {
+            if value.is_some_and(|time| time < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program mini-drama {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(created), Some(finished)) = (self.create_time, self.finish_time) {
+            if created > finished {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama task finishes before it was created".to_string(),
+                ));
+            }
+        }
+        match self.task_status_kind() {
+            Some(MiniDramaUploadTaskStatusKind::Completed) => {
+                validate_mini_drama_required_positive_option(
+                    "completed task media id",
+                    self.media_id,
+                )?;
+                if self.errcode.is_some_and(|code| code != 0) {
+                    return Err(WechatError::Config(
+                        "mini-program mini-drama completed task contains an error code".to_string(),
+                    ));
+                }
+            }
+            Some(MiniDramaUploadTaskStatusKind::Failed) => {
+                if self.errcode.is_none_or(|code| code == 0) {
+                    return Err(WechatError::Config(
+                        "mini-program mini-drama failed task is missing its error code".to_string(),
+                    ));
+                }
+                validate_mini_drama_required_option(
+                    "failed task error message",
+                    self.err_msg.as_deref(),
+                )?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaVideoMediaTaskResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.task_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program mini-drama task response is missing task info".to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
+impl MiniDramaVideoApplyChunkUploadResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_required_option("upload id", self.upload_id.as_deref())
+    }
+}
+
+impl MiniDramaVideoChunkUploadResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_required_option("chunk etag", self.etag.as_deref())
+    }
+}
+
+impl MiniDramaVideoChunkUploadCompleteResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_required_option("completed media id", self.media_id.as_deref())
+    }
+}
+
+impl MiniDramaAuditDetail {
+    pub fn status_kind(&self) -> Option<MiniDramaAuditStatusKind> {
+        self.status.map(MiniDramaAuditStatusKind::from)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.status.is_some_and(|status| !(0..=3).contains(&status)) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama audit detail has an invalid status".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("audit create time", self.create_time),
+            ("audit time", self.audit_time),
+            ("audit update time", self.update_time),
+        ] {
+            if value.is_some_and(|time| time < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program mini-drama {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(created), Some(audited)) = (self.create_time, self.audit_time) {
+            if created > audited {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama audit time precedes submission".to_string(),
+                ));
+            }
+        }
+        let mut evidence = std::collections::HashSet::new();
+        for material_id in &self.evidence_material_id_list {
+            validate_mini_drama_required("audit evidence material id", material_id)?;
+            if !evidence.insert(material_id) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama audit evidence contains duplicates".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaMediaInfo {
+    pub fn validate(&self) -> Result<()> {
+        self.validate_common(true)
+    }
+
+    fn validate_link(&self) -> Result<()> {
+        self.validate_common(false)?;
+        if [
+            self.media_url.as_deref(),
+            self.original_url.as_deref(),
+            self.mp4_url.as_deref(),
+            self.hls_url.as_deref(),
+        ]
+        .into_iter()
+        .all(|url| url.is_none())
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama media-link response has no playable URL".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_common(&self, require_media_id: bool) -> Result<()> {
+        if require_media_id {
+            validate_mini_drama_required_positive_option("response media id", self.media_id)?;
+        } else if self.media_id.is_some_and(|id| id <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama response media id must be positive".to_string(),
+            ));
+        }
+        if self.drama_id.is_some_and(|id| id <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama response drama id must be positive".to_string(),
+            ));
+        }
+        for (kind, value) in [
+            ("media duration", self.duration),
+            ("media size", self.size),
+            ("media file size", self.file_size),
+            ("media create time", self.create_time),
+            ("media update time", self.update_time),
+            ("media expire time", self.expire_time),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program mini-drama {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(created), Some(expires)) = (self.create_time, self.expire_time) {
+            if created > expires {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama media expires before it was created".to_string(),
+                ));
+            }
+        }
+        for (kind, value) in [
+            ("media URL", self.media_url.as_deref()),
+            ("cover URL", self.cover_url.as_deref()),
+            ("original URL", self.original_url.as_deref()),
+            ("MP4 URL", self.mp4_url.as_deref()),
+            ("HLS URL", self.hls_url.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_mini_drama_https_url(kind, value)?;
+            }
+        }
+        if let Some(audit_detail) = &self.audit_detail {
+            audit_detail.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaMediaListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut ids = std::collections::HashSet::with_capacity(self.media_info_list.len());
+        for media in &self.media_info_list {
+            media.validate()?;
+            if !ids.insert(media.media_id.expect("validated media id")) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama media list contains duplicate media".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaMediaInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.media_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program mini-drama media response is missing media info".to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
+impl MiniDramaMediaLinkResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.media_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program mini-drama media-link response is missing media info".to_string(),
+                )
+            })?
+            .validate_link()
+    }
+}
+
+impl MiniDramaSubmitAuditResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_required_positive_option("submitted drama id", self.drama_id)
+    }
+}
+
+impl MiniDramaInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required_positive_option("response drama id", self.drama_id)?;
+        validate_mini_drama_required_option("response drama name", self.name.as_deref())?;
+        for (kind, value) in [
+            ("drama media count", self.media_count),
+            ("drama create time", self.create_time),
+            ("drama update time", self.update_time),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program mini-drama {kind} cannot be negative"
+                )));
+            }
+        }
+        for (kind, value) in [
+            ("drama cover URL", self.cover_url.as_deref()),
+            (
+                "drama promotion poster URL",
+                self.promotion_poster.as_deref(),
+            ),
+        ] {
+            if let Some(value) = value {
+                validate_mini_drama_https_url(kind, value)?;
+            }
+        }
+        let mut media_ids = std::collections::HashSet::with_capacity(self.media_list.len());
+        for media in &self.media_list {
+            validate_mini_drama_required_positive_option("drama media reference", media.media_id)?;
+            if !media_ids.insert(media.media_id.expect("validated media reference")) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama response contains duplicate media references"
+                        .to_string(),
+                ));
+            }
+        }
+        if !self.media_list.is_empty()
+            && self
+                .media_count
+                .is_some_and(|count| count != self.media_list.len() as i64)
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama response media count does not match media list"
+                    .to_string(),
+            ));
+        }
+        if let Some(audit_detail) = &self.audit_detail {
+            audit_detail.validate()?;
+        }
+        if let Some(actor_list) = &self.actor_list {
+            actor_list.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut ids = std::collections::HashSet::with_capacity(self.drama_info_list.len());
+        for drama in &self.drama_info_list {
+            drama.validate()?;
+            if !ids.insert(drama.drama_id.expect("validated drama id")) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama list contains duplicate dramas".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.drama_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program mini-drama response is missing drama info".to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
+impl MiniDramaAuditInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        self.audit_detail
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program mini-drama audit response is missing audit detail".to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
+impl MiniDramaCdnUsageItem {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required_nonnegative_option("CDN usage timestamp", self.time)?;
+        for (kind, value) in [
+            ("CDN usage value", self.value),
+            ("CDN flux", self.flux),
+            ("CDN bandwidth", self.bandwidth),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program mini-drama {kind} cannot be negative"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaCdnUsageResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.data_interval.is_some_and(|interval| interval <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama CDN response interval must be positive".to_string(),
+            ));
+        }
+        let mut previous_time = None;
+        for item in &self.item_list {
+            item.validate()?;
+            let time = item.time.expect("validated CDN usage time");
+            if previous_time.is_some_and(|previous| previous >= time) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama CDN usage items must be strictly ordered".to_string(),
+                ));
+            }
+            previous_time = Some(time);
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaCdnLog {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required_option("CDN log URL", self.url.as_deref())?;
+        validate_mini_drama_https_url("CDN log URL", self.url.as_deref().unwrap_or_default())?;
+        validate_mini_drama_required_nonnegative_option("CDN log start time", self.start_time)?;
+        validate_mini_drama_required_nonnegative_option("CDN log end time", self.end_time)?;
+        if self.start_time.expect("validated CDN log start")
+            > self.end_time.expect("validated CDN log end")
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama CDN log ends before it starts".to_string(),
+            ));
+        }
+        if self.size.is_some_and(|size| size < 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama CDN log size cannot be negative".to_string(),
+            ));
+        }
+        validate_mini_drama_optional("CDN log date", self.date.as_deref())?;
+        validate_mini_drama_optional("CDN log name", self.name.as_deref())
+    }
+}
+
+impl MiniDramaCdnLogsResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self
+            .total_count
+            .is_some_and(|count| count < self.domestic_cdn_logs.len() as i64)
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama CDN log count is smaller than the returned list"
+                    .to_string(),
+            ));
+        }
+        let mut urls = std::collections::HashSet::with_capacity(self.domestic_cdn_logs.len());
+        for log in &self.domestic_cdn_logs {
+            log.validate()?;
+            if !urls.insert(log.url.as_deref().expect("validated CDN log URL")) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama CDN log response contains duplicate URLs".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaPackageInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required_option("package id", self.package_id.as_deref())?;
+        validate_mini_drama_required_positive_option("package order id", self.order_id)?;
+        validate_mini_drama_required_nonnegative_option("package capacity", self.all)?;
+        validate_mini_drama_required_nonnegative_option("package used amount", self.used)?;
+        if self.used.expect("validated package usage")
+            > self.all.expect("validated package capacity")
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama package usage exceeds package capacity".to_string(),
+            ));
+        }
+        if self
+            .is_deleted
+            .is_some_and(|value| !(0..=1).contains(&value))
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama package deletion flag must be 0 or 1".to_string(),
+            ));
+        }
+        validate_mini_drama_required_nonnegative_option("package start time", self.start_time)?;
+        validate_mini_drama_required_nonnegative_option("package end time", self.end_time)?;
+        if self.start_time.expect("validated package start")
+            > self.end_time.expect("validated package end")
+        {
+            return Err(WechatError::Config(
+                "mini-program mini-drama package ends before it starts".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn remaining(&self) -> Result<i64> {
+        self.validate()?;
+        self.all
+            .expect("validated package capacity")
+            .checked_sub(self.used.expect("validated package usage"))
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "mini-program mini-drama package remaining usage overflowed".to_string(),
+                )
+            })
+    }
+}
+
+impl MiniDramaPackageListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_total_count(self.total_count, self.package_list.len(), "package")?;
+        let mut ids = std::collections::HashSet::with_capacity(self.package_list.len());
+        for package in &self.package_list {
+            package.validate()?;
+            if !ids.insert(package.package_id.as_deref().expect("validated package id")) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama package response contains duplicate packages"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_page_request(
+        &self,
+        current: &MiniDramaListRequest,
+    ) -> Result<Option<MiniDramaListRequest>> {
+        self.validate()?;
+        mini_drama_next_page(current, self.total_count, self.package_list.len())
+    }
+}
+
+impl MiniDramaAuthorizationResult {
+    pub fn validate(&self) -> Result<()> {
+        validate_mini_drama_required_positive_option(
+            "authorization result drama id",
+            self.drama_id,
+        )?;
+        validate_mini_drama_optional(
+            "authorization result appid",
+            self.authorized_appid.as_deref(),
+        )?;
+        if let Some(code) = self.result_code.filter(|code| *code != 0) {
+            return Err(WechatError::Api {
+                code,
+                message: self
+                    .errmsg
+                    .clone()
+                    .unwrap_or_else(|| "mini-drama authorization failed".to_string()),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaAuthorizationResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        let mut ids = std::collections::HashSet::with_capacity(self.result.len());
+        for result in &self.result {
+            result.validate()?;
+            if !ids.insert(result.drama_id.expect("validated authorization drama id")) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama authorization response contains duplicate results"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaAuthorizationObject {
+    pub fn validate(&self) -> Result<()> {
+        if self.drama_id.is_some_and(|id| id <= 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama authorization drama id must be positive".to_string(),
+            ));
+        }
+        validate_mini_drama_required_option(
+            "authorization object appid",
+            self.authorized_appid.as_deref(),
+        )?;
+        validate_mini_drama_required_nonnegative_option(
+            "authorization time",
+            self.authorized_time,
+        )?;
+        if self.authz_expire_time.is_some_and(|time| time < 0) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama authorization expiry cannot be negative".to_string(),
+            ));
+        }
+        if let (Some(authorized), Some(expires)) = (self.authorized_time, self.authz_expire_time) {
+            if expires != 0 && authorized > expires {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama authorization expires before it starts".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl MiniDramaAuthorizationSearchResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_total_count(self.total_count, self.objects.len(), "authorization")?;
+        validate_mini_drama_authorization_objects(&self.objects)
+    }
+
+    pub fn next_page_request(
+        &self,
+        current: &MiniDramaListRequest,
+    ) -> Result<Option<MiniDramaListRequest>> {
+        self.validate()?;
+        mini_drama_next_page(current, self.total_count, self.objects.len())
+    }
+}
+
+impl MiniDramaAccountAuthorizationSearchResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_mini_drama_response_success(self.errcode, self.errmsg.as_deref())?;
+        validate_mini_drama_authorization_objects(&self.objects)
+    }
+}
+
+fn validate_mini_drama_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_required_option(kind: &str, value: Option<&str>) -> Result<()> {
+    value
+        .ok_or_else(|| WechatError::Config(format!("mini-program mini-drama {kind} is required")))
+        .and_then(|value| validate_mini_drama_required(kind, value))
+}
+
+fn validate_mini_drama_optional(kind: &str, value: Option<&str>) -> Result<()> {
+    if let Some(value) = value {
+        validate_mini_drama_required(kind, value)?;
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_positive(kind: &str, value: i64) -> Result<()> {
+    if value <= 0 {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_required_positive_option(kind: &str, value: Option<i64>) -> Result<()> {
+    validate_mini_drama_positive(
+        kind,
+        value.ok_or_else(|| {
+            WechatError::Config(format!("mini-program mini-drama {kind} is required"))
+        })?,
+    )
+}
+
+fn validate_mini_drama_required_nonnegative_option(kind: &str, value: Option<i64>) -> Result<()> {
+    if value.is_none_or(|value| value < 0) {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} is required and cannot be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_https_url(kind: &str, value: &str) -> Result<()> {
+    let parsed = url::Url::parse(value).map_err(|err| {
+        WechatError::Config(format!(
+            "mini-program mini-drama {kind} must be an absolute URL: {err}"
+        ))
+    })?;
+    if parsed.scheme() != "https" || parsed.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must use HTTPS"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_media_name(media_name: &str) -> Result<()> {
+    validate_mini_drama_required("media name", media_name)?;
+    validate_mini_drama_text_limit("media name", media_name, 100)
+}
+
+fn validate_mini_drama_media_type(media_type: &str) -> Result<()> {
+    const MEDIA_TYPES: &[&str] = &[
+        "MP4", "TS", "MOV", "MXF", "MPG", "FLV", "WMV", "AVI", "M4V", "F4V", "MPEG", "3GP", "ASF",
+        "MKV",
+    ];
+    if !MEDIA_TYPES.contains(&media_type) {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama media type '{media_type}' is unsupported"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_cover_type(cover_type: &str) -> Result<()> {
+    const COVER_TYPES: &[&str] = &[
+        "JPG", "JPEG", "PNG", "BMP", "TIFF", "AI", "CDR", "EPS", "TIF",
+    ];
+    if !COVER_TYPES.contains(&cover_type) {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama cover type '{cover_type}' is unsupported"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_bytes(kind: &str, value: &[u8], maximum: usize) -> Result<()> {
+    if value.is_empty() || value.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must contain between 1 and {maximum} bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_parts(kind: &str, parts: &[MiniDramaPartInfo]) -> Result<()> {
+    if parts.is_empty() || parts.len() > 100 {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} part list must contain between 1 and 100 entries"
+        )));
+    }
+    let mut part_numbers = Vec::with_capacity(parts.len());
+    for part in parts {
+        part.validate()?;
+        part_numbers.push(part.part_number);
+    }
+    part_numbers.sort_unstable();
+    for (index, part_number) in part_numbers.into_iter().enumerate() {
+        if part_number != index as i64 + 1 {
+            return Err(WechatError::Config(format!(
+                "mini-program mini-drama {kind} parts must be unique and contiguous from 1"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_optional_time_range(
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> Result<()> {
+    match (start_time, end_time) {
+        (None, None) => Ok(()),
+        (Some(start), Some(end)) => validate_mini_drama_time_range(start, end),
+        _ => Err(WechatError::Config(
+            "mini-program mini-drama time range requires both start and end times".to_string(),
+        )),
+    }
+}
+
+fn validate_mini_drama_time_range(start_time: i64, end_time: i64) -> Result<()> {
+    if start_time <= 0 || end_time <= 0 || start_time >= end_time {
+        return Err(WechatError::Config(
+            "mini-program mini-drama time range must be positive and ordered".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_page(limit: Option<i64>, offset: Option<i64>) -> Result<()> {
+    if limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
+        return Err(WechatError::Config(
+            "mini-program mini-drama page limit must be between 1 and 100".to_string(),
+        ));
+    }
+    if offset.is_some_and(|offset| offset < 0) {
+        return Err(WechatError::Config(
+            "mini-program mini-drama page offset cannot be negative".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_domain_list(kind: &str, value: Option<&str>) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    validate_mini_drama_required(kind, value)?;
+    let domains: Vec<_> = value.split(',').map(str::trim).collect();
+    if domains.is_empty() || domains.len() > 10 {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must contain between 1 and 10 domains"
+        )));
+    }
+    for domain in domains {
+        if domain.is_empty()
+            || domain.contains("://")
+            || domain.contains('/')
+            || domain.contains('\\')
+            || domain.chars().any(char::is_whitespace)
+        {
+            return Err(WechatError::Config(format!(
+                "mini-program mini-drama {kind} contains an invalid domain"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_text_limit(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    if value.chars().count() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must contain at most {maximum} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_positive_ids(kind: &str, values: &[i64], maximum: usize) -> Result<()> {
+    if values.is_empty() || values.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must contain between 1 and {maximum} entries"
+        )));
+    }
+    let mut ids = std::collections::HashSet::with_capacity(values.len());
+    for id in values {
+        validate_mini_drama_positive(kind, *id)?;
+        if !ids.insert(*id) {
+            return Err(WechatError::Config(format!(
+                "mini-program mini-drama {kind} contains duplicate ids"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_qualification(
+    qualification_type: i64,
+    registration_number: Option<&str>,
+    certificate_material_id: Option<&str>,
+    commitment_material_id: Option<&str>,
+    cost_of_production: Option<i64>,
+) -> Result<()> {
+    match qualification_type {
+        1 => {
+            validate_mini_drama_required_option("registration number", registration_number)?;
+            validate_mini_drama_required_option(
+                "qualification certificate material id",
+                certificate_material_id,
+            )
+        }
+        2 => {
+            validate_mini_drama_required_option(
+                "cost commitment letter material id",
+                commitment_material_id,
+            )?;
+            if !cost_of_production.is_some_and(|cost| (1..=29).contains(&cost)) {
+                return Err(WechatError::Config(
+                    "mini-program mini-drama production cost must be between 1 and 29".to_string(),
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(WechatError::Config(
+            "mini-program mini-drama qualification type must be 1 or 2".to_string(),
+        )),
+    }
+}
+
+fn validate_mini_drama_replacements(replacements: &[MiniDramaReplaceInfo]) -> Result<()> {
+    let mut old_ids = std::collections::HashSet::with_capacity(replacements.len());
+    let mut new_ids = std::collections::HashSet::with_capacity(replacements.len());
+    for replacement in replacements {
+        replacement.validate()?;
+        if !old_ids.insert(replacement.old) || !new_ids.insert(replacement.new) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama replacement list contains duplicate media".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_appid(kind: &str, appid: &str) -> Result<()> {
+    validate_mini_drama_required(kind, appid)?;
+    if appid.len() > 128 {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} must contain at most 128 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_expiry(expiry: Option<i64>) -> Result<()> {
+    if let Some(expiry) = expiry {
+        if expiry <= chrono::Utc::now().timestamp() {
+            return Err(WechatError::Config(
+                "mini-program mini-drama authorization expiry must be in the future".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_total_count(
+    total_count: Option<i64>,
+    returned: usize,
+    kind: &str,
+) -> Result<()> {
+    if total_count.is_some_and(|count| count < returned as i64) {
+        return Err(WechatError::Config(format!(
+            "mini-program mini-drama {kind} total count is smaller than the returned list"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mini_drama_authorization_objects(
+    objects: &[MiniDramaAuthorizationObject],
+) -> Result<()> {
+    let mut identities = std::collections::HashSet::with_capacity(objects.len());
+    for object in objects {
+        object.validate()?;
+        if !identities.insert((
+            object.authorized_appid.as_deref().unwrap_or_default(),
+            object.drama_id,
+        )) {
+            return Err(WechatError::Config(
+                "mini-program mini-drama authorization response contains duplicate objects"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn mini_drama_next_page(
+    current: &MiniDramaListRequest,
+    total_count: Option<i64>,
+    returned: usize,
+) -> Result<Option<MiniDramaListRequest>> {
+    let current = current.clone().normalized();
+    current.validate()?;
+    let limit = current.effective_limit();
+    let next_offset = current
+        .effective_offset()
+        .checked_add(returned as i64)
+        .ok_or_else(|| {
+            WechatError::Config("mini-program mini-drama next-page offset overflowed".to_string())
+        })?;
+    if returned < limit as usize || total_count.is_some_and(|total| next_offset >= total) {
+        return Ok(None);
+    }
+    let mut next = current;
+    next.offset = Some(next_offset);
+    Ok(Some(next))
+}
+
+fn ensure_mini_drama_response_success(errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program mini-drama operation failed")
+                .to_string(),
+        });
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13253,7 +14811,7 @@ mod tests {
             "total_count": 1
         }))
         .unwrap();
-        assert_eq!(packages.package_list[0].package_id, Some(7));
+        assert_eq!(packages.package_list[0].package_id.as_deref(), Some("7"));
 
         let auth: MiniDramaAuthorizationSearchResponse = serde_json::from_value(json!({
             "objects": [{ "drama_id": 100, "authorized_appid": "wxauth" }],
@@ -13277,6 +14835,405 @@ mod tests {
             account.objects[0].authorized_appid.as_deref(),
             Some("wxauth")
         );
+    }
+
+    #[test]
+    fn validates_mini_drama_vod_production_requests() {
+        let now = chrono::Utc::now().timestamp();
+        MiniDramaVideoMediaUploadByUrlRequest {
+            media_url: "https://example.com/video.mp4".to_string(),
+            cover_url: Some("https://example.com/cover.jpg".to_string()),
+            media_name: "Drama - EP01".to_string(),
+            source_context: Some("trace-1".to_string()),
+        }
+        .validate()
+        .unwrap();
+
+        let mut file = MiniDramaVideoMediaUploadByFileRequest::new("Drama - EP01", vec![1, 2, 3]);
+        file.cover_data = Some(vec![4, 5]);
+        file.source_context = Some("trace-2".to_string());
+        file.validate().unwrap();
+
+        MiniDramaVideoChunkUploadRequest {
+            upload_id: "upload-id".to_string(),
+            part_number: 1,
+            resource_type: 1,
+            data: vec![1, 2, 3],
+        }
+        .validate()
+        .unwrap();
+        MiniDramaVideoChunkUploadCompleteRequest {
+            upload_id: "upload-id".to_string(),
+            media_part_infos: vec![
+                MiniDramaPartInfo {
+                    part_number: 2,
+                    etag: "etag-2".to_string(),
+                },
+                MiniDramaPartInfo {
+                    part_number: 1,
+                    etag: "etag-1".to_string(),
+                },
+            ],
+            cover_part_infos: Vec::new(),
+        }
+        .validate()
+        .unwrap();
+
+        MiniDramaMediaLinkRequest {
+            media_id: 10,
+            t: now + 60 * 60,
+            us: Some("channel1".to_string()),
+            expr: Some(60),
+            rlimit: Some(3),
+            href: Some("example.com,*.example.net".to_string()),
+            bkref: None,
+        }
+        .validate()
+        .unwrap();
+
+        let actors = MiniDramaActorList {
+            actor: vec![
+                MiniDramaActor {
+                    name: "Actor One".to_string(),
+                    photo_material_id: "photo-1".to_string(),
+                    role: "Hero".to_string(),
+                    profile: "Actor profile with enough production detail.".to_string(),
+                },
+                MiniDramaActor {
+                    name: "Actor Two".to_string(),
+                    photo_material_id: "photo-2".to_string(),
+                    role: "Friend".to_string(),
+                    profile: "Another profile with enough production detail.".to_string(),
+                },
+            ],
+        };
+        MiniDramaSubmitAuditRequest {
+            drama_id: None,
+            name: "Drama".to_string(),
+            media_count: 2,
+            media_id_list: vec![10, 11],
+            description: "A production-ready mini drama.".to_string(),
+            recommendations: "Recommended".to_string(),
+            cover_material_id: "cover-id".to_string(),
+            promotion_poster_material_id: None,
+            producer: "Producer".to_string(),
+            authorized_material_id: "authorization-id".to_string(),
+            qualification_type: 2,
+            registration_number: None,
+            qualification_certificate_material_id: None,
+            cost_commitment_letter_material_id: Some("commitment-id".to_string()),
+            cost_of_production: Some(20),
+            expedited: Some(1),
+            actor_list: actors.clone(),
+            replace_media_list: Vec::new(),
+        }
+        .validate()
+        .unwrap();
+
+        MiniDramaUpdateInfoRequest {
+            drama_id: 100,
+            description: Some("Updated production description.".to_string()),
+            cover_material_id: None,
+            recommendations: None,
+            promotion_poster_material_id: None,
+            alternate_name: None,
+            actor_list: Some(actors),
+            qualification_type: None,
+            qualification_certificate_material_id: None,
+            registration_number: None,
+            cost_of_production: None,
+            cost_commitment_letter_material_id: None,
+        }
+        .validate()
+        .unwrap();
+        MiniDramaCdnInfoRequest {
+            start_time: now - 7_200,
+            end_time: now - 3_600,
+            data_interval: Some(300),
+        }
+        .validate()
+        .unwrap();
+        MiniDramaAuthorizationRequest {
+            authorized_appid: "wxauthorized".to_string(),
+            drama_id: vec![100, 101],
+            authz_expire_time: Some(now + 86_400),
+        }
+        .validate()
+        .unwrap();
+        MiniDramaSetFlushDramaRequest {
+            list: vec![MiniDramaFlushDramaInfo {
+                src_appid: "wxsource".to_string(),
+                drama_id: "100".to_string(),
+                drama_name: "Drama".to_string(),
+            }],
+        }
+        .validate()
+        .unwrap();
+
+        let gapped_parts = MiniDramaVideoChunkUploadCompleteRequest {
+            upload_id: "upload-id".to_string(),
+            media_part_infos: vec![MiniDramaPartInfo {
+                part_number: 2,
+                etag: "etag".to_string(),
+            }],
+            cover_part_infos: Vec::new(),
+        };
+        assert!(gapped_parts.validate().is_err());
+
+        let expired = MiniDramaAccountAuthorizationRequest {
+            authorized_appid: "wxauthorized".to_string(),
+            authz_expire_time: Some(now - 1),
+        };
+        assert!(expired.validate().is_err());
+    }
+
+    #[test]
+    fn validates_mini_drama_vod_production_responses() {
+        let upload: MiniDramaVideoMediaUploadByUrlResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "task_id": 123,
+            "request_id": "upload"
+        }))
+        .unwrap();
+        upload.validate().unwrap();
+        assert_eq!(upload.extra["request_id"], "upload");
+
+        let task: MiniDramaVideoMediaTaskResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "task_info": {
+                "id": 123,
+                "task_type": 1,
+                "status": 3,
+                "errcode": 0,
+                "create_time": 1800000000,
+                "finish_time": 1800000010,
+                "media_id": 456,
+                "task_extra": "kept"
+            }
+        }))
+        .unwrap();
+        task.validate().unwrap();
+        let task_info = task.task_info.as_ref().expect("task info");
+        assert_eq!(
+            task_info.task_status_kind(),
+            Some(MiniDramaUploadTaskStatusKind::Completed)
+        );
+        assert_eq!(task_info.extra["task_extra"], "kept");
+
+        let pending_task: MiniDramaVideoMediaTaskResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "task_info": {"id": 0, "task_type": 1, "status": 1}
+        }))
+        .unwrap();
+        pending_task.validate().unwrap();
+
+        let media_list: MiniDramaMediaListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "media_info_list": [{
+                "media_id": 456,
+                "drama_id": 100,
+                "name": "Drama - EP01",
+                "file_size": 1024,
+                "duration": 60,
+                "create_time": 1800000000,
+                "expire_time": 1800086400,
+                "cover_url": "https://example.com/cover.jpg",
+                "original_url": "https://example.com/original.mp4",
+                "mp4_url": "https://example.com/video.mp4",
+                "hls_url": "https://example.com/video.m3u8",
+                "audit_detail": {
+                    "status": 3,
+                    "create_time": 1800000000,
+                    "audit_time": 1800000010,
+                    "evidence_material_id_list": ["evidence-1"]
+                }
+            }]
+        }))
+        .unwrap();
+        media_list.validate().unwrap();
+        assert_eq!(media_list.media_info_list[0].file_size, Some(1024));
+        assert_eq!(
+            media_list.media_info_list[0]
+                .audit_detail
+                .as_ref()
+                .and_then(MiniDramaAuditDetail::status_kind),
+            Some(MiniDramaAuditStatusKind::Approved)
+        );
+
+        let link: MiniDramaMediaLinkResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "media_info": {
+                "name": "Drama - EP01",
+                "duration": 60,
+                "cover_url": "https://example.com/cover.jpg",
+                "mp4_url": "https://example.com/video.mp4",
+                "hls_url": "https://example.com/video.m3u8"
+            }
+        }))
+        .unwrap();
+        link.validate().unwrap();
+
+        let drama_list: MiniDramaListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "drama_info_list": [{
+                "drama_id": 100,
+                "name": "Drama",
+                "playwright": "Writer",
+                "producer": "Producer",
+                "production_license": "License",
+                "cover_url": "https://example.com/drama-cover.jpg",
+                "media_count": 1,
+                "recommendations": "Recommended",
+                "description": "Description",
+                "promotion_poster": "https://example.com/poster.jpg",
+                "status": 3,
+                "media_list": [{"media_id": 456}],
+                "audit_detail": {"status": 3},
+                "actor_list": {"actor": [
+                    {
+                        "name": "Actor One",
+                        "photo_material_id": "photo-1",
+                        "role": "Hero",
+                        "profile": "Actor profile with enough production detail."
+                    },
+                    {
+                        "name": "Actor Two",
+                        "photo_material_id": "photo-2",
+                        "role": "Friend",
+                        "profile": "Another profile with enough production detail."
+                    }
+                ]}
+            }]
+        }))
+        .unwrap();
+        drama_list.validate().unwrap();
+        assert_eq!(
+            drama_list.drama_info_list[0].playwright.as_deref(),
+            Some("Writer")
+        );
+
+        let cdn: MiniDramaCdnUsageResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "data_interval": 300,
+            "item_list": [
+                {"time": 1800000000, "value": 1024},
+                {"time": 1800000300, "value": 2048}
+            ]
+        }))
+        .unwrap();
+        cdn.validate().unwrap();
+
+        let logs: MiniDramaCdnLogsResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total_count": 1,
+            "domestic_cdn_logs": [{
+                "date": "2026-07-20",
+                "name": "cdn.log.gz",
+                "start_time": 1800000000,
+                "end_time": 1800003600,
+                "url": "https://example.com/cdn.log.gz"
+            }]
+        }))
+        .unwrap();
+        logs.validate().unwrap();
+
+        let packages: MiniDramaPackageListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total_count": 2,
+            "package_list": [{
+                "package_id": "package-1",
+                "order_id": 10,
+                "all": 1000,
+                "used": 250,
+                "is_deleted": 0,
+                "status": 1,
+                "start_time": 1800000000,
+                "end_time": 1800086400
+            }]
+        }))
+        .unwrap();
+        packages.validate().unwrap();
+        assert_eq!(packages.package_list[0].remaining().unwrap(), 750);
+        let next = packages
+            .next_page_request(&MiniDramaListRequest {
+                limit: Some(1),
+                offset: Some(0),
+            })
+            .unwrap()
+            .expect("next package page");
+        assert_eq!(next.offset, Some(1));
+
+        let authorization: MiniDramaAuthorizationResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "result": [{"drama_id": 100, "errcode": 0}]
+        }))
+        .unwrap();
+        authorization.validate().unwrap();
+        assert_eq!(authorization.result[0].result_code, Some(0));
+
+        let authorized_by: MiniDramaAccountAuthorizationSearchResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "objects": [{
+                    "authorizer_appid": "wxauthorizer",
+                    "authorized_time": 1800000000,
+                    "authz_expire_time": 1800086400
+                }]
+            }))
+            .unwrap();
+        authorized_by.validate().unwrap();
+        assert_eq!(
+            authorized_by.objects[0].authorized_appid.as_deref(),
+            Some("wxauthorizer")
+        );
+    }
+
+    #[test]
+    fn rejects_inconsistent_mini_drama_vod_contracts() {
+        let api_error: MiniDramaVideoMediaUploadByUrlResponse = serde_json::from_value(json!({
+            "errcode": 40001,
+            "errmsg": "invalid token"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let failed_task: MiniDramaVideoMediaTaskResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "task_info": {"id": 1, "status": 4, "errcode": 0, "errmsg": ""}
+        }))
+        .unwrap();
+        assert!(failed_task.validate().is_err());
+
+        let duplicate_media: MiniDramaMediaListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "media_info_list": [
+                {"media_id": 1, "name": "A"},
+                {"media_id": 1, "name": "B"}
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_media.validate().is_err());
+
+        let overused_package: MiniDramaPackageInfo = serde_json::from_value(json!({
+            "package_id": "package-1",
+            "order_id": 10,
+            "all": 100,
+            "used": 101,
+            "start_time": 1,
+            "end_time": 2
+        }))
+        .unwrap();
+        assert!(overused_package.validate().is_err());
+
+        let partial_failure: MiniDramaAuthorizationResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "result": [{"drama_id": 100, "errcode": 20001, "errmsg": "denied"}]
+        }))
+        .unwrap();
+        assert!(matches!(
+            partial_failure.validate(),
+            Err(WechatError::Api { code: 20001, .. })
+        ));
     }
 
     #[test]
