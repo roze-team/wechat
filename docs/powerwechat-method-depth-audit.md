@@ -1505,6 +1505,24 @@ transfer depth:
   takeover users, one-to-one-hundred unique customers, optional message length,
   unassigned-customer pagination, and transfer-result cursors.
 
+Implemented on 2026-07-20 in Work external-contact moment-strategy response
+contracts:
+
+- list, detail, range, create, and edit operations now validate successful
+  responses at the HTTP boundary and surface nonzero Work API codes;
+- strategy lists enforce the 1000-row boundary, positive unique strategy ids,
+  nonblank names, non-negative parent ids, unique administrators, and positive
+  optional creation timestamps while exposing normalized cursor and lookup
+  helpers;
+- detail responses require a usable strategy object, and range responses
+  validate unique user/department selections, positive department ids, and
+  the 1000-row boundary with user/department membership helpers;
+- future positive range types remain available through extension fields,
+  whereas zero or negative types are rejected as malformed payloads;
+- create responses require a positive strategy id and expose a checked
+  accessor, while edit responses remain compatible with status-only success
+  payloads and validate a strategy id when one is returned.
+
 Implemented on 2026-07-18 in Work external-contact moment and statistics
 depth:
 
