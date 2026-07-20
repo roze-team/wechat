@@ -1821,6 +1821,28 @@ depth:
   active-expiry, conversion-rate, customer-identity, and received-message
   semantics while preserving extension fields.
 
+Implemented on 2026-07-20 in Work external-contact customer-acquisition
+response contracts:
+
+- link list/get/create, quota, attributed-customer, statistic, and chat-info
+  network methods now validate typed responses before returning application
+  data;
+- links require bounded ids/names, absolute HTTP(S) URLs, positive ordered
+  timestamps, valid ranges and priority options; list pages reject duplicate
+  ids and expose normalized cursor/lookup helpers;
+- quota responses require non-negative totals and balances with
+  `balance <= total`, while quota entries reject negative balances and invalid
+  expiry timestamps;
+- customer pages validate member/external identities, non-negative statuses,
+  bounded state values, 1000-row limits, and duplicate customers, with
+  normalized cursor and lookup helpers;
+- statistics enforce non-negative counts and prevent new-customer totals from
+  exceeding link-click totals; chat attribution requires both identities,
+  typed chat info, non-negative message counts, and valid link/state metadata;
+- manually deserialized non-zero API responses now surface as
+  `WechatError::Api`, while unknown chat-status values and extension fields
+  remain forward compatible.
+
 Implemented on 2026-07-20 in Work external-contact product-album depth:
 
 - add, update, delete, get, and list operations now validate their request
