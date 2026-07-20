@@ -1957,6 +1957,13 @@ impl MiniProgram {
         app_key: impl AsRef<[u8]>,
         data: Value,
     ) -> Result<B2bPaymentResponse> {
+        validate_b2b_key("session key", session_key.as_ref())?;
+        validate_b2b_key("app key", app_key.as_ref())?;
+        if !matches!(&data, Value::Object(fields) if !fields.is_empty()) {
+            return Err(WechatError::Config(
+                "mini-program B2B payment data must be a nonempty JSON object".to_string(),
+            ));
+        }
         let sign_data = serde_json::to_string(&data)?;
         Ok(B2bPaymentResponse {
             sign_data: sign_data.clone(),
@@ -2096,13 +2103,16 @@ impl MiniProgram {
         request: B,
     ) -> Result<R>
     where
-        B: Serialize,
-        R: for<'de> Deserialize<'de>,
+        B: Serialize + B2bRequestContract,
+        R: for<'de> Deserialize<'de> + B2bResponseContract,
     {
+        request.validate_contract()?;
+        validate_b2b_key("app key", app_key.as_ref())?;
         let body = serde_json::to_string(&request)?;
         let pay_sig =
             crypto::hmac_sha256_hex(app_key.as_ref(), format!("{path}&{body}").as_bytes())?;
-        self.inner
+        let response: R = self
+            .inner
             .post_raw_json(
                 path,
                 vec![("pay_sig".to_string(), pay_sig)],
@@ -2110,7 +2120,9 @@ impl MiniProgram {
                 body.into_bytes(),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate_contract()?;
+        Ok(response)
     }
 
     pub fn industry_mini_drama_vod(&self) -> DomainModule {
@@ -5792,6 +5804,78 @@ pub struct B2bGetOrderRequest {
     pub order_id: Option<String>,
 }
 
+impl B2bGetOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_identity_pair(
+            "out trade number",
+            self.out_trade_no.as_deref(),
+            "order id",
+            self.order_id.as_deref(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "i64", into = "i64")]
+pub enum B2bRefundSource {
+    CustomerService = 1,
+    Customer = 2,
+    Other = 3,
+}
+
+impl TryFrom<i64> for B2bRefundSource {
+    type Error = String;
+
+    fn try_from(value: i64) -> std::result::Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::CustomerService),
+            2 => Ok(Self::Customer),
+            3 => Ok(Self::Other),
+            _ => Err(format!("unsupported B2B refund source {value}")),
+        }
+    }
+}
+
+impl From<B2bRefundSource> for i64 {
+    fn from(value: B2bRefundSource) -> Self {
+        value as i64
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "i64", into = "i64")]
+pub enum B2bRefundReason {
+    Unspecified = 0,
+    Product = 1,
+    AfterSales = 2,
+    CustomerPreference = 3,
+    Price = 4,
+    Other = 5,
+}
+
+impl TryFrom<i64> for B2bRefundReason {
+    type Error = String;
+
+    fn try_from(value: i64) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Unspecified),
+            1 => Ok(Self::Product),
+            2 => Ok(Self::AfterSales),
+            3 => Ok(Self::CustomerPreference),
+            4 => Ok(Self::Price),
+            5 => Ok(Self::Other),
+            _ => Err(format!("unsupported B2B refund reason {value}")),
+        }
+    }
+}
+
+impl From<B2bRefundReason> for i64 {
+    fn from(value: B2bRefundReason) -> Self {
+        value as i64
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bRefundRequest {
     pub mchid: String,
@@ -5801,9 +5885,23 @@ pub struct B2bRefundRequest {
     pub order_id: Option<String>,
     pub out_refund_no: String,
     pub refund_amount: i64,
-    pub refund_from: String,
+    pub refund_from: B2bRefundSource,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub refund_reason: Option<i64>,
+    pub refund_reason: Option<B2bRefundReason>,
+}
+
+impl B2bRefundRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_identity_pair(
+            "out trade number",
+            self.out_trade_no.as_deref(),
+            "order id",
+            self.order_id.as_deref(),
+        )?;
+        validate_b2b_required("out refund number", &self.out_refund_no)?;
+        validate_b2b_positive_amount("refund amount", self.refund_amount)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5813,6 +5911,18 @@ pub struct B2bGetRefundRequest {
     pub out_refund_no: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refund_id: Option<String>,
+}
+
+impl B2bGetRefundRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_identity_pair(
+            "out refund number",
+            self.out_refund_no.as_deref(),
+            "refund id",
+            self.refund_id.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5825,6 +5935,19 @@ pub struct B2bAddProfitSharingAccountRequest {
     pub env: i64,
 }
 
+impl B2bAddProfitSharingAccountRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required(
+            "profit-sharing relation type",
+            &self.profit_sharing_relation_type,
+        )?;
+        validate_b2b_required("payee type", &self.payee_type)?;
+        validate_b2b_required("payee id", &self.payee_id)?;
+        validate_b2b_optional("payee name", self.payee_name.as_deref())?;
+        validate_b2b_environment(self.env)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bDeleteProfitSharingAccountRequest {
     pub payee_type: String,
@@ -5832,10 +5955,48 @@ pub struct B2bDeleteProfitSharingAccountRequest {
     pub env: i64,
 }
 
+impl B2bDeleteProfitSharingAccountRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("payee type", &self.payee_type)?;
+        validate_b2b_required("payee id", &self.payee_id)?;
+        validate_b2b_environment(self.env)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bQueryProfitSharingAccountRequest {
     pub offset: i64,
     pub limit: i64,
+}
+
+impl B2bQueryProfitSharingAccountRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "mini-program B2B account-query offset cannot be negative".to_string(),
+            ));
+        }
+        if !(1..=100).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "mini-program B2B account-query limit must be between 1 and 100".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn next_page(&self, returned: usize) -> Result<Option<Self>> {
+        self.validate()?;
+        if returned < self.limit as usize {
+            return Ok(None);
+        }
+        let offset = self.offset.checked_add(returned as i64).ok_or_else(|| {
+            WechatError::Config("mini-program B2B account-query pagination overflowed".to_string())
+        })?;
+        Ok(Some(Self {
+            offset,
+            limit: self.limit,
+        }))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5847,12 +6008,31 @@ pub struct B2bCreateProfitSharingOrderRequest {
     pub receiver_account: String,
 }
 
+impl B2bCreateProfitSharingOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_required("out trade number", &self.out_trade_no)?;
+        validate_b2b_positive_amount("profit-sharing fee", self.profit_fee)?;
+        validate_b2b_required("receiver type", &self.receiver_type)?;
+        validate_b2b_required("receiver account", &self.receiver_account)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bQueryProfitSharingOrderRequest {
     pub mchid: String,
     pub out_trade_no: String,
     pub receiver_type: String,
     pub receiver_account: String,
+}
+
+impl B2bQueryProfitSharingOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_required("out trade number", &self.out_trade_no)?;
+        validate_b2b_required("receiver type", &self.receiver_type)?;
+        validate_b2b_required("receiver account", &self.receiver_account)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5862,10 +6042,25 @@ pub struct B2bQueryProfitSharingRemainAmountRequest {
     pub env: i64,
 }
 
+impl B2bQueryProfitSharingRemainAmountRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_required("out trade number", &self.out_trade_no)?;
+        validate_b2b_environment(self.env)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bFinishProfitSharingOrderRequest {
     pub mchid: String,
     pub out_trade_no: String,
+}
+
+impl B2bFinishProfitSharingOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_required("out trade number", &self.out_trade_no)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5878,6 +6073,17 @@ pub struct B2bRefundProfitSharingRequest {
     pub refund_amt: i64,
 }
 
+impl B2bRefundProfitSharingRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_required("out trade number", &self.out_trade_no)?;
+        validate_b2b_required("out refund number", &self.out_refund_no)?;
+        validate_b2b_required("payee type", &self.payee_type)?;
+        validate_b2b_required("payee id", &self.payee_id)?;
+        validate_b2b_positive_amount("profit-sharing refund amount", self.refund_amt)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bQueryRefundProfitSharingOrderRequest {
     pub mchid: String,
@@ -5887,10 +6093,32 @@ pub struct B2bQueryRefundProfitSharingOrderRequest {
     pub payee_id: String,
 }
 
+impl B2bQueryRefundProfitSharingOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        validate_b2b_required("out trade number", &self.out_trade_no)?;
+        validate_b2b_required("out refund number", &self.out_refund_no)?;
+        validate_b2b_required("payee type", &self.payee_type)?;
+        validate_b2b_required("payee id", &self.payee_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct B2bDownloadBillRequest {
     pub mchid: String,
     pub bill_date: String,
+}
+
+impl B2bDownloadBillRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_required("merchant id", &self.mchid)?;
+        chrono::NaiveDate::parse_from_str(self.bill_date.trim(), "%Y%m%d").map_err(|error| {
+            WechatError::Config(format!(
+                "mini-program B2B bill date must use YYYYMMDD: {error}"
+            ))
+        })?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5900,9 +6128,37 @@ pub struct B2bStatusResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
+    pub return_code: Option<String>,
+    #[serde(default)]
+    pub return_msg: Option<String>,
+    #[serde(default)]
+    pub result_code: Option<String>,
+    #[serde(default)]
+    pub err_code: Option<String>,
+    #[serde(default)]
+    pub err_code_des: Option<String>,
+    #[serde(default)]
     pub code: Option<String>,
     #[serde(default)]
     pub message: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl B2bStatusResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_b2b_response_success(
+            self.errcode,
+            self.errmsg.as_deref(),
+            self.return_code.as_deref(),
+            self.return_msg.as_deref(),
+            self.result_code.as_deref(),
+            self.err_code.as_deref(),
+            self.err_code_des.as_deref(),
+            self.code.as_deref(),
+            self.message.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5915,6 +6171,41 @@ pub struct B2bAmount {
     pub refund_amount: Option<i64>,
     #[serde(default)]
     pub currency: Option<String>,
+}
+
+impl B2bAmount {
+    pub fn validate_order(&self) -> Result<()> {
+        let order_amount = validate_b2b_response_amount("order amount", self.order_amount)?;
+        let payer_amount = validate_b2b_response_amount("payer amount", self.payer_amount)?;
+        if payer_amount > order_amount {
+            return Err(WechatError::Config(
+                "mini-program B2B payer amount cannot exceed order amount".to_string(),
+            ));
+        }
+        validate_b2b_currency(self.currency.as_deref())
+    }
+
+    pub fn validate_refund(&self) -> Result<()> {
+        let order_amount = validate_b2b_response_amount("order amount", self.order_amount)?;
+        let refund_amount = validate_b2b_response_amount("refund amount", self.refund_amount)?;
+        if refund_amount > order_amount {
+            return Err(WechatError::Config(
+                "mini-program B2B refund amount cannot exceed order amount".to_string(),
+            ));
+        }
+        validate_b2b_currency(self.currency.as_deref())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum B2bPayStatusKind {
+    Created,
+    Paying,
+    Success,
+    Closed,
+    Revoked,
+    Failed,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5945,6 +6236,54 @@ pub struct B2bGetOrderResponse {
     pub wxpay_transaction_id: Option<String>,
     #[serde(default)]
     pub env: Option<i64>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bGetOrderResponse {
+    pub fn pay_status_kind(&self) -> Option<B2bPayStatusKind> {
+        self.pay_status
+            .as_deref()
+            .map(|status| match status.trim().to_ascii_uppercase().as_str() {
+                "CREATED" | "NOTPAY" => B2bPayStatusKind::Created,
+                "PAYING" | "USERPAYING" => B2bPayStatusKind::Paying,
+                "SUCCESS" => B2bPayStatusKind::Success,
+                "CLOSED" => B2bPayStatusKind::Closed,
+                "REVOKED" => B2bPayStatusKind::Revoked,
+                "FAIL" | "FAILED" | "PAYERROR" => B2bPayStatusKind::Failed,
+                _ => B2bPayStatusKind::Unknown(status.to_string()),
+            })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, value) in [
+            ("appid", self.appid.as_deref()),
+            ("merchant id", self.mchid.as_deref()),
+            ("out trade number", self.out_trade_no.as_deref()),
+            ("order id", self.order_id.as_deref()),
+            ("pay status", self.pay_status.as_deref()),
+            ("payer openid", self.payer_openid.as_deref()),
+        ] {
+            validate_b2b_response_required(kind, value)?;
+        }
+        if let Some(pay_time) = self.pay_time.as_deref() {
+            validate_b2b_response_required("pay time", Some(pay_time))?;
+        }
+        if let Some(amount) = &self.amount {
+            amount.validate_order()?;
+        } else {
+            return Err(WechatError::Config(
+                "mini-program B2B order response is missing amount".to_string(),
+            ));
+        }
+        validate_b2b_environment(self.env.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program B2B order response is missing environment".to_string(),
+            )
+        })?)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5961,6 +6300,34 @@ pub struct B2bRefundResponse {
     pub order_id: Option<String>,
     #[serde(default)]
     pub out_trade_no: Option<String>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bRefundResponse {
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, value) in [
+            ("refund id", self.refund_id.as_deref()),
+            ("out refund number", self.out_refund_no.as_deref()),
+            ("order id", self.order_id.as_deref()),
+            ("out trade number", self.out_trade_no.as_deref()),
+        ] {
+            validate_b2b_response_required(kind, value)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum B2bRefundStatusKind {
+    Processing,
+    Success,
+    Closed,
+    Abnormal,
+    Failed,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5989,6 +6356,53 @@ pub struct B2bGetRefundResponse {
     pub amount: Option<B2bAmount>,
     #[serde(default)]
     pub wxpay_refund_id: Option<String>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bGetRefundResponse {
+    pub fn refund_status_kind(&self) -> Option<B2bRefundStatusKind> {
+        self.refund_status.as_deref().map(|status| {
+            match status.trim().to_ascii_uppercase().as_str() {
+                "PROCESSING" => B2bRefundStatusKind::Processing,
+                "SUCCESS" => B2bRefundStatusKind::Success,
+                "CLOSED" => B2bRefundStatusKind::Closed,
+                "ABNORMAL" => B2bRefundStatusKind::Abnormal,
+                "FAIL" | "FAILED" => B2bRefundStatusKind::Failed,
+                _ => B2bRefundStatusKind::Unknown(status.to_string()),
+            }
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, value) in [
+            ("refund id", self.refund_id.as_deref()),
+            ("out refund number", self.out_refund_no.as_deref()),
+            ("order id", self.order_id.as_deref()),
+            ("out trade number", self.out_trade_no.as_deref()),
+            ("create time", self.create_time.as_deref()),
+            ("refund status", self.refund_status.as_deref()),
+            ("WeChat Pay refund id", self.wxpay_refund_id.as_deref()),
+        ] {
+            validate_b2b_response_required(kind, value)?;
+        }
+        if matches!(
+            self.refund_status_kind(),
+            Some(B2bRefundStatusKind::Success)
+        ) {
+            validate_b2b_response_required("refund time", self.refund_time.as_deref())?;
+        }
+        if let Some(amount) = &self.amount {
+            amount.validate_refund()?;
+        } else {
+            return Err(WechatError::Config(
+                "mini-program B2B refund response is missing amount".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5998,11 +6412,32 @@ pub struct B2bProfitSharingAccountInfo {
     #[serde(default)]
     pub sharing_account: Option<String>,
     #[serde(default)]
-    pub add_time: Option<String>,
+    pub add_time: Option<i64>,
     #[serde(default)]
-    pub update_time: Option<String>,
+    pub update_time: Option<i64>,
     #[serde(default)]
     pub name: Option<String>,
+}
+
+impl B2bProfitSharingAccountInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_b2b_response_required(
+            "profit-sharing account type",
+            self.sharing_account_type.as_deref(),
+        )?;
+        validate_b2b_response_required("profit-sharing account", self.sharing_account.as_deref())?;
+        for (kind, value) in [
+            ("profit-sharing add time", self.add_time),
+            ("profit-sharing update time", self.update_time),
+        ] {
+            if value.is_some_and(|time| time < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program B2B {kind} cannot be negative"
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6013,6 +6448,37 @@ pub struct B2bQueryProfitSharingAccountResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub account_list: Vec<B2bProfitSharingAccountInfo>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bQueryProfitSharingAccountResponse {
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        let mut accounts = std::collections::HashSet::with_capacity(self.account_list.len());
+        for account in &self.account_list {
+            account.validate()?;
+            let identity = (
+                account.sharing_account_type.as_deref().unwrap_or_default(),
+                account.sharing_account.as_deref().unwrap_or_default(),
+            );
+            if !accounts.insert(identity) {
+                return Err(WechatError::Config(
+                    "mini-program B2B account response contains duplicate accounts".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum B2bProfitSharingOrderStatusKind {
+    Processing,
+    Finished,
+    Failed,
+    Unknown(i64),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6022,7 +6488,36 @@ pub struct B2bProfitSharingOrderResponse {
     #[serde(default)]
     pub errmsg: Option<String>,
     #[serde(default)]
-    pub order_status: Option<String>,
+    pub order_status: Option<i64>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bProfitSharingOrderResponse {
+    pub fn order_status_kind(&self) -> Option<B2bProfitSharingOrderStatusKind> {
+        self.order_status.map(|status| match status {
+            0 => B2bProfitSharingOrderStatusKind::Processing,
+            1 => B2bProfitSharingOrderStatusKind::Finished,
+            2 => B2bProfitSharingOrderStatusKind::Failed,
+            _ => B2bProfitSharingOrderStatusKind::Unknown(status),
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        if self.order_status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "mini-program B2B profit-sharing order status cannot be negative".to_string(),
+            ));
+        }
+        self.order_status.ok_or_else(|| {
+            WechatError::Config(
+                "mini-program B2B profit-sharing response is missing order status".to_string(),
+            )
+        })?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6033,6 +6528,17 @@ pub struct B2bProfitSharingRemainAmountResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub remain_amt: Option<i64>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bProfitSharingRemainAmountResponse {
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        validate_b2b_response_amount("remaining profit-sharing amount", self.remain_amt)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6059,6 +6565,306 @@ pub struct B2bDownloadBillResponse {
     pub profit_sharing_bill_url: Option<String>,
     #[serde(default)]
     pub profit_refund_bill_url: Option<String>,
+    #[serde(default, flatten)]
+    pub payment: B2bPaymentResponseMeta,
+}
+
+impl B2bDownloadBillResponse {
+    pub fn validate(&self) -> Result<()> {
+        self.payment
+            .ensure_success(self.errcode, self.errmsg.as_deref())?;
+        for (kind, url) in [
+            ("success bill URL", self.success_bill_url.as_deref()),
+            ("refund bill URL", self.refund_bill_url.as_deref()),
+            ("all bill URL", self.all_bill_url.as_deref()),
+            ("fund bill URL", self.fund_bill_url.as_deref()),
+            (
+                "profit-sharing bill URL",
+                self.profit_sharing_bill_url.as_deref(),
+            ),
+            (
+                "profit-sharing refund bill URL",
+                self.profit_refund_bill_url.as_deref(),
+            ),
+        ] {
+            if let Some(url) = url {
+                validate_b2b_https_url(kind, url)?;
+            }
+        }
+        for (kind, amount) in [
+            ("ended-day available amount", self.ended_day_avail_amt),
+            ("ended-day frozen amount", self.ended_day_frozen_amt),
+            ("ended-day total amount", self.ended_day_total_amt),
+        ] {
+            if amount.is_some_and(|amount| amount < 0) {
+                return Err(WechatError::Config(format!(
+                    "mini-program B2B {kind} cannot be negative"
+                )));
+            }
+        }
+        if let (Some(available), Some(frozen), Some(total)) = (
+            self.ended_day_avail_amt,
+            self.ended_day_frozen_amt,
+            self.ended_day_total_amt,
+        ) {
+            if available.checked_add(frozen) != Some(total) {
+                return Err(WechatError::Config(
+                    "mini-program B2B ended-day total must equal available plus frozen amount"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct B2bPaymentResponseMeta {
+    #[serde(default)]
+    pub return_code: Option<String>,
+    #[serde(default)]
+    pub return_msg: Option<String>,
+    #[serde(default)]
+    pub result_code: Option<String>,
+    #[serde(default)]
+    pub err_code: Option<String>,
+    #[serde(default)]
+    pub err_code_des: Option<String>,
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl B2bPaymentResponseMeta {
+    pub fn ensure_success(&self, errcode: Option<i64>, errmsg: Option<&str>) -> Result<()> {
+        ensure_b2b_response_success(
+            errcode,
+            errmsg,
+            self.return_code.as_deref(),
+            self.return_msg.as_deref(),
+            self.result_code.as_deref(),
+            self.err_code.as_deref(),
+            self.err_code_des.as_deref(),
+            self.code.as_deref(),
+            self.message.as_deref(),
+        )
+    }
+}
+
+trait B2bRequestContract {
+    fn validate_contract(&self) -> Result<()>;
+}
+
+macro_rules! impl_b2b_request_contract {
+    ($($request:ty),+ $(,)?) => {
+        $(
+            impl B2bRequestContract for $request {
+                fn validate_contract(&self) -> Result<()> {
+                    self.validate()
+                }
+            }
+        )+
+    };
+}
+
+impl_b2b_request_contract!(
+    B2bGetOrderRequest,
+    B2bRefundRequest,
+    B2bGetRefundRequest,
+    B2bAddProfitSharingAccountRequest,
+    B2bDeleteProfitSharingAccountRequest,
+    B2bQueryProfitSharingAccountRequest,
+    B2bCreateProfitSharingOrderRequest,
+    B2bQueryProfitSharingOrderRequest,
+    B2bQueryProfitSharingRemainAmountRequest,
+    B2bFinishProfitSharingOrderRequest,
+    B2bRefundProfitSharingRequest,
+    B2bQueryRefundProfitSharingOrderRequest,
+    B2bDownloadBillRequest,
+);
+
+trait B2bResponseContract {
+    fn validate_contract(&self) -> Result<()>;
+}
+
+macro_rules! impl_b2b_response_contract {
+    ($($response:ty),+ $(,)?) => {
+        $(
+            impl B2bResponseContract for $response {
+                fn validate_contract(&self) -> Result<()> {
+                    self.validate()
+                }
+            }
+        )+
+    };
+}
+
+impl_b2b_response_contract!(
+    B2bStatusResponse,
+    B2bGetOrderResponse,
+    B2bRefundResponse,
+    B2bGetRefundResponse,
+    B2bQueryProfitSharingAccountResponse,
+    B2bProfitSharingOrderResponse,
+    B2bProfitSharingRemainAmountResponse,
+    B2bDownloadBillResponse,
+);
+
+fn validate_b2b_key(kind: &str, key: &[u8]) -> Result<()> {
+    if key.is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program B2B {kind} cannot be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_b2b_required(kind: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(WechatError::Config(format!(
+            "mini-program B2B {kind} is required"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_b2b_optional(kind: &str, value: Option<&str>) -> Result<()> {
+    if value.is_some_and(|value| value.trim().is_empty()) {
+        return Err(WechatError::Config(format!(
+            "mini-program B2B {kind} cannot be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_b2b_identity_pair(
+    first_kind: &str,
+    first: Option<&str>,
+    second_kind: &str,
+    second: Option<&str>,
+) -> Result<()> {
+    validate_b2b_optional(first_kind, first)?;
+    validate_b2b_optional(second_kind, second)?;
+    match (first.is_some(), second.is_some()) {
+        (true, false) | (false, true) => Ok(()),
+        (false, false) => Err(WechatError::Config(format!(
+            "mini-program B2B requires either {first_kind} or {second_kind}"
+        ))),
+        (true, true) => Err(WechatError::Config(format!(
+            "mini-program B2B accepts only one of {first_kind} and {second_kind}"
+        ))),
+    }
+}
+
+fn validate_b2b_positive_amount(kind: &str, amount: i64) -> Result<()> {
+    if amount <= 0 {
+        return Err(WechatError::Config(format!(
+            "mini-program B2B {kind} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_b2b_environment(env: i64) -> Result<()> {
+    if !(0..=1).contains(&env) {
+        return Err(WechatError::Config(
+            "mini-program B2B environment must be 0 or 1".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_b2b_response_required(kind: &str, value: Option<&str>) -> Result<()> {
+    match value {
+        Some(value) => validate_b2b_required(kind, value),
+        None => Err(WechatError::Config(format!(
+            "mini-program B2B response is missing {kind}"
+        ))),
+    }
+}
+
+fn validate_b2b_response_amount(kind: &str, amount: Option<i64>) -> Result<i64> {
+    let amount = amount.ok_or_else(|| {
+        WechatError::Config(format!("mini-program B2B response is missing {kind}"))
+    })?;
+    if amount < 0 {
+        return Err(WechatError::Config(format!(
+            "mini-program B2B response {kind} cannot be negative"
+        )));
+    }
+    Ok(amount)
+}
+
+fn validate_b2b_currency(currency: Option<&str>) -> Result<()> {
+    let currency = currency.ok_or_else(|| {
+        WechatError::Config("mini-program B2B response is missing currency".to_string())
+    })?;
+    if currency.len() != 3 || !currency.bytes().all(|byte| byte.is_ascii_uppercase()) {
+        return Err(WechatError::Config(
+            "mini-program B2B currency must be a three-letter uppercase code".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_b2b_https_url(kind: &str, value: &str) -> Result<()> {
+    let url = reqwest::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("mini-program B2B {kind} is invalid: {error}"))
+    })?;
+    if url.scheme() != "https" || url.host_str().is_none() {
+        return Err(WechatError::Config(format!(
+            "mini-program B2B {kind} must be an absolute HTTPS URL"
+        )));
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn ensure_b2b_response_success(
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+    return_code: Option<&str>,
+    return_msg: Option<&str>,
+    result_code: Option<&str>,
+    err_code: Option<&str>,
+    err_code_des: Option<&str>,
+    code: Option<&str>,
+    message: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg
+                .unwrap_or("mini-program B2B operation failed")
+                .to_string(),
+        });
+    }
+    let failed_return = return_code.is_some_and(|code| !code.eq_ignore_ascii_case("SUCCESS"));
+    let failed_result = result_code.is_some_and(|code| !code.eq_ignore_ascii_case("SUCCESS"));
+    let failed_code = code.is_some_and(|code| {
+        !code.trim().is_empty() && code != "0" && !code.eq_ignore_ascii_case("SUCCESS")
+    });
+    if failed_return || failed_result || failed_code {
+        let api_code = code
+            .or(err_code)
+            .and_then(|code| code.parse::<i64>().ok())
+            .unwrap_or(-1);
+        let message = err_code_des
+            .or(return_msg)
+            .or(message)
+            .or(errmsg)
+            .or(err_code)
+            .or(code)
+            .unwrap_or("mini-program B2B operation failed");
+        return Err(WechatError::Api {
+            code: api_code,
+            message: message.to_string(),
+        });
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14419,13 +15225,13 @@ mod tests {
             order_id: None,
             out_refund_no: "refund-no".to_string(),
             refund_amount: 50,
-            refund_from: "UNSETTLED".to_string(),
-            refund_reason: None,
+            refund_from: B2bRefundSource::CustomerService,
+            refund_reason: Some(B2bRefundReason::Product),
         })
         .unwrap();
         assert_eq!(refund["refund_amount"], 50);
-        assert_eq!(refund["refund_from"], "UNSETTLED");
-        assert!(refund.get("refund_reason").is_none());
+        assert_eq!(refund["refund_from"], 1);
+        assert_eq!(refund["refund_reason"], 1);
 
         let get_refund = serde_json::to_value(B2bGetRefundRequest {
             mchid: "mchid".to_string(),
@@ -14482,7 +15288,9 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(order.pay_status.as_deref(), Some("SUCCESS"));
-        assert_eq!(order.amount.unwrap().order_amount, Some(100));
+        assert_eq!(order.amount.as_ref().unwrap().order_amount, Some(100));
+        assert_eq!(order.pay_status_kind(), Some(B2bPayStatusKind::Success));
+        order.validate().unwrap();
 
         let refund: B2bRefundResponse = serde_json::from_value(json!({
             "refund_id": "refund-id",
@@ -14507,14 +15315,22 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(refund_detail.refund_status.as_deref(), Some("SUCCESS"));
-        assert_eq!(refund_detail.amount.unwrap().refund_amount, Some(50));
+        assert_eq!(
+            refund_detail.amount.as_ref().unwrap().refund_amount,
+            Some(50)
+        );
+        assert_eq!(
+            refund_detail.refund_status_kind(),
+            Some(B2bRefundStatusKind::Success)
+        );
+        refund_detail.validate().unwrap();
 
         let accounts: B2bQueryProfitSharingAccountResponse = serde_json::from_value(json!({
             "account_list": [{
                 "sharing_account_type": "PERSONAL_OPENID",
                 "sharing_account": "openid",
-                "add_time": "2026-07-09T12:00:00+08:00",
-                "update_time": "2026-07-09T12:00:00+08:00",
+                "add_time": 1783569600,
+                "update_time": 1783569601,
                 "name": "receiver"
             }]
         }))
@@ -14523,14 +15339,21 @@ mod tests {
             accounts.account_list[0].sharing_account.as_deref(),
             Some("openid")
         );
+        accounts.validate().unwrap();
 
         let sharing: B2bProfitSharingOrderResponse =
-            serde_json::from_value(json!({ "order_status": "FINISHED" })).unwrap();
-        assert_eq!(sharing.order_status.as_deref(), Some("FINISHED"));
+            serde_json::from_value(json!({ "order_status": 1 })).unwrap();
+        assert_eq!(sharing.order_status, Some(1));
+        assert_eq!(
+            sharing.order_status_kind(),
+            Some(B2bProfitSharingOrderStatusKind::Finished)
+        );
+        sharing.validate().unwrap();
 
         let remain: B2bProfitSharingRemainAmountResponse =
             serde_json::from_value(json!({ "remain_amt": 70 })).unwrap();
         assert_eq!(remain.remain_amt, Some(70));
+        remain.validate().unwrap();
 
         let bill: B2bDownloadBillResponse = serde_json::from_value(json!({
             "success_bill_url": "https://example.com/success.csv",
@@ -14549,6 +15372,215 @@ mod tests {
             bill.profit_refund_bill_url.as_deref(),
             Some("https://example.com/profit-refund.csv")
         );
+        bill.validate().unwrap();
+    }
+
+    #[test]
+    fn validates_b2b_production_requests() {
+        B2bGetOrderRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: Some("trade-1".to_string()),
+            order_id: None,
+        }
+        .validate()
+        .unwrap();
+        assert!(B2bGetOrderRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: Some("trade-1".to_string()),
+            order_id: Some("order-1".to_string()),
+        }
+        .validate()
+        .is_err());
+
+        B2bRefundRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: None,
+            order_id: Some("order-1".to_string()),
+            out_refund_no: "refund-1".to_string(),
+            refund_amount: 50,
+            refund_from: B2bRefundSource::Customer,
+            refund_reason: Some(B2bRefundReason::AfterSales),
+        }
+        .validate()
+        .unwrap();
+        assert!(B2bRefundRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: Some("trade-1".to_string()),
+            order_id: None,
+            out_refund_no: "refund-1".to_string(),
+            refund_amount: 0,
+            refund_from: B2bRefundSource::Other,
+            refund_reason: None,
+        }
+        .validate()
+        .is_err());
+
+        B2bGetRefundRequest {
+            mchid: "1900000109".to_string(),
+            out_refund_no: Some("refund-1".to_string()),
+            refund_id: None,
+        }
+        .validate()
+        .unwrap();
+        B2bAddProfitSharingAccountRequest {
+            profit_sharing_relation_type: "SERVICE_PROVIDER".to_string(),
+            payee_type: "PERSONAL_OPENID".to_string(),
+            payee_id: "openid".to_string(),
+            payee_name: Some("receiver".to_string()),
+            env: 0,
+        }
+        .validate()
+        .unwrap();
+        B2bDeleteProfitSharingAccountRequest {
+            payee_type: "PERSONAL_OPENID".to_string(),
+            payee_id: "openid".to_string(),
+            env: 1,
+        }
+        .validate()
+        .unwrap();
+
+        let page = B2bQueryProfitSharingAccountRequest {
+            offset: 0,
+            limit: 20,
+        };
+        assert_eq!(page.next_page(20).unwrap().unwrap().offset, 20);
+        assert!(page.next_page(19).unwrap().is_none());
+
+        B2bCreateProfitSharingOrderRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: "trade-1".to_string(),
+            profit_fee: 20,
+            receiver_type: "PERSONAL_OPENID".to_string(),
+            receiver_account: "openid".to_string(),
+        }
+        .validate()
+        .unwrap();
+        B2bQueryProfitSharingOrderRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: "trade-1".to_string(),
+            receiver_type: "PERSONAL_OPENID".to_string(),
+            receiver_account: "openid".to_string(),
+        }
+        .validate()
+        .unwrap();
+        B2bQueryProfitSharingRemainAmountRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: "trade-1".to_string(),
+            env: 0,
+        }
+        .validate()
+        .unwrap();
+        B2bFinishProfitSharingOrderRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: "trade-1".to_string(),
+        }
+        .validate()
+        .unwrap();
+        B2bRefundProfitSharingRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: "trade-1".to_string(),
+            out_refund_no: "refund-1".to_string(),
+            payee_type: "PERSONAL_OPENID".to_string(),
+            payee_id: "openid".to_string(),
+            refund_amt: 10,
+        }
+        .validate()
+        .unwrap();
+        B2bQueryRefundProfitSharingOrderRequest {
+            mchid: "1900000109".to_string(),
+            out_trade_no: "trade-1".to_string(),
+            out_refund_no: "refund-1".to_string(),
+            payee_type: "PERSONAL_OPENID".to_string(),
+            payee_id: "openid".to_string(),
+        }
+        .validate()
+        .unwrap();
+        B2bDownloadBillRequest {
+            mchid: "1900000109".to_string(),
+            bill_date: "20260709".to_string(),
+        }
+        .validate()
+        .unwrap();
+        assert!(B2bDownloadBillRequest {
+            mchid: "1900000109".to_string(),
+            bill_date: "20261340".to_string(),
+        }
+        .validate()
+        .is_err());
+    }
+
+    #[test]
+    fn validates_b2b_production_responses_and_payment_errors() {
+        let status: B2bStatusResponse = serde_json::from_value(json!({
+            "return_code": "FAIL",
+            "return_msg": "signature invalid",
+            "err_code": "SIGNERROR"
+        }))
+        .unwrap();
+        assert!(matches!(
+            status.validate(),
+            Err(WechatError::Api { code: -1, .. })
+        ));
+
+        let order: B2bGetOrderResponse = serde_json::from_value(json!({
+            "return_code": "SUCCESS",
+            "result_code": "SUCCESS",
+            "appid": "wxappid",
+            "mchid": "1900000109",
+            "out_trade_no": "trade-1",
+            "order_id": "order-1",
+            "pay_status": "SUCCESS",
+            "pay_time": "2026-07-20T12:00:00+08:00",
+            "payer_openid": "openid",
+            "amount": { "order_amount": 100, "payer_amount": 80, "currency": "CNY" },
+            "env": 0,
+            "future_field": "retained"
+        }))
+        .unwrap();
+        order.validate().unwrap();
+        assert_eq!(
+            order.payment.extra["future_field"],
+            serde_json::Value::String("retained".to_string())
+        );
+
+        let invalid_order: B2bGetOrderResponse = serde_json::from_value(json!({
+            "appid": "wxappid",
+            "mchid": "1900000109",
+            "out_trade_no": "trade-1",
+            "order_id": "order-1",
+            "pay_status": "SUCCESS",
+            "payer_openid": "openid",
+            "amount": { "order_amount": 100, "payer_amount": 101, "currency": "CNY" },
+            "env": 0
+        }))
+        .unwrap();
+        assert!(invalid_order.validate().is_err());
+
+        let duplicate_accounts: B2bQueryProfitSharingAccountResponse =
+            serde_json::from_value(json!({
+                "account_list": [
+                    {
+                        "sharing_account_type": "PERSONAL_OPENID",
+                        "sharing_account": "openid",
+                        "add_time": 1,
+                        "update_time": 2
+                    },
+                    {
+                        "sharing_account_type": "PERSONAL_OPENID",
+                        "sharing_account": "openid",
+                        "add_time": 1,
+                        "update_time": 2
+                    }
+                ]
+            }))
+            .unwrap();
+        assert!(duplicate_accounts.validate().is_err());
+
+        let insecure_bill: B2bDownloadBillResponse = serde_json::from_value(json!({
+            "success_bill_url": "http://example.com/bill.csv"
+        }))
+        .unwrap();
+        assert!(insecure_bill.validate().is_err());
     }
 
     #[test]

@@ -51,10 +51,10 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    documentation paths. `liveBroadcast` now has one-to-one PowerWeChat method
    coverage and production request/response guards. `express` retains all
    16 PowerWeChat methods and adds typed production variants for the four
-   upstream open-map operations. Continue DTO normalization across `b2b` and
-   `dataCube`. The current PowerWeChat `industry/miniDrama/vod` and
-   `wxa/sec/order` surfaces now have production request/response guards and
-   pagination helpers.
+   upstream open-map operations. Continue DTO normalization across `dataCube`.
+   The current PowerWeChat `b2b`, `industry/miniDrama/vod`, and
+   `wxa/sec/order` surfaces now have production request/response guards,
+   semantic status models, and pagination helpers.
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
@@ -834,6 +834,27 @@ depth:
   out-of-order CDN usage, and over-consumed traffic packages; semantic status,
   package remaining, and next-page helpers are available.
 
+Implemented on 2026-07-20 in Mini Program `b2b` production depth:
+
+- all 14 current PowerWeChat payment-construction, order/refund,
+  profit-sharing account/order/refund, remaining-amount, finish, and bill
+  workflows remain covered; all 13 network request types now validate before
+  signing or HTTP I/O;
+- payment construction rejects empty session/app keys and non-object payloads;
+  query/refund identities enforce the documented exclusive alternatives,
+  amounts must be positive, environment flags are bounded, account pagination
+  is validated, and bill dates use a valid `YYYYMMDD` date;
+- refund source and reason now serialize as the numeric PowerWeChat wire enums
+  instead of the previous incompatible string source, while profit-sharing
+  order status and account timestamps decode as their upstream numeric types;
+- payment response metadata covers `return_code`, `result_code`, payment error,
+  and newer `code`/`message` shapes, preserves unknown fields, and is checked
+  before a typed network response is returned;
+- order/refund/payment semantic status helpers, pagination helpers, required
+  identity checks, amount/currency consistency, duplicate-account detection,
+  non-negative balances/timestamps, HTTPS bill URLs, and ended-day balance
+  reconciliation provide production response guards.
+
 Implemented on 2026-07-16 in Roze WeChat Official Account exact endpoint depth:
 
 - base callback/quota wrappers: clear quota, callback IP list, and callback URL
@@ -1043,7 +1064,7 @@ Recommended implementation order:
    partner flows, statement variants, and typed response normalization.
 2. Work `externalContact` depth, especially contact way, customer acquisition,
    group chat, group message, tag, moment, strategy, and transfer endpoints.
-3. Mini Program DTO/method-depth review for `b2b` and `dataCube`.
+3. Mini Program DTO/method-depth review for `dataCube`.
 4. Payment remaining notify/order/refund DTO normalization and helper variants.
 5. Continue cross-family DTO hardening where endpoint coverage is already green.
 
