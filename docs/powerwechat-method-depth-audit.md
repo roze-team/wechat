@@ -1281,6 +1281,22 @@ Implemented on 2026-07-18 in Work OA calendar and schedule depth:
 - calendar schedule queries expose a first-page constructor and enforce
   non-negative offsets plus the 1000-row page boundary.
 
+Implemented on 2026-07-20 in Work OA calendar and schedule response contracts:
+
+- calendar and schedule add/get plus mutation responses now validate API
+  success before leaving the HTTP boundary, including both direct schedule
+  lookup and calendar-scoped listing;
+- create responses require usable calendar or schedule ids and expose checked
+  identity accessors, while list responses enforce the 1000-resource boundary
+  and reject duplicate or unidentified resources;
+- calendar details validate unique administrators and shares, optional
+  `#RRGGBB` colors, binary flags, share access modes, and unique positive
+  public-range principals while preserving unknown upstream fields;
+- schedule details require positive ordered timestamps, reuse the complete
+  administrator, attendee, reminder, calendar, and organizer contract, reject
+  negative status/sequence values, and expose lookup and duration helpers;
+  calendar responses expose public-calendar and principal-count helpers.
+
 Implemented on 2026-07-18 in Open Platform authorizer mini-program domain,
 tester, and privacy depth:
 

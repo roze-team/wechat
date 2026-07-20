@@ -4112,13 +4112,16 @@ impl Work {
         request: WorkCalendarAddRequest,
     ) -> Result<WorkCalendarAddResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkCalendarAddResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/calendar/add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_calendar(
@@ -4127,13 +4130,16 @@ impl Work {
         request: WorkCalendarUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/calendar/update",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work OA update calendar")?;
+        Ok(response)
     }
 
     pub async fn get_calendar(
@@ -4142,13 +4148,16 @@ impl Work {
         cal_id_list: Vec<String>,
     ) -> Result<WorkCalendarGetResponse> {
         validate_work_oa_id_batch("calendar", &cal_id_list, 1000)?;
-        self.inner
+        let response: WorkCalendarGetResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/calendar/get",
                 Some(access_token.into()),
                 json!({ "cal_id_list": cal_id_list }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_calendar(
@@ -4158,13 +4167,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let cal_id = cal_id.into();
         validate_work_oa_identifier("calendar id", &cal_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/calendar/del",
                 Some(access_token.into()),
                 json!({ "cal_id": cal_id }),
             )
-            .await
+            .await?;
+        response.validate_for("work OA delete calendar")?;
+        Ok(response)
     }
 
     pub fn oa_dial(&self) -> DomainModule {
@@ -4355,13 +4367,16 @@ impl Work {
         request: WorkScheduleAddRequest,
     ) -> Result<WorkScheduleAddResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkScheduleAddResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/schedule/add",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_schedule(
@@ -4370,13 +4385,16 @@ impl Work {
         request: WorkScheduleUpdateRequest,
     ) -> Result<WorkStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/schedule/update",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work OA update schedule")?;
+        Ok(response)
     }
 
     pub async fn get_schedule(
@@ -4385,13 +4403,16 @@ impl Work {
         schedule_id_list: Vec<String>,
     ) -> Result<WorkScheduleGetResponse> {
         validate_work_oa_id_batch("schedule", &schedule_id_list, 1000)?;
-        self.inner
+        let response: WorkScheduleGetResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/schedule/get",
                 Some(access_token.into()),
                 json!({ "schedule_id_list": schedule_id_list }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_schedules_by_calendar(
@@ -4400,13 +4421,16 @@ impl Work {
         request: WorkScheduleByCalendarRequest,
     ) -> Result<WorkScheduleGetResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkScheduleGetResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/schedule/get_by_calendar",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_schedule(
@@ -4416,13 +4440,16 @@ impl Work {
     ) -> Result<WorkStatusResponse> {
         let schedule_id = schedule_id.into();
         validate_work_oa_identifier("schedule id", &schedule_id)?;
-        self.inner
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/oa/schedule/del",
                 Some(access_token.into()),
                 json!({ "schedule_id": schedule_id }),
             )
-            .await
+            .await?;
+        response.validate_for("work OA delete schedule")?;
+        Ok(response)
     }
 
     pub fn oa_meeting(&self) -> DomainModule {
@@ -26792,16 +26819,7 @@ fn validate_work_calendar_fields(
     readonly: Option<i64>,
 ) -> Result<()> {
     validate_work_oa_identifier("calendar summary", summary)?;
-    if color.len() != 7
-        || !color.starts_with('#')
-        || !color[1..]
-            .chars()
-            .all(|character| character.is_ascii_hexdigit())
-    {
-        return Err(WechatError::Config(
-            "work calendar color must use #RRGGBB hexadecimal format".to_string(),
-        ));
-    }
+    validate_work_calendar_color(color)?;
     let share_ids = shares
         .iter()
         .map(|share| share.userid.as_str())
@@ -26815,6 +26833,20 @@ fn validate_work_calendar_fields(
     if readonly.is_some_and(|readonly| !matches!(readonly, 0 | 1)) {
         return Err(WechatError::Config(
             "work calendar readonly must be 0 or 1".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_calendar_color(color: &str) -> Result<()> {
+    if color.len() != 7
+        || !color.starts_with('#')
+        || !color[1..]
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err(WechatError::Config(
+            "work calendar color must use #RRGGBB hexadecimal format".to_string(),
         ));
     }
     Ok(())
@@ -26837,6 +26869,15 @@ fn validate_work_oa_id_batch(label: &str, ids: &[String], maximum: usize) -> Res
     {
         return Err(WechatError::Config(format!(
             "work OA {label} queries require 1 to {maximum} unique non-empty ids"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_response_string_ids(label: &str, ids: &[String]) -> Result<()> {
+    if ids.iter().any(|id| id.trim().is_empty()) || has_duplicate_strings(ids) {
+        return Err(WechatError::Config(format!(
+            "work OA {label} ids must be non-empty and unique"
         )));
     }
     Ok(())
@@ -26927,6 +26968,27 @@ pub struct WorkCalendarAddResponse {
     pub extra: Value,
 }
 
+impl WorkCalendarAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA calendar add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let cal_id = self.cal_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA calendar add response requires cal_id".to_string())
+        })?;
+        validate_work_oa_identifier("calendar id", cal_id)
+    }
+
+    pub fn require_calendar_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.cal_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA calendar add response requires cal_id".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarShare {
     #[serde(default)]
@@ -26935,6 +26997,24 @@ pub struct WorkCalendarShare {
     pub readonly: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCalendarShare {
+    pub fn validate(&self) -> Result<()> {
+        let userid = self.userid.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA calendar share requires userid".to_string())
+        })?;
+        validate_work_oa_identifier("calendar share userid", userid)?;
+        if self
+            .readonly
+            .is_some_and(|readonly| !matches!(readonly, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "work OA calendar share readonly must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26967,6 +27047,64 @@ pub struct WorkCalendarInfo {
     pub extra: Value,
 }
 
+impl WorkCalendarInfo {
+    pub fn validate(&self) -> Result<()> {
+        let cal_id = self.cal_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA calendar response requires cal_id".to_string())
+        })?;
+        validate_work_oa_identifier("calendar id", cal_id)?;
+        validate_work_response_string_ids("calendar administrator", &self.adminis)?;
+        if let Some(summary) = self.summary.as_deref() {
+            validate_work_oa_identifier("calendar summary", summary)?;
+        }
+        if let Some(color) = self.color.as_deref() {
+            validate_work_calendar_color(color)?;
+        }
+        if let Some(organizer) = self.organizer.as_deref() {
+            validate_work_oa_identifier("calendar organizer", organizer)?;
+        }
+
+        let mut share_userids = std::collections::HashSet::with_capacity(self.shares.len());
+        for share in &self.shares {
+            share.validate()?;
+            let userid = share.userid.as_deref().unwrap_or_default();
+            if !share_userids.insert(userid) {
+                return Err(WechatError::Config(
+                    "work OA calendar shares cannot contain duplicate users".to_string(),
+                ));
+            }
+        }
+        for (label, value) in [
+            ("readonly", self.readonly),
+            ("set_as_default", self.set_as_default),
+            ("is_public", self.is_public),
+            ("is_corp_calendar", self.is_corp_calendar),
+        ] {
+            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "work OA calendar {label} must be 0 or 1"
+                )));
+            }
+        }
+        if let Some(public_range) = &self.public_range {
+            public_range.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn is_public_calendar(&self) -> bool {
+        self.is_public == Some(1)
+    }
+
+    pub fn shared_principal_count(&self) -> usize {
+        self.shares.len()
+            + self
+                .public_range
+                .as_ref()
+                .map_or(0, WorkCalendarPublicRange::principal_count)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkCalendarPublicRange {
     #[serde(default)]
@@ -26975,6 +27113,23 @@ pub struct WorkCalendarPublicRange {
     pub partyids: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkCalendarPublicRange {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_string_ids("calendar public-range user", &self.userids)?;
+        if self.partyids.iter().any(|partyid| *partyid <= 0) || has_duplicate_i64(&self.partyids) {
+            return Err(WechatError::Config(
+                "work OA calendar public-range department ids must be positive and unique"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn principal_count(&self) -> usize {
+        self.userids.len() + self.partyids.len()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26989,6 +27144,44 @@ pub struct WorkCalendarGetResponse {
     pub extra: Value,
 }
 
+impl WorkCalendarGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA calendar get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.calendar_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "work OA calendar response cannot contain more than 1000 calendars".to_string(),
+            ));
+        }
+        let mut calendar_ids = std::collections::HashSet::with_capacity(self.calendar_list.len());
+        for calendar in &self.calendar_list {
+            calendar.validate()?;
+            let cal_id = calendar.cal_id.as_deref().unwrap_or_default();
+            if !calendar_ids.insert(cal_id) {
+                return Err(WechatError::Config(
+                    "work OA calendar response cannot contain duplicate calendar ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, cal_id: &str) -> Option<&WorkCalendarInfo> {
+        self.calendar_list
+            .iter()
+            .find(|calendar| calendar.cal_id.as_deref() == Some(cal_id))
+    }
+
+    pub fn public_calendar_count(&self) -> usize {
+        self.calendar_list
+            .iter()
+            .filter(|calendar| calendar.is_public_calendar())
+            .count()
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDialRecordRequest {
     pub start_time: i64,
@@ -34819,6 +35012,27 @@ pub struct WorkScheduleAddResponse {
     pub extra: Value,
 }
 
+impl WorkScheduleAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA schedule add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let schedule_id = self.schedule_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA schedule add response requires schedule_id".to_string())
+        })?;
+        validate_work_oa_identifier("schedule id", schedule_id)
+    }
+
+    pub fn require_schedule_id(&self) -> Result<&str> {
+        self.validate()?;
+        self.schedule_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA schedule add response requires schedule_id".to_string())
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleInfo {
     #[serde(default)]
@@ -34851,6 +35065,45 @@ pub struct WorkScheduleInfo {
     pub extra: Value,
 }
 
+impl WorkScheduleInfo {
+    pub fn validate(&self) -> Result<()> {
+        let schedule_id = self.schedule_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work OA schedule response requires schedule_id".to_string())
+        })?;
+        validate_work_oa_identifier("schedule id", schedule_id)?;
+        let start_time = self.start_time.ok_or_else(|| {
+            WechatError::Config("work OA schedule response requires start_time".to_string())
+        })?;
+        let end_time = self.end_time.ok_or_else(|| {
+            WechatError::Config("work OA schedule response requires end_time".to_string())
+        })?;
+        validate_work_schedule_fields(
+            start_time,
+            end_time,
+            &self.admins,
+            &self.attendees,
+            self.reminders.as_ref(),
+            self.cal_id.as_deref(),
+            self.organizer.as_deref(),
+        )?;
+        if self.status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "work OA schedule status cannot be negative".to_string(),
+            ));
+        }
+        if self.sequence.is_some_and(|sequence| sequence < 0) {
+            return Err(WechatError::Config(
+                "work OA schedule sequence cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn duration_seconds(&self) -> Option<i64> {
+        self.end_time?.checked_sub(self.start_time?)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkScheduleGetResponse {
     #[serde(default)]
@@ -34861,6 +35114,38 @@ pub struct WorkScheduleGetResponse {
     pub schedule_list: Vec<WorkScheduleInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkScheduleGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work OA schedule get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.schedule_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "work OA schedule response cannot contain more than 1000 schedules".to_string(),
+            ));
+        }
+        let mut schedule_ids = std::collections::HashSet::with_capacity(self.schedule_list.len());
+        for schedule in &self.schedule_list {
+            schedule.validate()?;
+            let schedule_id = schedule.schedule_id.as_deref().unwrap_or_default();
+            if !schedule_ids.insert(schedule_id) {
+                return Err(WechatError::Config(
+                    "work OA schedule response cannot contain duplicate schedule ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, schedule_id: &str) -> Option<&WorkScheduleInfo> {
+        self.schedule_list
+            .iter()
+            .find(|schedule| schedule.schedule_id.as_deref() == Some(schedule_id))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42844,6 +43129,8 @@ mod tests {
             "request_id": "calendar-add-1"
         }))
         .unwrap();
+        calendar_add.validate().unwrap();
+        assert_eq!(calendar_add.require_calendar_id().unwrap(), "wc100");
         assert_eq!(calendar_add.cal_id.as_deref(), Some("wc100"));
         assert_eq!(calendar_add.extra["request_id"], "calendar-add-1");
 
@@ -42865,6 +43152,10 @@ mod tests {
             }]
         }))
         .unwrap();
+        calendar_get.validate().unwrap();
+        assert!(calendar_get.find("wc100").is_some());
+        assert_eq!(calendar_get.public_calendar_count(), 1);
+        assert_eq!(calendar_get.calendar_list[0].shared_principal_count(), 3);
         assert_eq!(
             calendar_get.calendar_list[0].summary.as_deref(),
             Some("Team")
@@ -43819,6 +44110,8 @@ mod tests {
             "request_id": "schedule-add"
         }))
         .unwrap();
+        schedule_add.validate().unwrap();
+        assert_eq!(schedule_add.require_schedule_id().unwrap(), "schedule-1");
         assert_eq!(schedule_add.schedule_id.as_deref(), Some("schedule-1"));
         assert_eq!(schedule_add.extra["request_id"], "schedule-add");
 
@@ -43861,6 +44154,12 @@ mod tests {
             }]
         }))
         .unwrap();
+        schedule_get.validate().unwrap();
+        assert!(schedule_get.find("schedule-1").is_some());
+        assert_eq!(
+            schedule_get.schedule_list[0].duration_seconds(),
+            Some(3_600)
+        );
         assert_eq!(
             schedule_get.schedule_list[0].schedule_id.as_deref(),
             Some("schedule-1")
@@ -43900,6 +44199,111 @@ mod tests {
             schedule_get.schedule_list[0].extra["timezone"],
             "Asia/Shanghai"
         );
+    }
+
+    #[test]
+    fn validates_work_oa_calendar_and_schedule_response_contracts() {
+        let calendar_api_error: WorkCalendarAddResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid calendar"
+        }))
+        .unwrap();
+        assert!(matches!(
+            calendar_api_error.validate(),
+            Err(WechatError::Api { code: 40058, .. })
+        ));
+
+        let missing_calendar_id: WorkCalendarAddResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_calendar_id.validate().is_err());
+
+        let duplicate_calendars: WorkCalendarGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "calendar_list": [
+                { "cal_id": "calendar-1" },
+                { "cal_id": "calendar-1" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_calendars.validate().is_err());
+
+        let invalid_calendar_share: WorkCalendarGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "calendar_list": [{
+                "cal_id": "calendar-1",
+                "shares": [{ "userid": "member", "readonly": 2 }]
+            }]
+        }))
+        .unwrap();
+        assert!(invalid_calendar_share.validate().is_err());
+
+        let invalid_public_range: WorkCalendarGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "calendar_list": [{
+                "cal_id": "calendar-1",
+                "public_range": { "partyids": [2, 2] }
+            }]
+        }))
+        .unwrap();
+        assert!(invalid_public_range.validate().is_err());
+
+        let schedule_api_error: WorkScheduleGetResponse = serde_json::from_value(json!({
+            "errcode": 301002,
+            "errmsg": "schedule unavailable"
+        }))
+        .unwrap();
+        assert!(matches!(
+            schedule_api_error.validate(),
+            Err(WechatError::Api { code: 301002, .. })
+        ));
+
+        let missing_schedule_id: WorkScheduleAddResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_schedule_id.validate().is_err());
+
+        let duplicate_schedules: WorkScheduleGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "schedule_list": [
+                {
+                    "schedule_id": "schedule-1",
+                    "start_time": 1_800_000_000,
+                    "end_time": 1_800_003_600
+                },
+                {
+                    "schedule_id": "schedule-1",
+                    "start_time": 1_800_010_000,
+                    "end_time": 1_800_013_600
+                }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_schedules.validate().is_err());
+
+        let inverted_schedule: WorkScheduleGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "schedule_list": [{
+                "schedule_id": "schedule-1",
+                "start_time": 1_800_003_600,
+                "end_time": 1_800_000_000
+            }]
+        }))
+        .unwrap();
+        assert!(inverted_schedule.validate().is_err());
+
+        let duplicate_attendee: WorkScheduleGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "schedule_list": [{
+                "schedule_id": "schedule-1",
+                "start_time": 1_800_000_000,
+                "end_time": 1_800_003_600,
+                "attendees": [
+                    { "userid": "member" },
+                    { "userid": "member" }
+                ]
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_attendee.validate().is_err());
     }
 
     #[test]
