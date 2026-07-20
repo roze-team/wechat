@@ -166,6 +166,21 @@ Implemented on 2026-07-21 in Work application-message response depth:
   enforce the same 1000/100/100 response boundaries as their request scopes;
   task-card update failures enforce the 1000-user limit as well.
 
+Implemented on 2026-07-21 in Work application-message delivery semantics:
+
+- Message audiences now provide typed constructors for one or many users,
+  departments, tags, and the `@all` audience, plus composable safe-message,
+  ID-translation, and duplicate-check options.
+- Audience builders serialize canonical pipe-delimited recipient fields and
+  still pass through the existing recipient-count, uniqueness, boolean, and
+  duplicate-window validation before an API request is sent.
+- Send responses now expose categorized invalid-user, invalid-department,
+  invalid-tag, and unlicensed-user failures, with kind-specific iterators for
+  reconciliation and license routing.
+- A checked full-delivery helper first validates the API envelope and required
+  message id, then distinguishes a successful request with partial delivery
+  from a message delivered to every accepted recipient.
+
 Implemented on 2026-07-21 in Work user batch-job result depth:
 
 - Known contact-import jobs now require total and percentage lifecycle fields;

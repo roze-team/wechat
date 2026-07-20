@@ -11242,6 +11242,71 @@ impl WorkMessageAudience {
         }
     }
 
+    pub fn to_users(agent_id: i64, users: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self::to_user(agent_id, join_work_message_recipients(users))
+    }
+
+    pub fn to_party(agent_id: i64, party: impl Into<String>) -> Self {
+        Self {
+            touser: None,
+            toparty: Some(party.into()),
+            totag: None,
+            agentid: agent_id,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+        }
+    }
+
+    pub fn to_tag(agent_id: i64, tag: impl Into<String>) -> Self {
+        Self {
+            touser: None,
+            toparty: None,
+            totag: Some(tag.into()),
+            agentid: agent_id,
+            safe: Some(0),
+            enable_id_trans: None,
+            enable_duplicate_check: None,
+            duplicate_check_interval: None,
+        }
+    }
+
+    pub fn to_all(agent_id: i64) -> Self {
+        Self::to_user(agent_id, "@all")
+    }
+
+    pub fn with_users(mut self, users: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.touser = Some(join_work_message_recipients(users));
+        self
+    }
+
+    pub fn with_parties(mut self, parties: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.toparty = Some(join_work_message_recipients(parties));
+        self
+    }
+
+    pub fn with_tags(mut self, tags: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.totag = Some(join_work_message_recipients(tags));
+        self
+    }
+
+    pub fn with_safe(mut self, safe: bool) -> Self {
+        self.safe = Some(if safe { 1 } else { 0 });
+        self
+    }
+
+    pub fn with_id_translation(mut self, enabled: bool) -> Self {
+        self.enable_id_trans = Some(if enabled { 1 } else { 0 });
+        self
+    }
+
+    pub fn with_duplicate_check(mut self, interval_seconds: i64) -> Self {
+        self.enable_duplicate_check = Some(1);
+        self.duplicate_check_interval = Some(interval_seconds);
+        self
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_work_message_agent_id(self.agentid)?;
         let recipients = [
@@ -11266,6 +11331,14 @@ impl WorkMessageAudience {
         validate_work_message_boolean("duplicate check", self.enable_duplicate_check)?;
         validate_work_message_duplicate_interval(self.duplicate_check_interval)
     }
+}
+
+fn join_work_message_recipients(values: impl IntoIterator<Item = impl Into<String>>) -> String {
+    values
+        .into_iter()
+        .map(Into::into)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn validate_work_message_agent_id(agent_id: i64) -> Result<()> {
@@ -14605,6 +14678,20 @@ impl WorkUserExportJobData {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMessageRecipientFailureKind {
+    InvalidUser,
+    InvalidDepartment,
+    InvalidTag,
+    UnlicensedUser,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorkMessageRecipientFailure<'a> {
+    pub kind: WorkMessageRecipientFailureKind,
+    pub identifier: &'a str,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSendResponse {
     #[serde(default)]
@@ -14725,26 +14812,58 @@ impl MessageSendResponse {
         work_message_recipient_ids(self.unlicenseduser.as_deref()).collect()
     }
 
-    pub fn has_delivery_failures(&self) -> bool {
-        work_message_recipient_ids(self.invaliduser.as_deref())
+    pub fn delivery_failures(&self) -> impl Iterator<Item = WorkMessageRecipientFailure<'_>> + '_ {
+        [
+            (
+                WorkMessageRecipientFailureKind::InvalidUser,
+                self.invaliduser.as_deref(),
+            ),
+            (
+                WorkMessageRecipientFailureKind::InvalidDepartment,
+                self.invalidparty.as_deref(),
+            ),
+            (
+                WorkMessageRecipientFailureKind::InvalidTag,
+                self.invalidtag.as_deref(),
+            ),
+            (
+                WorkMessageRecipientFailureKind::UnlicensedUser,
+                self.unlicenseduser.as_deref(),
+            ),
+        ]
+        .into_iter()
+        .flat_map(|(kind, recipients)| {
+            work_message_recipient_ids(recipients)
+                .map(move |identifier| WorkMessageRecipientFailure { kind, identifier })
+        })
+    }
+
+    pub fn failures_of_kind(
+        &self,
+        kind: WorkMessageRecipientFailureKind,
+    ) -> impl Iterator<Item = &str> + '_ {
+        self.delivery_failures()
+            .filter(move |failure| failure.kind == kind)
+            .map(|failure| failure.identifier)
+    }
+
+    pub fn has_unlicensed_users(&self) -> bool {
+        self.failures_of_kind(WorkMessageRecipientFailureKind::UnlicensedUser)
             .next()
             .is_some()
-            || work_message_recipient_ids(self.invalidparty.as_deref())
-                .next()
-                .is_some()
-            || work_message_recipient_ids(self.invalidtag.as_deref())
-                .next()
-                .is_some()
-            || work_message_recipient_ids(self.unlicenseduser.as_deref())
-                .next()
-                .is_some()
+    }
+
+    pub fn has_delivery_failures(&self) -> bool {
+        self.delivery_failures().next().is_some()
     }
 
     pub fn invalid_recipient_count(&self) -> usize {
-        self.invalid_users().len()
-            + self.invalid_parties().len()
-            + self.invalid_tags().len()
-            + self.unlicensed_users().len()
+        self.delivery_failures().count()
+    }
+
+    pub fn is_fully_delivered(&self) -> Result<bool> {
+        self.validate_send()?;
+        Ok(!self.has_delivery_failures())
     }
 }
 
@@ -47800,6 +47919,45 @@ mod tests {
 
     #[test]
     fn serializes_work_task_card_and_message_statistics_contracts() {
+        let audience = WorkMessageAudience::to_users(100001, ["user-a", "user-b"])
+            .with_parties(["2", "3"])
+            .with_tags(["8"])
+            .with_safe(true)
+            .with_id_translation(true)
+            .with_duplicate_check(600);
+        assert!(audience.validate().is_ok());
+        let audience_value = serde_json::to_value(&audience).unwrap();
+        assert_eq!(audience_value["touser"], "user-a|user-b");
+        assert_eq!(audience_value["toparty"], "2|3");
+        assert_eq!(audience_value["totag"], "8");
+        assert_eq!(audience_value["safe"], 1);
+        assert_eq!(audience_value["enable_id_trans"], 1);
+        assert_eq!(audience_value["enable_duplicate_check"], 1);
+        assert_eq!(audience_value["duplicate_check_interval"], 600);
+        assert_eq!(
+            WorkMessageAudience::to_party(100001, "2")
+                .toparty
+                .as_deref(),
+            Some("2")
+        );
+        assert_eq!(
+            WorkMessageAudience::to_tag(100001, "8").totag.as_deref(),
+            Some("8")
+        );
+        assert_eq!(
+            WorkMessageAudience::to_all(100001).touser.as_deref(),
+            Some("@all")
+        );
+        assert!(
+            WorkMessageAudience::to_users(100001, std::iter::empty::<String>())
+                .validate()
+                .is_err()
+        );
+        assert!(WorkMessageAudience::to_user(100001, "user")
+            .with_duplicate_check(14_401)
+            .validate()
+            .is_err());
+
         let task_card = WorkTaskCardMessage {
             title: "Approval".to_string(),
             description: "Please review".to_string(),
@@ -47928,6 +48086,38 @@ mod tests {
         assert_eq!(sent.response_code(), Some("response-code"));
         assert_eq!(sent.require_response_code().unwrap(), "response-code");
         assert_eq!(sent.invalid_recipient_count(), 2);
+        assert!(!sent.is_fully_delivered().unwrap());
+        assert!(!sent.has_unlicensed_users());
+        assert_eq!(
+            sent.failures_of_kind(WorkMessageRecipientFailureKind::InvalidUser)
+                .collect::<Vec<_>>(),
+            vec!["bad-user", "inactive-user"]
+        );
+        assert_eq!(
+            sent.delivery_failures().next(),
+            Some(WorkMessageRecipientFailure {
+                kind: WorkMessageRecipientFailureKind::InvalidUser,
+                identifier: "bad-user",
+            })
+        );
+
+        let fully_delivered: MessageSendResponse =
+            serde_json::from_value(json!({ "errcode": 0, "msgid": "message-id" })).unwrap();
+        assert!(fully_delivered.is_fully_delivered().unwrap());
+
+        let unlicensed: MessageSendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "msgid": "message-id",
+            "unlicenseduser": "user-a|user-b"
+        }))
+        .unwrap();
+        assert!(unlicensed.has_unlicensed_users());
+        assert_eq!(
+            unlicensed
+                .failures_of_kind(WorkMessageRecipientFailureKind::UnlicensedUser)
+                .collect::<Vec<_>>(),
+            vec!["user-a", "user-b"]
+        );
 
         let api_error: MessageSendResponse = serde_json::from_value(json!({
             "errcode": 40058,
