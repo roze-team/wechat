@@ -2721,13 +2721,16 @@ impl Work {
         request: ExternalContactUserBehaviorDataRequest,
     ) -> Result<ExternalContactUserBehaviorDataResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalContactUserBehaviorDataResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/get_user_behavior_data",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_external_group_chat_statistic(
@@ -2736,13 +2739,16 @@ impl Work {
         request: ExternalGroupChatStatisticRequest,
     ) -> Result<ExternalGroupChatStatisticResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalGroupChatStatisticResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/statistic",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_summary()?;
+        Ok(response)
     }
 
     pub async fn get_external_group_chat_statistic_by_day(
@@ -2751,13 +2757,16 @@ impl Work {
         request: ExternalGroupChatStatisticByDayRequest,
     ) -> Result<ExternalGroupChatStatisticResponse> {
         request.validate()?;
-        self.inner
+        let response: ExternalGroupChatStatisticResponse = self
+            .inner
             .post(
                 "cgi-bin/externalcontact/groupchat/statistic_group_by_day",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_by_day()?;
+        Ok(response)
     }
 
     pub async fn list_external_contact_customer_strategies(
@@ -20974,6 +20983,43 @@ pub struct ExternalContactUserBehaviorDataResponse {
     pub extra: Value,
 }
 
+impl ExternalContactUserBehaviorDataResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "external-contact user behavior statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.behavior_data.len() > 3_100 {
+            return Err(WechatError::Config(
+                "external-contact behavior response cannot exceed 3100 user-day records"
+                    .to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.behavior_data.len());
+        for behavior in &self.behavior_data {
+            behavior.validate()?;
+            let identity = (
+                behavior.userid.as_deref().unwrap_or_default(),
+                behavior.stat_time.unwrap_or_default(),
+            );
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "external-contact behavior response contains duplicate user-day records"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, user_id: &str, stat_time: i64) -> Option<&ExternalContactUserBehaviorData> {
+        self.behavior_data.iter().find(|behavior| {
+            behavior.userid.as_deref() == Some(user_id) && behavior.stat_time == Some(stat_time)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalContactUserBehaviorData {
     #[serde(default)]
@@ -20996,6 +21042,51 @@ pub struct ExternalContactUserBehaviorData {
     pub new_contact_cnt: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalContactUserBehaviorData {
+    pub fn validate(&self) -> Result<()> {
+        validate_external_contact_identifier(
+            "behavior userid",
+            self.userid.as_deref().ok_or_else(|| {
+                WechatError::Config("external-contact behavior record requires userid".to_string())
+            })?,
+        )?;
+        if self.stat_time.is_none_or(|stat_time| stat_time <= 0) {
+            return Err(WechatError::Config(
+                "external-contact behavior record requires positive stat_time".to_string(),
+            ));
+        }
+        validate_nonnegative_external_contact_statistic("behavior chat count", self.chat_cnt)?;
+        validate_nonnegative_external_contact_statistic(
+            "behavior message count",
+            self.message_cnt,
+        )?;
+        validate_nonnegative_external_contact_statistic(
+            "behavior average reply time",
+            self.avg_reply_time,
+        )?;
+        validate_nonnegative_external_contact_statistic(
+            "behavior negative feedback count",
+            self.negative_feedback_cnt,
+        )?;
+        validate_nonnegative_external_contact_statistic(
+            "behavior new application count",
+            self.new_apply_cnt,
+        )?;
+        validate_nonnegative_external_contact_statistic(
+            "behavior new contact count",
+            self.new_contact_cnt,
+        )?;
+        if self.reply_percentage.is_some_and(|percentage| {
+            !percentage.is_finite() || !(0.0..=100.0).contains(&percentage)
+        }) {
+            return Err(WechatError::Config(
+                "external-contact behavior reply percentage must be between 0 and 100".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21140,11 +21231,91 @@ pub struct ExternalGroupChatStatisticResponse {
 }
 
 impl ExternalGroupChatStatisticResponse {
+    pub fn validate_summary(&self) -> Result<()> {
+        self.validate_metadata(1_000)?;
+        let mut owners = std::collections::HashSet::with_capacity(self.items.len());
+        for item in &self.items {
+            item.validate_summary()?;
+            let owner = item.owner.as_deref().unwrap_or_default();
+            if !owners.insert(owner) {
+                return Err(WechatError::Config(
+                    "external group-chat statistic response contains duplicate owners".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate_by_day(&self) -> Result<()> {
+        self.validate_metadata(181)?;
+        let mut stat_times = std::collections::HashSet::with_capacity(self.items.len());
+        for item in &self.items {
+            item.validate_by_day()?;
+            let stat_time = item.stat_time.unwrap_or_default();
+            if !stat_times.insert(stat_time) {
+                return Err(WechatError::Config(
+                    "daily external group-chat statistic response contains duplicate days"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_metadata(&self, maximum_items: usize) -> Result<()> {
+        validate_work_response_success(
+            "external group-chat statistics",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.items.len() > maximum_items {
+            return Err(WechatError::Config(format!(
+                "external group-chat statistic response cannot exceed {maximum_items} items"
+            )));
+        }
+        let total = self.total.ok_or_else(|| {
+            WechatError::Config("external group-chat statistic response requires total".to_string())
+        })?;
+        if total < 0 {
+            return Err(WechatError::Config(
+                "external group-chat statistic total cannot be negative".to_string(),
+            ));
+        }
+        if usize::try_from(total)
+            .ok()
+            .is_some_and(|total| total < self.items.len())
+        {
+            return Err(WechatError::Config(
+                "external group-chat statistic total cannot be smaller than the returned page"
+                    .to_string(),
+            ));
+        }
+        if self.next_offset.is_none_or(|next_offset| next_offset < 0) {
+            return Err(WechatError::Config(
+                "external group-chat statistic response requires non-negative next_offset"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn has_more(&self) -> bool {
         matches!(
             (self.next_offset, self.total),
             (Some(next_offset), Some(total)) if next_offset < total
         )
+    }
+
+    pub fn find_owner(&self, owner: &str) -> Option<&ExternalGroupChatStatisticItem> {
+        self.items
+            .iter()
+            .find(|item| item.owner.as_deref() == Some(owner))
+    }
+
+    pub fn find_day(&self, stat_time: i64) -> Option<&ExternalGroupChatStatisticItem> {
+        self.items
+            .iter()
+            .find(|item| item.stat_time == Some(stat_time))
     }
 }
 
@@ -21158,6 +21329,46 @@ pub struct ExternalGroupChatStatisticItem {
     pub data: Option<ExternalGroupChatStatisticData>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatStatisticItem {
+    pub fn validate_summary(&self) -> Result<()> {
+        validate_external_contact_identifier(
+            "group-chat statistic owner",
+            self.owner.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "external group-chat statistic summary requires owner".to_string(),
+                )
+            })?,
+        )?;
+        if self.stat_time.is_some_and(|stat_time| stat_time <= 0) {
+            return Err(WechatError::Config(
+                "external group-chat statistic stat_time must be positive".to_string(),
+            ));
+        }
+        self.validate_data()
+    }
+
+    pub fn validate_by_day(&self) -> Result<()> {
+        if self.stat_time.is_none_or(|stat_time| stat_time <= 0) {
+            return Err(WechatError::Config(
+                "daily external group-chat statistic requires positive stat_time".to_string(),
+            ));
+        }
+        if let Some(owner) = self.owner.as_deref() {
+            validate_external_contact_identifier("group-chat statistic owner", owner)?;
+        }
+        self.validate_data()
+    }
+
+    fn validate_data(&self) -> Result<()> {
+        self.data
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("external group-chat statistic item requires data".to_string())
+            })?
+            .validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21180,6 +21391,70 @@ pub struct ExternalGroupChatStatisticData {
     pub migrate_trainee_chat_cnt: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupChatStatisticData {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("new chat count", self.new_chat_cnt),
+            ("chat total", self.chat_total),
+            ("chats with messages", self.chat_has_msg),
+            ("new member count", self.new_member_cnt),
+            ("member total", self.member_total),
+            ("members with messages", self.member_has_msg),
+            ("message total", self.msg_total),
+            ("migrated trainee chat count", self.migrate_trainee_chat_cnt),
+        ] {
+            validate_nonnegative_external_contact_statistic(label, value)?;
+        }
+        validate_external_contact_statistic_subset(
+            "new chat count",
+            self.new_chat_cnt,
+            "chat total",
+            self.chat_total,
+        )?;
+        validate_external_contact_statistic_subset(
+            "chats with messages",
+            self.chat_has_msg,
+            "chat total",
+            self.chat_total,
+        )?;
+        validate_external_contact_statistic_subset(
+            "new member count",
+            self.new_member_cnt,
+            "member total",
+            self.member_total,
+        )?;
+        validate_external_contact_statistic_subset(
+            "members with messages",
+            self.member_has_msg,
+            "member total",
+            self.member_total,
+        )
+    }
+}
+
+fn validate_nonnegative_external_contact_statistic(label: &str, value: Option<i64>) -> Result<()> {
+    if value.is_some_and(|value| value < 0) {
+        return Err(WechatError::Config(format!(
+            "external-contact {label} cannot be negative"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_external_contact_statistic_subset(
+    subset_label: &str,
+    subset: Option<i64>,
+    total_label: &str,
+    total: Option<i64>,
+) -> Result<()> {
+    if matches!((subset, total), (Some(subset), Some(total)) if subset > total) {
+        return Err(WechatError::Config(format!(
+            "external-contact {subset_label} cannot exceed {total_label}"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39828,6 +40103,8 @@ mod tests {
             88.8
         );
         assert_eq!(behavior_response.extra["total"], 1);
+        assert!(behavior_response.validate().is_ok());
+        assert!(behavior_response.find("user", 1).is_some());
 
         let statistic_response: ExternalGroupChatStatisticResponse =
             serde_json::from_value(json!({
@@ -39869,6 +40146,10 @@ mod tests {
             0.75
         );
         assert_eq!(statistic_response.extra["report_id"], "report-1");
+        assert!(statistic_response.validate_summary().is_ok());
+        assert!(statistic_response.validate_by_day().is_ok());
+        assert!(statistic_response.find_owner("owner").is_some());
+        assert!(statistic_response.find_day(1_720_000_000).is_some());
     }
 
     #[test]
@@ -40159,6 +40440,41 @@ mod tests {
         .validate()
         .is_err());
 
+        let behavior_api_error: ExternalContactUserBehaviorDataResponse =
+            serde_json::from_value(json!({
+                "errcode": 40058,
+                "errmsg": "invalid"
+            }))
+            .unwrap();
+        assert!(matches!(
+            behavior_api_error.validate(),
+            Err(WechatError::Api { .. })
+        ));
+        let duplicate_behavior: ExternalContactUserBehaviorDataResponse =
+            serde_json::from_value(json!({
+                "behavior_data": [{
+                    "userid": "user",
+                    "stat_time": 100,
+                    "reply_percentage": 90
+                }, {
+                    "userid": "user",
+                    "stat_time": 100,
+                    "reply_percentage": 91
+                }]
+            }))
+            .unwrap();
+        assert!(duplicate_behavior.validate().is_err());
+        let invalid_percentage: ExternalContactUserBehaviorDataResponse =
+            serde_json::from_value(json!({
+                "behavior_data": [{
+                    "userid": "user",
+                    "stat_time": 100,
+                    "reply_percentage": 101
+                }]
+            }))
+            .unwrap();
+        assert!(invalid_percentage.validate().is_err());
+
         let statistic = ExternalGroupChatStatisticRequest {
             day_begin_time: 1,
             day_end_time: 2,
@@ -40192,6 +40508,47 @@ mod tests {
         }
         .validate()
         .is_err());
+
+        let duplicate_summary: ExternalGroupChatStatisticResponse = serde_json::from_value(json!({
+            "total": 2,
+            "next_offset": 2,
+            "items": [{
+                "owner": "owner",
+                "data": { "chat_total": 1 }
+            }, {
+                "owner": "owner",
+                "data": { "chat_total": 2 }
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_summary.validate_summary().is_err());
+        let duplicate_days: ExternalGroupChatStatisticResponse = serde_json::from_value(json!({
+            "total": 2,
+            "next_offset": 2,
+            "items": [{
+                "stat_time": 100,
+                "data": { "member_total": 1 }
+            }, {
+                "stat_time": 100,
+                "data": { "member_total": 2 }
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_days.validate_by_day().is_err());
+        let inconsistent_counts: ExternalGroupChatStatisticResponse =
+            serde_json::from_value(json!({
+                "total": 1,
+                "next_offset": 1,
+                "items": [{
+                    "owner": "owner",
+                    "data": {
+                        "chat_total": 1,
+                        "chat_has_msg": 2
+                    }
+                }]
+            }))
+            .unwrap();
+        assert!(inconsistent_counts.validate_summary().is_err());
     }
 
     #[test]

@@ -2104,6 +2104,23 @@ contracts:
   valid unique handover/customer pairs, and positive resignation timestamps,
   with checked pagination and pair lookup helpers.
 
+Implemented on 2026-07-20 in Work external-contact statistics response
+contracts:
+
+- customer-behavior, group-chat summary, and group-chat daily-statistic
+  operations now validate successful responses before leaving the HTTP
+  boundary;
+- behavior rows require unique user/day identities, positive statistic times,
+  non-negative counters and reply times, and finite reply percentages from
+  zero through 100;
+- group-chat summary rows require unique owners, daily rows require unique
+  positive statistic times, and both shapes require typed data while retaining
+  unknown extension metrics;
+- statistic metadata validates totals, offsets, and endpoint-specific item
+  limits, while activity/new counts cannot exceed their corresponding totals;
+- response helpers expose owner/day and user/day lookup plus reliable
+  pagination state.
+
 Implemented on 2026-07-20 in Payment merchant-service workflow depth:
 
 - complaint list, detail, negotiation-history, reply, completion,
