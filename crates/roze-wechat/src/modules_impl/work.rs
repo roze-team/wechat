@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path};
 
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
@@ -3436,6 +3436,16 @@ impl Work {
         Ok(response)
     }
 
+    pub async fn upload_work_image_from_path(
+        &self,
+        access_token: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadImageResponse> {
+        let (file_name, data) = read_work_media_path(path.as_ref(), WORK_IMAGE_MAX_BYTES).await?;
+        self.upload_work_image_from_bytes(access_token, file_name, data)
+            .await
+    }
+
     pub async fn upload_temp_media_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -3466,6 +3476,23 @@ impl Work {
         Ok(response)
     }
 
+    pub async fn upload_temp_media_from_path(
+        &self,
+        access_token: impl Into<String>,
+        media_type: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        let media_type = media_type.into();
+        validate_work_media_type(&media_type, true)?;
+        let media_kind = WorkMediaTypeKind::from_code(&media_type);
+        let maximum = media_kind.temporary_upload_max_bytes().ok_or_else(|| {
+            WechatError::Config("work media type must be image, voice, video, or file".to_string())
+        })?;
+        let (file_name, data) = read_work_media_path(path.as_ref(), maximum).await?;
+        self.upload_temp_media_from_bytes(access_token, media_type, file_name, data)
+            .await
+    }
+
     pub async fn upload_temp_image_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -3473,6 +3500,15 @@ impl Work {
         data: Vec<u8>,
     ) -> Result<WorkUploadMediaResponse> {
         self.upload_temp_media_from_bytes(access_token, "image", file_name, data)
+            .await
+    }
+
+    pub async fn upload_temp_image_from_path(
+        &self,
+        access_token: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_path(access_token, "image", path)
             .await
     }
 
@@ -3486,6 +3522,15 @@ impl Work {
             .await
     }
 
+    pub async fn upload_temp_voice_from_path(
+        &self,
+        access_token: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_path(access_token, "voice", path)
+            .await
+    }
+
     pub async fn upload_temp_video_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -3496,6 +3541,15 @@ impl Work {
             .await
     }
 
+    pub async fn upload_temp_video_from_path(
+        &self,
+        access_token: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_path(access_token, "video", path)
+            .await
+    }
+
     pub async fn upload_temp_file_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -3503,6 +3557,15 @@ impl Work {
         data: Vec<u8>,
     ) -> Result<WorkUploadMediaResponse> {
         self.upload_temp_media_from_bytes(access_token, "file", file_name, data)
+            .await
+    }
+
+    pub async fn upload_temp_file_from_path(
+        &self,
+        access_token: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_temp_media_from_path(access_token, "file", path)
             .await
     }
 
@@ -3579,6 +3642,35 @@ impl Work {
         Ok(response)
     }
 
+    pub async fn upload_attachment_from_path(
+        &self,
+        access_token: impl Into<String>,
+        media_type: impl Into<String>,
+        attachment_type: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        let media_type = media_type.into();
+        validate_work_media_type(&media_type, false)?;
+        let maximum = match WorkMediaTypeKind::from_code(&media_type) {
+            WorkMediaTypeKind::Image => WORK_IMAGE_MAX_BYTES,
+            WorkMediaTypeKind::Video => WORK_VIDEO_MAX_BYTES,
+            _ => {
+                return Err(WechatError::Config(
+                    "work attachment media type must be image or video".to_string(),
+                ));
+            }
+        };
+        let (file_name, data) = read_work_media_path(path.as_ref(), maximum).await?;
+        self.upload_attachment_from_bytes(
+            access_token,
+            media_type,
+            attachment_type,
+            file_name,
+            data,
+        )
+        .await
+    }
+
     pub async fn upload_attachment_image_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -3590,6 +3682,16 @@ impl Work {
             .await
     }
 
+    pub async fn upload_attachment_image_from_path(
+        &self,
+        access_token: impl Into<String>,
+        attachment_type: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_attachment_from_path(access_token, "image", attachment_type, path)
+            .await
+    }
+
     pub async fn upload_attachment_video_from_bytes(
         &self,
         access_token: impl Into<String>,
@@ -3598,6 +3700,16 @@ impl Work {
         data: Vec<u8>,
     ) -> Result<WorkUploadMediaResponse> {
         self.upload_attachment_from_bytes(access_token, "video", attachment_type, file_name, data)
+            .await
+    }
+
+    pub async fn upload_attachment_video_from_path(
+        &self,
+        access_token: impl Into<String>,
+        attachment_type: impl Into<String>,
+        path: impl AsRef<Path>,
+    ) -> Result<WorkUploadMediaResponse> {
+        self.upload_attachment_from_path(access_token, "video", attachment_type, path)
             .await
     }
 
@@ -26707,6 +26819,38 @@ const WORK_IMAGE_MAX_BYTES: usize = 2 * 1024 * 1024;
 const WORK_VOICE_MAX_BYTES: usize = 2 * 1024 * 1024;
 const WORK_VIDEO_MAX_BYTES: usize = 10 * 1024 * 1024;
 const WORK_FILE_MAX_BYTES: usize = 20 * 1024 * 1024;
+
+async fn read_work_media_path(path: &Path, maximum_bytes: usize) -> Result<(String, Vec<u8>)> {
+    let metadata = tokio::fs::metadata(path).await?;
+    if !metadata.is_file() {
+        return Err(WechatError::Config(
+            "work media upload path must identify a regular file".to_string(),
+        ));
+    }
+    let metadata_bytes = usize::try_from(metadata.len()).map_err(|_| {
+        WechatError::Config("work media upload file size cannot fit this platform".to_string())
+    })?;
+    if metadata_bytes > maximum_bytes {
+        return Err(WechatError::Config(format!(
+            "work media upload file cannot exceed {maximum_bytes} bytes"
+        )));
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| {
+            WechatError::Config("work media upload path requires a UTF-8 file name".to_string())
+        })?
+        .to_string();
+    validate_work_media_file_name(&file_name)?;
+    let data = tokio::fs::read(path).await?;
+    if data.len() > maximum_bytes {
+        return Err(WechatError::Config(format!(
+            "work media upload file cannot exceed {maximum_bytes} bytes"
+        )));
+    }
+    Ok((file_name, data))
+}
 
 fn validate_work_upload_image_file(file_name: &str, data: &[u8]) -> Result<()> {
     validate_work_media_file(file_name, data)?;
@@ -56425,6 +56569,25 @@ mod tests {
         );
         assert_eq!(work_media_range_header(1024, None).unwrap(), "bytes=1024-");
         assert!(work_media_range_header(10, Some(9)).is_err());
+    }
+
+    #[tokio::test]
+    async fn reads_work_media_upload_paths_with_preflight_limits() {
+        let path = std::env::temp_dir().join(format!(
+            "roze-wechat-work-media-{}.png",
+            uuid::Uuid::now_v7()
+        ));
+        tokio::fs::write(&path, b"image-data").await.unwrap();
+
+        let (file_name, data) = read_work_media_path(&path, 10).await.unwrap();
+        assert_eq!(file_name, path.file_name().unwrap().to_string_lossy());
+        assert_eq!(data, b"image-data");
+        assert!(read_work_media_path(&path, 9).await.is_err());
+        assert!(read_work_media_path(std::env::temp_dir().as_path(), 10)
+            .await
+            .is_err());
+
+        tokio::fs::remove_file(path).await.unwrap();
     }
 
     #[test]

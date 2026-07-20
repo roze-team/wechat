@@ -181,6 +181,19 @@ Implemented on 2026-07-21 in Work user batch-job result depth:
   URLs now reject credentials and fragments in addition to requiring absolute
   HTTP(S).
 
+Implemented on 2026-07-21 in Work media path-upload parity:
+
+- Work image, temporary image/voice/video/file, and external-contact
+  attachment uploads now expose async path-based entry points alongside the
+  existing byte APIs, matching PowerWeChat's production file workflow without
+  requiring callers to read files themselves.
+- Path uploads validate the media type before I/O, require a regular file and
+  a UTF-8 file name, and reject files above the endpoint-specific limit from
+  metadata before allocating the upload body.
+- The shared reader rechecks the actual bytes after the asynchronous read so a
+  file that grows between metadata inspection and reading cannot bypass the
+  image, voice, video, or generic-file size ceiling.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream
