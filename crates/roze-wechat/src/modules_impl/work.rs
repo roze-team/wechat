@@ -948,13 +948,16 @@ impl Work {
         request: WorkUnionIdToExternalUserIdRequest,
     ) -> Result<WorkUnionIdToExternalUserIdResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkUnionIdToExternalUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/idconvert/unionid_to_external_userid",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn external_user_id_to_pending_id(
@@ -963,13 +966,16 @@ impl Work {
         request: WorkExternalUserIdToPendingIdRequest,
     ) -> Result<WorkExternalUserIdToPendingIdResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkExternalUserIdToPendingIdResponse = self
+            .inner
             .post(
                 "cgi-bin/idconvert/batch/external_userid_to_pending_id",
                 Some(access_token.into()),
-                request,
+                &request,
             )
-            .await
+            .await?;
+        response.validate_for_request(&request)?;
+        Ok(response)
     }
 
     pub async fn batch_user_id_to_open_user_id(
@@ -978,13 +984,16 @@ impl Work {
         user_id_list: Vec<String>,
     ) -> Result<WorkUserIdToOpenUserIdResponse> {
         validate_work_user_string_batch("userid conversion", &user_id_list, 1_000)?;
-        self.inner
+        let response: WorkUserIdToOpenUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/batch/userid_to_openuserid",
                 Some(access_token.into()),
-                json!({ "userid_list": user_id_list }),
+                json!({ "userid_list": &user_id_list }),
             )
-            .await
+            .await?;
+        response.validate_for_request(&user_id_list)?;
+        Ok(response)
     }
 
     pub async fn open_user_id_to_user_id(
@@ -993,13 +1002,16 @@ impl Work {
         request: WorkOpenUserIdToUserIdRequest,
     ) -> Result<WorkOpenUserIdToUserIdResponse> {
         request.validate()?;
-        self.inner
+        let response: WorkOpenUserIdToUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/batch/openuserid_to_userid",
                 Some(access_token.into()),
-                request,
+                &request,
             )
-            .await
+            .await?;
+        response.validate_for_request(&request)?;
+        Ok(response)
     }
 
     pub async fn external_tag_id_to_open_external_tag_id(
@@ -1012,13 +1024,16 @@ impl Work {
             &external_tag_id_list,
             1_000,
         )?;
-        self.inner
+        let response: WorkExternalTagIdToOpenExternalTagIdResponse = self
+            .inner
             .post(
                 "cgi-bin/idconvert/external_tagid",
                 Some(access_token.into()),
-                json!({ "external_tagid_list": external_tag_id_list }),
+                json!({ "external_tagid_list": &external_tag_id_list }),
             )
-            .await
+            .await?;
+        response.validate_for_request(&external_tag_id_list)?;
+        Ok(response)
     }
 
     pub async fn from_service_external_user_id(
@@ -8885,6 +8900,18 @@ pub struct WorkExternalUserIdToPendingIdItem {
     pub extra: Value,
 }
 
+impl WorkExternalUserIdToPendingIdItem {
+    pub fn validate(&self) -> Result<(&str, &str)> {
+        validate_work_id_conversion_pair(
+            "external-userid to pending-id",
+            "external_userid",
+            self.external_userid.as_deref(),
+            "pending_id",
+            self.pending_id.as_deref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalUserIdToPendingIdResponse {
     #[serde(default)]
@@ -8897,6 +8924,74 @@ pub struct WorkExternalUserIdToPendingIdResponse {
     pub extra: Value,
 }
 
+impl WorkExternalUserIdToPendingIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work external-userid to pending-id conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.result.len() > 1_000 {
+            return Err(WechatError::Config(
+                "work external-userid to pending-id response cannot exceed 1000 mappings"
+                    .to_string(),
+            ));
+        }
+        let mut sources = std::collections::HashSet::with_capacity(self.result.len());
+        let mut targets = std::collections::HashSet::with_capacity(self.result.len());
+        for item in &self.result {
+            let (source, target) = item.validate()?;
+            validate_work_unique_conversion_pair(
+                "external-userid to pending-id",
+                source,
+                target,
+                &mut sources,
+                &mut targets,
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_request(
+        &self,
+        request: &WorkExternalUserIdToPendingIdRequest,
+    ) -> Result<()> {
+        request.validate()?;
+        self.validate()?;
+        validate_work_id_conversion_coverage(
+            "external-userid to pending-id",
+            &request.external_userid,
+            self.result
+                .iter()
+                .filter_map(|item| item.external_userid.as_deref()),
+            &[],
+        )
+    }
+
+    pub fn find_by_external_user_id(
+        &self,
+        external_user_id: &str,
+    ) -> Option<&WorkExternalUserIdToPendingIdItem> {
+        self.result
+            .iter()
+            .find(|item| item.external_userid.as_deref() == Some(external_user_id))
+    }
+
+    pub fn successful_count(&self) -> usize {
+        self.result.len()
+    }
+
+    pub fn missing_external_user_ids<'a>(&self, requested: &'a [String]) -> Vec<&'a str> {
+        work_missing_conversion_sources(
+            requested,
+            self.result
+                .iter()
+                .filter_map(|item| item.external_userid.as_deref()),
+            &[],
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserIdToOpenUserIdItem {
     #[serde(default)]
@@ -8905,6 +9000,18 @@ pub struct WorkUserIdToOpenUserIdItem {
     pub open_userid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkUserIdToOpenUserIdItem {
+    pub fn validate(&self) -> Result<(&str, &str)> {
+        validate_work_id_conversion_pair(
+            "userid to open-userid",
+            "userid",
+            self.userid.as_deref(),
+            "open_userid",
+            self.open_userid.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8922,6 +9029,32 @@ pub struct WorkUserIdToOpenUserIdResponse {
 }
 
 impl WorkUserIdToOpenUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work userid to open-userid conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_id_conversion_response(
+            "userid to open-userid",
+            self.open_userid_list.iter().map(|item| item.validate()),
+            &self.invalid_userid_list,
+        )
+    }
+
+    pub fn validate_for_request(&self, requested: &[String]) -> Result<()> {
+        validate_work_user_string_batch("userid conversion", requested, 1_000)?;
+        self.validate()?;
+        validate_work_id_conversion_coverage(
+            "userid to open-userid",
+            requested,
+            self.open_userid_list
+                .iter()
+                .filter_map(|item| item.userid.as_deref()),
+            &self.invalid_userid_list,
+        )
+    }
+
     pub fn find_by_user_id(&self, user_id: &str) -> Option<&WorkUserIdToOpenUserIdItem> {
         self.open_userid_list
             .iter()
@@ -8930,6 +9063,20 @@ impl WorkUserIdToOpenUserIdResponse {
 
     pub fn failure_count(&self) -> usize {
         self.invalid_userid_list.len()
+    }
+
+    pub fn successful_count(&self) -> usize {
+        self.open_userid_list.len()
+    }
+
+    pub fn missing_user_ids<'a>(&self, requested: &'a [String]) -> Vec<&'a str> {
+        work_missing_conversion_sources(
+            requested,
+            self.open_userid_list
+                .iter()
+                .filter_map(|item| item.userid.as_deref()),
+            &self.invalid_userid_list,
+        )
     }
 }
 
@@ -8960,6 +9107,18 @@ pub struct WorkOpenUserIdToUserIdItem {
     pub extra: Value,
 }
 
+impl WorkOpenUserIdToUserIdItem {
+    pub fn validate(&self) -> Result<(&str, &str)> {
+        validate_work_id_conversion_pair(
+            "open-userid to userid",
+            "open_userid",
+            self.open_userid.as_deref(),
+            "userid",
+            self.userid.as_deref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkOpenUserIdToUserIdResponse {
     #[serde(default)]
@@ -8979,6 +9138,32 @@ pub struct WorkOpenUserIdToUserIdResponse {
 }
 
 impl WorkOpenUserIdToUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work open-userid to userid conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_id_conversion_response(
+            "open-userid to userid",
+            self.userid_list.iter().map(|item| item.validate()),
+            &self.invalid_userid_list,
+        )
+    }
+
+    pub fn validate_for_request(&self, request: &WorkOpenUserIdToUserIdRequest) -> Result<()> {
+        request.validate()?;
+        self.validate()?;
+        validate_work_id_conversion_coverage(
+            "open-userid to userid",
+            &request.open_userid_list,
+            self.userid_list
+                .iter()
+                .filter_map(|item| item.open_userid.as_deref()),
+            &self.invalid_userid_list,
+        )
+    }
+
     pub fn find_by_open_user_id(&self, open_user_id: &str) -> Option<&WorkOpenUserIdToUserIdItem> {
         self.userid_list
             .iter()
@@ -8992,6 +9177,20 @@ impl WorkOpenUserIdToUserIdResponse {
     pub fn failure_count(&self) -> usize {
         self.invalid_userid_list.len()
     }
+
+    pub fn successful_count(&self) -> usize {
+        self.userid_list.len()
+    }
+
+    pub fn missing_open_user_ids<'a>(&self, requested: &'a [String]) -> Vec<&'a str> {
+        work_missing_conversion_sources(
+            requested,
+            self.userid_list
+                .iter()
+                .filter_map(|item| item.open_userid.as_deref()),
+            &self.invalid_userid_list,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9002,6 +9201,18 @@ pub struct WorkExternalTagIdToOpenExternalTagIdItem {
     pub open_external_tagid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkExternalTagIdToOpenExternalTagIdItem {
+    pub fn validate(&self) -> Result<(&str, &str)> {
+        validate_work_id_conversion_pair(
+            "external tag-id to open external tag-id",
+            "external_tagid",
+            self.external_tagid.as_deref(),
+            "open_external_tagid",
+            self.open_external_tagid.as_deref(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9023,6 +9234,32 @@ pub struct WorkExternalTagIdToOpenExternalTagIdResponse {
 }
 
 impl WorkExternalTagIdToOpenExternalTagIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work external tag-id conversion",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_id_conversion_response(
+            "external tag-id to open external tag-id",
+            self.items.iter().map(|item| item.validate()),
+            &self.invalid_tagid_list,
+        )
+    }
+
+    pub fn validate_for_request(&self, requested: &[String]) -> Result<()> {
+        validate_work_user_string_batch("external tag-id conversion", requested, 1_000)?;
+        self.validate()?;
+        validate_work_id_conversion_coverage(
+            "external tag-id to open external tag-id",
+            requested,
+            self.items
+                .iter()
+                .filter_map(|item| item.external_tagid.as_deref()),
+            &self.invalid_tagid_list,
+        )
+    }
+
     pub fn find_by_external_tag_id(
         &self,
         external_tag_id: &str,
@@ -9039,6 +9276,134 @@ impl WorkExternalTagIdToOpenExternalTagIdResponse {
     pub fn failure_count(&self) -> usize {
         self.invalid_tagid_list.len()
     }
+
+    pub fn successful_count(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn missing_external_tag_ids<'a>(&self, requested: &'a [String]) -> Vec<&'a str> {
+        work_missing_conversion_sources(
+            requested,
+            self.items
+                .iter()
+                .filter_map(|item| item.external_tagid.as_deref()),
+            &self.invalid_tagid_list,
+        )
+    }
+}
+
+fn validate_work_id_conversion_pair<'a>(
+    operation: &str,
+    source_label: &str,
+    source: Option<&'a str>,
+    target_label: &str,
+    target: Option<&'a str>,
+) -> Result<(&'a str, &'a str)> {
+    let source = source.ok_or_else(|| {
+        WechatError::Config(format!(
+            "work {operation} response item requires {source_label}"
+        ))
+    })?;
+    let target = target.ok_or_else(|| {
+        WechatError::Config(format!(
+            "work {operation} response item requires {target_label}"
+        ))
+    })?;
+    validate_work_user_identifier(source_label, source)?;
+    validate_work_user_identifier(target_label, target)?;
+    Ok((source, target))
+}
+
+fn validate_work_unique_conversion_pair<'a>(
+    operation: &str,
+    source: &'a str,
+    target: &'a str,
+    sources: &mut std::collections::HashSet<&'a str>,
+    targets: &mut std::collections::HashSet<&'a str>,
+) -> Result<()> {
+    if !sources.insert(source) || !targets.insert(target) {
+        return Err(WechatError::Config(format!(
+            "work {operation} response requires unique source and target ids"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_id_conversion_response<'a>(
+    operation: &str,
+    pairs: impl IntoIterator<Item = Result<(&'a str, &'a str)>>,
+    invalid: &'a [String],
+) -> Result<()> {
+    if invalid.len() > 1_000 {
+        return Err(WechatError::Config(format!(
+            "work {operation} response cannot exceed 1000 invalid ids"
+        )));
+    }
+    let mut sources = std::collections::HashSet::new();
+    let mut targets = std::collections::HashSet::new();
+    for pair in pairs {
+        let (source, target) = pair?;
+        validate_work_unique_conversion_pair(
+            operation,
+            source,
+            target,
+            &mut sources,
+            &mut targets,
+        )?;
+    }
+    let mut invalid_ids = std::collections::HashSet::with_capacity(invalid.len());
+    for invalid_id in invalid {
+        validate_work_user_identifier("invalid conversion id", invalid_id)?;
+        if !invalid_ids.insert(invalid_id.as_str()) || sources.contains(invalid_id.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work {operation} response cannot duplicate or overlap invalid ids"
+            )));
+        }
+    }
+    if sources.len() + invalid_ids.len() > 1_000 {
+        return Err(WechatError::Config(format!(
+            "work {operation} response cannot exceed 1000 results"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_id_conversion_coverage<'a>(
+    operation: &str,
+    requested: &'a [String],
+    mapped: impl IntoIterator<Item = &'a str>,
+    invalid: &'a [String],
+) -> Result<()> {
+    let requested = requested
+        .iter()
+        .map(String::as_str)
+        .collect::<std::collections::HashSet<_>>();
+    let accounted = mapped
+        .into_iter()
+        .chain(invalid.iter().map(String::as_str))
+        .collect::<std::collections::HashSet<_>>();
+    if accounted != requested {
+        return Err(WechatError::Config(format!(
+            "work {operation} response must account for every requested id without unexpected ids"
+        )));
+    }
+    Ok(())
+}
+
+fn work_missing_conversion_sources<'a, 'b>(
+    requested: &'a [String],
+    mapped: impl IntoIterator<Item = &'b str>,
+    invalid: &'b [String],
+) -> Vec<&'a str> {
+    let accounted = mapped
+        .into_iter()
+        .chain(invalid.iter().map(String::as_str))
+        .collect::<std::collections::HashSet<_>>();
+    requested
+        .iter()
+        .map(String::as_str)
+        .filter(|source| !accounted.contains(source))
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53629,6 +53994,21 @@ mod tests {
         assert_eq!(pending.result[0].pending_id.as_deref(), Some("pending"));
         assert_eq!(pending.result[0].extra["item_source"], "batch");
         assert_eq!(pending.extra["request_id"], "pending-list");
+        let pending_request = WorkExternalUserIdToPendingIdRequest {
+            external_userid: vec!["external".to_string()],
+            chat_id: None,
+        };
+        assert!(pending.validate_for_request(&pending_request).is_ok());
+        assert_eq!(pending.successful_count(), 1);
+        assert!(pending
+            .missing_external_user_ids(&pending_request.external_userid)
+            .is_empty());
+        assert_eq!(
+            pending
+                .find_by_external_user_id("external")
+                .and_then(|item| item.pending_id.as_deref()),
+            Some("pending")
+        );
 
         let user_to_open: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
             "open_userid_list": [{ "userid": "user", "open_userid": "open-user", "source": "legacy" }],
@@ -53649,6 +54029,10 @@ mod tests {
         );
         assert_eq!(user_to_open.open_userid_list[0].extra["source"], "legacy");
         assert_eq!(user_to_open.extra["trace_id"], "user-to-open");
+        let requested_users = vec!["user".to_string(), "bad-user".to_string()];
+        assert!(user_to_open.validate_for_request(&requested_users).is_ok());
+        assert_eq!(user_to_open.successful_count(), 1);
+        assert!(user_to_open.missing_user_ids(&requested_users).is_empty());
 
         let open_to_user: WorkOpenUserIdToUserIdResponse = serde_json::from_value(json!({
             "userid_list": [{ "userid": "user", "open_userid": "open-user", "user_source": "api" }],
@@ -53668,6 +54052,15 @@ mod tests {
         );
         assert_eq!(open_to_user.userid_list[0].extra["user_source"], "api");
         assert_eq!(open_to_user.extra["trace_id"], "open-to-user");
+        let open_request = WorkOpenUserIdToUserIdRequest {
+            source_agentid: 100001,
+            open_userid_list: vec!["open-user".to_string(), "bad-open-user".to_string()],
+        };
+        assert!(open_to_user.validate_for_request(&open_request).is_ok());
+        assert_eq!(open_to_user.successful_count(), 1);
+        assert!(open_to_user
+            .missing_open_user_ids(&open_request.open_userid_list)
+            .is_empty());
 
         let tag: WorkExternalTagIdToOpenExternalTagIdResponse = serde_json::from_value(json!({
             "items": [{ "external_tagid": "tag", "open_external_tagid": "open-tag", "tag_source": "crm" }],
@@ -53688,6 +54081,10 @@ mod tests {
         );
         assert_eq!(tag.items[0].extra["tag_source"], "crm");
         assert_eq!(tag.extra["trace_id"], "tag-open");
+        let requested_tags = vec!["tag".to_string(), "bad-tag".to_string()];
+        assert!(tag.validate_for_request(&requested_tags).is_ok());
+        assert_eq!(tag.successful_count(), 1);
+        assert!(tag.missing_external_tag_ids(&requested_tags).is_empty());
 
         let from_service: WorkFromServiceExternalUserIdResponse = serde_json::from_value(json!({
             "external_userid": "external",
@@ -53696,6 +54093,91 @@ mod tests {
         .unwrap();
         assert_eq!(from_service.external_userid.as_deref(), Some("external"));
         assert_eq!(from_service.extra["source_agentid"], 100001);
+    }
+
+    #[test]
+    fn validates_work_id_conversion_response_contracts() {
+        let api_error: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
+            "errcode": 40058,
+            "errmsg": "invalid userid"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let missing_target: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
+            "open_userid_list": [{ "userid": "user" }]
+        }))
+        .unwrap();
+        assert!(missing_target.validate().is_err());
+
+        let duplicate_source: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
+            "open_userid_list": [
+                { "userid": "user", "open_userid": "open-1" },
+                { "userid": "user", "open_userid": "open-2" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_source.validate().is_err());
+
+        let duplicate_target: WorkOpenUserIdToUserIdResponse = serde_json::from_value(json!({
+            "userid_list": [
+                { "open_userid": "open-1", "userid": "user" },
+                { "open_userid": "open-2", "userid": "user" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_target.validate().is_err());
+
+        let overlapping_failure: WorkOpenUserIdToUserIdResponse = serde_json::from_value(json!({
+            "userid_list": [{ "open_userid": "open-user", "userid": "user" }],
+            "invalid_userid_list": ["open-user"]
+        }))
+        .unwrap();
+        assert!(overlapping_failure.validate().is_err());
+
+        let incomplete: WorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
+            "open_userid_list": [{ "userid": "user", "open_userid": "open-user" }]
+        }))
+        .unwrap();
+        let requested = vec!["user".to_string(), "missing".to_string()];
+        assert_eq!(incomplete.missing_user_ids(&requested), ["missing"]);
+        assert!(incomplete.validate_for_request(&requested).is_err());
+
+        let unexpected: WorkExternalTagIdToOpenExternalTagIdResponse =
+            serde_json::from_value(json!({
+                "items": [{
+                    "external_tagid": "unexpected",
+                    "open_external_tagid": "open-tag"
+                }]
+            }))
+            .unwrap();
+        assert!(unexpected
+            .validate_for_request(&["requested".to_string()])
+            .is_err());
+
+        let pending_duplicate: WorkExternalUserIdToPendingIdResponse =
+            serde_json::from_value(json!({
+                "result": [
+                    { "external_userid": "external-1", "pending_id": "pending" },
+                    { "external_userid": "external-2", "pending_id": "pending" }
+                ]
+            }))
+            .unwrap();
+        assert!(pending_duplicate.validate().is_err());
+
+        let pending_missing: WorkExternalUserIdToPendingIdResponse =
+            serde_json::from_value(json!({ "result": [] })).unwrap();
+        let pending_request = WorkExternalUserIdToPendingIdRequest {
+            external_userid: vec!["external".to_string()],
+            chat_id: None,
+        };
+        assert_eq!(
+            pending_missing.missing_external_user_ids(&pending_request.external_userid),
+            ["external"]
+        );
+        assert!(pending_missing
+            .validate_for_request(&pending_request)
+            .is_err());
     }
 
     #[test]

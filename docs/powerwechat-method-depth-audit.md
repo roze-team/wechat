@@ -77,6 +77,17 @@ Implemented on 2026-07-21 in Work group-robot message depth:
   and byte-backed images; image construction uses the shared base64 and MD5
   libraries so callers cannot accidentally submit a mismatched digest.
 
+Implemented on 2026-07-21 in Work identity-conversion response depth:
+
+- All five `id_convert` network paths now validate WeCom API status and typed
+  response contracts before returning data to callers.
+- External-user/pending, user/open-user, open-user/user, and external-tag/open-
+  tag batches reject missing identities, duplicate sources or targets,
+  success/failure overlap, request-external mappings, and silently omitted
+  inputs.
+- Conversion responses expose successful counts, source lookup, invalid lists,
+  and missing-input helpers for production reconciliation and retry handling.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream
