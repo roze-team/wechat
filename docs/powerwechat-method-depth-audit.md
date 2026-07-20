@@ -66,6 +66,17 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and
    component/base authorization helpers.
 
+Implemented on 2026-07-21 in Work group-robot message depth:
+
+- The group-robot send path now validates webhook keys, request payloads, and
+  WeCom API status responses instead of returning unchecked success values.
+- Text, Markdown, Markdown V2, image, news, file, voice, and template-card
+  messages enforce a single type-matched payload with production size,
+  identifier, article, URL, base64, and MD5 constraints.
+- Typed constructors now cover mobile mentions, files, news, template cards,
+  and byte-backed images; image construction uses the shared base64 and MD5
+  libraries so callers cannot accidentally submit a mismatched digest.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream

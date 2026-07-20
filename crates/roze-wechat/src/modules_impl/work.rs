@@ -3038,12 +3038,20 @@ impl Work {
         content: impl Into<String>,
         mentioned_list: Vec<String>,
     ) -> GroupRobotMessage {
+        Self::group_robot_text_with_mentions(content, mentioned_list, Vec::new())
+    }
+
+    pub fn group_robot_text_with_mentions(
+        content: impl Into<String>,
+        mentioned_list: Vec<String>,
+        mentioned_mobile_list: Vec<String>,
+    ) -> GroupRobotMessage {
         GroupRobotMessage {
             msgtype: WorkMessageTypeKind::Text.as_code().to_string(),
             text: Some(GroupRobotTextMessage {
                 content: content.into(),
                 mentioned_list,
-                mentioned_mobile_list: Vec::new(),
+                mentioned_mobile_list,
             }),
             markdown: None,
             markdown_v2: None,
@@ -3100,6 +3108,70 @@ impl Work {
                 media_id: media_id.into(),
             }),
             template_card: None,
+        }
+    }
+
+    pub fn group_robot_file(media_id: impl Into<String>) -> GroupRobotMessage {
+        GroupRobotMessage {
+            msgtype: WorkMessageTypeKind::File.as_code().to_string(),
+            text: None,
+            markdown: None,
+            markdown_v2: None,
+            image: None,
+            news: None,
+            file: Some(GroupRobotFileMessage {
+                media_id: media_id.into(),
+            }),
+            voice: None,
+            template_card: None,
+        }
+    }
+
+    pub fn group_robot_image_from_bytes(data: impl AsRef<[u8]>) -> Result<GroupRobotMessage> {
+        let data = data.as_ref();
+        let message = GroupRobotMessage {
+            msgtype: WorkMessageTypeKind::Image.as_code().to_string(),
+            text: None,
+            markdown: None,
+            markdown_v2: None,
+            image: Some(GroupRobotImageMessage {
+                base64: base64::engine::general_purpose::STANDARD.encode(data),
+                md5: format!("{:x}", md5::compute(data)),
+            }),
+            news: None,
+            file: None,
+            voice: None,
+            template_card: None,
+        };
+        message.validate()?;
+        Ok(message)
+    }
+
+    pub fn group_robot_news(articles: Vec<GroupRobotNewsArticle>) -> GroupRobotMessage {
+        GroupRobotMessage {
+            msgtype: WorkMessageTypeKind::News.as_code().to_string(),
+            text: None,
+            markdown: None,
+            markdown_v2: None,
+            image: None,
+            news: Some(GroupRobotNewsMessage { articles }),
+            file: None,
+            voice: None,
+            template_card: None,
+        }
+    }
+
+    pub fn group_robot_template_card(card: WorkTemplateCard) -> GroupRobotMessage {
+        GroupRobotMessage {
+            msgtype: WorkMessageTypeKind::TemplateCard.as_code().to_string(),
+            text: None,
+            markdown: None,
+            markdown_v2: None,
+            image: None,
+            news: None,
+            file: None,
+            voice: None,
+            template_card: Some(card),
         }
     }
 
@@ -7315,14 +7387,20 @@ impl Work {
         key: impl Into<String>,
         request: GroupRobotMessage,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        let key = key.into();
+        validate_work_media_identifier("group robot key", &key)?;
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post_json_with_query(
                 "cgi-bin/webhook/send",
-                vec![("key".to_string(), key.into())],
-                serde_json::to_value(request).expect("work group robot message serializes"),
+                vec![("key".to_string(), key)],
+                to_value(request)?,
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate_for("work send group robot message")?;
+        Ok(response)
     }
 
     pub async fn upload_group_robot_media_from_bytes(
@@ -24935,6 +25013,82 @@ impl GroupRobotMessage {
     pub fn msgtype_kind(&self) -> WorkMessageTypeKind {
         WorkMessageTypeKind::from_code(&self.msgtype)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        let payload_count = [
+            self.text.is_some(),
+            self.markdown.is_some(),
+            self.markdown_v2.is_some(),
+            self.image.is_some(),
+            self.news.is_some(),
+            self.file.is_some(),
+            self.voice.is_some(),
+            self.template_card.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        if payload_count != 1 {
+            return Err(WechatError::Config(
+                "work group robot messages require exactly one payload".to_string(),
+            ));
+        }
+
+        match self.msgtype_kind() {
+            WorkMessageTypeKind::Text => self
+                .text
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("text"))?
+                .validate(),
+            WorkMessageTypeKind::Markdown => self
+                .markdown
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("markdown"))?
+                .validate("markdown"),
+            WorkMessageTypeKind::MarkdownV2 => self
+                .markdown_v2
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("markdown_v2"))?
+                .validate("markdown_v2"),
+            WorkMessageTypeKind::Image => self
+                .image
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("image"))?
+                .validate(),
+            WorkMessageTypeKind::News => self
+                .news
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("news"))?
+                .validate(),
+            WorkMessageTypeKind::File => self
+                .file
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("file"))?
+                .validate("file"),
+            WorkMessageTypeKind::Voice => self
+                .voice
+                .as_ref()
+                .ok_or_else(|| work_group_robot_payload_error("voice"))?
+                .validate("voice"),
+            WorkMessageTypeKind::TemplateCard => {
+                let card = self
+                    .template_card
+                    .as_ref()
+                    .ok_or_else(|| work_group_robot_payload_error("template_card"))?;
+                validate_work_message_payload("template_card", &to_value(card)?)
+            }
+            _ => Err(WechatError::Config(format!(
+                "work group robot message type {} is unsupported",
+                self.msgtype
+            ))),
+        }
+    }
+}
+
+fn work_group_robot_payload_error(expected: &str) -> WechatError {
+    WechatError::Config(format!(
+        "work group robot message type requires the {expected} payload"
+    ))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24946,9 +25100,27 @@ pub struct GroupRobotTextMessage {
     pub mentioned_mobile_list: Vec<String>,
 }
 
+impl GroupRobotTextMessage {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_group_robot_content("text", &self.content, 2_048)?;
+        validate_work_message_id_list("group robot mentioned users", &self.mentioned_list, 1_000)?;
+        validate_work_message_id_list(
+            "group robot mentioned mobiles",
+            &self.mentioned_mobile_list,
+            1_000,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotMarkdownMessage {
     pub content: String,
+}
+
+impl GroupRobotMarkdownMessage {
+    pub fn validate(&self, kind: &str) -> Result<()> {
+        validate_work_group_robot_content(kind, &self.content, 4_096)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24957,9 +25129,50 @@ pub struct GroupRobotImageMessage {
     pub md5: String,
 }
 
+impl GroupRobotImageMessage {
+    pub const MAX_DECODED_BYTES: usize = 2 * 1_024 * 1_024;
+
+    pub fn validate(&self) -> Result<()> {
+        if self.base64.starts_with("data:") {
+            return Err(WechatError::Config(
+                "work group robot image must be raw base64 without a data URL prefix".to_string(),
+            ));
+        }
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(&self.base64)
+            .or_else(|_| base64::engine::general_purpose::STANDARD_NO_PAD.decode(&self.base64))
+            .map_err(|_| {
+                WechatError::Config("work group robot image must be valid base64".to_string())
+            })?;
+        if decoded.is_empty() || decoded.len() > Self::MAX_DECODED_BYTES {
+            return Err(WechatError::Config(
+                "work group robot image must contain 1 byte to 2 MiB".to_string(),
+            ));
+        }
+        if self.md5.len() != 32 || !self.md5.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(WechatError::Config(
+                "work group robot image md5 must contain 32 hexadecimal characters".to_string(),
+            ));
+        }
+        let expected = format!("{:x}", md5::compute(&decoded));
+        if !self.md5.eq_ignore_ascii_case(&expected) {
+            return Err(WechatError::Config(
+                "work group robot image md5 does not match the decoded image".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotNewsMessage {
     pub articles: Vec<GroupRobotNewsArticle>,
+}
+
+impl GroupRobotNewsMessage {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_message_articles(&to_value(self)?, WorkMessageTypeKind::News)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24977,6 +25190,21 @@ pub type GroupRobotTemplateCardMessage = WorkTemplateCard;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRobotFileMessage {
     pub media_id: String,
+}
+
+impl GroupRobotFileMessage {
+    pub fn validate(&self, kind: &str) -> Result<()> {
+        validate_work_group_robot_content(&format!("{kind} media id"), &self.media_id, 512)
+    }
+}
+
+fn validate_work_group_robot_content(label: &str, value: &str, maximum_bytes: usize) -> Result<()> {
+    if value.trim().is_empty() || value.len() > maximum_bytes {
+        return Err(WechatError::Config(format!(
+            "work group robot {label} must contain 1 to {maximum_bytes} UTF-8 bytes"
+        )));
+    }
+    Ok(())
 }
 
 pub type GroupRobotVoiceMessage = GroupRobotFileMessage;
@@ -47258,6 +47486,112 @@ mod tests {
         let card = serde_json::to_value(card_message).unwrap();
         assert_eq!(card["template_card"]["card_type"], "text_notice");
         assert_eq!(card["template_card"]["main_title"]["title"], "hello");
+    }
+
+    #[test]
+    fn validates_group_robot_message_contracts() {
+        let text = Work::group_robot_text_with_mentions(
+            "hello",
+            vec!["user-a".to_string(), "@all".to_string()],
+            vec!["13800138000".to_string()],
+        );
+        assert!(text.validate().is_ok());
+
+        let duplicate_mentions =
+            Work::group_robot_text("hello", vec!["user-a".to_string(), "user-a".to_string()]);
+        assert!(duplicate_mentions.validate().is_err());
+
+        let mut blank_text = Work::group_robot_text(" ", Vec::new());
+        assert!(blank_text.validate().is_err());
+        blank_text.text.as_mut().unwrap().content = "a".repeat(2_049);
+        assert!(blank_text.validate().is_err());
+
+        let mut mismatched = Work::group_robot_markdown("**hello**");
+        mismatched.msgtype = "text".to_string();
+        assert!(mismatched.validate().is_err());
+        mismatched.msgtype = "markdown".to_string();
+        mismatched.text = Some(GroupRobotTextMessage {
+            content: "extra".to_string(),
+            mentioned_list: Vec::new(),
+            mentioned_mobile_list: Vec::new(),
+        });
+        assert!(mismatched.validate().is_err());
+
+        assert!(Work::group_robot_markdown("m".repeat(4_096))
+            .validate()
+            .is_ok());
+        assert!(Work::group_robot_markdown_v2("m".repeat(4_097))
+            .validate()
+            .is_err());
+        assert!(Work::group_robot_file("file-media").validate().is_ok());
+        assert!(Work::group_robot_voice(" ").validate().is_err());
+
+        let image = Work::group_robot_image_from_bytes(b"image-bytes").unwrap();
+        assert!(image.validate().is_ok());
+        let image_payload = image.image.as_ref().unwrap();
+        assert_eq!(
+            image_payload.md5,
+            format!("{:x}", md5::compute(b"image-bytes"))
+        );
+
+        let mut invalid_digest = image.clone();
+        invalid_digest.image.as_mut().unwrap().md5 = "00000000000000000000000000000000".to_string();
+        assert!(invalid_digest.validate().is_err());
+        let mut invalid_base64 = image;
+        invalid_base64.image.as_mut().unwrap().base64 = "not base64".to_string();
+        assert!(invalid_base64.validate().is_err());
+        assert!(Work::group_robot_image_from_bytes(vec![
+            0;
+            GroupRobotImageMessage::MAX_DECODED_BYTES
+                + 1
+        ])
+        .is_err());
+
+        let news = Work::group_robot_news(vec![GroupRobotNewsArticle {
+            title: "release".to_string(),
+            description: Some("ready".to_string()),
+            url: "https://example.com/release".to_string(),
+            picurl: Some("https://example.com/release.png".to_string()),
+        }]);
+        assert!(news.validate().is_ok());
+        let invalid_news = Work::group_robot_news(vec![GroupRobotNewsArticle {
+            title: "release".to_string(),
+            description: None,
+            url: "relative".to_string(),
+            picurl: None,
+        }]);
+        assert!(invalid_news.validate().is_err());
+
+        let card = Work::group_robot_template_card(WorkTemplateCard::new(
+            WorkTemplateCardTypeKind::TextNotice,
+        ));
+        assert!(card.validate().is_ok());
+        let unsupported = GroupRobotMessage {
+            msgtype: "future".to_string(),
+            text: Some(GroupRobotTextMessage {
+                content: "hello".to_string(),
+                mentioned_list: Vec::new(),
+                mentioned_mobile_list: Vec::new(),
+            }),
+            markdown: None,
+            markdown_v2: None,
+            image: None,
+            news: None,
+            file: None,
+            voice: None,
+            template_card: None,
+        };
+        assert!(unsupported.validate().is_err());
+
+        let api_error: WorkStatusResponse = serde_json::from_value(json!({
+            "errcode": 93000,
+            "errmsg": "invalid webhook"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate_for("work send group robot message"),
+            Err(WechatError::Api { .. })
+        ));
     }
 
     #[test]
