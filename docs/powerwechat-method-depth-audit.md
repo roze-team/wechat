@@ -1420,11 +1420,33 @@ Implemented on 2026-07-20 in Work OA WeDrive lifecycle depth:
 - direct uploads reject empty, malformed, and data-URL-prefixed Base64 before
   sending, while file moves enforce a nonempty unique batch of at most 100
   file ids;
-- current official WeDrive documentation also exposes APIs beyond the
-  compared PowerWeChat client: chunked upload, file-permission information,
-  file security settings, and professional-edition/capacity information.
-  These remain explicit endpoint-expansion work rather than being counted as
-  completed by the legacy method surface.
+- the legacy PowerWeChat surface was also compared against the current
+  official WeDrive catalog, exposing newer chunked-upload, file-permission,
+  file-security, professional-edition, and capacity APIs for the next
+  endpoint-expansion batch.
+
+Implemented on 2026-07-20 in current Work OA WeDrive endpoint depth:
+
+- added the current official `file_upload_init`, `file_upload_part`,
+  `file_upload_finish`, `get_file_permission`, `file_secure_setting`,
+  `mng_pro_info`, and `mng_capacity` endpoints plus direct upload through a
+  file-selector ticket;
+- chunk initialization supports checked location and selected-ticket
+  constructors, enforces their exclusive target contract, validates the
+  2-MiB block count and cumulative 40-character SHA-1 states, and rejects
+  empty files or files above 20 GiB;
+- chunk parts reject invalid indices, malformed Base64, and decoded blocks
+  above 2 MiB, while direct uploads now enforce the documented 10-MiB limit;
+- file-permission responses now expose typed sharing ranges, security
+  settings, inherited ACLs, direct members, and watermark settings while
+  preserving future upstream fields;
+- watermark updates require a real change and validate text and density,
+  while professional-edition and capacity responses expose available-account
+  and used-capacity helpers;
+- corrected legacy wire contracts: file list sorting now accepts values 1
+  through 6 with pages up to 1000, file creation serializes numeric file
+  types, file sharing accepts scopes 1 through 5 with permissions 1 or 4,
+  and file deletion sends a unique file-id array instead of a scalar.
 
 ## Documentation Update Needed
 

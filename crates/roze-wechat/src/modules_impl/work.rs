@@ -5324,6 +5324,66 @@ impl Work {
             .await
     }
 
+    pub async fn wedrive_file_upload_by_ticket(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileUploadByTicketRequest,
+    ) -> Result<WorkWeDriveFileUploadResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_upload",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_upload_init(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileUploadInitRequest,
+    ) -> Result<WorkWeDriveFileUploadInitResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_upload_init",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_upload_part(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileUploadPartRequest,
+    ) -> Result<WorkStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_upload_part",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_upload_finish(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileUploadFinishRequest,
+    ) -> Result<WorkWeDriveFileUploadFinishResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_upload_finish",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
     pub async fn wedrive_file_download(
         &self,
         access_token: impl Into<String>,
@@ -5384,17 +5444,81 @@ impl Work {
             .await
     }
 
-    pub async fn wedrive_file_delete(
+    pub async fn wedrive_file_delete<R>(
         &self,
         access_token: impl Into<String>,
-        request: WorkWeDriveFileIdRequest,
-    ) -> Result<WorkStatusResponse> {
+        request: R,
+    ) -> Result<WorkStatusResponse>
+    where
+        R: Into<WorkWeDriveFileDeleteRequest>,
+    {
+        let request = request.into();
         request.validate()?;
         self.inner
             .post(
                 "cgi-bin/wedrive/file_delete",
                 Some(access_token.into()),
                 request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_permission(
+        &self,
+        access_token: impl Into<String>,
+        file_id: impl Into<String>,
+    ) -> Result<WorkWeDriveFilePermissionResponse> {
+        let file_id = file_id.into();
+        validate_work_wedrive_identifier("file id", &file_id)?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/get_file_permission",
+                Some(access_token.into()),
+                json!({ "fileid": file_id }),
+            )
+            .await
+    }
+
+    pub async fn wedrive_file_secure_setting(
+        &self,
+        access_token: impl Into<String>,
+        request: WorkWeDriveFileSecureSettingRequest,
+    ) -> Result<WorkStatusResponse> {
+        request.validate()?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/file_secure_setting",
+                Some(access_token.into()),
+                request,
+            )
+            .await
+    }
+
+    pub async fn wedrive_pro_info(
+        &self,
+        access_token: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Result<WorkWeDriveProInfoResponse> {
+        let user_id = user_id.into();
+        validate_work_wedrive_identifier("user id", &user_id)?;
+        self.inner
+            .post(
+                "cgi-bin/wedrive/mng_pro_info",
+                Some(access_token.into()),
+                json!({ "userid": user_id }),
+            )
+            .await
+    }
+
+    pub async fn wedrive_capacity(
+        &self,
+        access_token: impl Into<String>,
+    ) -> Result<WorkWeDriveCapacityResponse> {
+        self.inner
+            .post(
+                "cgi-bin/wedrive/mng_capacity",
+                Some(access_token.into()),
+                json!({}),
             )
             .await
     }
@@ -26154,9 +26278,9 @@ impl WorkWeDriveFileListRequest {
         if !self.fatherid.trim().is_empty() {
             validate_work_wedrive_identifier("parent id", &self.fatherid)?;
         }
-        if !(1..=3).contains(&self.sort_type) {
+        if !(1..=6).contains(&self.sort_type) {
             return Err(WechatError::Config(
-                "work WeDrive file list sort type must be between 1 and 3".to_string(),
+                "work WeDrive file list sort type must be between 1 and 6".to_string(),
             ));
         }
         if self.start < 0 {
@@ -26164,9 +26288,9 @@ impl WorkWeDriveFileListRequest {
                 "work WeDrive file list start must be non-negative".to_string(),
             ));
         }
-        if !(1..=100).contains(&self.limit) {
+        if !(1..=1000).contains(&self.limit) {
             return Err(WechatError::Config(
-                "work WeDrive file list limit must be between 1 and 100".to_string(),
+                "work WeDrive file list limit must be between 1 and 1000".to_string(),
             ));
         }
         Ok(())
@@ -26185,28 +26309,170 @@ pub struct WorkWeDriveFileUploadRequest {
 impl WorkWeDriveFileUploadRequest {
     pub fn validate(&self) -> Result<()> {
         validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
-        if !self.fatherid.trim().is_empty() {
-            validate_work_wedrive_identifier("parent id", &self.fatherid)?;
-        }
+        validate_work_wedrive_identifier("parent id", &self.fatherid)?;
         validate_work_wedrive_name("file name", &self.file_name)?;
-        let content = self.file_base64_content.trim();
-        if content.is_empty() || content.starts_with("data:") {
+        validate_work_wedrive_base64(
+            "upload content",
+            &self.file_base64_content,
+            Some(10 * 1024 * 1024),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadByTicketRequest {
+    pub selected_ticket: String,
+    pub file_name: String,
+    pub file_base64_content: String,
+}
+
+impl WorkWeDriveFileUploadByTicketRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("selected ticket", &self.selected_ticket)?;
+        validate_work_wedrive_name("file name", &self.file_name)?;
+        validate_work_wedrive_base64(
+            "upload content",
+            &self.file_base64_content,
+            Some(10 * 1024 * 1024),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadInitRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spaceid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fatherid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_ticket: Option<String>,
+    pub file_name: String,
+    pub size: u64,
+    pub block_sha: Vec<String>,
+    #[serde(default)]
+    pub skip_push_card: bool,
+}
+
+impl WorkWeDriveFileUploadInitRequest {
+    pub const BLOCK_BYTES: u64 = 2 * 1024 * 1024;
+    pub const MAX_FILE_BYTES: u64 = 20 * 1024 * 1024 * 1024;
+
+    pub fn for_location(
+        spaceid: impl Into<String>,
+        fatherid: impl Into<String>,
+        file_name: impl Into<String>,
+        size: u64,
+        block_sha: Vec<String>,
+    ) -> Self {
+        Self {
+            spaceid: Some(spaceid.into()),
+            fatherid: Some(fatherid.into()),
+            selected_ticket: None,
+            file_name: file_name.into(),
+            size,
+            block_sha,
+            skip_push_card: false,
+        }
+    }
+
+    pub fn for_selected_ticket(
+        selected_ticket: impl Into<String>,
+        file_name: impl Into<String>,
+        size: u64,
+        block_sha: Vec<String>,
+    ) -> Self {
+        Self {
+            spaceid: None,
+            fatherid: None,
+            selected_ticket: Some(selected_ticket.into()),
+            file_name: file_name.into(),
+            size,
+            block_sha,
+            skip_push_card: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let has_location = self.spaceid.is_some() || self.fatherid.is_some();
+        let has_ticket = self.selected_ticket.is_some();
+        if has_location == has_ticket {
             return Err(WechatError::Config(
-                "work WeDrive upload content must be raw base64 without a data URL prefix"
+                "work WeDrive chunk upload requires exactly one location or selected ticket"
                     .to_string(),
             ));
         }
-        let decoded = base64::engine::general_purpose::STANDARD
-            .decode(content)
-            .map_err(|_| {
-                WechatError::Config("work WeDrive upload content must be valid base64".to_string())
-            })?;
-        if decoded.is_empty() {
+        if has_location {
+            validate_work_wedrive_identifier(
+                "space id",
+                self.spaceid.as_deref().unwrap_or_default(),
+            )?;
+            validate_work_wedrive_identifier(
+                "parent id",
+                self.fatherid.as_deref().unwrap_or_default(),
+            )?;
+        } else {
+            validate_work_wedrive_identifier(
+                "selected ticket",
+                self.selected_ticket.as_deref().unwrap_or_default(),
+            )?;
+        }
+        validate_work_wedrive_name("file name", &self.file_name)?;
+        if self.size == 0 || self.size > Self::MAX_FILE_BYTES {
             return Err(WechatError::Config(
-                "work WeDrive upload file cannot be empty".to_string(),
+                "work WeDrive chunk upload size must be between 1 byte and 20 GiB".to_string(),
+            ));
+        }
+        let expected_blocks = self.size.div_ceil(Self::BLOCK_BYTES) as usize;
+        if self.block_sha.len() != expected_blocks {
+            return Err(WechatError::Config(format!(
+                "work WeDrive chunk upload requires {expected_blocks} cumulative SHA-1 values"
+            )));
+        }
+        if self
+            .block_sha
+            .iter()
+            .any(|sha| sha.len() != 40 || !sha.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        {
+            return Err(WechatError::Config(
+                "work WeDrive cumulative SHA-1 values must contain 40 hexadecimal characters"
+                    .to_string(),
             ));
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadPartRequest {
+    pub upload_key: String,
+    pub index: i64,
+    pub file_base64_content: String,
+}
+
+impl WorkWeDriveFileUploadPartRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("upload key", &self.upload_key)?;
+        if self.index <= 0 {
+            return Err(WechatError::Config(
+                "work WeDrive chunk index must be positive".to_string(),
+            ));
+        }
+        validate_work_wedrive_base64(
+            "chunk content",
+            &self.file_base64_content,
+            Some(WorkWeDriveFileUploadInitRequest::BLOCK_BYTES as usize),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadFinishRequest {
+    pub upload_key: String,
+}
+
+impl WorkWeDriveFileUploadFinishRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("upload key", &self.upload_key)
     }
 }
 
@@ -26228,18 +26494,53 @@ pub struct WorkWeDriveFileCreateRequest {
     pub userid: String,
     pub spaceid: String,
     pub fatherid: String,
-    pub file_type: String,
+    pub file_type: i64,
     pub file_name: String,
 }
 
 impl WorkWeDriveFileCreateRequest {
     pub fn validate(&self) -> Result<()> {
         validate_work_wedrive_operator_and_space(&self.userid, &self.spaceid)?;
-        if !self.fatherid.trim().is_empty() {
-            validate_work_wedrive_identifier("parent id", &self.fatherid)?;
+        validate_work_wedrive_identifier("parent id", &self.fatherid)?;
+        if !matches!(self.file_type, 1 | 3 | 4 | 5 | 6) {
+            return Err(WechatError::Config(
+                "work WeDrive create file type must be 1, 3, 4, 5, or 6".to_string(),
+            ));
         }
-        validate_work_wedrive_identifier("file type", &self.file_type)?;
         validate_work_wedrive_name("file name", &self.file_name)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileDeleteRequest {
+    pub fileid: Vec<String>,
+}
+
+impl WorkWeDriveFileDeleteRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.fileid.is_empty() || self.fileid.len() > 100 {
+            return Err(WechatError::Config(
+                "work WeDrive delete must contain between 1 and 100 files".to_string(),
+            ));
+        }
+        let mut unique = std::collections::HashSet::with_capacity(self.fileid.len());
+        for fileid in &self.fileid {
+            validate_work_wedrive_identifier("file id", fileid)?;
+            if !unique.insert(fileid.trim()) {
+                return Err(WechatError::Config(
+                    "work WeDrive delete file ids must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl From<WorkWeDriveFileIdRequest> for WorkWeDriveFileDeleteRequest {
+    fn from(request: WorkWeDriveFileIdRequest) -> Self {
+        Self {
+            fileid: vec![request.fileid],
+        }
     }
 }
 
@@ -26347,12 +26648,80 @@ impl WorkWeDriveFileSettingRequest {
     pub fn validate(&self) -> Result<()> {
         validate_work_wedrive_identifier("user id", &self.userid)?;
         validate_work_wedrive_identifier("file id", &self.fileid)?;
-        if !(1..=4).contains(&self.auth_scope) {
+        if !(1..=5).contains(&self.auth_scope) {
             return Err(WechatError::Config(
-                "work WeDrive file permission scope must be between 1 and 4".to_string(),
+                "work WeDrive file permission scope must be between 1 and 5".to_string(),
             ));
         }
-        validate_work_wedrive_auth("file permission", self.auth)
+        if !matches!(self.auth, 1 | 4) {
+            return Err(WechatError::Config(
+                "work WeDrive file sharing permission must be 1 or 4".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileSecureSettingRequest {
+    pub fileid: String,
+    pub watermark: WorkWeDriveWatermarkSetting,
+}
+
+impl WorkWeDriveFileSecureSettingRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_wedrive_identifier("file id", &self.fileid)?;
+        self.watermark.validate_for_update()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveWatermarkSetting {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_type: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_visitor_name: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_text: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub force_by_admin: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub force_by_space_admin: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDriveWatermarkSetting {
+    fn validate_for_update(&self) -> Result<()> {
+        if self.text.is_none()
+            && self.margin_type.is_none()
+            && self.show_visitor_name.is_none()
+            && self.show_text.is_none()
+        {
+            return Err(WechatError::Config(
+                "work WeDrive watermark update must contain at least one setting".to_string(),
+            ));
+        }
+        if self
+            .text
+            .as_deref()
+            .is_some_and(|text| text.chars().any(char::is_control))
+        {
+            return Err(WechatError::Config(
+                "work WeDrive watermark text cannot contain control characters".to_string(),
+            ));
+        }
+        if self
+            .margin_type
+            .is_some_and(|margin_type| !(0..=2).contains(&margin_type))
+        {
+            return Err(WechatError::Config(
+                "work WeDrive watermark margin type must be 0, 1, or 2".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -26370,6 +26739,33 @@ fn validate_work_wedrive_name(label: &str, value: &str) -> Result<()> {
     if value.is_empty() || value.len() > 255 || value.chars().any(char::is_control) {
         return Err(WechatError::Config(format!(
             "work WeDrive {label} must be 1 to 255 bytes without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_wedrive_base64(
+    label: &str,
+    content: &str,
+    maximum_decoded_bytes: Option<usize>,
+) -> Result<()> {
+    let content = content.trim();
+    if content.is_empty() || content.starts_with("data:") {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} must be raw base64 without a data URL prefix"
+        )));
+    }
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(content)
+        .map_err(|_| WechatError::Config(format!("work WeDrive {label} must be valid base64")))?;
+    if decoded.is_empty() {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} cannot be empty"
+        )));
+    }
+    if maximum_decoded_bytes.is_some_and(|maximum| decoded.len() > maximum) {
+        return Err(WechatError::Config(format!(
+            "work WeDrive {label} exceeds the supported size"
         )));
     }
     Ok(())
@@ -26590,6 +26986,47 @@ pub struct WorkWeDriveFileUploadResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadInitResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub hit_exist: Option<bool>,
+    #[serde(default)]
+    pub upload_key: Option<String>,
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDriveFileUploadInitResponse {
+    pub fn upload_required(&self) -> bool {
+        !self.hit_exist.unwrap_or(false)
+    }
+
+    pub fn completed_file_id(&self) -> Option<&str> {
+        self.hit_exist
+            .unwrap_or(false)
+            .then_some(self.fileid.as_deref())
+            .flatten()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileUploadFinishResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub fileid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileDownloadResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -26653,6 +27090,67 @@ pub struct WorkWeDriveFileInfo {
     pub extra: Value,
 }
 
+impl WorkWeDriveFileInfo {
+    pub fn file_type_kind(&self) -> WorkWeDriveFileTypeKind {
+        WorkWeDriveFileTypeKind::from_code(self.file_type)
+    }
+
+    pub fn status_kind(&self) -> WorkWeDriveFileStatusKind {
+        WorkWeDriveFileStatusKind::from_code(self.file_status)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDriveFileTypeKind {
+    Folder,
+    File,
+    Document,
+    Spreadsheet,
+    Form,
+    Presentation,
+    Unknown(i64),
+}
+
+impl WorkWeDriveFileTypeKind {
+    pub fn from_code(code: Option<i64>) -> Self {
+        match code {
+            Some(1) => Self::Folder,
+            Some(2) => Self::File,
+            Some(3) => Self::Document,
+            Some(4) => Self::Spreadsheet,
+            Some(5) => Self::Form,
+            Some(6) => Self::Presentation,
+            Some(code) => Self::Unknown(code),
+            None => Self::Unknown(0),
+        }
+    }
+
+    pub fn is_document(&self) -> bool {
+        matches!(
+            self,
+            Self::Document | Self::Spreadsheet | Self::Form | Self::Presentation
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkWeDriveFileStatusKind {
+    Normal,
+    Deleted,
+    Unknown(i64),
+}
+
+impl WorkWeDriveFileStatusKind {
+    pub fn from_code(code: Option<i64>) -> Self {
+        match code {
+            Some(1) => Self::Normal,
+            Some(2) => Self::Deleted,
+            Some(code) => Self::Unknown(code),
+            None => Self::Unknown(0),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkWeDriveFileRenameResponse {
     #[serde(default)]
@@ -26699,6 +27197,124 @@ pub struct WorkWeDriveFileShareResponse {
     pub share_url: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFilePermissionResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub share_range: Option<WorkWeDriveFileShareRange>,
+    #[serde(default)]
+    pub secure_setting: Option<WorkWeDriveFilePermissionSecureSetting>,
+    #[serde(default)]
+    pub inherit_father_auth: Option<WorkWeDriveInheritedFileAuth>,
+    #[serde(default)]
+    pub member_list: Vec<WorkWeDriveAuthInfo>,
+    #[serde(default)]
+    pub file_member_list: Vec<WorkWeDriveAuthInfo>,
+    #[serde(default)]
+    pub watermark: Option<WorkWeDriveWatermarkSetting>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFileShareRange {
+    #[serde(default)]
+    pub enable_corp_internal: Option<bool>,
+    #[serde(default)]
+    pub corp_internal_auth: Option<i64>,
+    #[serde(default)]
+    pub enable_corp_external: Option<bool>,
+    #[serde(default)]
+    pub corp_external_auth: Option<i64>,
+    #[serde(default)]
+    pub corp_internal_approve_only_by_admin: Option<bool>,
+    #[serde(default)]
+    pub corp_external_approve_only_by_admin: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveFilePermissionSecureSetting {
+    #[serde(default)]
+    pub enable_readonly_copy: Option<bool>,
+    #[serde(default)]
+    pub modify_only_by_admin: Option<bool>,
+    #[serde(default)]
+    pub enable_readonly_comment: Option<bool>,
+    #[serde(default)]
+    pub ban_share_external: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveInheritedFileAuth {
+    #[serde(default)]
+    pub auth_list: Vec<WorkWeDriveAuthInfo>,
+    #[serde(default)]
+    pub inherit: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveProInfoResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub is_pro: Option<bool>,
+    #[serde(default)]
+    pub total_vip_acct_num: Option<u64>,
+    #[serde(default)]
+    pub use_vip_acct_num: Option<u64>,
+    #[serde(default)]
+    pub pro_expire_time: Option<u64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDriveProInfoResponse {
+    pub fn available_vip_accounts(&self) -> Option<u64> {
+        self.total_vip_acct_num?.checked_sub(self.use_vip_acct_num?)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkWeDriveCapacityResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub total_capacity_for_all: Option<u64>,
+    #[serde(default)]
+    pub total_capacity_for_vip: Option<u64>,
+    #[serde(default)]
+    pub rest_capacity_for_all: Option<u64>,
+    #[serde(default)]
+    pub rest_capacity_for_vip: Option<u64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkWeDriveCapacityResponse {
+    pub fn used_capacity_for_all(&self) -> Option<u64> {
+        self.total_capacity_for_all?
+            .checked_sub(self.rest_capacity_for_all?)
+    }
+
+    pub fn used_capacity_for_vip(&self) -> Option<u64> {
+        self.total_capacity_for_vip?
+            .checked_sub(self.rest_capacity_for_vip?)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36406,11 +37022,11 @@ mod tests {
             userid: "user".to_string(),
             spaceid: "space".to_string(),
             fatherid: "root".to_string(),
-            file_type: "doc".to_string(),
+            file_type: 3,
             file_name: "doc".to_string(),
         })
         .unwrap();
-        assert_eq!(create["file_type"], "doc");
+        assert_eq!(create["file_type"], 3);
 
         let file_rename = serde_json::to_value(WorkWeDriveFileRenameRequest {
             userid: "user".to_string(),
@@ -36449,7 +37065,7 @@ mod tests {
             userid: "user".to_string(),
             fileid: "file".to_string(),
             auth_scope: 1,
-            auth: 7,
+            auth: 1,
         })
         .unwrap();
         assert_eq!(file_setting["auth_scope"], 1);
@@ -36494,7 +37110,7 @@ mod tests {
         .validate()
         .is_err());
 
-        let list = WorkWeDriveFileListRequest::first_page("operator", "space", "", 1, 100);
+        let list = WorkWeDriveFileListRequest::first_page("operator", "space", "space", 1, 1000);
         assert!(list.validate().is_ok());
         let page = WorkWeDriveFileListResponse {
             errcode: Some(0),
@@ -36509,19 +37125,22 @@ mod tests {
             page.next_start().expect("next start")
         );
         assert!(WorkWeDriveFileListRequest {
-            sort_type: 4,
+            sort_type: 7,
             ..list.clone()
         }
         .validate()
         .is_err());
-        assert!(WorkWeDriveFileListRequest { limit: 101, ..list }
-            .validate()
-            .is_err());
+        assert!(WorkWeDriveFileListRequest {
+            limit: 1001,
+            ..list
+        }
+        .validate()
+        .is_err());
 
         let upload = WorkWeDriveFileUploadRequest {
             userid: "operator".to_string(),
             spaceid: "space".to_string(),
-            fatherid: String::new(),
+            fatherid: "space".to_string(),
             file_name: "release.txt".to_string(),
             file_base64_content: "cmVsZWFzZQ==".to_string(),
         };
@@ -36563,6 +37182,113 @@ mod tests {
         };
         assert!(acl.validate_for_delete().is_ok());
         assert!(acl.validate_for_add().is_err());
+    }
+
+    #[test]
+    fn serializes_and_validates_work_oa_wedrive_current_endpoints() {
+        let ticket_upload = WorkWeDriveFileUploadByTicketRequest {
+            selected_ticket: "ticket".to_string(),
+            file_name: "small.bin".to_string(),
+            file_base64_content: "Ynl0ZXM=".to_string(),
+        };
+        assert!(ticket_upload.validate().is_ok());
+        let ticket_upload_value = serde_json::to_value(ticket_upload).unwrap();
+        assert_eq!(ticket_upload_value["selected_ticket"], "ticket");
+        assert!(ticket_upload_value.get("userid").is_none());
+
+        let sha = "0123456789abcdef0123456789abcdef01234567".to_string();
+        let init = WorkWeDriveFileUploadInitRequest::for_location(
+            "space",
+            "space",
+            "large.bin",
+            1,
+            vec![sha.clone()],
+        );
+        assert!(init.validate().is_ok());
+        let init_value = serde_json::to_value(&init).unwrap();
+        assert_eq!(init_value["spaceid"], "space");
+        assert_eq!(init_value["block_sha"][0], sha);
+        assert!(init_value.get("selected_ticket").is_none());
+
+        let ticket = WorkWeDriveFileUploadInitRequest::for_selected_ticket(
+            "ticket",
+            "large.bin",
+            WorkWeDriveFileUploadInitRequest::BLOCK_BYTES + 1,
+            vec![
+                "0123456789abcdef0123456789abcdef01234567".to_string(),
+                "89abcdef0123456789abcdef0123456789abcdef".to_string(),
+            ],
+        );
+        assert!(ticket.validate().is_ok());
+        assert!(WorkWeDriveFileUploadInitRequest {
+            spaceid: Some("space".to_string()),
+            ..ticket.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(WorkWeDriveFileUploadInitRequest {
+            block_sha: vec!["invalid".to_string()],
+            ..init
+        }
+        .validate()
+        .is_err());
+
+        let part = WorkWeDriveFileUploadPartRequest {
+            upload_key: "upload".to_string(),
+            index: 1,
+            file_base64_content: "Y2h1bms=".to_string(),
+        };
+        assert!(part.validate().is_ok());
+        assert_eq!(serde_json::to_value(&part).unwrap()["index"], 1);
+        assert!(WorkWeDriveFileUploadPartRequest { index: 0, ..part }
+            .validate()
+            .is_err());
+
+        let delete = WorkWeDriveFileDeleteRequest {
+            fileid: vec!["file-1".to_string(), "file-2".to_string()],
+        };
+        assert!(delete.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(&delete).unwrap()["fileid"][1],
+            "file-2"
+        );
+        assert!(WorkWeDriveFileDeleteRequest {
+            fileid: vec!["file-1".to_string(), "file-1".to_string()],
+        }
+        .validate()
+        .is_err());
+
+        let secure = WorkWeDriveFileSecureSettingRequest {
+            fileid: "file".to_string(),
+            watermark: WorkWeDriveWatermarkSetting {
+                text: Some("Internal".to_string()),
+                margin_type: Some(2),
+                show_visitor_name: Some(true),
+                show_text: Some(true),
+                force_by_admin: None,
+                force_by_space_admin: None,
+                extra: Value::Null,
+            },
+        };
+        assert!(secure.validate().is_ok());
+        assert_eq!(
+            serde_json::to_value(&secure).unwrap()["watermark"]["margin_type"],
+            2
+        );
+        assert!(WorkWeDriveFileSecureSettingRequest {
+            watermark: WorkWeDriveWatermarkSetting {
+                text: None,
+                margin_type: None,
+                show_visitor_name: None,
+                show_text: None,
+                force_by_admin: None,
+                force_by_space_admin: None,
+                extra: Value::Null,
+            },
+            ..secure
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
@@ -37013,6 +37739,100 @@ mod tests {
             Some("https://example.com/share")
         );
         assert_eq!(share.extra["expire_time"], 1_800_003_600);
+
+        let upload_init: WorkWeDriveFileUploadInitResponse = serde_json::from_value(json!({
+            "hit_exist": true,
+            "fileid": "instant-file",
+            "dedupe_scope": "corp"
+        }))
+        .unwrap();
+        assert!(!upload_init.upload_required());
+        assert_eq!(upload_init.completed_file_id(), Some("instant-file"));
+        assert_eq!(upload_init.extra["dedupe_scope"], "corp");
+
+        let permission: WorkWeDriveFilePermissionResponse = serde_json::from_value(json!({
+            "share_range": {
+                "enable_corp_internal": true,
+                "corp_internal_auth": 1,
+                "enable_corp_external": false,
+                "corp_external_auth": 255,
+                "range_version": 2
+            },
+            "secure_setting": {
+                "enable_readonly_copy": true,
+                "modify_only_by_admin": true,
+                "enable_readonly_comment": false,
+                "ban_share_external": true
+            },
+            "inherit_father_auth": {
+                "auth_list": [{
+                    "type": 1,
+                    "userid": "member",
+                    "auth": 1
+                }],
+                "inherit": true
+            },
+            "file_member_list": [{
+                "type": 2,
+                "departmentid": 10,
+                "auth": 1
+            }],
+            "watermark": {
+                "text": "Internal",
+                "margin_type": 1,
+                "show_visitor_name": false,
+                "force_by_admin": true,
+                "show_text": true,
+                "force_by_space_admin": false
+            },
+            "permission_revision": 3
+        }))
+        .unwrap();
+        assert_eq!(
+            permission
+                .share_range
+                .as_ref()
+                .and_then(|range| range.corp_external_auth),
+            Some(255)
+        );
+        assert_eq!(
+            permission
+                .inherit_father_auth
+                .as_ref()
+                .expect("inherited permission")
+                .auth_list[0]
+                .userid
+                .as_deref(),
+            Some("member")
+        );
+        assert_eq!(permission.file_member_list[0].departmentid, Some(10));
+        assert_eq!(
+            permission
+                .watermark
+                .as_ref()
+                .and_then(|watermark| watermark.force_by_admin),
+            Some(true)
+        );
+        assert_eq!(permission.extra["permission_revision"], 3);
+
+        let pro: WorkWeDriveProInfoResponse = serde_json::from_value(json!({
+            "is_pro": true,
+            "total_vip_acct_num": 10,
+            "use_vip_acct_num": 5,
+            "pro_expire_time": 1_800_000_000
+        }))
+        .unwrap();
+        assert_eq!(pro.available_vip_accounts(), Some(5));
+
+        let capacity: WorkWeDriveCapacityResponse = serde_json::from_value(json!({
+            "total_capacity_for_all": 1000,
+            "total_capacity_for_vip": 600,
+            "rest_capacity_for_all": 250,
+            "rest_capacity_for_vip": 100
+        }))
+        .unwrap();
+        assert_eq!(capacity.used_capacity_for_all(), Some(750));
+        assert_eq!(capacity.used_capacity_for_vip(), Some(500));
     }
 
     #[test]
