@@ -202,13 +202,17 @@ impl Work {
         access_token: impl Into<String>,
         request: DepartmentRequest,
     ) -> Result<DepartmentCreateResponse> {
-        self.inner
+        request.validate_for_create()?;
+        let response: DepartmentCreateResponse = self
+            .inner
             .post(
                 "cgi-bin/department/create",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn update_department(
@@ -216,13 +220,17 @@ impl Work {
         access_token: impl Into<String>,
         request: DepartmentRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate_for_update()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/department/update",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work update department")?;
+        Ok(response)
     }
 
     pub async fn delete_department(
@@ -230,13 +238,17 @@ impl Work {
         access_token: impl Into<String>,
         id: i64,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        validate_work_department_id(id)?;
+        let response: WorkStatusResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/department/delete",
                 Some(access_token.into()),
                 vec![("id".to_string(), id.to_string())],
             )
-            .await
+            .await?;
+        response.validate_for("work delete department")?;
+        Ok(response)
     }
 
     pub async fn list_departments(
@@ -244,12 +256,18 @@ impl Work {
         access_token: impl Into<String>,
         id: Option<i64>,
     ) -> Result<WorkDepartmentListResponse> {
+        if let Some(id) = id {
+            validate_work_department_id(id)?;
+        }
         let query = id
             .map(|id| vec![("id".to_string(), id.to_string())])
             .unwrap_or_default();
-        self.inner
+        let response: WorkDepartmentListResponse = self
+            .inner
             .get_with_query("cgi-bin/department/list", Some(access_token.into()), query)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn simple_list_departments(
@@ -257,16 +275,22 @@ impl Work {
         access_token: impl Into<String>,
         id: Option<i64>,
     ) -> Result<WorkDepartmentSimpleListResponse> {
+        if let Some(id) = id {
+            validate_work_department_id(id)?;
+        }
         let query = id
             .map(|id| vec![("id".to_string(), id.to_string())])
             .unwrap_or_default();
-        self.inner
+        let response: WorkDepartmentSimpleListResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/department/simplelist",
                 Some(access_token.into()),
                 query,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_department(
@@ -274,13 +298,17 @@ impl Work {
         access_token: impl Into<String>,
         id: i64,
     ) -> Result<WorkDepartmentDetailResponse> {
-        self.inner
+        validate_work_department_id(id)?;
+        let response: WorkDepartmentDetailResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/department/get",
                 Some(access_token.into()),
                 vec![("id".to_string(), id.to_string())],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_user(
@@ -8317,7 +8345,9 @@ fn validate_work_agent_workbench_payload(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepartmentRequest {
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub name: String,
+    #[serde(skip_serializing_if = "work_department_zero")]
     pub parentid: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
@@ -8325,6 +8355,57 @@ pub struct DepartmentRequest {
     pub name_en: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order: Option<i64>,
+}
+
+impl DepartmentRequest {
+    pub fn validate_for_create(&self) -> Result<()> {
+        validate_work_department_name("name", &self.name, true)?;
+        validate_work_department_optional_name("English name", self.name_en.as_deref())?;
+        validate_work_department_id(self.parentid)?;
+        if let Some(id) = self.id {
+            validate_work_department_id(id)?;
+            if id == self.parentid {
+                return Err(WechatError::Config(
+                    "work department cannot be its own parent".to_string(),
+                ));
+            }
+        }
+        validate_work_department_order(self.order)
+    }
+
+    pub fn validate_for_update(&self) -> Result<()> {
+        let id = self
+            .id
+            .ok_or_else(|| WechatError::Config("work department updates require id".to_string()))?;
+        validate_work_department_id(id)?;
+        validate_work_department_name("name", &self.name, false)?;
+        validate_work_department_optional_name("English name", self.name_en.as_deref())?;
+        if self.parentid < 0 {
+            return Err(WechatError::Config(
+                "work department parent id cannot be negative".to_string(),
+            ));
+        }
+        if self.parentid == id {
+            return Err(WechatError::Config(
+                "work department cannot be its own parent".to_string(),
+            ));
+        }
+        validate_work_department_order(self.order)?;
+        if self.name.is_empty()
+            && self.name_en.is_none()
+            && self.parentid == 0
+            && self.order.is_none()
+        {
+            return Err(WechatError::Config(
+                "work department updates require at least one changed field".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn work_department_zero(value: &i64) -> bool {
+    *value == 0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8335,6 +8416,26 @@ pub struct DepartmentCreateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub id: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl DepartmentCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work create department",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_department_id(self.id.ok_or_else(|| {
+            WechatError::Config("work department create response requires id".to_string())
+        })?)
+    }
+
+    pub fn require_id(&self) -> Result<i64> {
+        self.validate()?;
+        Ok(self.id.expect("validated department id"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8349,6 +8450,43 @@ pub struct WorkDepartmentListResponse {
     pub extra: Value,
 }
 
+impl WorkDepartmentListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work department list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut ids = std::collections::HashSet::with_capacity(self.department.len());
+        for department in &self.department {
+            let id = department.validate()?;
+            if !ids.insert(id) {
+                return Err(WechatError::Config(
+                    "work department list cannot contain duplicate ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, id: i64) -> Option<&WorkDepartment> {
+        self.department
+            .iter()
+            .find(|department| department.id == Some(id))
+    }
+
+    pub fn children_of(&self, parent_id: i64) -> Vec<&WorkDepartment> {
+        self.department
+            .iter()
+            .filter(|department| department.parentid == Some(parent_id))
+            .collect()
+    }
+
+    pub fn roots(&self) -> Vec<&WorkDepartment> {
+        self.children_of(0)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDepartmentSimpleListResponse {
     #[serde(default)]
@@ -8361,16 +8499,65 @@ pub struct WorkDepartmentSimpleListResponse {
     pub extra: Value,
 }
 
+impl WorkDepartmentSimpleListResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work simple department list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut ids = std::collections::HashSet::with_capacity(self.department_id.len());
+        for department in &self.department_id {
+            let id = department.validate()?;
+            if !ids.insert(id) {
+                return Err(WechatError::Config(
+                    "work simple department list cannot contain duplicate ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, id: i64) -> Option<&WorkDepartmentSimple> {
+        self.department_id
+            .iter()
+            .find(|department| department.id == Some(id))
+    }
+
+    pub fn children_of(&self, parent_id: i64) -> Vec<&WorkDepartmentSimple> {
+        self.department_id
+            .iter()
+            .filter(|department| department.parentid == Some(parent_id))
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDepartmentDetailResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(flatten)]
+    #[serde(default)]
     pub department: WorkDepartment,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkDepartmentDetailResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work department detail",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.department.validate().map(|_| ())
+    }
+
+    pub fn require_department(&self) -> Result<&WorkDepartment> {
+        self.validate()?;
+        Ok(&self.department)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -8391,6 +8578,45 @@ pub struct WorkDepartment {
     pub extra: Value,
 }
 
+impl WorkDepartment {
+    pub fn validate(&self) -> Result<i64> {
+        let id = self.id.ok_or_else(|| {
+            WechatError::Config("work department response requires id".to_string())
+        })?;
+        validate_work_department_id(id)?;
+        validate_work_department_name(
+            "response name",
+            self.name.as_deref().ok_or_else(|| {
+                WechatError::Config("work department response requires name".to_string())
+            })?,
+            true,
+        )?;
+        validate_work_department_optional_name("response English name", self.name_en.as_deref())?;
+        let parent_id = self.parentid.ok_or_else(|| {
+            WechatError::Config("work department response requires parentid".to_string())
+        })?;
+        if parent_id < 0 || parent_id == id {
+            return Err(WechatError::Config(
+                "work department response parentid must be non-negative and differ from id"
+                    .to_string(),
+            ));
+        }
+        validate_work_department_order(self.order)?;
+        validate_work_message_id_list("department leaders", &self.department_leader, 100)?;
+        Ok(id)
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.parentid == Some(0)
+    }
+
+    pub fn has_leader(&self, user_id: &str) -> bool {
+        self.department_leader
+            .iter()
+            .any(|leader| leader == user_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkDepartmentSimple {
     #[serde(default)]
@@ -8403,6 +8629,60 @@ pub struct WorkDepartmentSimple {
     pub order: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl WorkDepartmentSimple {
+    pub fn validate(&self) -> Result<i64> {
+        let id = self.id.ok_or_else(|| {
+            WechatError::Config("work simple department response requires id".to_string())
+        })?;
+        validate_work_department_id(id)?;
+        validate_work_department_optional_name("simple response name", self.name.as_deref())?;
+        let parent_id = self.parentid.ok_or_else(|| {
+            WechatError::Config("work simple department response requires parentid".to_string())
+        })?;
+        if parent_id < 0 || parent_id == id {
+            return Err(WechatError::Config(
+                "work simple department response parentid must be non-negative and differ from id"
+                    .to_string(),
+            ));
+        }
+        validate_work_department_order(self.order)?;
+        Ok(id)
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.parentid == Some(0)
+    }
+}
+
+fn validate_work_department_name(label: &str, value: &str, required: bool) -> Result<()> {
+    if value.is_empty() && !required {
+        return Ok(());
+    }
+    if value.trim().is_empty() || value.chars().count() > 32 || value.chars().any(char::is_control)
+    {
+        return Err(WechatError::Config(format!(
+            "work department {label} must contain between 1 and 32 characters without controls"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_department_optional_name(label: &str, value: Option<&str>) -> Result<()> {
+    match value {
+        Some(value) => validate_work_department_name(label, value, true),
+        None => Ok(()),
+    }
+}
+
+fn validate_work_department_order(order: Option<i64>) -> Result<()> {
+    if order.is_some_and(|order| !(0..=u32::MAX as i64).contains(&order)) {
+        return Err(WechatError::Config(
+            "work department order must fit an unsigned 32-bit integer".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52678,14 +52958,16 @@ mod tests {
 
     #[test]
     fn serializes_department_request() {
-        let value = serde_json::to_value(DepartmentRequest {
+        let request = DepartmentRequest {
             name: "Engineering".to_string(),
             parentid: 1,
             id: Some(2),
             name_en: Some("Engineering".to_string()),
             order: None,
-        })
-        .unwrap();
+        };
+        assert!(request.validate_for_create().is_ok());
+        assert!(request.validate_for_update().is_ok());
+        let value = serde_json::to_value(request).unwrap();
 
         assert_eq!(value["name"], "Engineering");
         assert_eq!(value["parentid"], 1);
@@ -52697,10 +52979,13 @@ mod tests {
     #[test]
     fn deserializes_department_create_response() {
         let response: DepartmentCreateResponse =
-            serde_json::from_value(json!({ "errcode": 0, "id": 42 })).unwrap();
+            serde_json::from_value(json!({ "errcode": 0, "id": 42, "request_id": "create" }))
+                .unwrap();
 
         assert_eq!(response.errcode, Some(0));
         assert_eq!(response.id, Some(42));
+        assert_eq!(response.require_id().unwrap(), 42);
+        assert_eq!(response.extra["request_id"], "create");
 
         let departments: WorkDepartmentListResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -52724,6 +53009,11 @@ mod tests {
         );
         assert_eq!(departments.department[0].department_leader[0], "leader");
         assert_eq!(departments.department[0].extra["department_type"], "core");
+        assert!(departments.validate().is_ok());
+        assert_eq!(departments.roots().len(), 1);
+        assert!(departments.find(1).unwrap().is_root());
+        assert!(departments.find(1).unwrap().has_leader("leader"));
+        assert_eq!(departments.children_of(0)[0].id, Some(1));
 
         let simple: WorkDepartmentSimpleListResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -52741,19 +53031,141 @@ mod tests {
         assert_eq!(simple.department_id[0].id, Some(1));
         assert_eq!(simple.department_id[0].parentid, Some(0));
         assert_eq!(simple.department_id[0].extra["member_count"], 12);
+        assert!(simple.validate().is_ok());
+        assert!(simple.find(1).unwrap().is_root());
+        assert_eq!(simple.children_of(0).len(), 1);
 
         let detail: WorkDepartmentDetailResponse = serde_json::from_value(json!({
             "errcode": 0,
-            "id": 1,
-            "name": "Engineering",
-            "parentid": 0,
-            "department_leader": ["leader"],
-            "department_type": "core"
+            "request_id": "detail",
+            "department": {
+                "id": 1,
+                "name": "Engineering",
+                "parentid": 0,
+                "department_leader": ["leader"],
+                "department_type": "core"
+            }
         }))
         .unwrap();
         assert_eq!(detail.department.id, Some(1));
         assert_eq!(detail.department.department_leader[0], "leader");
         assert_eq!(detail.department.extra["department_type"], "core");
+        assert_eq!(detail.extra["request_id"], "detail");
+        assert_eq!(detail.require_department().unwrap().id, Some(1));
+    }
+
+    #[test]
+    fn validates_work_department_contracts() {
+        let create = DepartmentRequest {
+            name: "Engineering".to_string(),
+            parentid: 1,
+            id: None,
+            name_en: None,
+            order: Some(10),
+        };
+        assert!(create.validate_for_create().is_ok());
+        assert!(DepartmentRequest {
+            name: " ".to_string(),
+            ..create.clone()
+        }
+        .validate_for_create()
+        .is_err());
+        assert!(DepartmentRequest {
+            parentid: 0,
+            ..create.clone()
+        }
+        .validate_for_create()
+        .is_err());
+        assert!(DepartmentRequest {
+            order: Some(-1),
+            ..create.clone()
+        }
+        .validate_for_create()
+        .is_err());
+
+        let partial_update = DepartmentRequest {
+            name: String::new(),
+            parentid: 2,
+            id: Some(3),
+            name_en: None,
+            order: None,
+        };
+        assert!(partial_update.validate_for_update().is_ok());
+        let value = serde_json::to_value(&partial_update).unwrap();
+        assert!(value.get("name").is_none());
+        assert_eq!(value["parentid"], 2);
+        assert!(DepartmentRequest {
+            parentid: 3,
+            ..partial_update.clone()
+        }
+        .validate_for_update()
+        .is_err());
+        assert!(DepartmentRequest {
+            parentid: 0,
+            ..partial_update.clone()
+        }
+        .validate_for_update()
+        .is_err());
+        assert!(DepartmentRequest {
+            id: None,
+            ..partial_update
+        }
+        .validate_for_update()
+        .is_err());
+
+        let api_error: DepartmentCreateResponse = serde_json::from_value(json!({
+            "errcode": 60003,
+            "errmsg": "department not found"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+        let missing_id: DepartmentCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.validate().is_err());
+
+        let duplicate: WorkDepartmentListResponse = serde_json::from_value(json!({
+            "department": [
+                { "id": 2, "name": "A", "parentid": 1 },
+                { "id": 2, "name": "B", "parentid": 1 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate.validate().is_err());
+        let self_parent: WorkDepartmentListResponse = serde_json::from_value(json!({
+            "department": [{ "id": 2, "name": "A", "parentid": 2 }]
+        }))
+        .unwrap();
+        assert!(self_parent.validate().is_err());
+        let duplicate_leader: WorkDepartmentListResponse = serde_json::from_value(json!({
+            "department": [{
+                "id": 2,
+                "name": "A",
+                "parentid": 1,
+                "department_leader": ["leader", "leader"]
+            }]
+        }))
+        .unwrap();
+        assert!(duplicate_leader.validate().is_err());
+
+        let flat_detail: WorkDepartmentDetailResponse = serde_json::from_value(json!({
+            "id": 2,
+            "name": "Old Flat Shape",
+            "parentid": 1
+        }))
+        .unwrap();
+        assert!(flat_detail.validate().is_err());
+        let missing_detail: WorkDepartmentDetailResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_detail.validate().is_err());
+
+        let duplicate_simple: WorkDepartmentSimpleListResponse = serde_json::from_value(json!({
+            "department_id": [
+                { "id": 2, "parentid": 1, "order": 10 },
+                { "id": 2, "parentid": 1, "order": 20 }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_simple.validate().is_err());
     }
 
     #[test]

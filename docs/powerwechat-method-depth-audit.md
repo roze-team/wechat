@@ -99,6 +99,19 @@ Implemented on 2026-07-21 in Work corpgroup and mini-program session depth:
   tokens expose checked expiry/refresh helpers, and both session responses
   expose validated identity tuples for authentication boundaries.
 
+Implemented on 2026-07-21 in Work department contract depth:
+
+- Department create, update, delete, full list, simple list, and detail paths
+  now validate requests and WeCom responses before returning data.
+- Department detail now follows PowerWeChat's actual nested
+  `{ department: {...} }` response instead of incorrectly treating department
+  fields as top-level values; malformed legacy-flat responses are rejected.
+- Create/update semantics now support safe partial updates, omit unset name and
+  parent fields, and reject empty mutations, self-parenting, invalid hierarchy
+  identifiers, oversized names, and invalid ordering values.
+- Full/simple department responses enforce unique IDs and valid hierarchy
+  records, with root, child, lookup, leader, and required-detail helpers.
+
 Implemented on 2026-07-18 in Roze WeChat Open Work license depth:
 
 - License activation records now expose typed merge and upstream/downstream
