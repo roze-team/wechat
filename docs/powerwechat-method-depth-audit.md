@@ -1520,6 +1520,27 @@ depth:
   forward-compatible semantic status helpers plus aggregate pending, sent,
   and failure counts, treating a blank next cursor as the final page.
 
+Implemented on 2026-07-20 in Work external-contact group welcome-template
+depth:
+
+- add, edit, get, and delete operations now validate their request contracts
+  before network I/O, including nonblank bounded template ids and non-negative
+  legacy suite agent ids;
+- template bodies require real text or one attachment, permit text plus one
+  attachment, and reject multiple non-text payloads instead of silently
+  relying on the upstream image/link/mini-program/file/video priority order;
+- text, image, link, mini-program, file, and video fields reuse the shared
+  production payload validation for required media identifiers, absolute
+  HTTP(S) URLs, and documented byte limits;
+- checked text-only and attachment-only constructors, a replacement
+  attachment builder, and an explicit legacy-agent builder make valid modern
+  and legacy-suite requests straightforward while preserving the existing
+  public DTO fields;
+- modern delete and template requests omit `agentid` when it is zero, while
+  positive legacy multi-application suite ids remain wire compatible;
+- add/get responses retain template, agent, notification, and future extension
+  fields and expose typed notification and attachment-kind helpers.
+
 ## Documentation Update Needed
 
 Keep `docs/powerwechat-gap-analysis.md` as the submodule-level view, but do not

@@ -1752,6 +1752,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalGroupWelcomeTemplateRequest,
     ) -> Result<ExternalGroupWelcomeTemplateAddResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/add",
@@ -1766,6 +1767,7 @@ impl Work {
         access_token: impl Into<String>,
         request: ExternalGroupWelcomeTemplateUpdateRequest,
     ) -> Result<WorkStatusResponse> {
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/edit",
@@ -1780,11 +1782,13 @@ impl Work {
         access_token: impl Into<String>,
         template_id: impl Into<String>,
     ) -> Result<ExternalGroupWelcomeTemplateResponse> {
+        let template_id = template_id.into();
+        validate_external_group_welcome_template_id(&template_id)?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/get",
                 Some(access_token.into()),
-                json!({ "template_id": template_id.into() }),
+                json!({ "template_id": template_id }),
             )
             .await
     }
@@ -1795,11 +1799,13 @@ impl Work {
         template_id: impl Into<String>,
         agent_id: i64,
     ) -> Result<WorkStatusResponse> {
+        let request = ExternalGroupWelcomeTemplateDeleteRequest::new(template_id, agent_id);
+        request.validate()?;
         self.inner
             .post(
                 "cgi-bin/externalcontact/group_welcome_template/del",
                 Some(access_token.into()),
-                json!({ "template_id": template_id.into(), "agentid": agent_id }),
+                request,
             )
             .await
     }
@@ -12912,8 +12918,162 @@ pub struct ExternalGroupWelcomeTemplateRequest {
     pub file: Option<ExternalContactMessageFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video: Option<ExternalContactMessageVideo>,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub agentid: i64,
     pub notify: i64,
+}
+
+impl ExternalGroupWelcomeTemplateRequest {
+    pub fn text(content: impl Into<String>, notify: bool) -> Self {
+        Self {
+            text: Some(ExternalContactMessageText::new(content)),
+            image: None,
+            link: None,
+            miniprogram: None,
+            file: None,
+            video: None,
+            agentid: 0,
+            notify: i64::from(notify),
+        }
+    }
+
+    pub fn from_attachment(
+        attachment: ExternalContactMessageAttachment,
+        notify: bool,
+    ) -> Result<Self> {
+        Self {
+            text: None,
+            image: None,
+            link: None,
+            miniprogram: None,
+            file: None,
+            video: None,
+            agentid: 0,
+            notify: i64::from(notify),
+        }
+        .with_attachment(attachment)
+    }
+
+    pub fn with_attachment(mut self, attachment: ExternalContactMessageAttachment) -> Result<Self> {
+        attachment.validate()?;
+        self.image = attachment.image;
+        self.link = attachment.link;
+        self.miniprogram = attachment.miniprogram;
+        self.file = attachment.file;
+        self.video = attachment.video;
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn for_legacy_agent(mut self, agent_id: i64) -> Self {
+        self.agentid = agent_id;
+        self
+    }
+
+    pub fn attachment_count(&self) -> usize {
+        [
+            self.image.is_some(),
+            self.link.is_some(),
+            self.miniprogram.is_some(),
+            self.file.is_some(),
+            self.video.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count()
+    }
+
+    pub fn attachment_kind(&self) -> Option<ExternalContactMessageAttachmentKind> {
+        if self.attachment_count() != 1 {
+            return None;
+        }
+        if self.image.is_some() {
+            Some(ExternalContactMessageAttachmentKind::Image)
+        } else if self.link.is_some() {
+            Some(ExternalContactMessageAttachmentKind::Link)
+        } else if self.miniprogram.is_some() {
+            Some(ExternalContactMessageAttachmentKind::MiniProgram)
+        } else if self.file.is_some() {
+            Some(ExternalContactMessageAttachmentKind::File)
+        } else {
+            Some(ExternalContactMessageAttachmentKind::Video)
+        }
+    }
+
+    pub fn notify_kind(&self) -> ExternalGroupWelcomeTemplateNotifyKind {
+        ExternalGroupWelcomeTemplateNotifyKind::from(self.notify)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.agentid < 0 {
+            return Err(WechatError::Config(
+                "external group welcome-template legacy agent id cannot be negative".to_string(),
+            ));
+        }
+        if !matches!(self.notify, 0 | 1) {
+            return Err(WechatError::Config(
+                "external group welcome-template notify must be 0 or 1".to_string(),
+            ));
+        }
+        if self.text.is_none() && self.attachment_count() == 0 {
+            return Err(WechatError::Config(
+                "external group welcome-template requires text or one attachment".to_string(),
+            ));
+        }
+        if self.attachment_count() > 1 {
+            return Err(WechatError::Config(
+                "external group welcome-template supports at most one non-text attachment"
+                    .to_string(),
+            ));
+        }
+        if let Some(text) = &self.text {
+            text.validate()?;
+        }
+        if let Some(attachment) = self.to_attachment() {
+            attachment.validate()?;
+        }
+        Ok(())
+    }
+
+    fn to_attachment(&self) -> Option<ExternalContactMessageAttachment> {
+        let kind = self.attachment_kind()?;
+        Some(ExternalContactMessageAttachment {
+            msgtype: Some(
+                match kind {
+                    ExternalContactMessageAttachmentKind::Image => "image",
+                    ExternalContactMessageAttachmentKind::Link => "link",
+                    ExternalContactMessageAttachmentKind::MiniProgram => "miniprogram",
+                    ExternalContactMessageAttachmentKind::Video => "video",
+                    ExternalContactMessageAttachmentKind::File => "file",
+                    ExternalContactMessageAttachmentKind::Other => return None,
+                }
+                .to_string(),
+            ),
+            image: self.image.clone(),
+            link: self.link.clone(),
+            miniprogram: self.miniprogram.clone(),
+            video: self.video.clone(),
+            file: self.file.clone(),
+            extra: Value::Null,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalGroupWelcomeTemplateNotifyKind {
+    DoNotNotify,
+    Notify,
+    Other(i64),
+}
+
+impl From<i64> for ExternalGroupWelcomeTemplateNotifyKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::DoNotNotify,
+            1 => Self::Notify,
+            other => Self::Other(other),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12921,6 +13081,49 @@ pub struct ExternalGroupWelcomeTemplateUpdateRequest {
     pub template_id: String,
     #[serde(flatten)]
     pub template: ExternalGroupWelcomeTemplateRequest,
+}
+
+impl ExternalGroupWelcomeTemplateUpdateRequest {
+    pub fn new(
+        template_id: impl Into<String>,
+        template: ExternalGroupWelcomeTemplateRequest,
+    ) -> Self {
+        Self {
+            template_id: template_id.into(),
+            template,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_welcome_template_id(&self.template_id)?;
+        self.template.validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalGroupWelcomeTemplateDeleteRequest {
+    pub template_id: String,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub agentid: i64,
+}
+
+impl ExternalGroupWelcomeTemplateDeleteRequest {
+    pub fn new(template_id: impl Into<String>, agent_id: i64) -> Self {
+        Self {
+            template_id: template_id.into(),
+            agentid: agent_id,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_external_group_welcome_template_id(&self.template_id)?;
+        if self.agentid < 0 {
+            return Err(WechatError::Config(
+                "external group welcome-template legacy agent id cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12933,6 +13136,14 @@ pub struct ExternalGroupWelcomeTemplateAddResponse {
     pub template_id: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupWelcomeTemplateAddResponse {
+    pub fn has_template_id(&self) -> bool {
+        self.template_id
+            .as_deref()
+            .is_some_and(|template_id| !template_id.trim().is_empty())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12953,8 +13164,65 @@ pub struct ExternalGroupWelcomeTemplateResponse {
     pub file: Option<ExternalContactMessageFile>,
     #[serde(default)]
     pub video: Option<ExternalContactMessageVideo>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub agentid: Option<i64>,
+    #[serde(default)]
+    pub notify: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl ExternalGroupWelcomeTemplateResponse {
+    pub fn attachment_count(&self) -> usize {
+        [
+            self.image.is_some(),
+            self.link.is_some(),
+            self.miniprogram.is_some(),
+            self.file.is_some(),
+            self.video.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count()
+    }
+
+    pub fn attachment_kind(&self) -> Option<ExternalContactMessageAttachmentKind> {
+        if self.attachment_count() != 1 {
+            return None;
+        }
+        if self.image.is_some() {
+            Some(ExternalContactMessageAttachmentKind::Image)
+        } else if self.link.is_some() {
+            Some(ExternalContactMessageAttachmentKind::Link)
+        } else if self.miniprogram.is_some() {
+            Some(ExternalContactMessageAttachmentKind::MiniProgram)
+        } else if self.file.is_some() {
+            Some(ExternalContactMessageAttachmentKind::File)
+        } else {
+            Some(ExternalContactMessageAttachmentKind::Video)
+        }
+    }
+
+    pub fn notify_kind(&self) -> Option<ExternalGroupWelcomeTemplateNotifyKind> {
+        self.notify
+            .map(ExternalGroupWelcomeTemplateNotifyKind::from)
+    }
+}
+
+fn validate_external_group_welcome_template_id(template_id: &str) -> Result<()> {
+    validate_external_contact_identifier("group welcome-template id", template_id)?;
+    if template_id.len() > 128 {
+        return Err(WechatError::Config(
+            "external group welcome-template id cannot exceed 128 UTF-8 bytes".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn is_zero_i64(value: &i64) -> bool {
+    *value == 0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31585,52 +31853,31 @@ mod tests {
 
     #[test]
     fn serializes_external_group_welcome_templates() {
-        let template = ExternalGroupWelcomeTemplateRequest {
-            text: Some(ExternalContactMessageText::new("welcome")),
-            image: Some(ExternalContactMessageImage {
-                media_id: Some("image-media".to_string()),
-                pic_url: None,
-                extra: Value::Null,
-            }),
-            link: Some(ExternalContactMessageLink {
-                title: Some("docs".to_string()),
-                picurl: Some("https://example.com/a.png".to_string()),
-                desc: Some("desc".to_string()),
-                url: Some("https://example.com".to_string()),
-                media_id: None,
-                extra: Value::Null,
-            }),
-            miniprogram: Some(ExternalContactMessageMiniProgram {
-                title: Some("mini".to_string()),
-                pic_media_id: Some("pic-media".to_string()),
-                appid: Some("wx-app".to_string()),
-                page: Some("pages/index".to_string()),
-                extra: Value::Null,
-            }),
-            file: Some(ExternalContactMessageFile {
-                media_id: Some("file-media".to_string()),
-                extra: Value::Null,
-            }),
-            video: Some(ExternalContactMessageVideo {
-                media_id: Some("video-media".to_string()),
-                extra: Value::Null,
-            }),
-            agentid: 100001,
-            notify: 1,
-        };
+        let template = ExternalGroupWelcomeTemplateRequest::text("welcome", true)
+            .with_attachment(ExternalContactMessageAttachment::image("image-media"))
+            .unwrap()
+            .for_legacy_agent(100001);
+        template.validate().unwrap();
+        assert_eq!(template.attachment_count(), 1);
+        assert_eq!(
+            template.attachment_kind(),
+            Some(ExternalContactMessageAttachmentKind::Image)
+        );
+        assert_eq!(
+            template.notify_kind(),
+            ExternalGroupWelcomeTemplateNotifyKind::Notify
+        );
         let value = serde_json::to_value(&template).unwrap();
         assert_eq!(value["text"]["content"], "welcome");
         assert_eq!(value["image"]["media_id"], "image-media");
-        assert_eq!(value["link"]["title"], "docs");
-        assert_eq!(value["miniprogram"]["appid"], "wx-app");
-        assert_eq!(value["file"]["media_id"], "file-media");
-        assert_eq!(value["video"]["media_id"], "video-media");
+        assert_eq!(value["agentid"], 100001);
+        assert_eq!(value["notify"], 1);
+        assert!(value.get("link").is_none());
 
-        let update = serde_json::to_value(ExternalGroupWelcomeTemplateUpdateRequest {
-            template_id: "template".to_string(),
-            template,
-        })
-        .unwrap();
+        let update_request =
+            ExternalGroupWelcomeTemplateUpdateRequest::new("template", template.clone());
+        update_request.validate().unwrap();
+        let update = serde_json::to_value(update_request).unwrap();
         assert_eq!(update["template_id"], "template");
         assert_eq!(update["agentid"], 100001);
 
@@ -31640,28 +31887,112 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(added.template_id.as_deref(), Some("template"));
+        assert!(added.has_template_id());
         assert_eq!(added.extra["request_id"], "welcome-add");
 
         let detail: ExternalGroupWelcomeTemplateResponse = serde_json::from_value(json!({
+            "template_id": "template",
             "text": { "content": "welcome" },
-            "image": { "media_id": "media" },
             "link": { "title": "docs", "url": "https://example.com" },
-            "miniprogram": { "title": "mini", "appid": "wx-app", "page": "pages/index" },
-            "file": { "media_id": "file-media" },
-            "video": { "media_id": "video-media" },
+            "agentid": 100001,
+            "notify": 0,
             "template_source": "api"
         }))
         .unwrap();
-        assert_eq!(detail.text.unwrap().content.as_deref(), Some("welcome"));
-        assert_eq!(detail.image.unwrap().media_id.as_deref(), Some("media"));
-        assert_eq!(detail.link.unwrap().title.as_deref(), Some("docs"));
-        assert_eq!(detail.miniprogram.unwrap().appid.as_deref(), Some("wx-app"));
-        assert_eq!(detail.file.unwrap().media_id.as_deref(), Some("file-media"));
         assert_eq!(
-            detail.video.unwrap().media_id.as_deref(),
-            Some("video-media")
+            detail.attachment_kind(),
+            Some(ExternalContactMessageAttachmentKind::Link)
         );
+        assert_eq!(
+            detail.notify_kind(),
+            Some(ExternalGroupWelcomeTemplateNotifyKind::DoNotNotify)
+        );
+        assert_eq!(detail.template_id.as_deref(), Some("template"));
+        assert_eq!(detail.agentid, Some(100001));
+        assert_eq!(
+            detail.text.as_ref().unwrap().content.as_deref(),
+            Some("welcome")
+        );
+        assert_eq!(detail.link.as_ref().unwrap().title.as_deref(), Some("docs"));
         assert_eq!(detail.extra["template_source"], "api");
+
+        let modern_delete = ExternalGroupWelcomeTemplateDeleteRequest::new("template", 0);
+        modern_delete.validate().unwrap();
+        let modern_delete = serde_json::to_value(modern_delete).unwrap();
+        assert_eq!(modern_delete["template_id"], "template");
+        assert!(modern_delete.get("agentid").is_none());
+        let legacy_delete = ExternalGroupWelcomeTemplateDeleteRequest::new("template", 100001);
+        assert_eq!(
+            serde_json::to_value(legacy_delete).unwrap()["agentid"],
+            100001
+        );
+
+        let attachment_only = ExternalGroupWelcomeTemplateRequest::from_attachment(
+            ExternalContactMessageAttachment::file("file-media"),
+            false,
+        )
+        .unwrap();
+        assert!(attachment_only.text.is_none());
+        assert_eq!(
+            attachment_only.attachment_kind(),
+            Some(ExternalContactMessageAttachmentKind::File)
+        );
+        assert!(serde_json::to_value(attachment_only)
+            .unwrap()
+            .get("agentid")
+            .is_none());
+
+        let empty = ExternalGroupWelcomeTemplateRequest {
+            text: None,
+            image: None,
+            link: None,
+            miniprogram: None,
+            file: None,
+            video: None,
+            agentid: 0,
+            notify: 0,
+        };
+        assert!(empty.validate().is_err());
+
+        let multiple_attachments = ExternalGroupWelcomeTemplateRequest {
+            text: Some(ExternalContactMessageText::new("welcome")),
+            image: Some(ExternalContactMessageImage {
+                media_id: Some("image-media".to_string()),
+                pic_url: None,
+                extra: Value::Null,
+            }),
+            link: Some(ExternalContactMessageLink {
+                title: Some("docs".to_string()),
+                picurl: None,
+                desc: None,
+                url: Some("https://example.com".to_string()),
+                media_id: None,
+                extra: Value::Null,
+            }),
+            miniprogram: None,
+            file: None,
+            video: None,
+            agentid: 0,
+            notify: 1,
+        };
+        assert!(multiple_attachments.validate().is_err());
+
+        let mut invalid_notify = ExternalGroupWelcomeTemplateRequest::text("welcome", true);
+        invalid_notify.notify = 2;
+        assert!(invalid_notify.validate().is_err());
+        invalid_notify.notify = 1;
+        invalid_notify.agentid = -1;
+        assert!(invalid_notify.validate().is_err());
+        assert!(
+            ExternalGroupWelcomeTemplateUpdateRequest::new(" ", template)
+                .validate()
+                .is_err()
+        );
+        assert!(
+            ExternalGroupWelcomeTemplateDeleteRequest::new("template", -1)
+                .validate()
+                .is_err()
+        );
     }
 
     #[test]
