@@ -1795,6 +1795,26 @@ depth:
   forward-compatible semantic status helpers plus aggregate pending, sent,
   and failure counts, treating a blank next cursor as the final page.
 
+Implemented on 2026-07-20 in Work external-contact group-message response
+contracts:
+
+- message-template creation, group-message list, member-task, send-result, and
+  legacy result operations now reject upstream API errors and malformed
+  successful payloads at the HTTP boundary;
+- successful template creation requires a bounded message id and unique,
+  nonblank failed-recipient ids, while exposing checked message-id and
+  partial-failure helpers;
+- message lists enforce the 100-row boundary, unique message ids, required
+  creator and creation metadata, bounded content, and forward-compatible
+  non-negative creation types;
+- task and delivery-result pages enforce the 1000-row boundary, required
+  member and recipient identities, unique rows, non-negative statuses and
+  timestamps, and a positive send timestamp for records explicitly marked as
+  sent;
+- all paged responses normalize blank cursors and expose pagination and lookup
+  helpers, while unknown non-negative status values and unknown attachment
+  kinds remain available for future WeCom extensions.
+
 Implemented on 2026-07-20 in Work external-contact group welcome-template
 depth:
 
