@@ -149,8 +149,13 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: MicropayRequest,
     ) -> Result<PaymentOrderResponse> {
-        self.post_v3(credentials, "/v3/pay/micropay", to_value(request)?)
-            .await
+        request.validate_for(credentials)?;
+        let expected_out_trade_no = request.out_trade_no.clone();
+        let response: PaymentOrderResponse = self
+            .post_v3(credentials, "/v3/pay/micropay", to_value(request)?)
+            .await?;
+        response.validate_for_query(&credentials.mch_id, Some(&expected_out_trade_no), None)?;
+        Ok(response)
     }
 
     pub fn apply4_sub(&self) -> DomainModule {
@@ -256,12 +261,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: JsapiPrepayRequest,
     ) -> Result<PrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/transactions/jsapi",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: PrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/transactions/jsapi",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn app_transaction(
@@ -269,8 +278,12 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: AppPrepayRequest,
     ) -> Result<PrepayResponse> {
-        self.post_v3(credentials, "/v3/pay/transactions/app", to_value(request)?)
-            .await
+        request.validate_for(credentials)?;
+        let response: PrepayResponse = self
+            .post_v3(credentials, "/v3/pay/transactions/app", to_value(request)?)
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn h5_transaction(
@@ -278,8 +291,12 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: H5PrepayRequest,
     ) -> Result<H5PrepayResponse> {
-        self.post_v3(credentials, "/v3/pay/transactions/h5", to_value(request)?)
-            .await
+        request.validate_for(credentials)?;
+        let response: H5PrepayResponse = self
+            .post_v3(credentials, "/v3/pay/transactions/h5", to_value(request)?)
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn native_transaction(
@@ -287,12 +304,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: NativePrepayRequest,
     ) -> Result<NativePrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/transactions/native",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: NativePrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/transactions/native",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn combine_app_transaction(
@@ -300,12 +321,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: CombineAppPrepayRequest,
     ) -> Result<PrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/combine-transactions/app",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: PrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/combine-transactions/app",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn codepay_transaction(
@@ -313,12 +338,17 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: CodepayRequest,
     ) -> Result<PaymentOrderResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/transactions/codepay",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let expected_out_trade_no = request.out_trade_no.clone();
+        let response: PaymentOrderResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/transactions/codepay",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate_for_query(&credentials.mch_id, Some(&expected_out_trade_no), None)?;
+        Ok(response)
     }
 
     pub async fn query_by_transaction_id(
@@ -326,13 +356,21 @@ impl Payment {
         credentials: &PaymentCredentials,
         transaction_id: impl AsRef<str>,
     ) -> Result<PaymentOrderResponse> {
-        let path = format!("/v3/pay/transactions/id/{}", transaction_id.as_ref());
-        self.get_v3(
-            credentials,
-            &path,
-            vec![("mchid".to_string(), credentials.mch_id.clone())],
-        )
-        .await
+        let transaction_id = transaction_id.as_ref();
+        validate_payment_identifier(transaction_id, "payment transaction id", 32)?;
+        let path = format!(
+            "/v3/pay/transactions/id/{}",
+            encode_payment_path_segment(transaction_id)
+        );
+        let response: PaymentOrderResponse = self
+            .get_v3(
+                credentials,
+                &path,
+                vec![("mchid".to_string(), credentials.mch_id.clone())],
+            )
+            .await?;
+        response.validate_for_query(&credentials.mch_id, None, Some(transaction_id))?;
+        Ok(response)
     }
 
     pub async fn query_by_out_trade_no(
@@ -340,16 +378,21 @@ impl Payment {
         credentials: &PaymentCredentials,
         out_trade_no: impl AsRef<str>,
     ) -> Result<PaymentOrderResponse> {
+        let out_trade_no = out_trade_no.as_ref();
+        validate_payment_out_trade_no(out_trade_no, "payment merchant order number")?;
         let path = format!(
             "/v3/pay/transactions/out-trade-no/{}",
-            out_trade_no.as_ref()
+            encode_payment_path_segment(out_trade_no)
         );
-        self.get_v3(
-            credentials,
-            &path,
-            vec![("mchid".to_string(), credentials.mch_id.clone())],
-        )
-        .await
+        let response: PaymentOrderResponse = self
+            .get_v3(
+                credentials,
+                &path,
+                vec![("mchid".to_string(), credentials.mch_id.clone())],
+            )
+            .await?;
+        response.validate_for_query(&credentials.mch_id, Some(out_trade_no), None)?;
+        Ok(response)
     }
 
     pub async fn close_order(
@@ -357,16 +400,19 @@ impl Payment {
         credentials: &PaymentCredentials,
         out_trade_no: impl AsRef<str>,
     ) -> Result<PaymentStatusResponse> {
+        let out_trade_no = out_trade_no.as_ref();
+        validate_payment_out_trade_no(out_trade_no, "payment merchant order number")?;
         let path = format!(
             "/v3/pay/transactions/out-trade-no/{}/close",
-            out_trade_no.as_ref()
+            encode_payment_path_segment(out_trade_no)
         );
-        self.post_v3(
+        self.post_v3_empty(
             credentials,
             &path,
             serde_json::json!({ "mchid": credentials.mch_id }),
         )
-        .await
+        .await?;
+        Ok(PaymentStatusResponse::default())
     }
 
     pub async fn reverse_order(
@@ -374,12 +420,14 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: ReverseOrderRequest,
     ) -> Result<PaymentStatusResponse> {
+        request.validate_for(credentials)?;
         let path = format!(
             "/v3/pay/transactions/out-trade-no/{}/close",
-            request.out_trade_no
+            encode_payment_path_segment(&request.out_trade_no)
         );
         let body = request.into_body(&credentials.mch_id);
-        self.post_v3(credentials, &path, body).await
+        self.post_v3_empty(credentials, &path, body).await?;
+        Ok(PaymentStatusResponse::default())
     }
 
     pub fn partner(&self) -> DomainModule {
@@ -391,12 +439,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerJsapiPrepayRequest,
     ) -> Result<PrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/partner/transactions/jsapi",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: PrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/partner/transactions/jsapi",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn partner_app_transaction(
@@ -404,12 +456,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerAppPrepayRequest,
     ) -> Result<PrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/partner/transactions/app",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: PrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/partner/transactions/app",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn partner_h5_transaction(
@@ -417,12 +473,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerH5PrepayRequest,
     ) -> Result<H5PrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/partner/transactions/h5",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: H5PrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/partner/transactions/h5",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn partner_native_transaction(
@@ -430,12 +490,16 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerNativePrepayRequest,
     ) -> Result<NativePrepayResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/pay/partner/transactions/native",
-            to_value(request)?,
-        )
-        .await
+        request.validate_for(credentials)?;
+        let response: NativePrepayResponse = self
+            .post_v3(
+                credentials,
+                "/v3/pay/partner/transactions/native",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn partner_query_by_out_trade_no(
@@ -443,11 +507,19 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerOrderQuery,
     ) -> Result<PaymentOrderResponse> {
+        request.validate_for(credentials)?;
+        let sp_mchid = request.sp_mchid.clone();
+        let sub_mchid = request.sub_mchid.clone();
+        let out_trade_no = request.out_trade_no.clone();
         let path = format!(
             "/v3/pay/partner/transactions/out-trade-no/{}",
-            request.out_trade_no
+            encode_payment_path_segment(&out_trade_no)
         );
-        self.get_v3(credentials, &path, request.into_query()).await
+        let response: PaymentOrderResponse = self
+            .get_v3(credentials, &path, request.into_query())
+            .await?;
+        response.validate_for_partner_query(&sp_mchid, &sub_mchid, Some(&out_trade_no), None)?;
+        Ok(response)
     }
 
     pub async fn partner_query_by_transaction_id(
@@ -455,8 +527,19 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerTransactionQuery,
     ) -> Result<PaymentOrderResponse> {
-        let path = format!("/v3/pay/partner/transactions/id/{}", request.transaction_id);
-        self.get_v3(credentials, &path, request.into_query()).await
+        request.validate_for(credentials)?;
+        let sp_mchid = request.sp_mchid.clone();
+        let sub_mchid = request.sub_mchid.clone();
+        let transaction_id = request.transaction_id.clone();
+        let path = format!(
+            "/v3/pay/partner/transactions/id/{}",
+            encode_payment_path_segment(&transaction_id)
+        );
+        let response: PaymentOrderResponse = self
+            .get_v3(credentials, &path, request.into_query())
+            .await?;
+        response.validate_for_partner_query(&sp_mchid, &sub_mchid, None, Some(&transaction_id))?;
+        Ok(response)
     }
 
     pub async fn partner_query_refund_by_out_refund_no(
@@ -481,11 +564,12 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerCloseOrderRequest,
     ) -> Result<PaymentStatusResponse> {
+        request.validate_for(credentials)?;
         let path = format!(
             "/v3/pay/partner/transactions/out-trade-no/{}/close",
-            request.out_trade_no
+            encode_payment_path_segment(&request.out_trade_no)
         );
-        self.post_v3(
+        self.post_v3_empty(
             credentials,
             &path,
             serde_json::json!({
@@ -493,7 +577,8 @@ impl Payment {
                 "sub_mchid": request.sub_mchid,
             }),
         )
-        .await
+        .await?;
+        Ok(PaymentStatusResponse::default())
     }
 
     pub async fn reverse_partner_order(
@@ -2308,6 +2393,26 @@ pub struct JsapiPrepayRequest {
     pub scene_info: Option<Value>,
 }
 
+impl JsapiPrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_prepay_common(
+            credentials,
+            &self.appid,
+            &self.mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            self.scene_info.as_ref(),
+        )?;
+        validate_payment_identifier(&self.payer.openid, "payment payer openid", 128)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppPrepayRequest {
     pub appid: String,
@@ -2328,6 +2433,25 @@ pub struct AppPrepayRequest {
     pub scene_info: Option<Value>,
 }
 
+impl AppPrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_prepay_common(
+            credentials,
+            &self.appid,
+            &self.mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            self.scene_info.as_ref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct H5PrepayRequest {
     pub appid: String,
@@ -2345,6 +2469,26 @@ pub struct H5PrepayRequest {
     pub goods_tag: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<Value>,
+}
+
+impl H5PrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_prepay_common(
+            credentials,
+            &self.appid,
+            &self.mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            Some(&self.scene_info),
+        )?;
+        validate_payment_h5_scene_info(&self.scene_info)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2367,6 +2511,25 @@ pub struct NativePrepayRequest {
     pub scene_info: Option<Value>,
 }
 
+impl NativePrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_prepay_common(
+            credentials,
+            &self.appid,
+            &self.mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            self.scene_info.as_ref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CombineAppPrepayRequest {
     pub combine_appid: String,
@@ -2382,6 +2545,60 @@ pub struct CombineAppPrepayRequest {
     pub time_start: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_expire: Option<String>,
+}
+
+impl CombineAppPrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_identifier(&self.combine_appid, "payment combine appid", 32)?;
+        validate_payment_credential_mchid(
+            credentials,
+            &self.combine_mchid,
+            "payment combine merchant id",
+        )?;
+        validate_payment_out_trade_no(
+            &self.combine_out_trade_no,
+            "payment combine merchant order number",
+        )?;
+        validate_https_url(
+            &self.notify_url,
+            "payment combine notification URL",
+            256,
+            true,
+        )?;
+        if !(2..=50).contains(&self.sub_orders.len()) {
+            return Err(WechatError::Config(
+                "payment combine order requires between 2 and 50 sub-orders".to_string(),
+            ));
+        }
+        let mut identities = std::collections::HashSet::with_capacity(self.sub_orders.len());
+        for order in &self.sub_orders {
+            order.validate()?;
+            if !identities.insert((order.mchid.as_str(), order.out_trade_no.as_str())) {
+                return Err(WechatError::Config(
+                    "payment combine order cannot contain duplicate merchant/order pairs"
+                        .to_string(),
+                ));
+            }
+        }
+        if let Some(scene_info) = &self.scene_info {
+            validate_payment_identifier(
+                &scene_info.payer_client_ip,
+                "payment combine payer client IP",
+                64,
+            )?;
+            if let Some(device_id) = scene_info.device_id.as_deref() {
+                validate_payment_text(device_id, "payment combine device id", 32)?;
+            }
+        }
+        if let Some(payer) = &self.combine_payer_info {
+            validate_payment_identifier(&payer.openid, "payment combine payer openid", 128)?;
+        }
+        validate_payment_time_range(
+            self.time_start.as_deref(),
+            self.time_expire.as_deref(),
+            "payment combine",
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2403,6 +2620,36 @@ pub struct CombineSubOrder {
     pub goods_tag: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub settle_info: Option<CombineSettleInfo>,
+}
+
+impl CombineSubOrder {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.mchid, "payment combine sub-order merchant id", 32)?;
+        validate_payment_out_trade_no(&self.out_trade_no, "payment combine sub-order number")?;
+        validate_payment_text(
+            &self.description,
+            "payment combine sub-order description",
+            127,
+        )?;
+        validate_payment_positive_amount(
+            self.amount.total_amount,
+            &self.amount.currency,
+            "payment combine sub-order amount",
+        )?;
+        validate_payment_optional_text(self.attach.as_deref(), "payment combine attach", 128)?;
+        validate_payment_optional_text(self.goods_tag.as_deref(), "payment combine goods tag", 32)?;
+        if let Some(settle_info) = &self.settle_info {
+            if settle_info
+                .subsidy_amount
+                .is_some_and(|amount| amount < 0 || amount > self.amount.total_amount)
+            {
+                return Err(WechatError::Config(
+                    "payment combine subsidy amount must be within the sub-order total".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2445,6 +2692,34 @@ pub struct CodepayRequest {
     pub settle_info: Option<CodepaySettleInfo>,
 }
 
+impl CodepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_identifier(&self.appid, "payment codepay appid", 32)?;
+        validate_payment_credential_mchid(credentials, &self.mchid, "payment codepay merchant id")?;
+        validate_payment_text(&self.description, "payment codepay description", 127)?;
+        validate_payment_out_trade_no(&self.out_trade_no, "payment codepay order number")?;
+        validate_payment_text(&self.attach, "payment codepay attach", 128)?;
+        validate_payment_identifier(
+            &self.payer.auth_code,
+            "payment codepay authorization code",
+            128,
+        )?;
+        validate_payment_positive_amount(
+            self.amount.total,
+            &self.amount.currency,
+            "payment codepay amount",
+        )?;
+        validate_payment_optional_text(self.goods_tag.as_deref(), "payment codepay goods tag", 32)?;
+        if let Some(detail) = &self.detail {
+            detail.validate(self.amount.total)?;
+        }
+        if let Some(scene_info) = &self.scene_info {
+            scene_info.validate()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodepayPayer {
     pub auth_code: String,
@@ -2467,6 +2742,27 @@ pub struct CodepaySceneInfo {
     pub device_ip: Option<String>,
 }
 
+impl CodepaySceneInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_optional_text(self.device_id.as_deref(), "payment codepay device id", 32)?;
+        validate_payment_optional_text(self.device_ip.as_deref(), "payment codepay device IP", 64)?;
+        if let Some(store) = &self.store_info {
+            validate_payment_optional_text(store.id.as_deref(), "payment codepay store id", 32)?;
+            validate_payment_optional_text(
+                store.out_id.as_deref(),
+                "payment codepay merchant store id",
+                32,
+            )?;
+            if store.id.is_none() && store.out_id.is_none() {
+                return Err(WechatError::Config(
+                    "payment codepay store info requires id or out_id".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodepayStoreInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2483,6 +2779,74 @@ pub struct CodepayDetail {
     pub invoice_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub goods_detail: Option<Vec<CodepayGoodsDetail>>,
+}
+
+impl CodepayDetail {
+    pub fn validate(&self, total: i64) -> Result<()> {
+        if self
+            .cost_price
+            .is_some_and(|value| value < 0 || value > total)
+        {
+            return Err(WechatError::Config(
+                "payment codepay cost price must be within the order total".to_string(),
+            ));
+        }
+        validate_payment_optional_text(
+            self.invoice_id.as_deref(),
+            "payment codepay invoice id",
+            32,
+        )?;
+        if let Some(goods) = &self.goods_detail {
+            if goods.is_empty() || goods.len() > 6000 {
+                return Err(WechatError::Config(
+                    "payment codepay goods detail requires between 1 and 6000 items".to_string(),
+                ));
+            }
+            let mut merchant_ids = std::collections::HashSet::with_capacity(goods.len());
+            for item in goods {
+                item.validate()?;
+                if let Some(id) = item.merchant_goods_id.as_deref() {
+                    if !merchant_ids.insert(id) {
+                        return Err(WechatError::Config(
+                            "payment codepay goods cannot repeat merchant goods ids".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CodepayGoodsDetail {
+    pub fn validate(&self) -> Result<()> {
+        if self.merchant_goods_id.is_none() && self.wxpay_goods_id.is_none() {
+            return Err(WechatError::Config(
+                "payment codepay goods require merchant_goods_id or wxpay_goods_id".to_string(),
+            ));
+        }
+        validate_payment_optional_text(
+            self.merchant_goods_id.as_deref(),
+            "payment codepay merchant goods id",
+            32,
+        )?;
+        validate_payment_optional_text(
+            self.wxpay_goods_id.as_deref(),
+            "payment codepay WeChat goods id",
+            32,
+        )?;
+        validate_payment_optional_text(
+            self.goods_name.as_deref(),
+            "payment codepay goods name",
+            256,
+        )?;
+        if self.quantity <= 0 || self.unit_price <= 0 {
+            return Err(WechatError::Config(
+                "payment codepay goods quantity and unit price must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2528,6 +2892,29 @@ pub struct PartnerJsapiPrepayRequest {
     pub settle_info: Option<Value>,
 }
 
+impl PartnerJsapiPrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_partner_prepay_common(
+            credentials,
+            &self.sp_appid,
+            &self.sp_mchid,
+            self.sub_appid.as_deref(),
+            &self.sub_mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            self.scene_info.as_ref(),
+            self.settle_info.as_ref(),
+        )?;
+        self.payer.validate(self.sub_appid.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartnerAppPrepayRequest {
     pub sp_appid: String,
@@ -2553,6 +2940,28 @@ pub struct PartnerAppPrepayRequest {
     pub settle_info: Option<Value>,
 }
 
+impl PartnerAppPrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_partner_prepay_common(
+            credentials,
+            &self.sp_appid,
+            &self.sp_mchid,
+            self.sub_appid.as_deref(),
+            &self.sub_mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            self.scene_info.as_ref(),
+            self.settle_info.as_ref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartnerH5PrepayRequest {
     pub sp_appid: String,
@@ -2575,6 +2984,29 @@ pub struct PartnerH5PrepayRequest {
     pub detail: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub settle_info: Option<Value>,
+}
+
+impl PartnerH5PrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_partner_prepay_common(
+            credentials,
+            &self.sp_appid,
+            &self.sp_mchid,
+            self.sub_appid.as_deref(),
+            &self.sub_mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            Some(&self.scene_info),
+            self.settle_info.as_ref(),
+        )?;
+        validate_payment_h5_scene_info(&self.scene_info)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2602,12 +3034,55 @@ pub struct PartnerNativePrepayRequest {
     pub settle_info: Option<Value>,
 }
 
+impl PartnerNativePrepayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_partner_prepay_common(
+            credentials,
+            &self.sp_appid,
+            &self.sp_mchid,
+            self.sub_appid.as_deref(),
+            &self.sub_mchid,
+            &self.description,
+            &self.out_trade_no,
+            &self.notify_url,
+            &self.amount,
+            self.attach.as_deref(),
+            self.time_expire.as_deref(),
+            self.goods_tag.as_deref(),
+            self.detail.as_ref(),
+            self.scene_info.as_ref(),
+            self.settle_info.as_ref(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartnerPayer {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sp_openid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sub_openid: Option<String>,
+}
+
+impl PartnerPayer {
+    pub fn validate(&self, sub_appid: Option<&str>) -> Result<()> {
+        match (self.sp_openid.as_deref(), self.sub_openid.as_deref()) {
+            (Some(sp_openid), None) => {
+                validate_payment_identifier(sp_openid, "payment partner payer sp_openid", 128)
+            }
+            (None, Some(sub_openid)) => {
+                if sub_appid.is_none() {
+                    return Err(WechatError::Config(
+                        "payment partner sub_openid requires sub_appid".to_string(),
+                    ));
+                }
+                validate_payment_identifier(sub_openid, "payment partner payer sub_openid", 128)
+            }
+            _ => Err(WechatError::Config(
+                "payment partner payer requires exactly one of sp_openid or sub_openid".to_string(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2618,6 +3093,21 @@ pub struct PartnerOrderQuery {
 }
 
 impl PartnerOrderQuery {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_out_trade_no(&self.out_trade_no, "payment partner merchant order number")?;
+        validate_payment_identifier(&self.sp_mchid, "payment partner merchant id", 32)?;
+        validate_payment_identifier(&self.sub_mchid, "payment partner sub-merchant id", 32)
+    }
+
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        self.validate()?;
+        validate_payment_credential_mchid(
+            credentials,
+            &self.sp_mchid,
+            "payment partner merchant id",
+        )
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         vec![
             ("sp_mchid".to_string(), self.sp_mchid),
@@ -2634,6 +3124,21 @@ pub struct PartnerTransactionQuery {
 }
 
 impl PartnerTransactionQuery {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.transaction_id, "payment partner transaction id", 32)?;
+        validate_payment_identifier(&self.sp_mchid, "payment partner merchant id", 32)?;
+        validate_payment_identifier(&self.sub_mchid, "payment partner sub-merchant id", 32)
+    }
+
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        self.validate()?;
+        validate_payment_credential_mchid(
+            credentials,
+            &self.sp_mchid,
+            "payment partner merchant id",
+        )
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         vec![
             ("sp_mchid".to_string(), self.sp_mchid),
@@ -2663,6 +3168,18 @@ pub struct PartnerCloseOrderRequest {
     pub sub_mchid: String,
 }
 
+impl PartnerCloseOrderRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_out_trade_no(&self.out_trade_no, "payment partner merchant order number")?;
+        validate_payment_credential_mchid(
+            credentials,
+            &self.sp_mchid,
+            "payment partner merchant id",
+        )?;
+        validate_payment_identifier(&self.sub_mchid, "payment partner sub-merchant id", 32)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReverseOrderRequest {
     pub out_trade_no: String,
@@ -2671,6 +3188,14 @@ pub struct ReverseOrderRequest {
 }
 
 impl ReverseOrderRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_out_trade_no(&self.out_trade_no, "payment merchant order number")?;
+        if let Some(mchid) = self.mchid.as_deref() {
+            validate_payment_credential_mchid(credentials, mchid, "payment merchant id")?;
+        }
+        Ok(())
+    }
+
     fn into_body(self, default_mch_id: &str) -> Value {
         serde_json::json!({
             "mchid": self.mchid.unwrap_or_else(|| default_mch_id.to_string()),
@@ -2687,6 +3212,179 @@ pub struct Amount {
 
 fn default_cny() -> String {
     "CNY".to_string()
+}
+
+fn validate_payment_optional_text(
+    value: Option<&str>,
+    field: &str,
+    max_chars: usize,
+) -> Result<()> {
+    if let Some(value) = value {
+        validate_payment_text(value, field, max_chars)?;
+    }
+    Ok(())
+}
+
+fn validate_payment_credential_mchid(
+    credentials: &PaymentCredentials,
+    mchid: &str,
+    field: &str,
+) -> Result<()> {
+    validate_payment_identifier(mchid, field, 32)?;
+    validate_payment_identifier(&credentials.mch_id, "payment credential merchant id", 32)?;
+    if mchid != credentials.mch_id {
+        return Err(WechatError::Config(format!(
+            "{field} must match the signing credential merchant id"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_out_trade_no(value: &str, field: &str) -> Result<()> {
+    validate_payment_identifier(value, field, 32)?;
+    if !value.chars().all(|character| {
+        character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '|' | '*')
+    }) {
+        return Err(WechatError::Config(format!(
+            "{field} may contain only ASCII letters, digits, _, -, |, and *"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_currency(value: &str, field: &str) -> Result<()> {
+    if value.len() != 3
+        || !value
+            .chars()
+            .all(|character| character.is_ascii_uppercase())
+    {
+        return Err(WechatError::Config(format!(
+            "{field} must be a three-letter uppercase currency code"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_positive_amount(total: i64, currency: &str, field: &str) -> Result<()> {
+    if total <= 0 {
+        return Err(WechatError::Config(format!("{field} must be positive")));
+    }
+    validate_payment_currency(currency, &format!("{field} currency"))
+}
+
+fn validate_payment_amount(amount: &Amount, field: &str) -> Result<()> {
+    validate_payment_positive_amount(amount.total, &amount.currency, field)
+}
+
+fn validate_payment_optional_object(value: Option<&Value>, field: &str) -> Result<()> {
+    if value.is_some_and(|value| !value.is_object()) {
+        return Err(WechatError::Config(format!(
+            "{field} must be a JSON object"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_h5_scene_info(value: &Value) -> Result<()> {
+    let object = value.as_object().ok_or_else(|| {
+        WechatError::Config("payment H5 scene info must be a JSON object".to_string())
+    })?;
+    let payer_client_ip = object
+        .get("payer_client_ip")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WechatError::Config("payment H5 scene info requires payer_client_ip".to_string())
+        })?;
+    validate_payment_identifier(payer_client_ip, "payment H5 payer client IP", 64)
+}
+
+fn validate_payment_time_range(start: Option<&str>, end: Option<&str>, field: &str) -> Result<()> {
+    let start = start
+        .map(|value| {
+            validate_payment_rfc3339(value, &format!("{field} start time"))?;
+            chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
+                WechatError::Config(format!("{field} start time must use RFC3339 format"))
+            })
+        })
+        .transpose()?;
+    let end = end
+        .map(|value| {
+            validate_payment_rfc3339(value, &format!("{field} expiry time"))?;
+            chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
+                WechatError::Config(format!("{field} expiry time must use RFC3339 format"))
+            })
+        })
+        .transpose()?;
+    if matches!((start, end), (Some(start), Some(end)) if end <= start) {
+        return Err(WechatError::Config(format!(
+            "{field} expiry time must be later than its start time"
+        )));
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_payment_prepay_common(
+    credentials: &PaymentCredentials,
+    appid: &str,
+    mchid: &str,
+    description: &str,
+    out_trade_no: &str,
+    notify_url: &str,
+    amount: &Amount,
+    attach: Option<&str>,
+    time_expire: Option<&str>,
+    goods_tag: Option<&str>,
+    detail: Option<&Value>,
+    scene_info: Option<&Value>,
+) -> Result<()> {
+    validate_payment_identifier(appid, "payment appid", 32)?;
+    validate_payment_credential_mchid(credentials, mchid, "payment merchant id")?;
+    validate_payment_text(description, "payment description", 127)?;
+    validate_payment_out_trade_no(out_trade_no, "payment merchant order number")?;
+    validate_https_url(notify_url, "payment notification URL", 256, true)?;
+    validate_payment_amount(amount, "payment order amount")?;
+    validate_payment_optional_text(attach, "payment attach", 128)?;
+    validate_payment_optional_text(goods_tag, "payment goods tag", 32)?;
+    validate_payment_time_range(None, time_expire, "payment order")?;
+    validate_payment_optional_object(detail, "payment order detail")?;
+    validate_payment_optional_object(scene_info, "payment order scene info")
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_payment_partner_prepay_common(
+    credentials: &PaymentCredentials,
+    sp_appid: &str,
+    sp_mchid: &str,
+    sub_appid: Option<&str>,
+    sub_mchid: &str,
+    description: &str,
+    out_trade_no: &str,
+    notify_url: &str,
+    amount: &Amount,
+    attach: Option<&str>,
+    time_expire: Option<&str>,
+    goods_tag: Option<&str>,
+    detail: Option<&Value>,
+    scene_info: Option<&Value>,
+    settle_info: Option<&Value>,
+) -> Result<()> {
+    validate_payment_identifier(sp_appid, "payment partner appid", 32)?;
+    validate_payment_credential_mchid(credentials, sp_mchid, "payment partner merchant id")?;
+    if let Some(sub_appid) = sub_appid {
+        validate_payment_identifier(sub_appid, "payment partner sub-appid", 32)?;
+    }
+    validate_payment_identifier(sub_mchid, "payment partner sub-merchant id", 32)?;
+    validate_payment_text(description, "payment partner description", 127)?;
+    validate_payment_out_trade_no(out_trade_no, "payment partner merchant order number")?;
+    validate_https_url(notify_url, "payment partner notification URL", 256, true)?;
+    validate_payment_amount(amount, "payment partner order amount")?;
+    validate_payment_optional_text(attach, "payment partner attach", 128)?;
+    validate_payment_optional_text(goods_tag, "payment partner goods tag", 32)?;
+    validate_payment_time_range(None, time_expire, "payment partner order")?;
+    validate_payment_optional_object(detail, "payment partner order detail")?;
+    validate_payment_optional_object(scene_info, "payment partner scene info")?;
+    validate_payment_optional_object(settle_info, "payment partner settlement info")
 }
 
 fn default_one_i64() -> i64 {
@@ -2715,6 +3413,12 @@ pub struct PrepayResponse {
     pub prepay_id: String,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl PrepayResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.prepay_id, "payment prepay id", 128)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2750,11 +3454,34 @@ pub struct H5PrepayResponse {
     pub extra: Value,
 }
 
+impl H5PrepayResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_https_url(&self.h5_url, "payment H5 redirect URL", 2048, true)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativePrepayResponse {
     pub code_url: String,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl NativePrepayResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_text(&self.code_url, "payment native code URL", 2048)?;
+        let parsed = url::Url::parse(&self.code_url).map_err(|_| {
+            WechatError::Config(
+                "payment native code URL must be an absolute weixin URL".to_string(),
+            )
+        })?;
+        if parsed.scheme() != "weixin" || parsed.host_str().is_none() {
+            return Err(WechatError::Config(
+                "payment native code URL must be an absolute weixin URL".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2909,9 +3636,111 @@ impl PaymentOrderResponse {
             expected_currency,
         )
     }
+
+    pub fn validate_for_query(
+        &self,
+        expected_mchid: &str,
+        expected_out_trade_no: Option<&str>,
+        expected_transaction_id: Option<&str>,
+    ) -> Result<()> {
+        validate_payment_identifier(expected_mchid, "expected payment merchant id", 32)?;
+        if self.effective_mchid() != Some(expected_mchid) {
+            return Err(WechatError::Config(
+                "payment order response merchant id does not match the query".to_string(),
+            ));
+        }
+        self.validate_query_identity(expected_out_trade_no, expected_transaction_id)
+    }
+
+    pub fn validate_for_partner_query(
+        &self,
+        expected_sp_mchid: &str,
+        expected_sub_mchid: &str,
+        expected_out_trade_no: Option<&str>,
+        expected_transaction_id: Option<&str>,
+    ) -> Result<()> {
+        validate_payment_identifier(
+            expected_sp_mchid,
+            "expected payment partner merchant id",
+            32,
+        )?;
+        validate_payment_identifier(
+            expected_sub_mchid,
+            "expected payment partner sub-merchant id",
+            32,
+        )?;
+        if self.sp_mchid.as_deref() != Some(expected_sp_mchid)
+            || self.sub_mchid.as_deref() != Some(expected_sub_mchid)
+        {
+            return Err(WechatError::Config(
+                "payment partner order response merchant ids do not match the query".to_string(),
+            ));
+        }
+        self.validate_query_identity(expected_out_trade_no, expected_transaction_id)
+    }
+
+    fn validate_query_identity(
+        &self,
+        expected_out_trade_no: Option<&str>,
+        expected_transaction_id: Option<&str>,
+    ) -> Result<()> {
+        let out_trade_no = self.out_trade_no.as_deref().ok_or_else(|| {
+            WechatError::Config("payment order response requires out_trade_no".to_string())
+        })?;
+        validate_payment_out_trade_no(out_trade_no, "payment response merchant order number")?;
+        if expected_out_trade_no.is_some_and(|expected| expected != out_trade_no) {
+            return Err(WechatError::Config(
+                "payment order response merchant order number does not match the query".to_string(),
+            ));
+        }
+        let trade_state = self.trade_state.as_deref().ok_or_else(|| {
+            WechatError::Config("payment order response requires trade_state".to_string())
+        })?;
+        validate_payment_identifier(trade_state, "payment response trade state", 32)?;
+        let amount = self.amount.as_ref().ok_or_else(|| {
+            WechatError::Config("payment order response requires amount".to_string())
+        })?;
+        let total = amount.total.ok_or_else(|| {
+            WechatError::Config("payment order response requires amount.total".to_string())
+        })?;
+        if total <= 0 {
+            return Err(WechatError::Config(
+                "payment order response amount.total must be positive".to_string(),
+            ));
+        }
+        validate_payment_currency(
+            amount.currency.as_deref().ok_or_else(|| {
+                WechatError::Config("payment order response requires amount.currency".to_string())
+            })?,
+            "payment response currency",
+        )?;
+        if let Some(transaction_id) = self.transaction_id.as_deref() {
+            validate_payment_identifier(transaction_id, "payment response transaction id", 32)?;
+        }
+        if expected_transaction_id
+            .is_some_and(|expected| self.transaction_id.as_deref() != Some(expected))
+        {
+            return Err(WechatError::Config(
+                "payment order response transaction id does not match the query".to_string(),
+            ));
+        }
+        if self.is_paid() {
+            validate_payment_identifier(
+                self.transaction_id.as_deref().unwrap_or_default(),
+                "payment response transaction id",
+                32,
+            )?;
+            validate_payment_rfc3339(
+                self.success_time.as_deref().unwrap_or_default(),
+                "payment response success time",
+            )?;
+            amount.assert_reconciles(&self.promotion_detail)?;
+        }
+        Ok(())
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PaymentStatusResponse {
     #[serde(default)]
     pub code: Option<String>,
@@ -2919,6 +3748,24 @@ pub struct PaymentStatusResponse {
     pub message: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl PaymentStatusResponse {
+    pub fn validate(&self) -> Result<()> {
+        if self.code.as_deref().is_some_and(|code| {
+            !code.eq_ignore_ascii_case("SUCCESS") && !code.eq_ignore_ascii_case("OK")
+        }) {
+            return Err(WechatError::Config(format!(
+                "payment operation failed with code {}: {}",
+                self.code.as_deref().unwrap_or("unknown"),
+                self.message.as_deref().unwrap_or("no message")
+            )));
+        }
+        if let Some(message) = self.message.as_deref() {
+            validate_payment_text(message, "payment status message", 1024)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2937,6 +3784,29 @@ pub struct MicropayRequest {
     pub detail: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scene_info: Option<Value>,
+}
+
+impl MicropayRequest {
+    pub fn validate_for(&self, credentials: &PaymentCredentials) -> Result<()> {
+        validate_payment_identifier(&self.appid, "payment micropay appid", 32)?;
+        validate_payment_credential_mchid(
+            credentials,
+            &self.mchid,
+            "payment micropay merchant id",
+        )?;
+        validate_payment_text(&self.description, "payment micropay description", 127)?;
+        validate_payment_out_trade_no(&self.out_trade_no, "payment micropay order number")?;
+        validate_payment_identifier(&self.auth_code, "payment micropay authorization code", 128)?;
+        validate_payment_amount(&self.amount, "payment micropay amount")?;
+        validate_payment_optional_text(self.attach.as_deref(), "payment micropay attach", 128)?;
+        validate_payment_optional_text(
+            self.goods_tag.as_deref(),
+            "payment micropay goods tag",
+            32,
+        )?;
+        validate_payment_optional_object(self.detail.as_ref(), "payment micropay detail")?;
+        validate_payment_optional_object(self.scene_info.as_ref(), "payment micropay scene info")
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7809,13 +8679,14 @@ mod tests {
         build_merchant_media_upload_body, build_sandbox_sign_key_xml,
         checked_payment_download_size, encode_payment_path_segment, multipart_quoted,
         split_payment_download_url, verify_payment_download_hash, Amount, AppPayParams,
-        Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse, BillRequest,
-        BillResponse, CertificateListResponse, CodepayAmount, CodepayPayer, CodepayRequest,
-        CodepaySettleInfo, CombineAmount, CombineAppPrepayRequest, CombinePayerInfo,
-        CombineSceneInfo, CombineSettleInfo, CombineSubOrder, ComplaintAdditionalInfoType,
-        ComplaintCompleteRequest, ComplaintDetailResponse, ComplaintListRequest,
-        ComplaintListResponse, ComplaintMedia, ComplaintMediaType, ComplaintMessageActionType,
-        ComplaintMessageBlockType, ComplaintMessageSenderIdentity, ComplaintMiniProgramJumpInfo,
+        AppPrepayRequest, Applyment4SubQueryResponse, Applyment4SubRequest, Applyment4SubResponse,
+        BillRequest, BillResponse, CertificateListResponse, CodepayAmount, CodepayDetail,
+        CodepayGoodsDetail, CodepayPayer, CodepayRequest, CodepaySettleInfo, CombineAmount,
+        CombineAppPrepayRequest, CombinePayerInfo, CombineSceneInfo, CombineSettleInfo,
+        CombineSubOrder, ComplaintAdditionalInfoType, ComplaintCompleteRequest,
+        ComplaintDetailResponse, ComplaintListRequest, ComplaintListResponse, ComplaintMedia,
+        ComplaintMediaType, ComplaintMessageActionType, ComplaintMessageBlockType,
+        ComplaintMessageSenderIdentity, ComplaintMiniProgramJumpInfo,
         ComplaintNegotiationHistoryRequest, ComplaintNegotiationHistoryResponse,
         ComplaintNegotiationOperateType, ComplaintNotificationActionKind,
         ComplaintNotificationRequest, ComplaintNotificationResource, ComplaintNotificationResponse,
@@ -7824,27 +8695,27 @@ mod tests {
         ComplaintUserTag, CouponStockCreateRequest, CouponStockListRequest,
         CouponStockListResponse, CouponStockOperationRequest, CouponStockResponse,
         FundAppElecSignResponse, FundAppTransferBillRequest, FundAppTransferBillResponse,
-        FundFlowBillRequest, H5PrepayResponse, JsapiPayParams, LegacyProfitSharingReturnRequest,
-        LegacyProfitSharingReturnResponse, LegacyTransferInfoResponse, MerchantFundBalanceResponse,
-        MerchantMediaUploadRequest, MerchantMediaUploadResponse, MicropayRequest,
-        MiniProgramRedpackRequest, NativePrepayRequest, NativePrepayResponse,
-        PartnerCloseOrderRequest, PartnerH5PrepayRequest, PartnerJsapiPrepayRequest,
-        PartnerOrderQuery, PartnerPayer, PartnerRefundQuery, PartnerTransactionQuery,
-        PayScoreLocation, PayScoreRiskFund, PayScoreServiceOrderQuery, PayScoreServiceOrderRequest,
-        PayScoreServiceOrderResponse, PayScoreTimeRange, PaymentBillDownloadRequest,
-        PaymentCredentials, PaymentDownloadHasher, PaymentDownloadedBill,
-        PaymentDownloadedBillFile, PaymentNotification, PaymentNotificationEventKind,
-        PaymentOrderResponse, PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource,
-        PaymentStatusResponse, PaymentTradeStateKind, PaymentTransactionNotification,
-        PaymentTransferBillNotification, PrepayResponse, ProfitSharingBillRequest,
-        ProfitSharingOrderRequest, ProfitSharingReceiver, ProfitSharingReceiverRequest,
-        ProfitSharingReturnOrderQuery, ProfitSharingReturnOrderRequest,
-        ProfitSharingUnfreezeRequest, QueryRedpackRequest, QueryWorkRedpackRequest,
-        RedpackInfoResponse, RedpackResponse, RefundAmount, RefundDetailResponse, RefundRequest,
-        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
-        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
-        TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard, TransferBatchQuery,
-        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        FundFlowBillRequest, H5PrepayRequest, H5PrepayResponse, JsapiPayParams, JsapiPrepayRequest,
+        LegacyProfitSharingReturnRequest, LegacyProfitSharingReturnResponse,
+        LegacyTransferInfoResponse, MerchantFundBalanceResponse, MerchantMediaUploadRequest,
+        MerchantMediaUploadResponse, MicropayRequest, MiniProgramRedpackRequest,
+        NativePrepayRequest, NativePrepayResponse, PartnerCloseOrderRequest,
+        PartnerH5PrepayRequest, PartnerJsapiPrepayRequest, PartnerOrderQuery, PartnerPayer,
+        PartnerRefundQuery, PartnerTransactionQuery, PayScoreLocation, PayScoreRiskFund,
+        PayScoreServiceOrderQuery, PayScoreServiceOrderRequest, PayScoreServiceOrderResponse,
+        PayScoreTimeRange, Payer, PaymentBillDownloadRequest, PaymentCredentials,
+        PaymentDownloadHasher, PaymentDownloadedBill, PaymentDownloadedBillFile,
+        PaymentNotification, PaymentNotificationEventKind, PaymentOrderResponse,
+        PaymentRefundNotification, PaymentRefundStatusKind, PaymentResource, PaymentStatusResponse,
+        PaymentTradeStateKind, PaymentTransactionNotification, PaymentTransferBillNotification,
+        PrepayResponse, ProfitSharingBillRequest, ProfitSharingOrderRequest, ProfitSharingReceiver,
+        ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
+        ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
+        QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
+        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
+        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
+        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard,
+        TransferBatchQuery, TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
         TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
         TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
         UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
@@ -8125,6 +8996,267 @@ mod tests {
             "retained"
         );
         assert_eq!(order.extra["order_extra"], "retained");
+        order
+            .validate_for_query("sub-mchid", Some("out-1"), Some("tx-1"))
+            .unwrap();
+        assert!(status.validate().is_ok());
+        assert!(prepay.validate().is_ok());
+        assert!(h5.validate().is_ok());
+        assert!(native.validate().is_ok());
+    }
+
+    #[test]
+    fn validates_payment_order_request_contracts() {
+        let credentials = PaymentCredentials {
+            mch_id: "1900000109".to_string(),
+            serial_no: "serial".to_string(),
+            private_key_pem: "unused".to_string(),
+        };
+        let jsapi = JsapiPrepayRequest {
+            appid: "wx-app".to_string(),
+            mchid: credentials.mch_id.clone(),
+            description: "Phone order".to_string(),
+            out_trade_no: "order_1-*".to_string(),
+            notify_url: "https://merchant.example.com/payment/notify".to_string(),
+            amount: Amount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            payer: Payer {
+                openid: "openid".to_string(),
+            },
+            attach: Some("tenant-1".to_string()),
+            time_expire: Some("2026-07-22T10:00:00+08:00".to_string()),
+            goods_tag: Some("goods".to_string()),
+            detail: Some(json!({ "cost_price": 100 })),
+            scene_info: Some(json!({ "payer_client_ip": "127.0.0.1" })),
+        };
+        assert!(jsapi.validate_for(&credentials).is_ok());
+
+        let h5 = H5PrepayRequest {
+            appid: "wx-app".to_string(),
+            mchid: credentials.mch_id.clone(),
+            description: "H5 order".to_string(),
+            out_trade_no: "h5-order".to_string(),
+            notify_url: "https://merchant.example.com/payment/notify".to_string(),
+            amount: Amount {
+                total: 1,
+                currency: "CNY".to_string(),
+            },
+            scene_info: json!({ "payer_client_ip": "127.0.0.1" }),
+            attach: None,
+            time_expire: None,
+            goods_tag: None,
+            detail: None,
+        };
+        assert!(h5.validate_for(&credentials).is_ok());
+
+        let partner = PartnerJsapiPrepayRequest {
+            sp_appid: "wx-sp".to_string(),
+            sp_mchid: credentials.mch_id.clone(),
+            sub_appid: Some("wx-sub".to_string()),
+            sub_mchid: "1900000110".to_string(),
+            description: "Partner order".to_string(),
+            out_trade_no: "partner-order".to_string(),
+            notify_url: "https://merchant.example.com/payment/notify".to_string(),
+            amount: Amount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            payer: PartnerPayer {
+                sp_openid: None,
+                sub_openid: Some("sub-openid".to_string()),
+            },
+            attach: None,
+            time_expire: None,
+            goods_tag: None,
+            detail: None,
+            scene_info: None,
+            settle_info: Some(json!({ "profit_sharing": true })),
+        };
+        assert!(partner.validate_for(&credentials).is_ok());
+
+        let combine = CombineAppPrepayRequest {
+            combine_appid: "wx-combine".to_string(),
+            combine_mchid: credentials.mch_id.clone(),
+            combine_out_trade_no: "combine-order".to_string(),
+            notify_url: "https://merchant.example.com/payment/notify".to_string(),
+            sub_orders: vec![
+                CombineSubOrder {
+                    mchid: "1900000110".to_string(),
+                    out_trade_no: "sub-order-1".to_string(),
+                    description: "First product".to_string(),
+                    amount: CombineAmount {
+                        total_amount: 100,
+                        currency: "CNY".to_string(),
+                    },
+                    attach: None,
+                    goods_tag: None,
+                    settle_info: Some(CombineSettleInfo {
+                        profit_sharing: true,
+                        subsidy_amount: Some(10),
+                    }),
+                },
+                CombineSubOrder {
+                    mchid: "1900000111".to_string(),
+                    out_trade_no: "sub-order-2".to_string(),
+                    description: "Second product".to_string(),
+                    amount: CombineAmount {
+                        total_amount: 200,
+                        currency: "CNY".to_string(),
+                    },
+                    attach: None,
+                    goods_tag: None,
+                    settle_info: None,
+                },
+            ],
+            scene_info: Some(CombineSceneInfo {
+                device_id: Some("device-1".to_string()),
+                payer_client_ip: "127.0.0.1".to_string(),
+            }),
+            combine_payer_info: Some(CombinePayerInfo {
+                openid: "openid".to_string(),
+            }),
+            time_start: Some("2026-07-22T09:00:00+08:00".to_string()),
+            time_expire: Some("2026-07-22T10:00:00+08:00".to_string()),
+        };
+        assert!(combine.validate_for(&credentials).is_ok());
+
+        let codepay = CodepayRequest {
+            appid: "wx-app".to_string(),
+            mchid: credentials.mch_id.clone(),
+            description: "Counter order".to_string(),
+            out_trade_no: "counter-order".to_string(),
+            attach: "counter-1".to_string(),
+            payer: CodepayPayer {
+                auth_code: "134000000000000000".to_string(),
+            },
+            amount: CodepayAmount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            goods_tag: None,
+            support_fapiao: Some(true),
+            scene_info: None,
+            detail: Some(CodepayDetail {
+                cost_price: Some(90),
+                invoice_id: Some("invoice-1".to_string()),
+                goods_detail: Some(vec![CodepayGoodsDetail {
+                    merchant_goods_id: Some("sku-1".to_string()),
+                    wxpay_goods_id: None,
+                    goods_name: Some("Phone".to_string()),
+                    quantity: 1,
+                    unit_price: 100,
+                }]),
+            }),
+            settle_info: Some(CodepaySettleInfo {
+                profit_sharing: true,
+            }),
+        };
+        assert!(codepay.validate_for(&credentials).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_payment_order_contracts() {
+        let credentials = PaymentCredentials {
+            mch_id: "1900000109".to_string(),
+            serial_no: "serial".to_string(),
+            private_key_pem: "unused".to_string(),
+        };
+        let base_app = || AppPrepayRequest {
+            appid: "wx-app".to_string(),
+            mchid: credentials.mch_id.clone(),
+            description: "App order".to_string(),
+            out_trade_no: "order-1".to_string(),
+            notify_url: "https://merchant.example.com/payment/notify".to_string(),
+            amount: Amount {
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            attach: None,
+            time_expire: None,
+            goods_tag: None,
+            detail: None,
+            scene_info: None,
+        };
+        let mut invalid = base_app();
+        invalid.mchid = "1900000110".to_string();
+        assert!(invalid.validate_for(&credentials).is_err());
+        invalid = base_app();
+        invalid.amount.total = 0;
+        assert!(invalid.validate_for(&credentials).is_err());
+        invalid = base_app();
+        invalid.out_trade_no = "old@order".to_string();
+        assert!(invalid.validate_for(&credentials).is_err());
+        invalid = base_app();
+        invalid.notify_url = "http://merchant.example.com/notify".to_string();
+        assert!(invalid.validate_for(&credentials).is_err());
+        invalid = base_app();
+        invalid.description = "x".repeat(128);
+        assert!(invalid.validate_for(&credentials).is_err());
+
+        let conflicting_payer = PartnerPayer {
+            sp_openid: Some("sp-openid".to_string()),
+            sub_openid: Some("sub-openid".to_string()),
+        };
+        assert!(conflicting_payer.validate(Some("wx-sub")).is_err());
+        let missing_sub_app = PartnerPayer {
+            sp_openid: None,
+            sub_openid: Some("sub-openid".to_string()),
+        };
+        assert!(missing_sub_app.validate(None).is_err());
+
+        let one_sub_order = CombineAppPrepayRequest {
+            combine_appid: "wx-combine".to_string(),
+            combine_mchid: credentials.mch_id.clone(),
+            combine_out_trade_no: "combine-order".to_string(),
+            notify_url: "https://merchant.example.com/payment/notify".to_string(),
+            sub_orders: vec![CombineSubOrder {
+                mchid: "1900000110".to_string(),
+                out_trade_no: "sub-order".to_string(),
+                description: "Product".to_string(),
+                amount: CombineAmount {
+                    total_amount: 100,
+                    currency: "CNY".to_string(),
+                },
+                attach: None,
+                goods_tag: None,
+                settle_info: None,
+            }],
+            scene_info: None,
+            combine_payer_info: None,
+            time_start: None,
+            time_expire: None,
+        };
+        assert!(one_sub_order.validate_for(&credentials).is_err());
+
+        let bad_status: PaymentStatusResponse = serde_json::from_value(json!({
+            "code": "PARAM_ERROR",
+            "message": "invalid request"
+        }))
+        .unwrap();
+        assert!(bad_status.validate().is_err());
+        let blank_prepay: PrepayResponse = serde_json::from_value(json!({
+            "prepay_id": " "
+        }))
+        .unwrap();
+        assert!(blank_prepay.validate().is_err());
+        let unsafe_h5: H5PrepayResponse = serde_json::from_value(json!({
+            "h5_url": "http://pay.example.com/h5"
+        }))
+        .unwrap();
+        assert!(unsafe_h5.validate().is_err());
+
+        let mismatched_order: PaymentOrderResponse = serde_json::from_value(json!({
+            "mchid": "1900000109",
+            "out_trade_no": "order-1",
+            "trade_state": "NOTPAY",
+            "amount": { "total": 100, "currency": "CNY" }
+        }))
+        .unwrap();
+        assert!(mismatched_order
+            .validate_for_query("1900000109", Some("order-2"), None)
+            .is_err());
     }
 
     #[test]

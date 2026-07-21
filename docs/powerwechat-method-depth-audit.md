@@ -40,6 +40,34 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    `notify`, `order`, and remaining payment method variants with strong typed
    request/response DTOs plus signature/decryption tests where applicable.
 
+Implemented on 2026-07-21 in Payment order-contract depth:
+
+- ordinary JSAPI, App, H5, Native, micropay/codepay, combine-App, partner
+  JSAPI/App/H5/Native, ordinary/partner order queries, and ordinary/partner
+  close-order network exits now validate their typed request and response
+  contracts before returning application data;
+- merchant ids are bound to the signing credentials; app/merchant/order/user
+  identities, the current 127-character description boundary, HTTPS notify
+  URLs, positive amounts, uppercase currencies, RFC3339 expiry windows,
+  optional JSON objects, and H5 client-IP requirements are enforced;
+- partner payer identities enforce exactly one `sp_openid` or `sub_openid`,
+  with the documented `sub_openid`/`sub_appid` dependency; partner queries and
+  responses verify both service-provider and sub-merchant identities;
+- combine orders enforce two-to-fifty unique merchant/order pairs, current
+  order-number characters, positive sub-order totals, bounded subsidies,
+  payer/scene identities, and ordered start/expiry times;
+- codepay goods, stores, authorization codes, prices, quantities, cost prices,
+  and duplicate merchant goods ids are validated before transport;
+- prepay, H5, Native, and queried-order responses now require usable ids/URLs,
+  matching query identities, positive amounts and currencies, with paid-order
+  transaction/time/promotion reconciliation; V3 close-order success now uses
+  the documented 204 empty-response transport instead of attempting JSON
+  deserialization;
+- realistic ordinary, partner, combine, codepay, and paid-order fixtures plus
+  a failure matrix cover credential mismatches, zero amounts, retired order
+  characters, insecure callbacks, conflicting payer identities, malformed
+  combine orders, bad response URLs/statuses, and query identity mismatches.
+
 3. Open Platform authorizer depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
    Release/audit, privacy, domain, tester, and permanent-material workflows
