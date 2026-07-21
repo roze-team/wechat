@@ -547,8 +547,17 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PartnerRefundQuery,
     ) -> Result<PartnerRefundDetailResponse> {
-        let path = format!("/v3/refund/domestic/refunds/{}", request.out_refund_no);
-        self.get_v3(credentials, &path, request.into_query()).await
+        request.validate()?;
+        let out_refund_no = request.out_refund_no.clone();
+        let path = format!(
+            "/v3/refund/domestic/refunds/{}",
+            encode_payment_path_segment(&out_refund_no)
+        );
+        let response: PartnerRefundDetailResponse = self
+            .get_v3(credentials, &path, request.into_query())
+            .await?;
+        response.validate_for_out_refund_no(&out_refund_no)?;
+        Ok(response)
     }
 
     pub async fn partner_combine_app_transaction(
@@ -962,12 +971,17 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: RefundRequest,
     ) -> Result<RefundResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/refund/domestic/refunds",
-            to_value(request)?,
-        )
-        .await
+        request.validate()?;
+        let expected = request.clone();
+        let response: RefundResponse = self
+            .post_v3(
+                credentials,
+                "/v3/refund/domestic/refunds",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate_for_request(&expected)?;
+        Ok(response)
     }
 
     pub async fn query_refund(
@@ -975,8 +989,15 @@ impl Payment {
         credentials: &PaymentCredentials,
         out_refund_no: impl AsRef<str>,
     ) -> Result<RefundResponse> {
-        let path = format!("/v3/refund/domestic/refunds/{}", out_refund_no.as_ref());
-        self.get_v3(credentials, &path, Vec::new()).await
+        let out_refund_no = out_refund_no.as_ref();
+        validate_payment_out_refund_no(out_refund_no)?;
+        let path = format!(
+            "/v3/refund/domestic/refunds/{}",
+            encode_payment_path_segment(out_refund_no)
+        );
+        let response: RefundResponse = self.get_v3(credentials, &path, Vec::new()).await?;
+        response.validate_for_out_refund_no(out_refund_no)?;
+        Ok(response)
     }
 
     pub async fn create_refund_detail(
@@ -984,12 +1005,17 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: RefundRequest,
     ) -> Result<RefundDetailResponse> {
-        self.post_v3(
-            credentials,
-            "/v3/refund/domestic/refunds",
-            to_value(request)?,
-        )
-        .await
+        request.validate()?;
+        let expected = request.clone();
+        let response: RefundDetailResponse = self
+            .post_v3(
+                credentials,
+                "/v3/refund/domestic/refunds",
+                to_value(request)?,
+            )
+            .await?;
+        response.validate_for_request(&expected)?;
+        Ok(response)
     }
 
     pub async fn query_refund_detail(
@@ -997,8 +1023,15 @@ impl Payment {
         credentials: &PaymentCredentials,
         out_refund_no: impl AsRef<str>,
     ) -> Result<RefundDetailResponse> {
-        let path = format!("/v3/refund/domestic/refunds/{}", out_refund_no.as_ref());
-        self.get_v3(credentials, &path, Vec::new()).await
+        let out_refund_no = out_refund_no.as_ref();
+        validate_payment_out_refund_no(out_refund_no)?;
+        let path = format!(
+            "/v3/refund/domestic/refunds/{}",
+            encode_payment_path_segment(out_refund_no)
+        );
+        let response: RefundDetailResponse = self.get_v3(credentials, &path, Vec::new()).await?;
+        response.validate_for_out_refund_no(out_refund_no)?;
+        Ok(response)
     }
 
     pub fn reverse(&self) -> DomainModule {
@@ -3154,6 +3187,11 @@ pub struct PartnerRefundQuery {
 }
 
 impl PartnerRefundQuery {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_out_refund_no(&self.out_refund_no)?;
+        validate_payment_identifier(&self.sub_mchid, "payment refund sub-merchant id", 32)
+    }
+
     fn into_query(self) -> Vec<(String, String)> {
         vec![("sub_mchid".to_string(), self.sub_mchid)]
     }
@@ -3247,6 +3285,30 @@ fn validate_payment_out_trade_no(value: &str, field: &str) -> Result<()> {
     }) {
         return Err(WechatError::Config(format!(
             "{field} may contain only ASCII letters, digits, _, -, |, and *"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_out_refund_no(value: &str) -> Result<()> {
+    validate_payment_identifier(value, "payment merchant refund number", 64)?;
+    if value.len() > 64
+        || !value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '|' | '*' | '@')
+        })
+    {
+        return Err(WechatError::Config(
+            "payment merchant refund number must be at most 64 bytes and contain only ASCII letters, digits, _, -, |, *, and @"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_payment_refund_account(value: &str, field: &str) -> Result<()> {
+    if !value.eq_ignore_ascii_case("AVAILABLE") && !value.eq_ignore_ascii_case("UNAVAILABLE") {
+        return Err(WechatError::Config(format!(
+            "{field} must be AVAILABLE or UNAVAILABLE"
         )));
     }
     Ok(())
@@ -3836,6 +3898,8 @@ pub struct Applyment4SubQueryResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_mchid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub out_trade_no: Option<String>,
@@ -3844,22 +3908,193 @@ pub struct RefundRequest {
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notify_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub funds_account: Option<String>,
     pub amount: RefundAmount,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub goods_detail: Vec<RefundGoodsDetailRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refund_account: Option<String>,
+}
+
+impl RefundRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(sub_mchid) = self.sub_mchid.as_deref() {
+            validate_payment_identifier(sub_mchid, "payment refund sub-merchant id", 32)?;
+        }
+        match (self.transaction_id.as_deref(), self.out_trade_no.as_deref()) {
+            (Some(transaction_id), None) => {
+                validate_payment_identifier(transaction_id, "payment refund transaction id", 32)?
+            }
+            (None, Some(out_trade_no)) => {
+                validate_payment_out_trade_no(out_trade_no, "payment refund merchant order number")?
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "payment refund requires exactly one of transaction_id or out_trade_no"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_payment_out_refund_no(&self.out_refund_no)?;
+        if let Some(reason) = self.reason.as_deref() {
+            validate_payment_text(reason, "payment refund reason", 80)?;
+            if reason.len() > 80 {
+                return Err(WechatError::Config(
+                    "payment refund reason cannot exceed 80 bytes".to_string(),
+                ));
+            }
+        }
+        if let Some(notify_url) = self.notify_url.as_deref() {
+            validate_https_url(notify_url, "payment refund notification URL", 256, false)?;
+        }
+        if let Some(account) = self.funds_account.as_deref() {
+            if !account.eq_ignore_ascii_case("AVAILABLE") {
+                return Err(WechatError::Config(
+                    "payment refund funds account must be AVAILABLE".to_string(),
+                ));
+            }
+        }
+        if let Some(account) = self.refund_account.as_deref() {
+            validate_payment_identifier(account, "payment refund source account", 64)?;
+        }
+        self.amount.validate()?;
+        if self.goods_detail.len() > 6_000 {
+            return Err(WechatError::Config(
+                "payment refund goods detail cannot exceed 6000 items".to_string(),
+            ));
+        }
+        let mut goods_ids = std::collections::HashSet::with_capacity(self.goods_detail.len());
+        let mut goods_refund_total = 0_i64;
+        for goods in &self.goods_detail {
+            goods.validate()?;
+            if !goods_ids.insert(goods.merchant_goods_id.as_str()) {
+                return Err(WechatError::Config(
+                    "payment refund goods detail cannot repeat merchant goods ids".to_string(),
+                ));
+            }
+            goods_refund_total = goods_refund_total
+                .checked_add(goods.refund_amount)
+                .ok_or_else(|| {
+                    WechatError::Config("payment refund goods amount overflowed".to_string())
+                })?;
+        }
+        if !self.goods_detail.is_empty() && goods_refund_total != self.amount.refund {
+            return Err(WechatError::Config(
+                "payment refund goods amounts must sum to the requested refund".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundAmount {
     pub refund: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub from: Vec<RefundAmountFromRequest>,
     pub total: i64,
     #[serde(default = "default_cny")]
     pub currency: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RefundResponse {
-    #[serde(flatten)]
-    pub value: Value,
+impl RefundAmount {
+    pub fn validate(&self) -> Result<()> {
+        if self.refund <= 0 || self.total <= 0 || self.refund > self.total {
+            return Err(WechatError::Config(
+                "payment refund amount must be positive and cannot exceed the order total"
+                    .to_string(),
+            ));
+        }
+        validate_payment_currency(&self.currency, "payment refund currency")?;
+        let mut accounts = std::collections::HashSet::with_capacity(self.from.len());
+        let mut total = 0_i64;
+        for source in &self.from {
+            source.validate()?;
+            if !accounts.insert(source.account.as_str()) {
+                return Err(WechatError::Config(
+                    "payment refund funding sources cannot repeat accounts".to_string(),
+                ));
+            }
+            total = total.checked_add(source.amount).ok_or_else(|| {
+                WechatError::Config("payment refund funding amount overflowed".to_string())
+            })?;
+        }
+        if total > self.refund {
+            return Err(WechatError::Config(
+                "payment refund funding sources cannot exceed the requested refund".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundAmountFromRequest {
+    pub account: String,
+    pub amount: i64,
+}
+
+impl RefundAmountFromRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_refund_account(&self.account, "payment refund funding account")?;
+        if self.amount <= 0 {
+            return Err(WechatError::Config(
+                "payment refund funding amount must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefundGoodsDetailRequest {
+    pub merchant_goods_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wechatpay_goods_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goods_name: Option<String>,
+    pub unit_price: i64,
+    pub refund_amount: i64,
+    pub refund_quantity: i64,
+}
+
+impl RefundGoodsDetailRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(
+            &self.merchant_goods_id,
+            "payment refund merchant goods id",
+            32,
+        )?;
+        if let Some(id) = self.wechatpay_goods_id.as_deref() {
+            validate_payment_identifier(id, "payment refund WeChat goods id", 32)?;
+        }
+        validate_payment_optional_text(
+            self.goods_name.as_deref(),
+            "payment refund goods name",
+            256,
+        )?;
+        if self.unit_price <= 0 || self.refund_amount <= 0 || self.refund_quantity <= 0 {
+            return Err(WechatError::Config(
+                "payment refund goods price, amount, and quantity must be positive".to_string(),
+            ));
+        }
+        let maximum_refund = self
+            .unit_price
+            .checked_mul(self.refund_quantity)
+            .ok_or_else(|| {
+                WechatError::Config("payment refund goods value overflowed".to_string())
+            })?;
+        if self.refund_amount > maximum_refund {
+            return Err(WechatError::Config(
+                "payment refund goods amount cannot exceed unit price times quantity".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub type RefundResponse = RefundDetailResponse;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundDetailResponse {
@@ -3929,6 +4164,113 @@ impl RefundDetailResponse {
     pub fn is_success(&self) -> bool {
         self.status_kind().is_success()
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.refund_id, "payment refund id", 32)?;
+        validate_payment_out_refund_no(&self.out_refund_no)?;
+        if let Some(transaction_id) = self.transaction_id.as_deref() {
+            validate_payment_identifier(transaction_id, "payment refund transaction id", 32)?;
+        }
+        if let Some(out_trade_no) = self.out_trade_no.as_deref() {
+            validate_payment_out_trade_no(out_trade_no, "payment refund merchant order number")?;
+        }
+        if self.transaction_id.is_none() && self.out_trade_no.is_none() {
+            return Err(WechatError::Config(
+                "payment refund response requires transaction_id or out_trade_no".to_string(),
+            ));
+        }
+        validate_payment_identifier(&self.channel, "payment refund channel", 32)?;
+        validate_payment_text(
+            &self.user_received_account,
+            "payment refund user received account",
+            256,
+        )?;
+        validate_payment_rfc3339(&self.create_time, "payment refund create time")?;
+        validate_payment_identifier(&self.status, "payment refund status", 32)?;
+        if let Some(success_time) = self.success_time.as_deref() {
+            validate_payment_rfc3339(success_time, "payment refund success time")?;
+        }
+        if self.is_success() && self.success_time.is_none() {
+            return Err(WechatError::Config(
+                "successful payment refund response requires success_time".to_string(),
+            ));
+        }
+        if let Some(account) = self.funds_account.as_deref() {
+            validate_payment_identifier(account, "payment refund response funds account", 32)?;
+        }
+        self.amount.validate()?;
+        let mut promotion_ids =
+            std::collections::HashSet::with_capacity(self.promotion_detail.len());
+        for promotion in &self.promotion_detail {
+            promotion.validate()?;
+            if !promotion_ids.insert(promotion.promotion_id.as_str()) {
+                return Err(WechatError::Config(
+                    "payment refund response cannot repeat promotion ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_out_refund_no(&self, expected_out_refund_no: &str) -> Result<()> {
+        validate_payment_out_refund_no(expected_out_refund_no)?;
+        self.validate()?;
+        if self.out_refund_no != expected_out_refund_no {
+            return Err(WechatError::Config(
+                "payment refund response number does not match the query".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_request(&self, request: &RefundRequest) -> Result<()> {
+        request.validate()?;
+        self.validate_for_out_refund_no(&request.out_refund_no)?;
+        if request
+            .transaction_id
+            .as_deref()
+            .is_some_and(|expected| self.transaction_id.as_deref() != Some(expected))
+        {
+            return Err(WechatError::Config(
+                "payment refund response transaction id does not match the request".to_string(),
+            ));
+        }
+        if request
+            .out_trade_no
+            .as_deref()
+            .is_some_and(|expected| self.out_trade_no.as_deref() != Some(expected))
+        {
+            return Err(WechatError::Config(
+                "payment refund response merchant order number does not match the request"
+                    .to_string(),
+            ));
+        }
+        if self.amount.refund != request.amount.refund
+            || self.amount.total != request.amount.total
+            || !self
+                .amount
+                .currency
+                .eq_ignore_ascii_case(&request.amount.currency)
+        {
+            return Err(WechatError::Config(
+                "payment refund response amount does not match the request".to_string(),
+            ));
+        }
+        if !request.amount.from.is_empty()
+            && (self.amount.from.len() != request.amount.from.len()
+                || request.amount.from.iter().any(|expected| {
+                    !self.amount.from.iter().any(|actual| {
+                        actual.account.eq_ignore_ascii_case(&expected.account)
+                            && actual.amount == expected.amount
+                    })
+                }))
+        {
+            return Err(WechatError::Config(
+                "payment refund response funding sources do not match the request".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3953,12 +4295,90 @@ pub struct RefundDetailAmount {
     pub extra: Value,
 }
 
+impl RefundDetailAmount {
+    pub fn validate(&self) -> Result<()> {
+        if self.refund <= 0 || self.total <= 0 || self.refund > self.total {
+            return Err(WechatError::Config(
+                "payment refund response amount must be positive and not exceed its total"
+                    .to_string(),
+            ));
+        }
+        validate_payment_currency(&self.currency, "payment refund response currency")?;
+        let payer_total = self.payer_total.ok_or_else(|| {
+            WechatError::Config("payment refund response requires payer_total".to_string())
+        })?;
+        let payer_refund = self.payer_refund.ok_or_else(|| {
+            WechatError::Config("payment refund response requires payer_refund".to_string())
+        })?;
+        if payer_total < 0
+            || payer_total > self.total
+            || payer_refund < 0
+            || payer_refund > payer_total
+            || payer_refund > self.refund
+        {
+            return Err(WechatError::Config(
+                "payment refund response payer amounts exceed their totals".to_string(),
+            ));
+        }
+        for (value, field, maximum) in [
+            (self.settlement_refund, "settlement refund", self.refund),
+            (self.settlement_total, "settlement total", self.total),
+            (self.discount_refund, "discount refund", self.refund),
+        ] {
+            if value.is_some_and(|value| value < 0 || value > maximum) {
+                return Err(WechatError::Config(format!(
+                    "payment refund response {field} exceeds its total"
+                )));
+            }
+        }
+        if self
+            .discount_refund
+            .is_some_and(|discount| payer_refund.checked_add(discount) != Some(self.refund))
+        {
+            return Err(WechatError::Config(
+                "payment refund payer and discount refunds do not reconcile".to_string(),
+            ));
+        }
+        let mut accounts = std::collections::HashSet::with_capacity(self.from.len());
+        let mut source_total = 0_i64;
+        for source in &self.from {
+            source.validate()?;
+            if !accounts.insert(source.account.as_str()) {
+                return Err(WechatError::Config(
+                    "payment refund response cannot repeat funding accounts".to_string(),
+                ));
+            }
+            source_total = source_total.checked_add(source.amount).ok_or_else(|| {
+                WechatError::Config("payment refund response funding total overflowed".to_string())
+            })?;
+        }
+        if source_total > self.refund {
+            return Err(WechatError::Config(
+                "payment refund response funding sources cannot exceed the refund".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundAmountFrom {
     pub account: String,
     pub amount: i64,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl RefundAmountFrom {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.account, "payment refund funding account", 32)?;
+        if self.amount <= 0 {
+            return Err(WechatError::Config(
+                "payment refund response funding amount must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3975,6 +4395,29 @@ pub struct RefundPromotionDetail {
     pub extra: Value,
 }
 
+impl RefundPromotionDetail {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.promotion_id, "payment refund promotion id", 32)?;
+        validate_payment_identifier(&self.scope, "payment refund promotion scope", 32)?;
+        validate_payment_identifier(&self.kind, "payment refund promotion type", 32)?;
+        if self.amount < 0 || self.refund_amount < 0 || self.refund_amount > self.amount {
+            return Err(WechatError::Config(
+                "payment refund promotion refund cannot exceed its amount".to_string(),
+            ));
+        }
+        let mut goods_ids = std::collections::HashSet::with_capacity(self.goods_detail.len());
+        for goods in &self.goods_detail {
+            goods.validate()?;
+            if !goods_ids.insert(goods.merchant_goods_id.as_str()) {
+                return Err(WechatError::Config(
+                    "payment refund promotion cannot repeat merchant goods ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundGoodsDetail {
     pub merchant_goods_id: String,
@@ -3987,6 +4430,45 @@ pub struct RefundGoodsDetail {
     pub refund_quantity: i64,
     #[serde(default, flatten)]
     pub extra: Value,
+}
+
+impl RefundGoodsDetail {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(
+            &self.merchant_goods_id,
+            "payment refund response merchant goods id",
+            32,
+        )?;
+        if let Some(id) = self.wechatpay_goods_id.as_deref() {
+            validate_payment_identifier(id, "payment refund response WeChat goods id", 32)?;
+        }
+        validate_payment_optional_text(
+            self.goods_name.as_deref(),
+            "payment refund response goods name",
+            256,
+        )?;
+        if self.unit_price <= 0 || self.refund_amount <= 0 || self.refund_quantity <= 0 {
+            return Err(WechatError::Config(
+                "payment refund response goods values must be positive".to_string(),
+            ));
+        }
+        if self.refund_amount
+            > self
+                .unit_price
+                .checked_mul(self.refund_quantity)
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "payment refund response goods value overflowed".to_string(),
+                    )
+                })?
+        {
+            return Err(WechatError::Config(
+                "payment refund response goods amount exceeds unit price times quantity"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8511,7 +8993,68 @@ impl PaymentRefundNotification {
     }
 
     pub fn effective_mchid(&self) -> Option<&str> {
-        self.sub_mchid.as_deref().or(self.mchid.as_deref())
+        self.sub_mchid
+            .as_deref()
+            .or(self.mchid.as_deref())
+            .or(self.sp_mchid.as_deref())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        for (value, field) in [
+            (
+                self.sp_mchid.as_deref(),
+                "payment refund service-provider merchant id",
+            ),
+            (self.sub_mchid.as_deref(), "payment refund sub-merchant id"),
+            (self.mchid.as_deref(), "payment refund merchant id"),
+        ] {
+            if let Some(value) = value {
+                validate_payment_identifier(value, field, 32)?;
+            }
+        }
+        if self.effective_mchid().is_none() {
+            return Err(WechatError::Config(
+                "payment refund notification requires a merchant id".to_string(),
+            ));
+        }
+        validate_payment_identifier(
+            self.transaction_id.as_deref().unwrap_or_default(),
+            "payment refund notification transaction id",
+            32,
+        )?;
+        validate_payment_out_trade_no(
+            self.out_trade_no.as_deref().unwrap_or_default(),
+            "payment refund notification merchant order number",
+        )?;
+        validate_payment_identifier(
+            self.refund_id.as_deref().unwrap_or_default(),
+            "payment refund notification refund id",
+            32,
+        )?;
+        validate_payment_out_refund_no(self.out_refund_no.as_deref().unwrap_or_default())?;
+        let status = self.refund_status.as_deref().ok_or_else(|| {
+            WechatError::Config("payment refund notification requires refund_status".to_string())
+        })?;
+        validate_payment_identifier(status, "payment refund notification status", 32)?;
+        if let Some(success_time) = self.success_time.as_deref() {
+            validate_payment_rfc3339(success_time, "payment refund notification success time")?;
+        }
+        if self.is_success() && self.success_time.is_none() {
+            return Err(WechatError::Config(
+                "successful payment refund notification requires success_time".to_string(),
+            ));
+        }
+        validate_payment_text(
+            self.user_received_account.as_deref().unwrap_or_default(),
+            "payment refund notification user received account",
+            256,
+        )?;
+        self.amount
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("payment refund notification requires amount".to_string())
+            })?
+            .validate()
     }
 
     pub fn verify_successful_refund(
@@ -8522,6 +9065,7 @@ impl PaymentRefundNotification {
         expected_total: i64,
         expected_refund: i64,
     ) -> Result<()> {
+        self.validate()?;
         if !self.is_success() {
             return Err(WechatError::Config(format!(
                 "payment refund is not successful: {}",
@@ -8560,7 +9104,29 @@ pub struct PaymentRefundNotificationAmount {
 }
 
 impl PaymentRefundNotificationAmount {
+    pub fn validate(&self) -> Result<()> {
+        let total = required_non_negative_payment_amount(self.total, "payment refund total")?;
+        let refund = required_non_negative_payment_amount(self.refund, "payment refund amount")?;
+        let payer_total =
+            required_non_negative_payment_amount(self.payer_total, "payment refund payer total")?;
+        let payer_refund =
+            required_non_negative_payment_amount(self.payer_refund, "payment refund payer refund")?;
+        if total <= 0
+            || refund <= 0
+            || refund > total
+            || payer_total > total
+            || payer_refund > payer_total
+            || payer_refund > refund
+        {
+            return Err(WechatError::Config(
+                "payment refund notification amounts exceed their corresponding totals".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn verify(&self, expected_total: i64, expected_refund: i64) -> Result<()> {
+        self.validate()?;
         if expected_total <= 0 || expected_refund <= 0 || expected_refund > expected_total {
             return Err(WechatError::Config(
                 "expected payment refund amounts must be positive and refund cannot exceed total"
@@ -8670,7 +9236,7 @@ pub struct PaymentTransferBillNotification {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use serde_json::{json, Value};
     use sha1::Digest as _;
 
     use crate::{crypto, WechatError};
@@ -8712,10 +9278,11 @@ mod tests {
         ProfitSharingReceiverRequest, ProfitSharingReturnOrderQuery,
         ProfitSharingReturnOrderRequest, ProfitSharingUnfreezeRequest, QueryRedpackRequest,
         QueryWorkRedpackRequest, RedpackInfoResponse, RedpackResponse, RefundAmount,
-        RefundDetailResponse, RefundRequest, ReverseOrderRequest, SandboxSignKeyResponse,
-        SendCouponRequest, SendCouponResponse, SendGroupRedpackRequest, SendRedpackRequest,
-        TaxCardTemplateInformation, TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard,
-        TransferBatchQuery, TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
+        RefundAmountFromRequest, RefundDetailResponse, RefundGoodsDetailRequest, RefundRequest,
+        ReverseOrderRequest, SandboxSignKeyResponse, SendCouponRequest, SendCouponResponse,
+        SendGroupRedpackRequest, SendRedpackRequest, TaxCardTemplateInformation,
+        TaxCardTemplateRequest, TaxCustomCell, TemporaryFileGuard, TransferBatchQuery,
+        TransferBatchRequest, TransferBillReceiptResponse, TransferDetailInput,
         TransferDetailReceiptQuery, TransferDetailReceiptRequest, TransferDetailReceiptResponse,
         TransferSceneReportInfo, TransferToBalanceRequest, TransferToBalanceResponse,
         UserCouponListRequest, UserCouponListResponse, UserCouponResponse, WorkRedpackRequest,
@@ -9450,6 +10017,8 @@ mod tests {
             "refund_id": "refund-1",
             "out_refund_no": "merchant-refund-1",
             "refund_status": "SUCCESS",
+            "success_time": "2026-07-16T10:00:00+08:00",
+            "user_received_account": "wallet",
             "amount": {
                 "total": 100,
                 "refund": 50,
@@ -9478,6 +10047,8 @@ mod tests {
             "refund_id": "refund-1",
             "out_refund_no": "merchant-refund-1",
             "refund_status": "SUCCESS",
+            "success_time": "2026-07-16T10:00:00+08:00",
+            "user_received_account": "wallet",
             "amount": {
                 "total": 100,
                 "refund": 50,
@@ -9489,7 +10060,7 @@ mod tests {
         let payer_error = invalid_payer_amounts
             .verify_successful_refund("merchant-1", "order-1", "merchant-refund-1", 100, 50)
             .expect_err("payer refund above refund total must fail");
-        assert!(payer_error.to_string().contains("payer amounts"));
+        assert!(payer_error.to_string().contains("amounts exceed"));
     }
 
     #[test]
@@ -11206,26 +11777,45 @@ mod tests {
 
     #[test]
     fn serializes_refund_request() {
-        let value = serde_json::to_value(RefundRequest {
+        let request = RefundRequest {
+            sub_mchid: Some("1900000110".to_string()),
             transaction_id: None,
             out_trade_no: Some("order-1".to_string()),
             out_refund_no: "refund-1".to_string(),
             reason: Some("user requested".to_string()),
             notify_url: Some("https://example.com/pay/refund".to_string()),
+            funds_account: Some("AVAILABLE".to_string()),
             amount: RefundAmount {
                 refund: 50,
+                from: vec![RefundAmountFromRequest {
+                    account: "AVAILABLE".to_string(),
+                    amount: 50,
+                }],
                 total: 100,
                 currency: "CNY".to_string(),
             },
-        })
-        .unwrap();
+            goods_detail: vec![RefundGoodsDetailRequest {
+                merchant_goods_id: "sku-1".to_string(),
+                wechatpay_goods_id: Some("wx-sku-1".to_string()),
+                goods_name: Some("product".to_string()),
+                unit_price: 100,
+                refund_amount: 50,
+                refund_quantity: 1,
+            }],
+            refund_account: Some("REFUND_SOURCE_SUB_MERCHANT".to_string()),
+        };
+        assert!(request.validate().is_ok());
+        let value = serde_json::to_value(request).unwrap();
 
         assert!(value.get("transaction_id").is_none());
+        assert_eq!(value["sub_mchid"], "1900000110");
         assert_eq!(value["out_trade_no"], "order-1");
         assert_eq!(value["out_refund_no"], "refund-1");
         assert_eq!(value["amount"]["refund"], 50);
+        assert_eq!(value["amount"]["from"][0]["account"], "AVAILABLE");
         assert_eq!(value["amount"]["total"], 100);
         assert_eq!(value["amount"]["currency"], "CNY");
+        assert_eq!(value["goods_detail"][0]["merchant_goods_id"], "sku-1");
     }
 
     #[test]
@@ -11306,6 +11896,109 @@ mod tests {
             "retained"
         );
         assert_eq!(response.extra["refund_extra"], "retained");
+        assert!(response.validate().is_ok());
+        assert!(response.validate_for_out_refund_no("refund-1").is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_refund_request_and_response_contracts() {
+        let base_request = || RefundRequest {
+            sub_mchid: None,
+            transaction_id: Some("transaction-1".to_string()),
+            out_trade_no: None,
+            out_refund_no: "refund-1".to_string(),
+            reason: Some("customer request".to_string()),
+            notify_url: Some("https://merchant.example.com/refund/notify".to_string()),
+            funds_account: None,
+            amount: RefundAmount {
+                refund: 50,
+                from: vec![],
+                total: 100,
+                currency: "CNY".to_string(),
+            },
+            goods_detail: vec![],
+            refund_account: None,
+        };
+        let mut invalid = base_request();
+        invalid.out_trade_no = Some("order-1".to_string());
+        assert!(invalid.validate().is_err());
+        invalid = base_request();
+        invalid.amount.refund = 101;
+        assert!(invalid.validate().is_err());
+        invalid = base_request();
+        invalid.out_refund_no = "bad/refund".to_string();
+        assert!(invalid.validate().is_err());
+        invalid = base_request();
+        invalid.notify_url = Some("https://merchant.example.com/notify?tenant=1".to_string());
+        assert!(invalid.validate().is_err());
+        invalid = base_request();
+        invalid.amount.from = vec![
+            RefundAmountFromRequest {
+                account: "AVAILABLE".to_string(),
+                amount: 30,
+            },
+            RefundAmountFromRequest {
+                account: "UNAVAILABLE".to_string(),
+                amount: 30,
+            },
+        ];
+        assert!(invalid.validate().is_err());
+        invalid = base_request();
+        invalid.goods_detail = vec![RefundGoodsDetailRequest {
+            merchant_goods_id: "sku-1".to_string(),
+            wechatpay_goods_id: None,
+            goods_name: None,
+            unit_price: 10,
+            refund_amount: 50,
+            refund_quantity: 1,
+        }];
+        assert!(invalid.validate().is_err());
+
+        let invalid_response = |amount: Value| {
+            serde_json::from_value::<RefundDetailResponse>(json!({
+                "refund_id": "refund-id",
+                "out_refund_no": "refund-1",
+                "transaction_id": "transaction-1",
+                "channel": "ORIGINAL",
+                "user_received_account": "wallet",
+                "success_time": "2026-07-10T10:00:00+08:00",
+                "create_time": "2026-07-10T09:59:00+08:00",
+                "status": "SUCCESS",
+                "amount": amount
+            }))
+            .unwrap()
+        };
+        assert!(invalid_response(json!({
+            "refund": 101,
+            "total": 100,
+            "currency": "CNY",
+            "payer_total": 100,
+            "payer_refund": 101
+        }))
+        .validate()
+        .is_err());
+        assert!(invalid_response(json!({
+            "refund": 50,
+            "total": 100,
+            "currency": "CNY",
+            "payer_total": 100,
+            "payer_refund": 40,
+            "discount_refund": 5
+        }))
+        .validate()
+        .is_err());
+
+        let valid_response = invalid_response(json!({
+            "refund": 50,
+            "total": 100,
+            "currency": "CNY",
+            "payer_total": 100,
+            "payer_refund": 50
+        }));
+        assert!(valid_response.validate_for_request(&base_request()).is_ok());
+        let mut mismatched = base_request();
+        mismatched.out_refund_no = "refund-2".to_string();
+        assert!(valid_response.validate_for_request(&mismatched).is_err());
     }
 
     #[test]

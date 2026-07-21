@@ -68,6 +68,30 @@ Implemented on 2026-07-21 in Payment order-contract depth:
   characters, insecure callbacks, conflicting payer identities, malformed
   combine orders, bad response URLs/statuses, and query identity mismatches.
 
+Implemented on 2026-07-21 in Payment refund-contract depth:
+
+- ordinary create/query, typed create/query, and partner refund-query network
+  exits now share the same typed `RefundDetailResponse`; the previous raw
+  `RefundResponse.value` branch has been removed from production boundaries;
+- refund requests now cover PowerWeChat's sub-merchant, funding-account,
+  per-account contribution, goods-detail, and refund-source fields in addition
+  to transaction/order identity, reason, callback, and amount fields;
+- requests enforce exactly one transaction identity, the documented refund-id
+  character/byte boundary, HTTPS query-free callback URLs, 80-byte reasons,
+  positive bounded amounts, valid currencies/accounts, unique funding sources
+  and goods ids, and reconciled goods refund totals;
+- typed responses validate refund/order identities, RFC3339 create/success
+  times, status/channel/account fields, payer/settlement/discount totals,
+  funding-source upper bounds, unique promotions and goods, and request/query
+  identity plus amount consistency while retaining future extension fields;
+- decrypted refund notifications now require complete merchant, transaction,
+  refund, status, timing, received-account, and payer amount data before
+  successful-refund verification, including service-provider merchant fallback;
+- realistic request/response/notification fixtures and failure matrices cover
+  ambiguous identities, malformed refund numbers, callback queries, excessive
+  funding or goods amounts, payer/discount reconciliation, and response/request
+  identity mismatches.
+
 3. Open Platform authorizer depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
    Release/audit, privacy, domain, tester, and permanent-material workflows
