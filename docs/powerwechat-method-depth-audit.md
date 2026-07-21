@@ -66,6 +66,25 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and
    component/base authorization helpers.
 
+Implemented on 2026-07-21 in Work external-payment contract depth:
+
+- merchant add/query/delete, use-scope mutation, and bill-list retrieval now
+  validate every request and successful response at their network boundaries;
+- corrected PowerWeChat's raw/outdated external-payment shapes to the documented
+  object-based `allow_use_scope` contract and integer merchant/bill status fields,
+  while retaining unknown response fields for forward compatibility;
+- merchant ids, names, binding state, response identity, user/department/tag
+  scopes, duplicate targets, bill time windows, optional payee filtering,
+  pagination cursors, and the 1-to-1000 page-size boundary are enforced;
+- bill records now expose typed commodity, refund, and payer-information DTOs,
+  flexible numeric decoding, aggregate fee helpers, and next-page construction;
+  response validation rejects duplicate transactions/refunds, mismatched payees,
+  out-of-window payments, inconsistent refund totals, malformed nested records,
+  oversized pages, and impossible empty-page cursors;
+- request serialization, realistic merchant/bill fixtures, extension-field
+  retention, numeric-string compatibility, and a dedicated failure matrix run
+  through the same validators used by the production client methods.
+
 Implemented on 2026-07-21 in Work electronic-invoice reimbursement depth:
 
 - Single and batch invoice lookup plus single and batch reimbursement-status

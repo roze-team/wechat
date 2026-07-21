@@ -1228,13 +1228,25 @@ impl Work {
         mch_id: impl Into<String>,
         merchant_name: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        let mch_id = mch_id.into();
+        let merchant_name = merchant_name.into();
+        validate_work_external_pay_identifier("merchant id", &mch_id, 32)?;
+        if !mch_id.chars().all(|character| character.is_ascii_digit()) {
+            return Err(WechatError::Config(
+                "work external-pay merchant id must contain only ASCII digits".to_string(),
+            ));
+        }
+        validate_work_external_pay_identifier("merchant name", &merchant_name, 128)?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalpay/addmerchant",
                 Some(access_token.into()),
-                json!({ "mch_id": mch_id.into(), "merchant_name": merchant_name.into() }),
+                json!({ "mch_id": mch_id, "merchant_name": merchant_name }),
             )
-            .await
+            .await?;
+        response.validate_for("work external-pay add merchant")?;
+        Ok(response)
     }
 
     pub async fn get_external_pay_merchant(
@@ -1242,13 +1254,18 @@ impl Work {
         access_token: impl Into<String>,
         mch_id: impl Into<String>,
     ) -> Result<WorkExternalPayMerchantResponse> {
-        self.inner
+        let mch_id = mch_id.into();
+        validate_work_external_pay_merchant_id(&mch_id)?;
+        let response: WorkExternalPayMerchantResponse = self
+            .inner
             .post(
                 "cgi-bin/externalpay/getmerchant",
                 Some(access_token.into()),
-                json!({ "mch_id": mch_id.into() }),
+                json!({ "mch_id": mch_id }),
             )
-            .await
+            .await?;
+        response.validate_for(&mch_id)?;
+        Ok(response)
     }
 
     pub async fn delete_external_pay_merchant(
@@ -1256,13 +1273,18 @@ impl Work {
         access_token: impl Into<String>,
         mch_id: impl Into<String>,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        let mch_id = mch_id.into();
+        validate_work_external_pay_merchant_id(&mch_id)?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalpay/delmerchant",
                 Some(access_token.into()),
-                json!({ "mch_id": mch_id.into() }),
+                json!({ "mch_id": mch_id }),
             )
-            .await
+            .await?;
+        response.validate_for("work external-pay delete merchant")?;
+        Ok(response)
     }
 
     pub async fn set_external_pay_merchant_use_scope(
@@ -1270,13 +1292,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkExternalPaySetMerchantUseScopeRequest,
     ) -> Result<WorkStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/externalpay/set_mch_use_scope",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("work external-pay set merchant use scope")?;
+        Ok(response)
     }
 
     pub async fn get_external_pay_bill_list(
@@ -1284,13 +1310,17 @@ impl Work {
         access_token: impl Into<String>,
         request: WorkExternalPayBillListRequest,
     ) -> Result<WorkExternalPayBillListResponse> {
-        self.inner
+        request.validate()?;
+        let response: WorkExternalPayBillListResponse = self
+            .inner
             .post(
                 "cgi-bin/externalpay/get_bill_list",
                 Some(access_token.into()),
-                request,
+                request.clone(),
             )
-            .await
+            .await?;
+        response.validate_for(&request)?;
+        Ok(response)
     }
 
     pub fn external_contact(&self) -> DomainModule {
@@ -10848,15 +10878,20 @@ fn validate_work_invoice_http_url(label: &str, value: &str) -> Result<()> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalPaySetMerchantUseScopeRequest {
     pub mch_id: String,
-    pub allow_use_scope: String,
+    pub allow_use_scope: WorkExternalPayUseScope,
 }
 
 impl WorkExternalPaySetMerchantUseScopeRequest {
-    pub fn new(mch_id: impl Into<String>, allow_use_scope: WorkExternalPayUseScopeKind) -> Self {
+    pub fn new(mch_id: impl Into<String>, allow_use_scope: WorkExternalPayUseScope) -> Self {
         Self {
             mch_id: mch_id.into(),
-            allow_use_scope: allow_use_scope.as_code().to_string(),
+            allow_use_scope,
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_external_pay_merchant_id(&self.mch_id)?;
+        self.allow_use_scope.validate()
     }
 }
 
@@ -10864,10 +10899,56 @@ impl WorkExternalPaySetMerchantUseScopeRequest {
 pub struct WorkExternalPayBillListRequest {
     pub begin_time: i64,
     pub end_time: i64,
-    pub payee_userid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payee_userid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub limit: i64,
+}
+
+impl WorkExternalPayBillListRequest {
+    pub fn new(begin_time: i64, end_time: i64) -> Self {
+        Self {
+            begin_time,
+            end_time,
+            payee_userid: None,
+            cursor: None,
+            limit: 100,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.begin_time <= 0
+            || self.end_time <= 0
+            || self.end_time < self.begin_time
+            || self.end_time - self.begin_time > 31 * 24 * 60 * 60
+        {
+            return Err(WechatError::Config(
+                "work external-pay bill period must be positive, ordered, and no longer than 31 days"
+                    .to_string(),
+            ));
+        }
+        if let Some(payee_userid) = self.payee_userid.as_deref() {
+            validate_work_external_pay_identifier("payee user id", payee_userid, 128)?;
+        }
+        if let Some(cursor) = self.cursor.as_deref() {
+            validate_work_external_pay_identifier("bill cursor", cursor, 1_024)?;
+        }
+        if !(1..=1_000).contains(&self.limit) {
+            return Err(WechatError::Config(
+                "work external-pay bill limit must be between 1 and 1000".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn next_page(&self, response: &WorkExternalPayBillListResponse) -> Result<Option<Self>> {
+        response.validate_for(self)?;
+        Ok(response.next_cursor.as_ref().map(|cursor| Self {
+            cursor: Some(cursor.clone()),
+            ..self.clone()
+        }))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10876,80 +10957,97 @@ pub struct WorkExternalPayMerchantResponse {
     pub errcode: Option<i64>,
     #[serde(default)]
     pub errmsg: Option<String>,
-    #[serde(default)]
-    pub bind_status: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub bind_status: Option<i64>,
     #[serde(default)]
     pub mch_id: Option<String>,
     #[serde(default)]
     pub merchant_name: Option<String>,
     #[serde(default)]
-    pub allow_use_scope: Vec<WorkExternalPayUseScope>,
+    pub allow_use_scope: Option<WorkExternalPayUseScope>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
+impl WorkExternalPayMerchantResponse {
+    pub fn validate_for(&self, requested_mch_id: &str) -> Result<()> {
+        validate_work_response_success(
+            "work external-pay get merchant",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_work_external_pay_merchant_id(requested_mch_id)?;
+        let mch_id = self.mch_id.as_deref().ok_or_else(|| {
+            WechatError::Config("work external-pay merchant response requires mch_id".to_string())
+        })?;
+        validate_work_external_pay_merchant_id(mch_id)?;
+        if mch_id != requested_mch_id {
+            return Err(WechatError::Config(
+                "work external-pay merchant response id does not match the request".to_string(),
+            ));
+        }
+        validate_work_external_pay_identifier(
+            "merchant name",
+            self.merchant_name.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "work external-pay merchant response requires merchant_name".to_string(),
+                )
+            })?,
+            128,
+        )?;
+        if self.bind_status.is_none_or(|status| status < 0) {
+            return Err(WechatError::Config(
+                "work external-pay merchant response requires a non-negative bind_status"
+                    .to_string(),
+            ));
+        }
+        self.allow_use_scope
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "work external-pay merchant response requires allow_use_scope".to_string(),
+                )
+            })?
+            .validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalPayUseScope {
-    #[serde(default, rename = "type")]
-    pub scope_type: Option<String>,
-    #[serde(default)]
-    pub userid: Option<String>,
-    #[serde(default)]
-    pub partyid: Option<i64>,
-    #[serde(default)]
-    pub tagid: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub partyid: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tagid: Vec<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 impl WorkExternalPayUseScope {
-    pub fn scope_kind(&self) -> Option<WorkExternalPayUseScopeKind> {
-        self.scope_type
-            .as_deref()
-            .map(WorkExternalPayUseScopeKind::from_code)
-    }
-
-    pub fn applies_to_all(&self) -> bool {
-        self.scope_kind()
-            .is_some_and(|kind| matches!(kind, WorkExternalPayUseScopeKind::All))
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkExternalPayUseScopeKind {
-    All,
-    User,
-    Party,
-    Tag,
-    Other,
-}
-
-impl WorkExternalPayUseScopeKind {
-    pub fn from_code(value: &str) -> Self {
-        if value.eq_ignore_ascii_case("all") {
-            Self::All
-        } else if value.eq_ignore_ascii_case("userid") || value.eq_ignore_ascii_case("user") {
-            Self::User
-        } else if value.eq_ignore_ascii_case("partyid")
-            || value.eq_ignore_ascii_case("party")
-            || value.eq_ignore_ascii_case("department")
-        {
-            Self::Party
-        } else if value.eq_ignore_ascii_case("tagid") || value.eq_ignore_ascii_case("tag") {
-            Self::Tag
-        } else {
-            Self::Other
+    pub fn new(user: Vec<String>, partyid: Vec<i64>, tagid: Vec<i64>) -> Self {
+        Self {
+            user,
+            partyid,
+            tagid,
+            extra: Value::Null,
         }
     }
 
-    pub fn as_code(self) -> &'static str {
-        match self {
-            Self::All => "all",
-            Self::User => "userid",
-            Self::Party => "partyid",
-            Self::Tag => "tagid",
-            Self::Other => "unknown",
+    pub fn validate(&self) -> Result<()> {
+        if self.user.is_empty() && self.partyid.is_empty() && self.tagid.is_empty() {
+            return Err(WechatError::Config(
+                "work external-pay use scope requires at least one user, department, or tag"
+                    .to_string(),
+            ));
         }
+        validate_work_external_pay_string_set("scope user", &self.user, 1_000, 128)?;
+        validate_work_external_pay_positive_set("scope department", &self.partyid, 1_000)?;
+        validate_work_external_pay_positive_set("scope tag", &self.tagid, 1_000)
+    }
+
+    pub fn contains_user(&self, userid: &str) -> bool {
+        self.user.iter().any(|candidate| candidate == userid)
     }
 }
 
@@ -10967,6 +11065,59 @@ pub struct WorkExternalPayBillListResponse {
     pub extra: Value,
 }
 
+impl WorkExternalPayBillListResponse {
+    pub fn validate_for(&self, request: &WorkExternalPayBillListRequest) -> Result<()> {
+        validate_work_response_success(
+            "work external-pay get bill list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        request.validate()?;
+        if self.bill_list.len() > request.limit as usize {
+            return Err(WechatError::Config(
+                "work external-pay bill response exceeds the requested limit".to_string(),
+            ));
+        }
+        if let Some(cursor) = self.next_cursor.as_deref() {
+            validate_work_external_pay_identifier("next bill cursor", cursor, 1_024)?;
+        }
+        if self.bill_list.is_empty() && self.next_cursor.is_some() {
+            return Err(WechatError::Config(
+                "work external-pay empty bill response cannot carry a next cursor".to_string(),
+            ));
+        }
+        let mut transaction_ids = HashSet::with_capacity(self.bill_list.len());
+        for bill in &self.bill_list {
+            bill.validate_for(request)?;
+            let transaction_id = bill
+                .transaction_id
+                .as_deref()
+                .expect("validated transaction id");
+            if !transaction_ids.insert(transaction_id) {
+                return Err(WechatError::Config(
+                    "work external-pay bill response contains duplicate transaction ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn has_more(&self) -> bool {
+        self.next_cursor.is_some()
+    }
+
+    pub fn total_fee(&self) -> Result<i64> {
+        self.bill_list.iter().try_fold(0_i64, |total, bill| {
+            total
+                .checked_add(bill.total_fee.unwrap_or_default())
+                .ok_or_else(|| {
+                    WechatError::Config("work external-pay bill total fee overflowed".to_string())
+                })
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkExternalPayBill {
     #[serde(default)]
@@ -10976,88 +11127,309 @@ pub struct WorkExternalPayBill {
     #[serde(default)]
     pub mch_id: Option<String>,
     #[serde(default)]
-    pub merchant_name: Option<String>,
-    #[serde(default)]
     pub payee_userid: Option<String>,
     #[serde(default)]
-    pub payer_userid: Option<String>,
+    pub external_userid: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub total_fee: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub trade_state: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub payment_type: Option<i64>,
     #[serde(default)]
-    pub amount: Option<i64>,
+    pub remark: Option<String>,
     #[serde(default)]
-    pub status: Option<String>,
+    pub commodity_list: Vec<WorkExternalPayCommodity>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub total_refund_fee: Option<i64>,
     #[serde(default)]
-    pub trade_state: Option<String>,
+    pub refund_list: Vec<WorkExternalPayRefund>,
     #[serde(default)]
-    pub description: Option<String>,
-    #[serde(default)]
+    pub payer_info: Option<WorkExternalPayPayerInfo>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
     pub pay_time: Option<i64>,
-    #[serde(default)]
-    pub create_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
 impl WorkExternalPayBill {
-    pub fn status_kind(&self) -> Option<WorkExternalPayBillStatusKind> {
-        self.status
+    pub fn validate_for(&self, request: &WorkExternalPayBillListRequest) -> Result<()> {
+        validate_work_external_pay_required_text(
+            "transaction id",
+            self.transaction_id.as_deref(),
+            128,
+        )?;
+        validate_work_external_pay_required_text(
+            "merchant order number",
+            self.out_trade_no.as_deref(),
+            128,
+        )?;
+        validate_work_external_pay_required_text("merchant id", self.mch_id.as_deref(), 32)?;
+        validate_work_external_pay_required_text(
+            "payee user id",
+            self.payee_userid.as_deref(),
+            128,
+        )?;
+        validate_work_external_pay_required_text(
+            "external user id",
+            self.external_userid.as_deref(),
+            128,
+        )?;
+        if request
+            .payee_userid
             .as_deref()
-            .or(self.trade_state.as_deref())
-            .map(WorkExternalPayBillStatusKind::from_code)
+            .is_some_and(|userid| self.payee_userid.as_deref() != Some(userid))
+        {
+            return Err(WechatError::Config(
+                "work external-pay bill payee does not match the request".to_string(),
+            ));
+        }
+        let pay_time = self.pay_time.ok_or_else(|| {
+            WechatError::Config("work external-pay bill requires pay_time".to_string())
+        })?;
+        if pay_time < request.begin_time || pay_time > request.end_time {
+            return Err(WechatError::Config(
+                "work external-pay bill pay_time is outside the requested period".to_string(),
+            ));
+        }
+        if self.trade_state.is_none_or(|state| state < 0)
+            || self.payment_type.is_none_or(|kind| kind < 0)
+        {
+            return Err(WechatError::Config(
+                "work external-pay bill requires non-negative trade_state and payment_type"
+                    .to_string(),
+            ));
+        }
+        let total_fee = self.total_fee.ok_or_else(|| {
+            WechatError::Config("work external-pay bill requires total_fee".to_string())
+        })?;
+        let total_refund_fee = self.total_refund_fee.unwrap_or_default();
+        if total_fee < 0 || total_refund_fee < 0 || total_refund_fee > total_fee {
+            return Err(WechatError::Config(
+                "work external-pay bill refund total must be within the paid total".to_string(),
+            ));
+        }
+        validate_work_external_pay_optional_text("remark", self.remark.as_deref(), 2_048)?;
+        for commodity in &self.commodity_list {
+            commodity.validate()?;
+        }
+        let mut refund_ids = HashSet::with_capacity(self.refund_list.len());
+        let mut refund_sum = 0_i64;
+        for refund in &self.refund_list {
+            refund.validate()?;
+            let refund_id = refund
+                .out_refund_no
+                .as_deref()
+                .expect("validated refund id");
+            if !refund_ids.insert(refund_id) {
+                return Err(WechatError::Config(
+                    "work external-pay bill contains duplicate refund order numbers".to_string(),
+                ));
+            }
+            refund_sum = refund_sum
+                .checked_add(refund.refund_fee.unwrap_or_default())
+                .ok_or_else(|| {
+                    WechatError::Config("work external-pay refund total overflowed".to_string())
+                })?;
+        }
+        if refund_sum != total_refund_fee {
+            return Err(WechatError::Config(
+                "work external-pay refund items do not match total_refund_fee".to_string(),
+            ));
+        }
+        if let Some(payer_info) = &self.payer_info {
+            payer_info.validate()?;
+        }
+        Ok(())
     }
 
-    pub fn is_success(&self) -> bool {
-        self.status_kind()
-            .is_some_and(|kind| matches!(kind, WorkExternalPayBillStatusKind::Success))
-    }
-
-    pub fn is_terminal(&self) -> bool {
-        self.status_kind()
-            .is_some_and(WorkExternalPayBillStatusKind::is_terminal)
+    pub fn has_refunds(&self) -> bool {
+        self.total_refund_fee.is_some_and(|fee| fee > 0)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkExternalPayBillStatusKind {
-    Success,
-    Refund,
-    NotPay,
-    Closed,
-    Revoked,
-    UserPaying,
-    PayError,
-    Other,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayCommodity {
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub amount: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
 }
 
-impl WorkExternalPayBillStatusKind {
-    pub fn from_code(value: &str) -> Self {
-        if value.eq_ignore_ascii_case("success") {
-            Self::Success
-        } else if value.eq_ignore_ascii_case("refund") {
-            Self::Refund
-        } else if value.eq_ignore_ascii_case("notpay") || value.eq_ignore_ascii_case("not_pay") {
-            Self::NotPay
-        } else if value.eq_ignore_ascii_case("closed") {
-            Self::Closed
-        } else if value.eq_ignore_ascii_case("revoked") {
-            Self::Revoked
-        } else if value.eq_ignore_ascii_case("userpaying")
-            || value.eq_ignore_ascii_case("user_paying")
+impl WorkExternalPayCommodity {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_external_pay_required_text(
+            "commodity description",
+            self.description.as_deref(),
+            512,
+        )?;
+        if self.amount.is_none_or(|amount| amount <= 0) {
+            return Err(WechatError::Config(
+                "work external-pay commodity amount must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayRefund {
+    #[serde(default)]
+    pub out_refund_no: Option<String>,
+    #[serde(default)]
+    pub refund_userid: Option<String>,
+    #[serde(default)]
+    pub refund_comment: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub refund_reqtime: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub refund_status: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_work_optional_i64")]
+    pub refund_fee: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkExternalPayRefund {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_external_pay_required_text(
+            "refund order number",
+            self.out_refund_no.as_deref(),
+            128,
+        )?;
+        validate_work_external_pay_required_text(
+            "refund user id",
+            self.refund_userid.as_deref(),
+            128,
+        )?;
+        validate_work_external_pay_optional_text(
+            "refund comment",
+            self.refund_comment.as_deref(),
+            2_048,
+        )?;
+        if self.refund_reqtime.is_none_or(|time| time <= 0)
+            || self.refund_status.is_none_or(|status| status < 0)
+            || self.refund_fee.is_none_or(|fee| fee <= 0)
         {
-            Self::UserPaying
-        } else if value.eq_ignore_ascii_case("payerror") || value.eq_ignore_ascii_case("pay_error")
-        {
-            Self::PayError
-        } else {
-            Self::Other
+            return Err(WechatError::Config(
+                "work external-pay refund requires positive time/fee and non-negative status"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkExternalPayPayerInfo {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl WorkExternalPayPayerInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_external_pay_required_text("payer name", self.name.as_deref(), 256)?;
+        validate_work_external_pay_required_text("payer phone", self.phone.as_deref(), 64)?;
+        validate_work_external_pay_required_text("payer address", self.address.as_deref(), 1_024)
+    }
+}
+
+fn validate_work_external_pay_merchant_id(value: &str) -> Result<()> {
+    validate_work_external_pay_identifier("merchant id", value, 32)?;
+    if !value.chars().all(|character| character.is_ascii_digit()) {
+        return Err(WechatError::Config(
+            "work external-pay merchant id must contain only ASCII digits".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_external_pay_identifier(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let length = value.chars().count();
+    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work external-pay {label} must contain between 1 and {maximum} characters without control characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_external_pay_required_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    validate_work_external_pay_identifier(
+        label,
+        value.ok_or_else(|| {
+            WechatError::Config(format!("work external-pay response requires {label}"))
+        })?,
+        maximum,
+    )
+}
+
+fn validate_work_external_pay_optional_text(
+    label: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    if let Some(value) = value {
+        validate_work_external_pay_identifier(label, value, maximum)?;
+    }
+    Ok(())
+}
+
+fn validate_work_external_pay_string_set(
+    label: &str,
+    values: &[String],
+    maximum_count: usize,
+    maximum_length: usize,
+) -> Result<()> {
+    if values.len() > maximum_count {
+        return Err(WechatError::Config(format!(
+            "work external-pay {label} count cannot exceed {maximum_count}"
+        )));
+    }
+    let mut unique = HashSet::with_capacity(values.len());
+    for value in values {
+        validate_work_external_pay_identifier(label, value, maximum_length)?;
+        if !unique.insert(value.as_str()) {
+            return Err(WechatError::Config(format!(
+                "work external-pay {label} list cannot contain duplicates"
+            )));
         }
     }
+    Ok(())
+}
 
-    pub fn is_terminal(self) -> bool {
-        matches!(
-            self,
-            Self::Success | Self::Refund | Self::Closed | Self::Revoked | Self::PayError
-        )
+fn validate_work_external_pay_positive_set(
+    label: &str,
+    values: &[i64],
+    maximum_count: usize,
+) -> Result<()> {
+    if values.len() > maximum_count {
+        return Err(WechatError::Config(format!(
+            "work external-pay {label} count cannot exceed {maximum_count}"
+        )));
     }
+    let mut unique = HashSet::with_capacity(values.len());
+    if values
+        .iter()
+        .any(|value| *value <= 0 || !unique.insert(*value))
+    {
+        return Err(WechatError::Config(format!(
+            "work external-pay {label} list requires unique positive ids"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57952,100 +58324,214 @@ mod tests {
 
     #[test]
     fn serializes_external_pay_requests() {
-        let scope = serde_json::to_value(WorkExternalPaySetMerchantUseScopeRequest {
-            mch_id: "1900000109".to_string(),
-            allow_use_scope: "all".to_string(),
-        })
-        .unwrap();
-        assert_eq!(scope["mch_id"], "1900000109");
-        assert_eq!(scope["allow_use_scope"], "all");
-        let typed_scope = serde_json::to_value(WorkExternalPaySetMerchantUseScopeRequest::new(
+        let request = WorkExternalPaySetMerchantUseScopeRequest::new(
             "1900000109",
-            WorkExternalPayUseScopeKind::Party,
-        ))
-        .unwrap();
-        assert_eq!(typed_scope["allow_use_scope"], "partyid");
+            WorkExternalPayUseScope::new(
+                vec!["user-a".to_string(), "user-b".to_string()],
+                vec![1],
+                vec![2, 3],
+            ),
+        );
+        assert!(request.validate().is_ok());
+        let scope = serde_json::to_value(request).unwrap();
+        assert_eq!(scope["mch_id"], "1900000109");
+        assert_eq!(scope["allow_use_scope"]["user"][0], "user-a");
+        assert_eq!(scope["allow_use_scope"]["partyid"][0], 1);
+        assert_eq!(scope["allow_use_scope"]["tagid"][1], 3);
 
-        let bill = serde_json::to_value(WorkExternalPayBillListRequest {
+        let request = WorkExternalPayBillListRequest {
             begin_time: 1_800_000_000,
             end_time: 1_800_086_400,
-            payee_userid: "user".to_string(),
+            payee_userid: Some("user".to_string()),
             cursor: None,
             limit: 100,
-        })
-        .unwrap();
+        };
+        assert!(request.validate().is_ok());
+        let bill = serde_json::to_value(request).unwrap();
         assert_eq!(bill["payee_userid"], "user");
         assert_eq!(bill["limit"], 100);
         assert!(bill.get("cursor").is_none());
+
+        let all_payees = serde_json::to_value(WorkExternalPayBillListRequest::new(
+            1_800_000_000,
+            1_800_086_400,
+        ))
+        .unwrap();
+        assert!(all_payees.get("payee_userid").is_none());
     }
 
     #[test]
-    fn deserializes_external_pay_responses() {
+    fn validates_external_pay_responses() {
         let merchant: WorkExternalPayMerchantResponse = serde_json::from_value(json!({
-            "bind_status": "bind",
+            "errcode": 0,
+            "bind_status": 0,
             "mch_id": "1900000109",
             "merchant_name": "Roze Shop",
-            "allow_use_scope": [{ "type": "all", "scope_name": "all staff" }],
+            "allow_use_scope": {
+                "user": ["payee"],
+                "partyid": [1],
+                "tagid": [2],
+                "scope_name": "sales"
+            },
             "merchant_status": "active"
         }))
         .unwrap();
+        assert!(merchant.validate_for("1900000109").is_ok());
         assert_eq!(merchant.mch_id.as_deref(), Some("1900000109"));
-        assert_eq!(
-            merchant.allow_use_scope[0].scope_type.as_deref(),
-            Some("all")
-        );
-        assert_eq!(
-            merchant.allow_use_scope[0].scope_kind(),
-            Some(WorkExternalPayUseScopeKind::All)
-        );
-        assert!(merchant.allow_use_scope[0].applies_to_all());
-        assert_eq!(
-            WorkExternalPayUseScopeKind::from_code("department"),
-            WorkExternalPayUseScopeKind::Party
-        );
-        assert_eq!(
-            WorkExternalPayUseScopeKind::from_code("unknown"),
-            WorkExternalPayUseScopeKind::Other
-        );
+        let scope = merchant.allow_use_scope.as_ref().unwrap();
+        assert!(scope.contains_user("payee"));
         assert_eq!(merchant.extra["merchant_status"], "active");
-        assert_eq!(merchant.allow_use_scope[0].extra["scope_name"], "all staff");
+        assert_eq!(scope.extra["scope_name"], "sales");
 
+        let request = WorkExternalPayBillListRequest {
+            begin_time: 1_800_000_000,
+            end_time: 1_800_086_400,
+            payee_userid: Some("payee".to_string()),
+            cursor: None,
+            limit: 100,
+        };
         let bills: WorkExternalPayBillListResponse = serde_json::from_value(json!({
+            "errcode": 0,
             "next_cursor": "cursor",
             "total_count": 1,
             "bill_list": [{
                 "out_trade_no": "trade-no",
                 "transaction_id": "transaction",
+                "mch_id": "1900000109",
                 "payee_userid": "payee",
-                "payer_userid": "payer",
-                "amount": 100,
-                "status": "success",
+                "external_userid": "external-user",
+                "total_fee": "100",
+                "trade_state": 1,
+                "payment_type": 1,
+                "remark": "order remark",
                 "pay_time": 1_800_000_000,
-                "trade_type": "JSAPI"
+                "commodity_list": [{ "description": "phone", "amount": 1 }],
+                "total_refund_fee": 20,
+                "refund_list": [{
+                    "out_refund_no": "refund-no",
+                    "refund_userid": "operator",
+                    "refund_comment": "partial refund",
+                    "refund_reqtime": 1_800_000_001,
+                    "refund_status": 1,
+                    "refund_fee": 20
+                }],
+                "payer_info": {
+                    "name": "Customer",
+                    "phone": "13800000000",
+                    "address": "Shenzhen"
+                },
+                "future_field": "future"
             }]
         }))
         .unwrap();
+        assert!(bills.validate_for(&request).is_ok());
+        assert!(bills.has_more());
+        assert_eq!(bills.total_fee().unwrap(), 100);
+        let next = request.next_page(&bills).unwrap().unwrap();
+        assert_eq!(next.cursor.as_deref(), Some("cursor"));
         assert_eq!(bills.next_cursor.as_deref(), Some("cursor"));
         assert_eq!(bills.extra["total_count"], 1);
         assert_eq!(bills.bill_list[0].out_trade_no.as_deref(), Some("trade-no"));
-        assert_eq!(bills.bill_list[0].amount, Some(100));
+        assert_eq!(bills.bill_list[0].total_fee, Some(100));
         assert_eq!(bills.bill_list[0].payee_userid.as_deref(), Some("payee"));
-        assert_eq!(
-            bills.bill_list[0].status_kind(),
-            Some(WorkExternalPayBillStatusKind::Success)
+        assert!(bills.bill_list[0].has_refunds());
+        assert_eq!(bills.bill_list[0].extra["future_field"], "future");
+    }
+
+    #[test]
+    fn rejects_invalid_external_pay_contracts() {
+        let empty_scope = WorkExternalPaySetMerchantUseScopeRequest::new(
+            "1900000109",
+            WorkExternalPayUseScope::new(vec![], vec![], vec![]),
         );
-        assert!(bills.bill_list[0].is_success());
-        assert!(bills.bill_list[0].is_terminal());
-        assert_eq!(
-            WorkExternalPayBillStatusKind::from_code("USER_PAYING"),
-            WorkExternalPayBillStatusKind::UserPaying
+        assert!(empty_scope.validate().is_err());
+        let duplicate_scope = WorkExternalPaySetMerchantUseScopeRequest::new(
+            "1900000109",
+            WorkExternalPayUseScope::new(
+                vec!["user".to_string(), "user".to_string()],
+                vec![],
+                vec![],
+            ),
         );
-        assert!(!WorkExternalPayBillStatusKind::UserPaying.is_terminal());
-        assert_eq!(
-            WorkExternalPayBillStatusKind::from_code("SOMETHING_NEW"),
-            WorkExternalPayBillStatusKind::Other
+        assert!(duplicate_scope.validate().is_err());
+
+        let mut invalid_period = WorkExternalPayBillListRequest::new(1, 32 * 24 * 60 * 60 + 1);
+        assert!(invalid_period.validate().is_err());
+        invalid_period = WorkExternalPayBillListRequest::new(1, 2);
+        invalid_period.limit = 1_001;
+        assert!(invalid_period.validate().is_err());
+
+        let merchant: WorkExternalPayMerchantResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "bind_status": 0,
+            "mch_id": "1900000109",
+            "merchant_name": "Roze Shop",
+            "allow_use_scope": { "user": ["payee"] }
+        }))
+        .unwrap();
+        assert!(merchant.validate_for("1900000110").is_err());
+
+        let request = WorkExternalPayBillListRequest {
+            begin_time: 1_800_000_000,
+            end_time: 1_800_086_400,
+            payee_userid: Some("payee".to_string()),
+            cursor: None,
+            limit: 10,
+        };
+        let invalid_bill = |overrides: Value| {
+            let mut bill = json!({
+                "transaction_id": "transaction",
+                "out_trade_no": "trade-no",
+                "mch_id": "1900000109",
+                "external_userid": "external",
+                "payee_userid": "payee",
+                "total_fee": 100,
+                "trade_state": 1,
+                "payment_type": 1,
+                "pay_time": 1_800_000_001,
+                "total_refund_fee": 0,
+                "refund_list": []
+            });
+            if let (Some(target), Some(source)) = (bill.as_object_mut(), overrides.as_object()) {
+                target.extend(source.clone());
+            }
+            serde_json::from_value::<WorkExternalPayBillListResponse>(json!({
+                "errcode": 0,
+                "bill_list": [bill]
+            }))
+            .unwrap()
+        };
+        assert!(invalid_bill(json!({ "payee_userid": "other" }))
+            .validate_for(&request)
+            .is_err());
+        assert!(invalid_bill(json!({ "pay_time": 1_700_000_000 }))
+            .validate_for(&request)
+            .is_err());
+        assert!(
+            invalid_bill(json!({ "total_fee": 10, "total_refund_fee": 11 }))
+                .validate_for(&request)
+                .is_err()
         );
-        assert_eq!(bills.bill_list[0].extra["trade_type"], "JSAPI");
+        assert!(invalid_bill(json!({
+            "total_refund_fee": 20,
+            "refund_list": [{
+                "out_refund_no": "refund",
+                "refund_userid": "operator",
+                "refund_reqtime": 1_800_000_002,
+                "refund_status": 1,
+                "refund_fee": 10
+            }]
+        }))
+        .validate_for(&request)
+        .is_err());
+
+        let empty_with_cursor: WorkExternalPayBillListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "next_cursor": "cursor",
+            "bill_list": []
+        }))
+        .unwrap();
+        assert!(empty_with_cursor.validate_for(&request).is_err());
     }
 
     #[test]
