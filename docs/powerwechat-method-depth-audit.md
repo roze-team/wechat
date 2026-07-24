@@ -119,8 +119,38 @@ Implemented on 2026-07-21 in Payment refund-contract depth:
 3. Open Platform authorizer depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
    Release/audit, privacy, domain, tester, and permanent-material workflows
-   now have production response guards. Continue aggregate account and
-   authorizer Official Account workflow depth.
+   now have production response guards. Aggregate-account and authorizer
+   Official Account workflow depth is also covered; continue reviewing newly
+   added upstream methods and semantic DTO helpers.
+
+Implemented on 2026-07-24 in Open Platform authorizer account depth:
+
+- Open Platform now exposes the complete typed Official Account facade for an
+  authorizer access token, so menu, user, tag, customer-service, material,
+  card, publish, and related Official Account modules do not need duplicate
+  authorizer wrappers;
+- Official Account fast registration now validates appids and the HTTPS
+  callback URL before generating the authorization URL, and the ticket
+  exchange returns a typed appid, authorization-code, verification, and link
+  result instead of a status-only response;
+- authorizer account information retains nickname, registration country,
+  nickname audit, credential, and customer-type fields; verification,
+  signature, avatar, nickname, crop, URL, quota, and API-error contracts are
+  validated before application code receives the response;
+- aggregate-account create, bind, unbind, and query workflows validate source
+  and target appids, typed open-appid results, and mutation status responses at
+  the network boundary;
+- mini-program code-to-session and privacy-interface responses now require
+  usable identities and payloads while retaining unknown upstream fields;
+- shared Official Account/Open Platform permanent-material upload, article
+  image, news, update, delete, get, list, and statistics responses now enforce
+  media identifiers, absolute HTTP(S) URLs, API success, content structure,
+  count consistency, unique ids, and nonnegative totals;
+- focused success fixtures execute the same validators as production methods,
+  while failure matrices cover malformed callbacks, invalid crops and quotas,
+  incomplete registration/session/open-account responses, API errors, missing
+  material identities, unsafe URLs, inconsistent page counts, and negative
+  statistics.
 
 4. Mini Program depth:
    exact endpoint coverage is now green after filtering scanner-only

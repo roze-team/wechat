@@ -960,14 +960,17 @@ impl OfficialAccount {
             "media",
             reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/material/add_material",
                 Some(access_token.into()),
                 vec![("type".to_string(), kind.as_code().to_string())],
                 form,
             )
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn upload_image_material_from_bytes(
@@ -1026,14 +1029,17 @@ impl OfficialAccount {
             )
             .text("description", description.clone())
             .text("Description", description);
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/material/add_material",
                 Some(access_token.into()),
                 vec![("type".to_string(), "video".to_string())],
                 form,
             )
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn upload_article_image_from_bytes(
@@ -1048,14 +1054,17 @@ impl OfficialAccount {
             "media",
             reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/media/uploadimg",
                 Some(access_token.into()),
                 Vec::new(),
                 form,
             )
-            .await
+            .await?;
+        response.require_url()?;
+        Ok(response)
     }
 
     pub async fn add_news_material(
@@ -1064,13 +1073,16 @@ impl OfficialAccount {
         articles: Vec<Article>,
     ) -> Result<MaterialMediaResponse> {
         validate_material_articles(&articles)?;
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post(
                 "cgi-bin/material/add_news",
                 Some(access_token.into()),
                 json!({ "articles": articles }),
             )
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn update_news_material(
@@ -1088,7 +1100,8 @@ impl OfficialAccount {
             ));
         }
         article.validate()?;
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/material/update_news",
                 Some(access_token.into()),
@@ -1098,7 +1111,9 @@ impl OfficialAccount {
                     "articles": article,
                 }),
             )
-            .await
+            .await?;
+        response.validate_for("official account update news material")?;
+        Ok(response)
     }
 
     pub async fn get_material(
@@ -1108,13 +1123,16 @@ impl OfficialAccount {
     ) -> Result<MaterialGetResponse> {
         let media_id = media_id.into();
         validate_material_required("media id", &media_id)?;
-        self.inner
+        let response: MaterialGetResponse = self
+            .inner
             .post(
                 "cgi-bin/material/get_material",
                 Some(access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_material_bytes(
@@ -1140,13 +1158,16 @@ impl OfficialAccount {
     ) -> Result<WechatStatusResponse> {
         let media_id = media_id.into();
         validate_material_required("media id", &media_id)?;
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/material/del_material",
                 Some(access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate_for("official account delete material")?;
+        Ok(response)
     }
 
     pub async fn list_materials(
@@ -1155,26 +1176,32 @@ impl OfficialAccount {
         request: MaterialListRequest,
     ) -> Result<MaterialListResponse> {
         request.validate()?;
-        self.inner
+        let response: MaterialListResponse = self
+            .inner
             .post(
                 "cgi-bin/material/batchget_material",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn material_stats(
         &self,
         access_token: impl Into<String>,
     ) -> Result<MaterialStatsResponse> {
-        self.inner
+        let response: MaterialStatsResponse = self
+            .inner
             .post(
                 "cgi-bin/material/get_materialcount",
                 Some(access_token.into()),
                 json!({}),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn publish(&self) -> DomainModule {
@@ -5760,6 +5787,18 @@ pub struct WechatStatusResponse {
     pub errmsg: Option<String>,
 }
 
+impl WechatStatusResponse {
+    pub fn validate_for(&self, operation: &str) -> Result<()> {
+        if let Some(code) = self.errcode.filter(|code| *code != 0) {
+            return Err(WechatError::Api {
+                code,
+                message: self.errmsg.as_deref().unwrap_or(operation).to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommentArticleRequest {
     pub msg_data_id: String,
@@ -6795,6 +6834,15 @@ impl MaterialMediaResponse {
         }
         Ok(())
     }
+
+    pub fn require_url(&self) -> Result<&str> {
+        ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
+        let url = self.url.as_deref().ok_or_else(|| {
+            WechatError::Config("material upload response is missing URL".to_string())
+        })?;
+        validate_material_http_url("response URL", url)?;
+        Ok(url)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6865,6 +6913,60 @@ pub struct MaterialGetResponse {
     pub url: Option<String>,
     #[serde(flatten)]
     pub extra: Value,
+}
+
+impl MaterialGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
+        if self.news_item.is_empty()
+            && self.title.is_none()
+            && self.description.is_none()
+            && self.down_url.is_none()
+            && self.url.is_none()
+        {
+            return Err(WechatError::Config(
+                "material response does not contain news, video, or media data".to_string(),
+            ));
+        }
+        if let Some(title) = self.title.as_deref() {
+            validate_material_required("video title", title)?;
+        }
+        if let Some(description) = self.description.as_deref() {
+            validate_material_required("video description", description)?;
+        }
+        if let Some(url) = self.down_url.as_deref() {
+            validate_material_http_url("video download URL", url)?;
+        }
+        if let Some(url) = self.url.as_deref() {
+            validate_material_http_url("media URL", url)?;
+        }
+        for item in &self.news_item {
+            validate_material_required(
+                "news item title",
+                item.title.as_deref().ok_or_else(|| {
+                    WechatError::Config("material news item is missing title".to_string())
+                })?,
+            )?;
+            validate_material_required(
+                "news item content",
+                item.content.as_deref().ok_or_else(|| {
+                    WechatError::Config("material news item is missing content".to_string())
+                })?,
+            )?;
+            if let Some(url) = item.content_source_url.as_deref() {
+                if !url.trim().is_empty() {
+                    validate_material_http_url("news item source URL", url)?;
+                }
+            }
+            if let Some(url) = item.thumb_url.as_deref() {
+                validate_material_http_url("news item thumbnail URL", url)?;
+            }
+            if let Some(url) = item.url.as_deref() {
+                validate_material_http_url("news item URL", url)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7750,6 +7852,55 @@ mod tests {
     }
 
     #[test]
+    fn rejects_inconsistent_material_responses() {
+        let upload: MaterialMediaResponse =
+            serde_json::from_value(json!({ "media_id": "media" })).unwrap();
+        assert_eq!(upload.require_media_id().unwrap(), "media");
+        assert!(upload.require_url().is_err());
+
+        let article_image: MaterialMediaResponse =
+            serde_json::from_value(json!({ "url": "https://example.com/article.png" })).unwrap();
+        assert_eq!(
+            article_image.require_url().unwrap(),
+            "https://example.com/article.png"
+        );
+        assert!(article_image.require_media_id().is_err());
+
+        let api_error: MaterialMediaResponse = serde_json::from_value(json!({
+            "errcode": 40007,
+            "errmsg": "invalid media_id"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40007, .. })
+        ));
+
+        let empty_material: MaterialGetResponse = serde_json::from_value(json!({})).unwrap();
+        assert!(empty_material.validate().is_err());
+
+        let unsafe_video: MaterialGetResponse = serde_json::from_value(json!({
+            "title": "video",
+            "description": "description",
+            "down_url": "file:///tmp/video.mp4"
+        }))
+        .unwrap();
+        assert!(unsafe_video.validate().is_err());
+
+        let inconsistent_list: MaterialListResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "item_count": 2,
+            "item": [{ "media_id": "media" }]
+        }))
+        .unwrap();
+        assert!(inconsistent_list.validate().is_err());
+
+        let invalid_stats: MaterialStatsResponse =
+            serde_json::from_value(json!({ "voice_count": -1 })).unwrap();
+        assert!(invalid_stats.validate().is_err());
+    }
+
+    #[test]
     fn deserializes_material_menu_template_and_user_depth_responses() {
         let material: MaterialGetResponse = serde_json::from_value(json!({
             "news_item": [{
@@ -7763,6 +7914,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(material.news_item[0].title.as_deref(), Some("title"));
+        material.validate().unwrap();
 
         let materials: MaterialListResponse = serde_json::from_value(json!({
             "total_count": 2,
@@ -7772,6 +7924,8 @@ mod tests {
         .unwrap();
         assert_eq!(materials.total_count, Some(2));
         assert_eq!(materials.item[0].media_id.as_deref(), Some("media"));
+        materials.validate().unwrap();
+        assert_eq!(materials.next_offset(0).unwrap(), Some(1));
 
         let stats: MaterialStatsResponse = serde_json::from_value(json!({
             "voice_count": 1,
@@ -7781,6 +7935,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(stats.news_count, Some(4));
+        assert_eq!(stats.total_count().unwrap(), 10);
 
         let menu: MenuGetResponse = serde_json::from_value(json!({
             "menu": {

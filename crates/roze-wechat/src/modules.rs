@@ -148,6 +148,14 @@ mod tests {
             wechat.open_platform().component().name(),
             "open_platform.component"
         );
+        assert_eq!(
+            wechat
+                .open_platform()
+                .authorizer_official_account()
+                .menu()
+                .name(),
+            "official_account.menu"
+        );
         assert_eq!(wechat.open_platform().base().name(), "open_platform.base");
         assert_eq!(wechat.open_work().provider().name(), "open_work.provider");
         assert_eq!(wechat.open_work().base().name(), "open_work.base");

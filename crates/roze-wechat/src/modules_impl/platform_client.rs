@@ -24,6 +24,10 @@ impl PlatformClient {
         self.platform
     }
 
+    pub(crate) fn client(&self) -> Client {
+        self.client.clone()
+    }
+
     pub async fn get<R>(&self, path: impl Into<String>, access_token: Option<String>) -> Result<R>
     where
         R: DeserializeOwned,

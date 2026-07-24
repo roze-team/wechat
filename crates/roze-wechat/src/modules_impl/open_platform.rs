@@ -8,7 +8,7 @@ use crate::{
         official_account::{
             validate_material_articles, validate_material_required, validate_material_upload,
             Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
-            MaterialMediaResponse, MaterialStatsResponse, MaterialUploadKind,
+            MaterialMediaResponse, MaterialStatsResponse, MaterialUploadKind, OfficialAccount,
         },
         DomainModule, PlatformClient,
     },
@@ -219,6 +219,10 @@ impl OpenPlatform {
 
     pub fn authorizer(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "open_platform.authorizer")
+    }
+
+    pub fn authorizer_official_account(&self) -> OfficialAccount {
+        OfficialAccount::new(self.inner.client(), Platform::OfficialAccount)
     }
 
     pub fn authorizer_mini_program_code(&self) -> DomainModule {
@@ -635,27 +639,37 @@ impl OpenPlatform {
         js_code: impl Into<String>,
         component_appid: impl Into<String>,
     ) -> Result<OpenPlatformMiniProgramSessionResponse> {
-        self.inner
+        let appid = appid.into();
+        let js_code = js_code.into();
+        let component_appid = component_appid.into();
+        validate_open_platform_appid("authorizer mini-program appid", &appid)?;
+        validate_open_platform_identifier("mini-program login code", &js_code, 512)?;
+        validate_open_platform_appid("component appid", &component_appid)?;
+        let response: OpenPlatformMiniProgramSessionResponse = self
+            .inner
             .get_with_query(
                 "sns/component/jscode2session",
                 None,
                 vec![
-                    ("appid".to_string(), appid.into()),
-                    ("js_code".to_string(), js_code.into()),
+                    ("appid".to_string(), appid),
+                    ("js_code".to_string(), js_code),
                     ("grant_type".to_string(), "authorization_code".to_string()),
-                    ("component_appid".to_string(), component_appid.into()),
+                    ("component_appid".to_string(), component_appid),
                     (
                         "component_access_token".to_string(),
                         component_access_token.into(),
                     ),
                 ],
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn official_account_fast_registration_url(
         request: OpenPlatformOfficialAccountFastRegistrationUrlRequest,
-    ) -> String {
+    ) -> Result<String> {
+        request.validate()?;
         let mut url = url::Url::parse("https://mp.weixin.qq.com/cgi-bin/fastregisterauth")
             .expect("static fast registration auth url is valid");
         url.query_pairs_mut()
@@ -670,34 +684,42 @@ impl OpenPlatform {
             .append_pair("component_appid", &request.component_appid)
             .append_pair("appid", &request.appid)
             .append_pair("redirect_uri", &request.redirect_uri);
-        url.to_string()
+        Ok(url.to_string())
     }
 
     pub async fn fast_register_authorizer_official_account_mini_program(
         &self,
         authorizer_access_token: impl Into<String>,
         ticket: impl Into<String>,
-    ) -> Result<OpenPlatformStatusResponse> {
-        self.inner
+    ) -> Result<OpenPlatformOfficialAccountFastRegistrationResponse> {
+        let ticket = ticket.into();
+        validate_open_platform_identifier("official-account registration ticket", &ticket, 512)?;
+        let response: OpenPlatformOfficialAccountFastRegistrationResponse = self
+            .inner
             .post(
                 "cgi-bin/account/fastregister",
                 Some(authorizer_access_token.into()),
-                json!({ "ticket": ticket.into() }),
+                json!({ "ticket": ticket }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_account_basic_info(
         &self,
         authorizer_access_token: impl Into<String>,
     ) -> Result<OpenPlatformAuthorizerAccountBasicInfoResponse> {
-        self.inner
+        let response: OpenPlatformAuthorizerAccountBasicInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/account/getaccountbasicinfo",
                 Some(authorizer_access_token.into()),
                 json!({}),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn modify_authorizer_account_head_image(
@@ -705,13 +727,17 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         request: OpenPlatformAuthorizerAccountHeadImageRequest,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenPlatformStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/account/modifyheadimage",
                 Some(authorizer_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("modify authorizer account head image")?;
+        Ok(response)
     }
 
     pub async fn modify_authorizer_account_signature(
@@ -719,13 +745,18 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         signature: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.inner
+        let signature = signature.into();
+        validate_open_platform_text("authorizer account signature", &signature, 120)?;
+        let response: OpenPlatformStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/account/modifysignature",
                 Some(authorizer_access_token.into()),
-                json!({ "signature": signature.into() }),
+                json!({ "signature": signature }),
             )
-            .await
+            .await?;
+        response.validate_for("modify authorizer account signature")?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_material_bytes(
@@ -757,14 +788,17 @@ impl OpenPlatform {
             "media",
             reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/material/add_material",
                 Some(authorizer_access_token.into()),
                 vec![("type".to_string(), kind.as_code().to_string())],
                 form,
             )
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn upload_authorizer_image_material_from_bytes(
@@ -838,14 +872,17 @@ impl OpenPlatform {
             )
             .text("description", description.clone())
             .text("Description", description);
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/material/add_material",
                 Some(authorizer_access_token.into()),
                 vec![("type".to_string(), "video".to_string())],
                 form,
             )
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn upload_authorizer_article_image_from_bytes(
@@ -860,14 +897,17 @@ impl OpenPlatform {
             "media",
             reqwest::multipart::Part::bytes(data).file_name(file_name),
         );
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post_multipart(
                 "cgi-bin/media/uploadimg",
                 Some(authorizer_access_token.into()),
                 Vec::new(),
                 form,
             )
-            .await
+            .await?;
+        response.require_url()?;
+        Ok(response)
     }
 
     pub async fn add_authorizer_news_material(
@@ -876,13 +916,16 @@ impl OpenPlatform {
         articles: Vec<Article>,
     ) -> Result<MaterialMediaResponse> {
         validate_material_articles(&articles)?;
-        self.inner
+        let response: MaterialMediaResponse = self
+            .inner
             .post(
                 "cgi-bin/material/add_news",
                 Some(authorizer_access_token.into()),
                 json!({ "articles": articles }),
             )
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn update_authorizer_news_material(
@@ -900,7 +943,8 @@ impl OpenPlatform {
             ));
         }
         article.validate()?;
-        self.inner
+        let response: OpenPlatformStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/material/update_news",
                 Some(authorizer_access_token.into()),
@@ -910,7 +954,9 @@ impl OpenPlatform {
                     "articles": article,
                 }),
             )
-            .await
+            .await?;
+        response.validate_for("update authorizer news material")?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_material(
@@ -920,13 +966,16 @@ impl OpenPlatform {
     ) -> Result<MaterialGetResponse> {
         let media_id = media_id.into();
         validate_material_required("media id", &media_id)?;
-        self.inner
+        let response: MaterialGetResponse = self
+            .inner
             .post(
                 "cgi-bin/material/get_material",
                 Some(authorizer_access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_authorizer_material(
@@ -936,13 +985,16 @@ impl OpenPlatform {
     ) -> Result<OpenPlatformStatusResponse> {
         let media_id = media_id.into();
         validate_material_required("media id", &media_id)?;
-        self.inner
+        let response: OpenPlatformStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/material/del_material",
                 Some(authorizer_access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate_for("delete authorizer material")?;
+        Ok(response)
     }
 
     pub async fn list_authorizer_materials(
@@ -951,26 +1003,32 @@ impl OpenPlatform {
         request: MaterialListRequest,
     ) -> Result<MaterialListResponse> {
         request.validate()?;
-        self.inner
+        let response: MaterialListResponse = self
+            .inner
             .post(
                 "cgi-bin/material/batchget_material",
                 Some(authorizer_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_material_stats(
         &self,
         authorizer_access_token: impl Into<String>,
     ) -> Result<MaterialStatsResponse> {
-        self.inner
+        let response: MaterialStatsResponse = self
+            .inner
             .post(
                 "cgi-bin/material/get_materialcount",
                 Some(authorizer_access_token.into()),
                 json!({}),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_authorizer_open_account(
@@ -978,13 +1036,18 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         appid: impl Into<String>,
     ) -> Result<OpenPlatformOpenAccountResponse> {
-        self.inner
+        let appid = appid.into();
+        validate_open_platform_appid("authorizer appid", &appid)?;
+        let response: OpenPlatformOpenAccountResponse = self
+            .inner
             .post(
                 "cgi-bin/open/create",
                 Some(authorizer_access_token.into()),
-                json!({ "appid": appid.into() }),
+                json!({ "appid": appid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn bind_authorizer_open_account(
@@ -993,13 +1056,20 @@ impl OpenPlatform {
         appid: impl Into<String>,
         open_appid: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.inner
+        let appid = appid.into();
+        let open_appid = open_appid.into();
+        validate_open_platform_appid("authorizer appid", &appid)?;
+        validate_open_platform_appid("open account appid", &open_appid)?;
+        let response: OpenPlatformStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/open/bind",
                 Some(authorizer_access_token.into()),
-                json!({ "appid": appid.into(), "open_appid": open_appid.into() }),
+                json!({ "appid": appid, "open_appid": open_appid }),
             )
-            .await
+            .await?;
+        response.validate_for("bind authorizer open account")?;
+        Ok(response)
     }
 
     pub async fn unbind_authorizer_open_account(
@@ -1008,13 +1078,20 @@ impl OpenPlatform {
         appid: impl Into<String>,
         open_appid: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.inner
+        let appid = appid.into();
+        let open_appid = open_appid.into();
+        validate_open_platform_appid("authorizer appid", &appid)?;
+        validate_open_platform_appid("open account appid", &open_appid)?;
+        let response: OpenPlatformStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/open/unbind",
                 Some(authorizer_access_token.into()),
-                json!({ "appid": appid.into(), "open_appid": open_appid.into() }),
+                json!({ "appid": appid, "open_appid": open_appid }),
             )
-            .await
+            .await?;
+        response.validate_for("unbind authorizer open account")?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_open_account(
@@ -1022,26 +1099,34 @@ impl OpenPlatform {
         authorizer_access_token: impl Into<String>,
         appid: impl Into<String>,
     ) -> Result<OpenPlatformOpenAccountResponse> {
-        self.inner
+        let appid = appid.into();
+        validate_open_platform_appid("authorizer appid", &appid)?;
+        let response: OpenPlatformOpenAccountResponse = self
+            .inner
             .post(
                 "cgi-bin/open/get",
                 Some(authorizer_access_token.into()),
-                json!({ "appid": appid.into() }),
+                json!({ "appid": appid }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_mini_program_privacy_interface(
         &self,
         authorizer_access_token: impl Into<String>,
     ) -> Result<OpenPlatformMiniProgramPrivacyInterfaceResponse> {
-        self.inner
+        let response: OpenPlatformMiniProgramPrivacyInterfaceResponse = self
+            .inner
             .post(
                 "wxa/security/get_privacy_interface",
                 Some(authorizer_access_token.into()),
                 json!({}),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn apply_authorizer_mini_program_privacy_interface(
@@ -1050,13 +1135,16 @@ impl OpenPlatform {
         request: OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
     ) -> Result<OpenPlatformMiniProgramPrivacyInterfaceApplyResponse> {
         request.validate()?;
-        self.inner
+        let response: OpenPlatformMiniProgramPrivacyInterfaceApplyResponse = self
+            .inner
             .post(
                 "wxa/security/apply_privacy_interface",
                 Some(authorizer_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.require_audit_id()?;
+        Ok(response)
     }
 
     pub async fn get_authorizer_info(
@@ -2600,6 +2688,90 @@ fn validate_open_platform_non_empty(kind: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_open_platform_identifier(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    validate_open_platform_non_empty(kind, value)?;
+    if value.len() > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} must contain at most {maximum} non-control bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_optional_identifier(
+    kind: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    if let Some(value) = value {
+        validate_open_platform_identifier(kind, value, maximum)?;
+    }
+    Ok(())
+}
+
+fn validate_open_platform_text(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    validate_open_platform_identifier(kind, value, maximum)
+}
+
+fn validate_open_platform_optional_text(
+    kind: &str,
+    value: Option<&str>,
+    maximum: usize,
+) -> Result<()> {
+    if let Some(value) = value {
+        validate_open_platform_text(kind, value, maximum)?;
+    }
+    Ok(())
+}
+
+fn validate_open_platform_appid(kind: &str, value: &str) -> Result<()> {
+    if !(3..=64).contains(&value.len())
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} must contain 3 to 64 ASCII letters, digits, underscores, or hyphens"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_callback_url(kind: &str, value: &str) -> Result<()> {
+    let url = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("open platform {kind} is invalid: {error}"))
+    })?;
+    if url.scheme() != "https"
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} must be an absolute credential-free HTTPS URL without fragment"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_modification_quota(
+    kind: &str,
+    used: Option<i64>,
+    quota: Option<i64>,
+) -> Result<()> {
+    if used.is_some_and(|value| value < 0) || quota.is_some_and(|value| value < 0) {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} modification counts cannot be negative"
+        )));
+    }
+    if used.zip(quota).is_some_and(|(used, quota)| used > quota) {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} modification used count cannot exceed quota"
+        )));
+    }
+    Ok(())
+}
+
 fn ensure_open_platform_response_success(
     kind: &str,
     errcode: Option<i64>,
@@ -3358,6 +3530,120 @@ pub struct OpenPlatformOfficialAccountFastRegistrationUrlRequest {
     pub copy_wx_verify: bool,
 }
 
+impl OpenPlatformOfficialAccountFastRegistrationUrlRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_appid("component appid", &self.component_appid)?;
+        validate_open_platform_appid("authorizer appid", &self.appid)?;
+        validate_open_platform_callback_url(
+            "official-account fast-registration redirect",
+            &self.redirect_uri,
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OpenPlatformBinaryFlag {
+    Boolean(bool),
+    Integer(i64),
+    String(String),
+}
+
+impl OpenPlatformBinaryFlag {
+    pub fn value(&self) -> Result<bool> {
+        match self {
+            Self::Boolean(value) => Ok(*value),
+            Self::Integer(0) => Ok(false),
+            Self::Integer(1) => Ok(true),
+            Self::String(value) if value == "0" || value.eq_ignore_ascii_case("false") => Ok(false),
+            Self::String(value) if value == "1" || value.eq_ignore_ascii_case("true") => Ok(true),
+            _ => Err(WechatError::Config(
+                "open platform binary flag must be bool, 0/1, or true/false".to_string(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformOfficialAccountFastRegistrationResponse {
+    #[serde(default)]
+    pub errcode: Option<i64>,
+    #[serde(default)]
+    pub errmsg: Option<String>,
+    #[serde(default)]
+    pub appid: Option<String>,
+    #[serde(default)]
+    pub authorization_code: Option<String>,
+    #[serde(default)]
+    pub is_wx_verify_succ: Option<OpenPlatformBinaryFlag>,
+    #[serde(default)]
+    pub is_link_succ: Option<OpenPlatformBinaryFlag>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl OpenPlatformOfficialAccountFastRegistrationResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "open platform official-account fast registration failed",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_appid(
+            "registered mini-program appid",
+            self.appid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform fast-registration response is missing appid".to_string(),
+                )
+            })?,
+        )?;
+        validate_open_platform_identifier(
+            "fast-registration authorization code",
+            self.authorization_code.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform fast-registration response is missing authorization code"
+                        .to_string(),
+                )
+            })?,
+            512,
+        )?;
+        self.is_wx_verify_succ
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open platform fast-registration response is missing verification result"
+                        .to_string(),
+                )
+            })?
+            .value()?;
+        self.is_link_succ
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open platform fast-registration response is missing link result".to_string(),
+                )
+            })?
+            .value()?;
+        Ok(())
+    }
+
+    pub fn is_verified(&self) -> Result<bool> {
+        self.validate()?;
+        self.is_wx_verify_succ
+            .as_ref()
+            .expect("validated verification result")
+            .value()
+    }
+
+    pub fn is_linked(&self) -> Result<bool> {
+        self.validate()?;
+        self.is_link_succ
+            .as_ref()
+            .expect("validated link result")
+            .value()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformMiniProgramSessionResponse {
     #[serde(default)]
@@ -3370,6 +3656,41 @@ pub struct OpenPlatformMiniProgramSessionResponse {
     pub session_key: Option<String>,
     #[serde(default)]
     pub unionid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl OpenPlatformMiniProgramSessionResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "open platform mini-program code-to-session failed",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_identifier(
+            "mini-program session openid",
+            self.openid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform mini-program session is missing openid".to_string(),
+                )
+            })?,
+            128,
+        )?;
+        validate_open_platform_identifier(
+            "mini-program session key",
+            self.session_key.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform mini-program session is missing session key".to_string(),
+                )
+            })?,
+            512,
+        )?;
+        validate_open_platform_optional_identifier(
+            "mini-program session unionid",
+            self.unionid.as_deref(),
+            128,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3379,6 +3700,66 @@ pub struct OpenPlatformAuthorizerAccountHeadImageRequest {
     pub y1: String,
     pub x2: String,
     pub y2: String,
+}
+
+impl OpenPlatformAuthorizerAccountHeadImageRequest {
+    pub fn from_crop(
+        media_id: impl Into<String>,
+        left: f64,
+        top: f64,
+        right: f64,
+        bottom: f64,
+    ) -> Self {
+        Self {
+            head_img_media_id: media_id.into(),
+            x1: left.to_string(),
+            y1: top.to_string(),
+            x2: right.to_string(),
+            y2: bottom.to_string(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_identifier(
+            "authorizer head-image media id",
+            &self.head_img_media_id,
+            256,
+        )?;
+        let [left, top, right, bottom] = [
+            ("x1", &self.x1),
+            ("y1", &self.y1),
+            ("x2", &self.x2),
+            ("y2", &self.y2),
+        ]
+        .map(|(label, value)| {
+            let coordinate = value.parse::<f64>().map_err(|error| {
+                WechatError::Config(format!(
+                    "open platform authorizer head-image {label} is invalid: {error}"
+                ))
+            })?;
+            if !coordinate.is_finite() || !(0.0..=1.0).contains(&coordinate) {
+                return Err(WechatError::Config(format!(
+                    "open platform authorizer head-image {label} must be between 0 and 1"
+                )));
+            }
+            Ok(coordinate)
+        })
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?
+        .try_into()
+        .map_err(|_| {
+            WechatError::Config(
+                "open platform authorizer head-image crop requires four coordinates".to_string(),
+            )
+        })?;
+        if left >= right || top >= bottom {
+            return Err(WechatError::Config(
+                "open platform authorizer head-image crop must have positive width and height"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3403,6 +3784,16 @@ pub struct OpenPlatformAuthorizerAccountBasicInfoResponse {
     pub signature_info: Option<OpenPlatformAuthorizerSignatureInfo>,
     #[serde(default)]
     pub head_image_info: Option<OpenPlatformAuthorizerHeadImageInfo>,
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub registered_country: Option<i64>,
+    #[serde(default)]
+    pub nickname_info: Option<OpenPlatformAuthorizerNicknameInfo>,
+    #[serde(default)]
+    pub credential: Option<String>,
+    #[serde(default)]
+    pub customer_type: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -3448,6 +3839,142 @@ pub struct OpenPlatformAuthorizerHeadImageInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenPlatformAuthorizerNicknameInfo {
+    #[serde(default)]
+    pub nickname: Option<String>,
+    #[serde(default)]
+    pub modify_used_count: Option<i64>,
+    #[serde(default)]
+    pub modify_quota: Option<i64>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl OpenPlatformAuthorizerAccountBasicInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "open platform get authorizer account basic info failed",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_appid(
+            "authorizer account appid",
+            self.appid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform authorizer account basic info is missing appid".to_string(),
+                )
+            })?,
+        )?;
+        for (label, value) in [
+            ("account type", self.account_type),
+            ("principal type", self.principal_type),
+            ("real-name status", self.realname_status),
+            ("registered country", self.registered_country),
+            ("customer type", self.customer_type),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "open platform authorizer account {label} cannot be negative"
+                )));
+            }
+        }
+        validate_open_platform_optional_text(
+            "authorizer principal name",
+            self.principal_name.as_deref(),
+            256,
+        )?;
+        validate_open_platform_optional_text("authorizer nickname", self.nickname.as_deref(), 64)?;
+        validate_open_platform_optional_identifier(
+            "authorizer credential",
+            self.credential.as_deref(),
+            512,
+        )?;
+        if let Some(info) = &self.wx_verify_info {
+            info.validate()?;
+        }
+        if let Some(info) = &self.signature_info {
+            info.validate()?;
+        }
+        if let Some(info) = &self.head_image_info {
+            info.validate()?;
+        }
+        if let Some(info) = &self.nickname_info {
+            info.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl OpenPlatformAuthorizerWxVerifyInfo {
+    pub fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("annual-review begin time", self.annual_review_begin_time),
+            ("annual-review end time", self.annual_review_end_time),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "open platform authorizer {label} cannot be negative"
+                )));
+            }
+        }
+        if self
+            .annual_review_begin_time
+            .zip(self.annual_review_end_time)
+            .is_some_and(|(begin, end)| end < begin)
+        {
+            return Err(WechatError::Config(
+                "open platform authorizer annual-review end time cannot precede begin time"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl OpenPlatformAuthorizerSignatureInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_optional_text(
+            "authorizer signature",
+            self.signature.as_deref(),
+            120,
+        )?;
+        validate_open_platform_modification_quota(
+            "authorizer signature",
+            self.modify_used_count,
+            self.modify_quota,
+        )
+    }
+}
+
+impl OpenPlatformAuthorizerHeadImageInfo {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(url) = self.head_image_url.as_deref() {
+            validate_open_platform_http_url("authorizer head-image URL", url)?;
+        }
+        validate_open_platform_modification_quota(
+            "authorizer head image",
+            self.modify_used_count,
+            self.modify_quota,
+        )
+    }
+}
+
+impl OpenPlatformAuthorizerNicknameInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_optional_text(
+            "authorizer nickname quota value",
+            self.nickname.as_deref(),
+            64,
+        )?;
+        validate_open_platform_modification_quota(
+            "authorizer nickname",
+            self.modify_used_count,
+            self.modify_quota,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformOpenAccountResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -3455,6 +3982,26 @@ pub struct OpenPlatformOpenAccountResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub open_appid: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl OpenPlatformOpenAccountResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "open platform open-account operation failed",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_appid(
+            "open account appid",
+            self.open_appid.as_deref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform open-account response is missing open_appid".to_string(),
+                )
+            })?,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3766,6 +4313,12 @@ pub struct OpenPlatformStatusResponse {
     pub extra: Value,
 }
 
+impl OpenPlatformStatusResponse {
+    pub fn validate_for(&self, operation: &str) -> Result<()> {
+        ensure_open_platform_response_success(operation, self.errcode, self.errmsg.as_deref())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::{json, Value};
@@ -3784,13 +4337,14 @@ mod tests {
         OpenPlatform, OpenPlatformAuthorizerAccountBasicInfoResponse,
         OpenPlatformAuthorizerAccountHeadImageRequest, OpenPlatformAuthorizerInfoResponse,
         OpenPlatformAuthorizerOptionResponse, OpenPlatformAuthorizersResponse,
-        OpenPlatformComponentLoginPageUrlRequest, OpenPlatformHandleAuthorizeResponse,
-        OpenPlatformMiniProgramAuditItem, OpenPlatformMiniProgramAuditPreviewInfo,
-        OpenPlatformMiniProgramAuditQuotaResponse, OpenPlatformMiniProgramAuditState,
-        OpenPlatformMiniProgramAuditStatusResponse, OpenPlatformMiniProgramCategoryAuditState,
-        OpenPlatformMiniProgramCategoryResponse, OpenPlatformMiniProgramCommitRequest,
-        OpenPlatformMiniProgramDomainAction, OpenPlatformMiniProgramGrayReleasePlanResponse,
-        OpenPlatformMiniProgramGrayReleaseState, OpenPlatformMiniProgramLatestAuditStatusResponse,
+        OpenPlatformBinaryFlag, OpenPlatformComponentLoginPageUrlRequest,
+        OpenPlatformHandleAuthorizeResponse, OpenPlatformMiniProgramAuditItem,
+        OpenPlatformMiniProgramAuditPreviewInfo, OpenPlatformMiniProgramAuditQuotaResponse,
+        OpenPlatformMiniProgramAuditState, OpenPlatformMiniProgramAuditStatusResponse,
+        OpenPlatformMiniProgramCategoryAuditState, OpenPlatformMiniProgramCategoryResponse,
+        OpenPlatformMiniProgramCommitRequest, OpenPlatformMiniProgramDomainAction,
+        OpenPlatformMiniProgramGrayReleasePlanResponse, OpenPlatformMiniProgramGrayReleaseState,
+        OpenPlatformMiniProgramLatestAuditStatusResponse,
         OpenPlatformMiniProgramModifyDomainRequest, OpenPlatformMiniProgramModifyDomainResponse,
         OpenPlatformMiniProgramPageResponse, OpenPlatformMiniProgramPrivacyExtFileResponse,
         OpenPlatformMiniProgramPrivacyInterfaceApplyRequest,
@@ -3805,6 +4359,7 @@ mod tests {
         OpenPlatformMiniProgramSupportVersionResponse, OpenPlatformMiniProgramTesterBindResponse,
         OpenPlatformMiniProgramTesterListResponse, OpenPlatformMiniProgramTesterUnbindRequest,
         OpenPlatformMiniProgramUgcDeclare, OpenPlatformMiniProgramVisitStatusAction,
+        OpenPlatformOfficialAccountFastRegistrationResponse,
         OpenPlatformOfficialAccountFastRegistrationUrlRequest, OpenPlatformOpenAccountResponse,
         OpenPlatformStatusResponse, OpenPlatformTemplateDraftListResponse,
         OpenPlatformTemplateListResponse, PreauthCodeResponse, QueryAuthResponse,
@@ -4929,29 +5484,37 @@ mod tests {
                 redirect_uri: "https://example.com/fast".to_string(),
                 copy_wx_verify: true,
             },
-        );
+        )
+        .unwrap();
         assert!(fast_url.starts_with("https://mp.weixin.qq.com/cgi-bin/fastregisterauth?"));
         assert!(fast_url.contains("copy_wx_verify=true"));
         assert!(fast_url.contains("appid=wx-authorizer"));
+        assert!(OpenPlatform::official_account_fast_registration_url(
+            OpenPlatformOfficialAccountFastRegistrationUrlRequest {
+                component_appid: "component".to_string(),
+                appid: "wx-authorizer".to_string(),
+                redirect_uri: "http://example.com/fast#fragment".to_string(),
+                copy_wx_verify: false,
+            }
+        )
+        .is_err());
     }
 
     #[test]
     fn serializes_authorizer_account_and_open_account_requests() {
-        let head = serde_json::to_value(OpenPlatformAuthorizerAccountHeadImageRequest {
-            head_img_media_id: "media".to_string(),
-            x1: "0.000000".to_string(),
-            y1: "0.000000".to_string(),
-            x2: "1.000000".to_string(),
-            y2: "1.000000".to_string(),
-        })
-        .unwrap();
+        let head_request =
+            OpenPlatformAuthorizerAccountHeadImageRequest::from_crop("media", 0.0, 0.0, 1.0, 1.0);
+        assert!(head_request.validate().is_ok());
+        let head = serde_json::to_value(head_request).unwrap();
         assert_eq!(head["head_img_media_id"], "media");
-        assert_eq!(head["x2"], "1.000000");
+        assert_eq!(head["x2"], "1");
 
         let basic: OpenPlatformAuthorizerAccountBasicInfoResponse = serde_json::from_value(json!({
             "appid": "wx-authorizer",
             "account_type": 1,
+            "principal_type": 1,
             "principal_name": "principal",
+            "realname_status": 1,
             "wx_verify_info": {
                 "qualification_verify": true,
                 "naming_verify": false,
@@ -4972,9 +5535,20 @@ mod tests {
                 "modify_quota": 5,
                 "image_extra": "retained"
             },
+            "nickname": "Authorizer",
+            "registered_country": 86,
+            "nickname_info": {
+                "nickname": "Authorizer",
+                "modify_used_count": 1,
+                "modify_quota": 5,
+                "nickname_extra": "retained"
+            },
+            "credential": "credential",
+            "customer_type": 1,
             "account_extra": "retained"
         }))
         .unwrap();
+        assert!(basic.validate().is_ok());
         assert_eq!(basic.appid.as_deref(), Some("wx-authorizer"));
         assert_eq!(
             basic
@@ -5013,11 +5587,101 @@ mod tests {
             basic.head_image_info.as_ref().unwrap().extra["image_extra"],
             "retained"
         );
+        assert_eq!(basic.nickname.as_deref(), Some("Authorizer"));
+        assert_eq!(basic.registered_country, Some(86));
+        assert_eq!(
+            basic.nickname_info.as_ref().unwrap().extra["nickname_extra"],
+            "retained"
+        );
+        assert_eq!(basic.credential.as_deref(), Some("credential"));
+        assert_eq!(basic.customer_type, Some(1));
         assert_eq!(basic.extra["account_extra"], "retained");
 
-        let open: OpenPlatformOpenAccountResponse =
-            serde_json::from_value(json!({ "open_appid": "open-appid" })).unwrap();
+        let open: OpenPlatformOpenAccountResponse = serde_json::from_value(json!({
+            "open_appid": "open-appid",
+            "request_id": "open-1"
+        }))
+        .unwrap();
+        assert!(open.validate().is_ok());
         assert_eq!(open.open_appid.as_deref(), Some("open-appid"));
+        assert_eq!(open.extra["request_id"], "open-1");
+
+        let registration: OpenPlatformOfficialAccountFastRegistrationResponse =
+            serde_json::from_value(json!({
+                "appid": "wx-mini-program",
+                "authorization_code": "authorization-code",
+                "is_wx_verify_succ": "1",
+                "is_link_succ": true,
+                "request_id": "register-1"
+            }))
+            .unwrap();
+        assert!(registration.validate().is_ok());
+        assert!(registration.is_verified().unwrap());
+        assert!(registration.is_linked().unwrap());
+        assert_eq!(registration.extra["request_id"], "register-1");
+        assert!(!OpenPlatformBinaryFlag::Integer(0).value().unwrap());
+    }
+
+    #[test]
+    fn rejects_invalid_authorizer_account_contracts() {
+        assert!(OpenPlatformAuthorizerAccountHeadImageRequest::from_crop(
+            "media", 0.8, 0.0, 0.2, 1.0
+        )
+        .validate()
+        .is_err());
+        assert!(OpenPlatformAuthorizerAccountHeadImageRequest::from_crop(
+            "media",
+            f64::NAN,
+            0.0,
+            1.0,
+            1.0
+        )
+        .validate()
+        .is_err());
+
+        let missing_appid: OpenPlatformAuthorizerAccountBasicInfoResponse =
+            serde_json::from_value(json!({ "account_type": 1 })).unwrap();
+        assert!(missing_appid.validate().is_err());
+
+        let invalid_quota: OpenPlatformAuthorizerAccountBasicInfoResponse =
+            serde_json::from_value(json!({
+                "appid": "wx-authorizer",
+                "signature_info": {
+                    "signature": "hello",
+                    "modify_used_count": 6,
+                    "modify_quota": 5
+                }
+            }))
+            .unwrap();
+        assert!(invalid_quota.validate().is_err());
+
+        let api_error: OpenPlatformAuthorizerAccountBasicInfoResponse =
+            serde_json::from_value(json!({ "errcode": 40001, "errmsg": "invalid" })).unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let incomplete_registration: OpenPlatformOfficialAccountFastRegistrationResponse =
+            serde_json::from_value(json!({
+                "appid": "wx-mini-program",
+                "is_wx_verify_succ": "yes",
+                "is_link_succ": 1
+            }))
+            .unwrap();
+        assert!(incomplete_registration.validate().is_err());
+
+        let missing_open_appid: OpenPlatformOpenAccountResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_open_appid.validate().is_err());
+
+        let incomplete_session: OpenPlatformMiniProgramSessionResponse =
+            serde_json::from_value(json!({ "openid": "openid" })).unwrap();
+        assert!(incomplete_session.validate().is_err());
+
+        let status: OpenPlatformStatusResponse =
+            serde_json::from_value(json!({ "errcode": 40002, "errmsg": "denied" })).unwrap();
+        assert!(matches!(
+            status.validate_for("authorizer operation"),
+            Err(WechatError::Api { .. })
+        ));
     }
 
     #[test]
@@ -5061,11 +5725,15 @@ mod tests {
             "news_item": [{
                 "title": "Release notes",
                 "author": "Roze",
-                "thumb_media_id": "thumb-media"
+                "thumb_media_id": "thumb-media",
+                "content": "<p>Ready</p>",
+                "content_source_url": "https://example.com/releases/1",
+                "thumb_url": "https://example.com/thumb.png"
             }],
             "request_id": "get-1"
         }))
         .unwrap();
+        assert!(material.validate().is_ok());
         assert_eq!(
             material.news_item[0].title.as_deref(),
             Some("Release notes")
