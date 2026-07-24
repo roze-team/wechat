@@ -10,6 +10,9 @@ pub enum WechatError {
     #[error("http error: {0}")]
     Http(#[from] reqwest::Error),
 
+    #[error("websocket error: {0}")]
+    WebSocket(String),
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 

@@ -24,6 +24,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 cipher = "0.4"
 hex = "0.4"
 hmac = "0.12"
+futures-util = { version = "0.3", features = ["sink"] }
 md5 = "0.7"
 percent-encoding = "2"
 rand = "0.8"
@@ -43,6 +44,7 @@ sha1 = "0.10"
 sha2 = "0.10"
 thiserror = "2"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-websockets = { version = "0.10", features = ["client", "rand", "ring", "rustls-webpki-roots"] }
 tower-http = { version = "0.7.0", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,6 +1,6 @@
 # PowerWeChat Method-Depth Audit
 
-Audit date: 2026-07-21.
+Audit date: 2026-07-24.
 
 The submodule-level coverage matrix is currently green. This means every
 PowerWeChat product submodule has an explicit Roze WeChat boundary and tested
@@ -33,6 +33,30 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    scan, but the method surface still needs deeper typed DTO normalization and
    semantic helper polish across `externalContact`, `oa`, `user`, `message`,
    `media`, and webhook/token flows.
+
+Implemented on 2026-07-24 in Work AI Bot long-connection depth:
+
+- Work AI Bot now exposes a production asynchronous WebSocket client instead
+  of request/response DTO helpers alone, closing the current PowerWeChat
+  connect, close, subscribe, send, read, heartbeat, listen, and
+  subscribe-and-serve runtime gap;
+- the client uses independently synchronized read/write halves so heartbeat
+  traffic can run while event reads are pending, while connection replacement
+  and shutdown atomically update the visible connection state;
+- the default Enterprise WeChat endpoint uses `wss`; custom plaintext `ws`
+  endpoints are accepted only on loopback for integration tests, and
+  credential-bearing or fragment-bearing endpoint URLs are rejected;
+- subscribe, ping, response, and Bot message commands enforce typed command,
+  request-id, object-body, API-error, and response-correlation contracts;
+  generated request ids use UUID v7 and Debug output redacts the subscribe
+  secret;
+- semantic helpers cover welcome responses, normal/update responses, proactive
+  sends, cancellable service loops, delayed missed-heartbeat handling, protocol
+  ping/pong frames, and graceful close;
+- local WebSocket integration tests execute connect, subscribe, heartbeat,
+  proactive send, event dispatch, shutdown, and close against a real socket,
+  while a failure matrix covers insecure endpoints, malformed commands,
+  secret exposure, API errors, and mismatched response ids.
 
 2. Payment method-depth parity:
    stream-download bill helpers and merchant-service complaint DTOs have been

@@ -1,8 +1,22 @@
-use std::{collections::HashSet, path::Path};
+use std::{collections::HashSet, future::Future, path::Path, sync::Arc, time::Duration};
 
 use base64::Engine as _;
+use futures_util::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_value, Map, Value};
+use tokio::{
+    net::TcpStream,
+    sync::{Mutex, RwLock},
+    time::MissedTickBehavior,
+};
+use tokio_websockets::{
+    ClientBuilder, MaybeTlsStream, Message as WebSocketMessage, WebSocketStream,
+};
+use url::Url;
+use uuid::Uuid;
 
 use crate::{
     config::Platform,
@@ -7563,6 +7577,10 @@ impl Work {
 
     pub fn aibot(&self) -> DomainModule {
         DomainModule::new(self.inner.clone(), "work.aibot")
+    }
+
+    pub fn aibot_client(&self, endpoint: Option<&str>) -> Result<WorkAiBotClient> {
+        WorkAiBotClient::new(endpoint)
     }
 
     pub fn aibot_long_connection_url(endpoint: Option<&str>) -> String {
@@ -29393,13 +29411,142 @@ pub struct WorkAiBotLongConnectionHeaders {
     pub req_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl WorkAiBotLongConnectionHeaders {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(req_id) = &self.req_id {
+            validate_work_aibot_identifier("request id", req_id, 128)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct WorkAiBotLongConnectionRequest {
     pub cmd: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub headers: Option<WorkAiBotLongConnectionHeaders>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<Value>,
+}
+
+impl std::fmt::Debug for WorkAiBotLongConnectionRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let body = if self.cmd == WORK_AIBOT_CMD_SUBSCRIBE {
+            self.body.as_ref().map(|value| {
+                let mut redacted = value.clone();
+                if let Some(object) = redacted.as_object_mut() {
+                    if object.contains_key("secret") {
+                        object.insert(
+                            "secret".to_string(),
+                            Value::String("[REDACTED]".to_string()),
+                        );
+                    }
+                }
+                redacted
+            })
+        } else {
+            self.body.clone()
+        };
+        formatter
+            .debug_struct("WorkAiBotLongConnectionRequest")
+            .field("cmd", &self.cmd)
+            .field("headers", &self.headers)
+            .field("body", &body)
+            .finish()
+    }
+}
+
+impl WorkAiBotLongConnectionRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_aibot_identifier("command", &self.cmd, 64)?;
+        if let Some(headers) = &self.headers {
+            headers.validate()?;
+        }
+        if let Some(body) = &self.body {
+            if !body.is_object() {
+                return Err(WechatError::Config(
+                    "work AI Bot command body must be a JSON object".to_string(),
+                ));
+            }
+        }
+        match self.cmd.as_str() {
+            WORK_AIBOT_CMD_SUBSCRIBE => {
+                let req_id = self
+                    .headers
+                    .as_ref()
+                    .and_then(|headers| headers.req_id.as_deref())
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "work AI Bot subscribe command requires request id".to_string(),
+                        )
+                    })?;
+                validate_work_aibot_identifier("subscribe request id", req_id, 128)?;
+                let body = self
+                    .body
+                    .as_ref()
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "work AI Bot subscribe command requires object body".to_string(),
+                        )
+                    })?;
+                for (field, maximum) in [("bot_id", 128), ("secret", 512)] {
+                    let value = body.get(field).and_then(Value::as_str).ok_or_else(|| {
+                        WechatError::Config(format!(
+                            "work AI Bot subscribe command requires string {field}"
+                        ))
+                    })?;
+                    validate_work_aibot_identifier(field, value, maximum)?;
+                }
+            }
+            WORK_AIBOT_CMD_PING => {
+                let req_id = self
+                    .headers
+                    .as_ref()
+                    .and_then(|headers| headers.req_id.as_deref())
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "work AI Bot ping command requires request id".to_string(),
+                        )
+                    })?;
+                validate_work_aibot_identifier("ping request id", req_id, 128)?;
+                if self.body.is_some() {
+                    return Err(WechatError::Config(
+                        "work AI Bot ping command cannot contain body".to_string(),
+                    ));
+                }
+            }
+            WORK_AIBOT_CMD_RESPOND_WELCOME
+            | WORK_AIBOT_CMD_RESPOND_MESSAGE
+            | WORK_AIBOT_CMD_RESPOND_UPDATE_MESSAGE
+            | WORK_AIBOT_CMD_SEND_MESSAGE => {
+                let body = self
+                    .body
+                    .as_ref()
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| {
+                        WechatError::Config(format!(
+                            "work AI Bot {} command requires object body",
+                            self.cmd
+                        ))
+                    })?;
+                if body.is_empty() {
+                    return Err(WechatError::Config(format!(
+                        "work AI Bot {} command body cannot be empty",
+                        self.cmd
+                    )));
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn request_id(&self) -> Option<&str> {
+        self.headers
+            .as_ref()
+            .and_then(|headers| headers.req_id.as_deref())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29422,6 +29569,371 @@ impl WorkAiBotLongConnectionResponse {
     pub fn is_error(&self) -> bool {
         self.errcode.unwrap_or_default() != 0
     }
+
+    pub fn request_id(&self) -> Option<&str> {
+        self.headers
+            .as_ref()
+            .and_then(|headers| headers.req_id.as_deref())
+    }
+
+    pub fn is_pong(&self) -> bool {
+        self.cmd
+            .as_deref()
+            .is_some_and(|cmd| cmd.eq_ignore_ascii_case("pong"))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_response_success(
+            "work AI Bot long connection",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let cmd = self.cmd.as_deref().ok_or_else(|| {
+            WechatError::Config("work AI Bot response requires command".to_string())
+        })?;
+        validate_work_aibot_identifier("response command", cmd, 64)?;
+        if let Some(headers) = &self.headers {
+            headers.validate()?;
+        }
+        if self.body.as_ref().is_some_and(|body| !body.is_object()) {
+            return Err(WechatError::Config(
+                "work AI Bot response body must be a JSON object".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_request(&self, request: &WorkAiBotLongConnectionRequest) -> Result<()> {
+        self.validate()?;
+        if let Some(expected) = request.request_id() {
+            let actual = self.request_id().ok_or_else(|| {
+                WechatError::Config("work AI Bot response requires matching request id".to_string())
+            })?;
+            if actual != expected {
+                return Err(WechatError::Config(
+                    "work AI Bot response request id does not match request".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+type WorkAiBotSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+type WorkAiBotWriter = SplitSink<WorkAiBotSocket, WebSocketMessage>;
+type WorkAiBotReader = SplitStream<WorkAiBotSocket>;
+
+struct WorkAiBotConnection {
+    writer: Mutex<WorkAiBotWriter>,
+    reader: Mutex<WorkAiBotReader>,
+}
+
+#[derive(Clone)]
+pub struct WorkAiBotClient {
+    endpoint: String,
+    connection: Arc<RwLock<Option<Arc<WorkAiBotConnection>>>>,
+}
+
+impl std::fmt::Debug for WorkAiBotClient {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("WorkAiBotClient")
+            .field("endpoint", &self.endpoint)
+            .finish_non_exhaustive()
+    }
+}
+
+impl WorkAiBotClient {
+    pub fn new(endpoint: Option<&str>) -> Result<Self> {
+        let endpoint = Work::aibot_long_connection_url(endpoint);
+        validate_work_aibot_endpoint(&endpoint)?;
+        Ok(Self {
+            endpoint,
+            connection: Arc::new(RwLock::new(None)),
+        })
+    }
+
+    pub fn endpoint(&self) -> &str {
+        &self.endpoint
+    }
+
+    pub async fn is_connected(&self) -> bool {
+        self.connection.read().await.is_some()
+    }
+
+    pub async fn connect(&self) -> Result<()> {
+        let uri = self.endpoint.parse().map_err(|error| {
+            WechatError::WebSocket(format!("invalid Work AI Bot endpoint: {error}"))
+        })?;
+        let (socket, _) = ClientBuilder::from_uri(uri)
+            .connect()
+            .await
+            .map_err(work_aibot_websocket_error)?;
+        let (writer, reader) = socket.split();
+        let replacement = Arc::new(WorkAiBotConnection {
+            writer: Mutex::new(writer),
+            reader: Mutex::new(reader),
+        });
+        let previous = self.connection.write().await.replace(replacement);
+        if let Some(previous) = previous {
+            let mut writer = previous.writer.lock().await;
+            let _ = writer.send(WebSocketMessage::close(None, "")).await;
+            let _ = writer.close().await;
+        }
+        Ok(())
+    }
+
+    pub async fn close(&self) -> Result<()> {
+        let connection = self.connection.write().await.take();
+        if let Some(connection) = connection {
+            let mut writer = connection.writer.lock().await;
+            writer
+                .send(WebSocketMessage::close(None, ""))
+                .await
+                .map_err(work_aibot_websocket_error)?;
+            writer.close().await.map_err(work_aibot_websocket_error)?;
+        }
+        Ok(())
+    }
+
+    pub async fn subscribe(
+        &self,
+        bot_id: impl Into<String>,
+        secret: impl Into<String>,
+    ) -> Result<WorkAiBotLongConnectionResponse> {
+        self.connect().await?;
+        let request = Work::aibot_subscribe_request(bot_id, secret, Self::request_id());
+        self.send(&request).await?;
+        let response = self.read().await?;
+        response.validate_for_request(&request)?;
+        Ok(response)
+    }
+
+    pub async fn send(&self, request: &WorkAiBotLongConnectionRequest) -> Result<()> {
+        request.validate()?;
+        let payload = serde_json::to_string(request)?;
+        self.send_frame(WebSocketMessage::text(payload)).await
+    }
+
+    pub async fn read(&self) -> Result<WorkAiBotLongConnectionResponse> {
+        loop {
+            let connection = self.current_connection().await?;
+            let message = {
+                let mut reader = connection.reader.lock().await;
+                reader.next().await
+            };
+            let message = match message {
+                Some(Ok(message)) => message,
+                Some(Err(error)) => {
+                    self.discard_connection(&connection).await;
+                    return Err(work_aibot_websocket_error(error));
+                }
+                None => {
+                    self.discard_connection(&connection).await;
+                    return Err(WechatError::WebSocket(
+                        "Work AI Bot websocket closed without close frame".to_string(),
+                    ));
+                }
+            };
+            if message.is_close() {
+                self.discard_connection(&connection).await;
+                return Err(WechatError::WebSocket(
+                    "Work AI Bot websocket was closed by peer".to_string(),
+                ));
+            }
+            if message.is_ping() {
+                self.send_frame(WebSocketMessage::pong(message.into_payload()))
+                    .await?;
+                continue;
+            }
+            if message.is_pong() {
+                continue;
+            }
+            if !message.is_text() && !message.is_binary() {
+                continue;
+            }
+            let response: WorkAiBotLongConnectionResponse =
+                serde_json::from_slice(message.as_payload())?;
+            response.validate()?;
+            return Ok(response);
+        }
+    }
+
+    pub async fn heartbeat(&self) -> Result<()> {
+        let request = Work::aibot_ping_request(Self::request_id());
+        self.send(&request).await
+    }
+
+    pub async fn send_command(&self, cmd: impl Into<String>, body: Value) -> Result<String> {
+        let req_id = Self::request_id();
+        let request = Work::aibot_command_request(cmd, Some(req_id.clone()), Some(body));
+        self.send(&request).await?;
+        Ok(req_id)
+    }
+
+    pub async fn respond_welcome(&self, body: Value) -> Result<String> {
+        self.send_command(WORK_AIBOT_CMD_RESPOND_WELCOME, body)
+            .await
+    }
+
+    pub async fn respond_message(&self, body: Value) -> Result<String> {
+        self.send_command(WORK_AIBOT_CMD_RESPOND_MESSAGE, body)
+            .await
+    }
+
+    pub async fn respond_update_message(&self, body: Value) -> Result<String> {
+        self.send_command(WORK_AIBOT_CMD_RESPOND_UPDATE_MESSAGE, body)
+            .await
+    }
+
+    pub async fn send_message(&self, body: Value) -> Result<String> {
+        self.send_command(WORK_AIBOT_CMD_SEND_MESSAGE, body).await
+    }
+
+    pub async fn listen<F, Fut>(&self, mut handler: F) -> Result<()>
+    where
+        F: FnMut(WorkAiBotLongConnectionResponse) -> Fut,
+        Fut: Future<Output = Result<()>>,
+    {
+        loop {
+            let response = self.read().await?;
+            if !response.is_pong() {
+                handler(response).await?;
+            }
+        }
+    }
+
+    pub async fn subscribe_and_serve<F, Fut>(
+        &self,
+        bot_id: impl Into<String>,
+        secret: impl Into<String>,
+        heartbeat_interval: Duration,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: FnMut(WorkAiBotLongConnectionResponse) -> Fut,
+        Fut: Future<Output = Result<()>>,
+    {
+        self.subscribe_and_serve_until(
+            bot_id,
+            secret,
+            heartbeat_interval,
+            std::future::pending(),
+            handler,
+        )
+        .await
+    }
+
+    pub async fn subscribe_and_serve_until<F, Fut, S>(
+        &self,
+        bot_id: impl Into<String>,
+        secret: impl Into<String>,
+        heartbeat_interval: Duration,
+        shutdown: S,
+        mut handler: F,
+    ) -> Result<()>
+    where
+        F: FnMut(WorkAiBotLongConnectionResponse) -> Fut,
+        Fut: Future<Output = Result<()>>,
+        S: Future<Output = ()>,
+    {
+        if heartbeat_interval.is_zero() {
+            return Err(WechatError::Config(
+                "work AI Bot heartbeat interval must be positive".to_string(),
+            ));
+        }
+        self.subscribe(bot_id, secret).await?;
+        let mut interval = tokio::time::interval(heartbeat_interval);
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        interval.tick().await;
+        tokio::pin!(shutdown);
+        loop {
+            tokio::select! {
+                () = &mut shutdown => {
+                    return self.close().await;
+                }
+                _ = interval.tick() => {
+                    self.heartbeat().await?;
+                }
+                response = self.read() => {
+                    let response = response?;
+                    if !response.is_pong() {
+                        handler(response).await?;
+                    }
+                }
+            }
+        }
+    }
+
+    fn request_id() -> String {
+        format!("req-{}", Uuid::now_v7())
+    }
+
+    async fn current_connection(&self) -> Result<Arc<WorkAiBotConnection>> {
+        self.connection.read().await.clone().ok_or_else(|| {
+            WechatError::WebSocket("Work AI Bot websocket is not connected".to_string())
+        })
+    }
+
+    async fn discard_connection(&self, candidate: &Arc<WorkAiBotConnection>) {
+        let mut current = self.connection.write().await;
+        if current
+            .as_ref()
+            .is_some_and(|connection| Arc::ptr_eq(connection, candidate))
+        {
+            current.take();
+        }
+    }
+
+    async fn send_frame(&self, message: WebSocketMessage) -> Result<()> {
+        let connection = self.current_connection().await?;
+        let mut writer = connection.writer.lock().await;
+        let result = writer
+            .send(message)
+            .await
+            .map_err(work_aibot_websocket_error);
+        drop(writer);
+        if result.is_err() {
+            self.discard_connection(&connection).await;
+        }
+        result
+    }
+}
+
+fn validate_work_aibot_identifier(label: &str, value: &str, maximum: usize) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work AI Bot {label} must contain 1 to {maximum} non-control bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_aibot_endpoint(endpoint: &str) -> Result<()> {
+    let url = Url::parse(endpoint)
+        .map_err(|error| WechatError::Config(format!("invalid work AI Bot endpoint: {error}")))?;
+    if !url.username().is_empty() || url.password().is_some() || url.fragment().is_some() {
+        return Err(WechatError::Config(
+            "work AI Bot endpoint cannot contain credentials or fragment".to_string(),
+        ));
+    }
+    match url.scheme() {
+        "wss" => {}
+        "ws" if url
+            .host_str()
+            .is_some_and(|host| matches!(host, "localhost" | "127.0.0.1" | "::1")) => {}
+        _ => {
+            return Err(WechatError::Config(
+                "work AI Bot endpoint must use wss, except ws on loopback for tests".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn work_aibot_websocket_error(error: tokio_websockets::Error) -> WechatError {
+    WechatError::WebSocket(format!("Work AI Bot transport failed: {error}"))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49159,7 +49671,10 @@ fn validate_work_auth_http_url(label: &str, value: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use futures_util::{SinkExt, StreamExt};
     use serde_json::json;
+    use tokio::net::TcpListener;
+    use tokio_websockets::{Message as WebSocketMessage, ServerBuilder};
 
     use super::*;
 
@@ -66895,13 +67410,219 @@ mod tests {
         }))
         .unwrap();
         assert!(!ok.is_error());
-        assert_eq!(ok.headers.unwrap().req_id.as_deref(), Some("req-1"));
+        assert!(ok.validate().is_ok());
+        assert!(ok.is_pong());
+        assert_eq!(ok.request_id(), Some("req-1"));
         assert_eq!(ok.extra["trace_id"], "aibot-ok");
 
         let err: WorkAiBotLongConnectionResponse =
             serde_json::from_value(json!({ "errcode": 40001, "errmsg": "invalid" })).unwrap();
         assert!(err.is_error());
+        assert!(matches!(err.validate(), Err(WechatError::Api { .. })));
         assert_eq!(err.errmsg.as_deref(), Some("invalid"));
+    }
+
+    #[test]
+    fn validates_work_aibot_transport_contracts() {
+        assert!(WorkAiBotClient::new(None).is_ok());
+        assert!(WorkAiBotClient::new(Some("ws://127.0.0.1:9000")).is_ok());
+        assert!(WorkAiBotClient::new(Some("ws://example.com")).is_err());
+        assert!(WorkAiBotClient::new(Some("https://example.com")).is_err());
+        assert!(WorkAiBotClient::new(Some("wss://user:secret@example.com")).is_err());
+
+        let subscribe = Work::aibot_subscribe_request("bot", "super-secret", "req-1");
+        assert!(subscribe.validate().is_ok());
+        let debug = format!("{subscribe:?}");
+        assert!(debug.contains("[REDACTED]"));
+        assert!(!debug.contains("super-secret"));
+
+        let mut invalid_subscribe = subscribe.clone();
+        invalid_subscribe.headers = None;
+        assert!(invalid_subscribe.validate().is_err());
+
+        let mut invalid_ping = Work::aibot_ping_request("req-2");
+        invalid_ping.body = Some(json!({ "unexpected": true }));
+        assert!(invalid_ping.validate().is_err());
+
+        let empty_command = Work::aibot_command_request(
+            WORK_AIBOT_CMD_SEND_MESSAGE,
+            Some("req-3".to_string()),
+            Some(json!({})),
+        );
+        assert!(empty_command.validate().is_err());
+
+        let mismatch: WorkAiBotLongConnectionResponse = serde_json::from_value(json!({
+            "cmd": "aibot_subscribe",
+            "headers": { "req_id": "other" }
+        }))
+        .unwrap();
+        assert!(mismatch.validate_for_request(&subscribe).is_err());
+
+        let malformed: WorkAiBotLongConnectionResponse =
+            serde_json::from_value(json!({ "cmd": "event", "body": [] })).unwrap();
+        assert!(malformed.validate().is_err());
+    }
+
+    #[tokio::test]
+    async fn runs_work_aibot_websocket_lifecycle() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = ServerBuilder::new().accept(stream).await.unwrap();
+
+            let subscribe_message = socket.next().await.unwrap().unwrap();
+            let subscribe: WorkAiBotLongConnectionRequest =
+                serde_json::from_str(subscribe_message.as_text().unwrap()).unwrap();
+            subscribe.validate().unwrap();
+            assert_eq!(subscribe.cmd, WORK_AIBOT_CMD_SUBSCRIBE);
+            assert_eq!(subscribe.body.as_ref().unwrap()["bot_id"], "bot");
+            socket
+                .send(WebSocketMessage::text(
+                    serde_json::to_string(&json!({
+                        "cmd": WORK_AIBOT_CMD_SUBSCRIBE,
+                        "headers": { "req_id": subscribe.request_id() },
+                        "body": { "subscribed": true }
+                    }))
+                    .unwrap(),
+                ))
+                .await
+                .unwrap();
+
+            let heartbeat_message = socket.next().await.unwrap().unwrap();
+            let heartbeat: WorkAiBotLongConnectionRequest =
+                serde_json::from_str(heartbeat_message.as_text().unwrap()).unwrap();
+            heartbeat.validate().unwrap();
+            assert_eq!(heartbeat.cmd, WORK_AIBOT_CMD_PING);
+
+            let send_message = socket.next().await.unwrap().unwrap();
+            let send: WorkAiBotLongConnectionRequest =
+                serde_json::from_str(send_message.as_text().unwrap()).unwrap();
+            send.validate().unwrap();
+            assert_eq!(send.cmd, WORK_AIBOT_CMD_SEND_MESSAGE);
+            socket
+                .send(WebSocketMessage::text(
+                    serde_json::to_string(&json!({
+                        "cmd": "aibot_event",
+                        "headers": { "req_id": "event-1" },
+                        "body": { "event": "message" }
+                    }))
+                    .unwrap(),
+                ))
+                .await
+                .unwrap();
+
+            let close = socket.next().await.unwrap().unwrap();
+            assert!(close.is_close());
+        });
+
+        let endpoint = format!("ws://{address}");
+        let client = WorkAiBotClient::new(Some(&endpoint)).unwrap();
+        assert!(!client.is_connected().await);
+        let subscribed = client.subscribe("bot", "secret").await.unwrap();
+        assert_eq!(subscribed.cmd.as_deref(), Some(WORK_AIBOT_CMD_SUBSCRIBE));
+        assert!(client.is_connected().await);
+        client.heartbeat().await.unwrap();
+        let request_id = client
+            .send_message(json!({ "chatid": "chat", "content": "hello" }))
+            .await
+            .unwrap();
+        assert!(request_id.starts_with("req-"));
+        let event = client.read().await.unwrap();
+        assert_eq!(event.cmd.as_deref(), Some("aibot_event"));
+        assert_eq!(event.body.as_ref().unwrap()["event"], "message");
+        client.close().await.unwrap();
+        assert!(!client.is_connected().await);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn serves_work_aibot_events_until_shutdown() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = ServerBuilder::new().accept(stream).await.unwrap();
+            let subscribe_message = socket.next().await.unwrap().unwrap();
+            let subscribe: WorkAiBotLongConnectionRequest =
+                serde_json::from_str(subscribe_message.as_text().unwrap()).unwrap();
+            socket
+                .send(WebSocketMessage::text(
+                    serde_json::to_string(&json!({
+                        "cmd": WORK_AIBOT_CMD_SUBSCRIBE,
+                        "headers": { "req_id": subscribe.request_id() }
+                    }))
+                    .unwrap(),
+                ))
+                .await
+                .unwrap();
+            socket
+                .send(WebSocketMessage::text(
+                    serde_json::to_string(&json!({
+                        "cmd": "aibot_event",
+                        "body": { "event": "welcome" }
+                    }))
+                    .unwrap(),
+                ))
+                .await
+                .unwrap();
+            let close = socket.next().await.unwrap().unwrap();
+            assert!(close.is_close());
+        });
+
+        let endpoint = format!("ws://{address}");
+        let client = WorkAiBotClient::new(Some(&endpoint)).unwrap();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let mut shutdown_tx = Some(shutdown_tx);
+        let mut handled = 0;
+        client
+            .subscribe_and_serve_until(
+                "bot",
+                "secret",
+                Duration::from_secs(30),
+                async move {
+                    let _ = shutdown_rx.await;
+                },
+                |event| {
+                    handled += 1;
+                    assert_eq!(event.body.as_ref().unwrap()["event"], "welcome");
+                    let shutdown_tx = shutdown_tx.take().unwrap();
+                    async move {
+                        let _ = shutdown_tx.send(());
+                        Ok(())
+                    }
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(handled, 1);
+        assert!(!client.is_connected().await);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn clears_work_aibot_state_after_peer_close() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = ServerBuilder::new().accept(stream).await.unwrap();
+            socket
+                .send(WebSocketMessage::close(None, ""))
+                .await
+                .unwrap();
+        });
+
+        let endpoint = format!("ws://{address}");
+        let client = WorkAiBotClient::new(Some(&endpoint)).unwrap();
+        client.connect().await.unwrap();
+        assert!(client.is_connected().await);
+        assert!(matches!(
+            client.read().await,
+            Err(WechatError::WebSocket(_))
+        ));
+        assert!(!client.is_connected().await);
+        server.await.unwrap();
     }
 
     #[test]
