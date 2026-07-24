@@ -1,9 +1,11 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{
     config::Platform,
-    error::Result,
+    error::{Result, WechatError},
     modules::{DomainModule, PlatformClient},
     types::CallbackMessage,
     Client,
@@ -453,13 +455,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseCreateNewOrderRequest,
     ) -> Result<OpenWorkLicenseOrderIdResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenWorkLicenseOrderIdResponse = self
+            .inner
             .post(
                 "cgi-bin/license/create_new_order",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("open-work license create new order")?;
+        Ok(response)
     }
 
     pub async fn create_license_renew_order_job(
@@ -467,13 +473,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseCreateRenewOrderJobRequest,
     ) -> Result<OpenWorkLicenseCreateRenewOrderJobResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenWorkLicenseCreateRenewOrderJobResponse = self
+            .inner
             .post(
                 "cgi-bin/license/create_renew_order_job",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn submit_license_order_job(
@@ -481,13 +491,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseSubmitOrderJobRequest,
     ) -> Result<OpenWorkLicenseOrderIdResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenWorkLicenseOrderIdResponse = self
+            .inner
             .post(
                 "cgi-bin/license/submit_order_job",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("open-work license submit renewal order")?;
+        Ok(response)
     }
 
     pub async fn list_license_order(
@@ -495,13 +509,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseListOrderRequest,
     ) -> Result<OpenWorkLicenseListOrderResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenWorkLicenseListOrderResponse = self
+            .inner
             .post(
                 "cgi-bin/license/list_order",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_license_order(
@@ -509,13 +527,18 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         order_id: impl Into<String>,
     ) -> Result<OpenWorkLicenseOrderResponse> {
-        self.inner
+        let order_id = order_id.into();
+        validate_open_work_license_identifier("order id", &order_id)?;
+        let response: OpenWorkLicenseOrderResponse = self
+            .inner
             .post(
                 "cgi-bin/license/get_order",
                 Some(provider_access_token.into()),
-                json!({ "order_id": order_id.into() }),
+                json!({ "order_id": order_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_license_order_account(
@@ -523,13 +546,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseListOrderAccountRequest,
     ) -> Result<OpenWorkLicenseListAccountResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenWorkLicenseListAccountResponse = self
+            .inner
             .post(
                 "cgi-bin/license/list_order_account",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn cancel_license_order(
@@ -538,13 +565,20 @@ impl OpenWork {
         corp_id: impl Into<String>,
         order_id: impl Into<String>,
     ) -> Result<OpenWorkStatusResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        let order_id = order_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_identifier("order id", &order_id)?;
+        let response: OpenWorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/license/cancel_order",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "order_id": order_id.into() }),
+                json!({ "corpid": corp_id, "order_id": order_id }),
             )
-            .await
+            .await?;
+        response.validate_for("open-work license cancel order")?;
+        Ok(response)
     }
 
     pub async fn activate_license_account(
@@ -552,13 +586,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseActiveInfo,
     ) -> Result<OpenWorkStatusResponse> {
-        self.inner
+        request.validate_activation()?;
+        let response: OpenWorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/license/active_account",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("open-work license activate account")?;
+        Ok(response)
     }
 
     pub async fn batch_activate_license_account(
@@ -567,13 +605,19 @@ impl OpenWork {
         corp_id: impl Into<String>,
         active_list: Vec<OpenWorkLicenseActiveInfo>,
     ) -> Result<OpenWorkStatusResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_active_batch(&active_list)?;
+        let response: OpenWorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/license/batch_active_account",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "active_list": active_list }),
+                json!({ "corpid": corp_id, "active_list": active_list }),
             )
-            .await
+            .await?;
+        response.validate_for("open-work license batch activate accounts")?;
+        Ok(response)
     }
 
     pub async fn get_license_active_info_by_code(
@@ -582,13 +626,20 @@ impl OpenWork {
         corp_id: impl Into<String>,
         active_code: impl Into<String>,
     ) -> Result<OpenWorkLicenseActiveInfoResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        let active_code = active_code.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_identifier("activation code", &active_code)?;
+        let response: OpenWorkLicenseActiveInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/license/get_active_info_by_code",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "active_code": active_code.into() }),
+                json!({ "corpid": corp_id, "active_code": active_code }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn batch_get_license_active_info_by_code(
@@ -597,13 +648,19 @@ impl OpenWork {
         corp_id: impl Into<String>,
         active_code_list: Vec<String>,
     ) -> Result<OpenWorkLicenseActiveInfoListResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_identifier_batch("activation code", &active_code_list, 1_000)?;
+        let response: OpenWorkLicenseActiveInfoListResponse = self
+            .inner
             .post(
                 "cgi-bin/license/batch_get_active_info_by_code",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "active_code_list": active_code_list }),
+                json!({ "corpid": corp_id, "active_code_list": active_code_list }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_license_activated_account(
@@ -611,13 +668,17 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         request: OpenWorkLicenseListActivatedAccountRequest,
     ) -> Result<OpenWorkLicenseListAccountResponse> {
-        self.inner
+        request.validate()?;
+        let response: OpenWorkLicenseListAccountResponse = self
+            .inner
             .post(
                 "cgi-bin/license/list_activated_account",
                 Some(provider_access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_license_active_info_by_user(
@@ -626,13 +687,20 @@ impl OpenWork {
         corp_id: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Result<OpenWorkLicenseUserActiveInfoResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        let user_id = user_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_identifier("member userid", &user_id)?;
+        let response: OpenWorkLicenseUserActiveInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/license/get_active_info_by_user",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "userid": user_id.into() }),
+                json!({ "corpid": corp_id, "userid": user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn batch_transfer_license(
@@ -641,13 +709,19 @@ impl OpenWork {
         corp_id: impl Into<String>,
         transfer_list: Vec<OpenWorkLicenseTransferInfo>,
     ) -> Result<OpenWorkLicenseTransferResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_transfer_batch(&transfer_list)?;
+        let response: OpenWorkLicenseTransferResponse = self
+            .inner
             .post(
                 "cgi-bin/license/batch_transfer_license",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "transfer_list": transfer_list }),
+                json!({ "corpid": corp_id, "transfer_list": transfer_list }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_app_license_info(
@@ -656,13 +730,20 @@ impl OpenWork {
         corp_id: impl Into<String>,
         suite_id: impl Into<String>,
     ) -> Result<OpenWorkLicenseInfoResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        let suite_id = suite_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_identifier("suite id", &suite_id)?;
+        let response: OpenWorkLicenseInfoResponse = self
+            .inner
             .post(
                 "cgi-bin/license/get_app_license_info",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "suite_id": suite_id.into() }),
+                json!({ "corpid": corp_id, "suite_id": suite_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_license_auto_active_status(
@@ -671,13 +752,19 @@ impl OpenWork {
         corp_id: impl Into<String>,
         auto_active_status: i64,
     ) -> Result<OpenWorkStatusResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        validate_open_work_license_binary_state("auto-active status", auto_active_status)?;
+        let response: OpenWorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/license/set_auto_active_status",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into(), "auto_active_status": auto_active_status }),
+                json!({ "corpid": corp_id, "auto_active_status": auto_active_status }),
             )
-            .await
+            .await?;
+        response.validate_for("open-work license set auto-active status")?;
+        Ok(response)
     }
 
     pub async fn get_license_auto_active_status(
@@ -685,13 +772,18 @@ impl OpenWork {
         provider_access_token: impl Into<String>,
         corp_id: impl Into<String>,
     ) -> Result<OpenWorkLicenseAutoActiveStatusResponse> {
-        self.inner
+        let corp_id = corp_id.into();
+        validate_open_work_license_identifier("corporation id", &corp_id)?;
+        let response: OpenWorkLicenseAutoActiveStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/license/get_auto_active_status",
                 Some(provider_access_token.into()),
-                json!({ "corpid": corp_id.into() }),
+                json!({ "corpid": corp_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn server(&self) -> DomainModule {
@@ -1573,6 +1665,12 @@ pub struct OpenWorkStatusResponse {
     pub errmsg: Option<String>,
 }
 
+impl OpenWorkStatusResponse {
+    pub fn validate_for(&self, operation: &str) -> Result<()> {
+        ensure_open_work_response_success(operation, self.errcode, self.errmsg.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkExternalUserIdInfo {
     #[serde(default)]
@@ -1599,6 +1697,26 @@ pub struct OpenWorkLicenseAccountCount {
     pub external_contact_count: Option<i64>,
 }
 
+impl OpenWorkLicenseAccountCount {
+    pub fn validate(&self) -> Result<()> {
+        let base_count = self.base_count.unwrap_or(0);
+        let external_contact_count = self.external_contact_count.unwrap_or(0);
+        if !(0..=1_000_000).contains(&base_count)
+            || !(0..=1_000_000).contains(&external_contact_count)
+        {
+            return Err(WechatError::Config(
+                "open-work license account counts must be between 0 and 1000000".to_string(),
+            ));
+        }
+        if base_count == 0 && external_contact_count == 0 {
+            return Err(WechatError::Config(
+                "open-work license order requires at least one account".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseAccountDuration {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1607,6 +1725,67 @@ pub struct OpenWorkLicenseAccountDuration {
     pub days: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub new_expire_time: Option<i64>,
+}
+
+impl OpenWorkLicenseAccountDuration {
+    fn validate_purchase(&self) -> Result<()> {
+        if self.new_expire_time.is_some() {
+            return Err(WechatError::Config(
+                "open-work new license order must use month/days instead of new_expire_time"
+                    .to_string(),
+            ));
+        }
+        self.validate_relative_days(31)
+    }
+
+    fn validate_renewal(&self) -> Result<()> {
+        if let Some(new_expire_time) = self.new_expire_time {
+            if new_expire_time <= 0 || self.month.unwrap_or(0) != 0 || self.days.unwrap_or(0) != 0 {
+                return Err(WechatError::Config(
+                    "open-work license renewal new_expire_time must be positive and exclusive"
+                        .to_string(),
+                ));
+            }
+            return Ok(());
+        }
+        self.validate_relative_days(1)
+    }
+
+    fn validate_relative_days(&self, minimum_days: i64) -> Result<()> {
+        let month = self.month.unwrap_or(0);
+        let days = self.days.unwrap_or(0);
+        if month < 0 || days < 0 {
+            return Err(WechatError::Config(
+                "open-work license duration month and days cannot be negative".to_string(),
+            ));
+        }
+        let total_days = month
+            .checked_mul(31)
+            .and_then(|total| total.checked_add(days))
+            .ok_or_else(|| {
+                WechatError::Config("open-work license duration overflowed".to_string())
+            })?;
+        if !(minimum_days..=1_860).contains(&total_days) {
+            return Err(WechatError::Config(format!(
+                "open-work license duration must be between {minimum_days} and 1860 days"
+            )));
+        }
+        Ok(())
+    }
+
+    fn validate_response(&self) -> Result<()> {
+        if self.month.is_some_and(|month| month < 0)
+            || self.days.is_some_and(|days| days < 0)
+            || self
+                .new_expire_time
+                .is_some_and(|new_expire_time| new_expire_time < 0)
+        {
+            return Err(WechatError::Config(
+                "open-work license response duration values cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1621,6 +1800,35 @@ pub struct OpenWorkLicenseCreateNewOrderRequest {
     pub account_duration: Option<OpenWorkLicenseAccountDuration>,
 }
 
+impl OpenWorkLicenseCreateNewOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "corporation id",
+            self.corpid.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_license_identifier(
+            "buyer userid",
+            self.buyer_userid.as_deref().unwrap_or_default(),
+        )?;
+        self.account_count
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work new license order requires account_count".to_string(),
+                )
+            })?
+            .validate()?;
+        self.account_duration
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work new license order requires account_duration".to_string(),
+                )
+            })?
+            .validate_purchase()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseCreateRenewOrderJobRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1631,6 +1839,37 @@ pub struct OpenWorkLicenseCreateRenewOrderJobRequest {
     pub jobid: Option<String>,
 }
 
+impl OpenWorkLicenseCreateRenewOrderJobRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "corporation id",
+            self.corpid.as_deref().unwrap_or_default(),
+        )?;
+        if let Some(jobid) = &self.jobid {
+            validate_open_work_license_identifier("renewal job id", jobid)?;
+        }
+        if self.account_list.is_empty() || self.account_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "open-work license renewal job requires between 1 and 1000 accounts".to_string(),
+            ));
+        }
+        let mut active_codes = HashSet::with_capacity(self.account_list.len());
+        for account in &self.account_list {
+            account.validate_renewal_item()?;
+            let active_code = account
+                .active_code
+                .as_deref()
+                .expect("renewal item validation requires active_code");
+            if !active_codes.insert(active_code.trim()) {
+                return Err(WechatError::Config(
+                    "open-work license renewal job contains duplicate activation codes".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseSubmitOrderJobRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1639,6 +1878,27 @@ pub struct OpenWorkLicenseSubmitOrderJobRequest {
     pub buyer_userid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_duration: Option<OpenWorkLicenseAccountDuration>,
+}
+
+impl OpenWorkLicenseSubmitOrderJobRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "renewal job id",
+            self.jobid.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_license_identifier(
+            "buyer userid",
+            self.buyer_userid.as_deref().unwrap_or_default(),
+        )?;
+        self.account_duration
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work submit renewal order requires account_duration".to_string(),
+                )
+            })?
+            .validate_renewal()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1655,6 +1915,34 @@ pub struct OpenWorkLicenseListOrderRequest {
     pub limit: Option<i64>,
 }
 
+impl OpenWorkLicenseListOrderRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(corpid) = &self.corpid {
+            validate_open_work_license_identifier("corporation id", corpid)?;
+        }
+        match (self.start_time.as_deref(), self.end_time.as_deref()) {
+            (None, None) => {}
+            (Some(start_time), Some(end_time)) => {
+                let start_time = validate_open_work_license_timestamp("start time", start_time)?;
+                let end_time = validate_open_work_license_timestamp("end time", end_time)?;
+                if end_time < start_time || end_time - start_time > 31 * 86_400 {
+                    return Err(WechatError::Config(
+                        "open-work license order time range must be ordered and at most 31 days"
+                            .to_string(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "open-work license order start_time and end_time must be provided together"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_open_work_license_page(self.cursor.as_deref(), self.limit)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseListOrderAccountRequest {
     pub order_id: String,
@@ -1664,6 +1952,13 @@ pub struct OpenWorkLicenseListOrderAccountRequest {
     pub cursor: Option<String>,
 }
 
+impl OpenWorkLicenseListOrderAccountRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_license_identifier("order id", &self.order_id)?;
+        validate_open_work_license_page(self.cursor.as_deref(), self.limit)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseListActivatedAccountRequest {
     pub corpid: String,
@@ -1671,6 +1966,13 @@ pub struct OpenWorkLicenseListActivatedAccountRequest {
     pub limit: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+}
+
+impl OpenWorkLicenseListActivatedAccountRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_license_identifier("corporation id", &self.corpid)?;
+        validate_open_work_license_page(self.cursor.as_deref(), self.limit)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1754,6 +2056,109 @@ impl OpenWorkLicenseActiveInfo {
         self.status_kind()
             .is_some_and(OpenWorkLicenseActiveStatusKind::is_active)
     }
+
+    pub fn validate_activation(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "corporation id",
+            self.corpid.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_license_identifier(
+            "member userid",
+            self.userid.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_license_identifier(
+            "activation code",
+            self.active_code.as_deref().unwrap_or_default(),
+        )
+    }
+
+    fn validate_renewal_item(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "renewal activation code",
+            self.active_code.as_deref().unwrap_or_default(),
+        )?;
+        if let Some(userid) = &self.userid {
+            validate_open_work_license_identifier("renewal member userid", userid)?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_response(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "activation response code",
+            self.active_code.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_license_identifier(
+            "activation response corporation id",
+            self.corpid.as_deref().unwrap_or_default(),
+        )?;
+        let account_type = self.account_type.ok_or_else(|| {
+            WechatError::Config(
+                "open-work license activation response requires account type".to_string(),
+            )
+        })?;
+        if !matches!(account_type, 1 | 2) {
+            return Err(WechatError::Config(
+                "open-work license activation response account type must be 1 or 2".to_string(),
+            ));
+        }
+        let status = self.status.ok_or_else(|| {
+            WechatError::Config("open-work license activation response requires status".to_string())
+        })?;
+        if !(1..=6).contains(&status) {
+            return Err(WechatError::Config(
+                "open-work license activation response status must be between 1 and 6".to_string(),
+            ));
+        }
+        if status != 1 {
+            validate_open_work_license_identifier(
+                "activation response member userid",
+                self.userid.as_deref().unwrap_or_default(),
+            )?;
+        } else if let Some(userid) = &self.userid {
+            validate_open_work_license_identifier("activation response member userid", userid)?;
+        }
+        validate_open_work_license_timestamps(
+            self.create_time,
+            self.active_time,
+            self.expire_time,
+        )?;
+        if status == 5 {
+            let merge_info = self.merge_info.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "open-work merged license activation requires merge_info".to_string(),
+                )
+            })?;
+            if merge_info.to_active_code.is_none() && merge_info.from_active_code.is_none() {
+                return Err(WechatError::Config(
+                    "open-work merged license activation requires a merge activation code"
+                        .to_string(),
+                ));
+            }
+        }
+        if let Some(merge_info) = &self.merge_info {
+            if let Some(code) = &merge_info.to_active_code {
+                validate_open_work_license_identifier("merged-to activation code", code)?;
+            }
+            if let Some(code) = &merge_info.from_active_code {
+                validate_open_work_license_identifier("merged-from activation code", code)?;
+            }
+        }
+        if let Some(share_info) = &self.share_info {
+            if share_info.to_corpid.is_none() && share_info.from_corpid.is_none() {
+                return Err(WechatError::Config(
+                    "open-work shared license activation requires a corporation id".to_string(),
+                ));
+            }
+            if let Some(corpid) = &share_info.to_corpid {
+                validate_open_work_license_identifier("shared-to corporation id", corpid)?;
+            }
+            if let Some(corpid) = &share_info.from_corpid {
+                validate_open_work_license_identifier("shared-from corporation id", corpid)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1803,6 +2208,31 @@ pub struct OpenWorkLicenseTransferInfo {
     pub errcode: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenWorkLicenseTransferInfo {
+    fn validate_request(&self) -> Result<()> {
+        let handover_userid = self.handover_userid.as_deref().unwrap_or_default();
+        let takeover_userid = self.takeover_userid.as_deref().unwrap_or_default();
+        validate_open_work_license_identifier("handover userid", handover_userid)?;
+        validate_open_work_license_identifier("takeover userid", takeover_userid)?;
+        if handover_userid == takeover_userid {
+            return Err(WechatError::Config(
+                "open-work license handover and takeover users must be different".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_response(&self) -> Result<()> {
+        self.validate_request()?;
+        if self.errcode.is_none() {
+            return Err(WechatError::Config(
+                "open-work license transfer result requires errcode".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1917,17 +2347,93 @@ impl OpenWorkLicenseOrder {
         self.order_status_kind()
             .is_some_and(OpenWorkLicenseOrderStatusKind::is_success)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_license_identifier(
+            "order response id",
+            self.order_id.as_deref().unwrap_or_default(),
+        )?;
+        if self.order_type.is_none_or(|order_type| order_type <= 0) {
+            return Err(WechatError::Config(
+                "open-work license order type must be positive".to_string(),
+            ));
+        }
+        if self.order_status.is_none_or(|status| status < 0) {
+            return Err(WechatError::Config(
+                "open-work license order status cannot be negative".to_string(),
+            ));
+        }
+        if let Some(corpid) = &self.corpid {
+            validate_open_work_license_identifier("order corporation id", corpid)?;
+        }
+        if let Some(buyer_userid) = &self.buyer_userid {
+            validate_open_work_license_identifier("order buyer userid", buyer_userid)?;
+        }
+        if self.price.is_some_and(|price| price < 0) {
+            return Err(WechatError::Config(
+                "open-work license order price cannot be negative".to_string(),
+            ));
+        }
+        if let Some(account_count) = &self.account_count {
+            account_count.validate()?;
+        }
+        if let Some(duration) = &self.account_duration {
+            duration.validate_response()?;
+        }
+        validate_open_work_license_order_timestamps(self.create_time, self.pay_time)
+    }
 }
 
 impl OpenWorkLicenseListOrderResponse {
     pub fn has_more(&self) -> bool {
         self.has_more == Some(1)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license list orders",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_response_page(
+            self.has_more,
+            self.next_cursor.as_deref(),
+            self.order_list.len(),
+        )?;
+        let mut order_ids = HashSet::with_capacity(self.order_list.len());
+        for order in &self.order_list {
+            order.validate()?;
+            let order_id = order
+                .order_id
+                .as_deref()
+                .expect("order validation requires order_id");
+            if !order_ids.insert(order_id) {
+                return Err(WechatError::Config(
+                    "open-work license order response contains duplicate order ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl OpenWorkLicenseListAccountResponse {
     pub fn has_more(&self) -> bool {
         self.has_more == Some(1)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license list accounts",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_response_page(
+            self.has_more,
+            self.next_cursor.as_deref(),
+            self.account_list.len(),
+        )?;
+        validate_open_work_license_active_response_list(&self.account_list)
     }
 }
 
@@ -1943,6 +2449,28 @@ pub struct OpenWorkLicenseTrialInfo {
     pub extra: Value,
 }
 
+impl OpenWorkLicenseTrialInfo {
+    fn validate(&self) -> Result<()> {
+        let start_time = self.start_time.ok_or_else(|| {
+            WechatError::Config("open-work license trial requires start_time".to_string())
+        })?;
+        let end_time = self.end_time.ok_or_else(|| {
+            WechatError::Config("open-work license trial requires end_time".to_string())
+        })?;
+        if start_time < 0 || end_time < start_time {
+            return Err(WechatError::Config(
+                "open-work license trial timestamps are inconsistent".to_string(),
+            ));
+        }
+        if self.trial_status.is_some_and(|status| status < 0) {
+            return Err(WechatError::Config(
+                "open-work license trial status cannot be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseOrderIdResponse {
     #[serde(default)]
@@ -1953,6 +2481,16 @@ pub struct OpenWorkLicenseOrderIdResponse {
     pub order_id: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenWorkLicenseOrderIdResponse {
+    pub fn validate_for(&self, operation: &str) -> Result<()> {
+        ensure_open_work_response_success(operation, self.errcode, self.errmsg.as_deref())?;
+        validate_open_work_license_identifier(
+            "order response id",
+            self.order_id.as_deref().unwrap_or_default(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1969,6 +2507,40 @@ pub struct OpenWorkLicenseCreateRenewOrderJobResponse {
     pub extra: Value,
 }
 
+impl OpenWorkLicenseCreateRenewOrderJobResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license create renewal job",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_identifier(
+            "renewal response job id",
+            self.jobid.as_deref().unwrap_or_default(),
+        )?;
+        let mut identities = HashSet::with_capacity(self.invalid_account_list.len());
+        for account in &self.invalid_account_list {
+            let identity = account
+                .active_code
+                .as_deref()
+                .or(account.userid.as_deref())
+                .unwrap_or_default();
+            validate_open_work_license_identifier("invalid renewal account identity", identity)?;
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "open-work license renewal response contains duplicate invalid accounts"
+                        .to_string(),
+                ));
+            }
+            if account.errcode.is_none_or(|errcode| errcode == 0) {
+                return Err(WechatError::Config(
+                    "open-work invalid renewal account requires nonzero errcode".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseListOrderResponse {
     #[serde(default)]
@@ -1997,6 +2569,21 @@ pub struct OpenWorkLicenseOrderResponse {
     pub extra: Value,
 }
 
+impl OpenWorkLicenseOrderResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license get order",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.order
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("open-work license order response requires order".to_string())
+            })?
+            .validate()
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseListAccountResponse {
     #[serde(default)]
@@ -2025,6 +2612,23 @@ pub struct OpenWorkLicenseActiveInfoResponse {
     pub extra: Value,
 }
 
+impl OpenWorkLicenseActiveInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license get activation info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.active_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work license activation response requires active_info".to_string(),
+                )
+            })?
+            .validate_response()
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseActiveInfoListResponse {
     #[serde(default)]
@@ -2037,6 +2641,16 @@ pub struct OpenWorkLicenseActiveInfoListResponse {
     pub extra: Value,
 }
 
+impl OpenWorkLicenseActiveInfoListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license batch get activation info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_active_response_list(&self.active_info_list)
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseUserActiveInfoResponse {
     #[serde(default)]
@@ -2082,6 +2696,29 @@ impl OpenWorkLicenseUserActiveInfoResponse {
         self.active_status_kind()
             .is_some_and(OpenWorkLicenseUserActiveStatusKind::is_active)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license get member activation info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_binary_state(
+            "member active status",
+            self.active_status.ok_or_else(|| {
+                WechatError::Config(
+                    "open-work license member response requires active_status".to_string(),
+                )
+            })?,
+        )?;
+        validate_open_work_license_active_response_list(&self.active_info_list)?;
+        if self.is_active() && self.active_info_list.is_empty() {
+            return Err(WechatError::Config(
+                "open-work active license member requires active_info_list".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2096,6 +2733,36 @@ pub struct OpenWorkLicenseTransferResponse {
     pub extra: Value,
 }
 
+impl OpenWorkLicenseTransferResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work license batch transfer",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.transfer_result.is_empty() || self.transfer_result.len() > 1_000 {
+            return Err(WechatError::Config(
+                "open-work license transfer response requires between 1 and 1000 results"
+                    .to_string(),
+            ));
+        }
+        let mut handover_users = HashSet::with_capacity(self.transfer_result.len());
+        for transfer in &self.transfer_result {
+            transfer.validate_response()?;
+            let handover = transfer
+                .handover_userid
+                .as_deref()
+                .expect("transfer validation requires handover userid");
+            if !handover_users.insert(handover) {
+                return Err(WechatError::Config(
+                    "open-work license transfer response contains duplicate handover users"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkLicenseInfoResponse {
     #[serde(default)]
@@ -2143,6 +2810,34 @@ impl OpenWorkLicenseInfoResponse {
         self.license_status_kind()
             .is_some_and(OpenWorkLicenseStatusKind::is_enabled)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get application license info",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_binary_state(
+            "license status",
+            self.license_status.ok_or_else(|| {
+                WechatError::Config(
+                    "open-work application license response requires license_status".to_string(),
+                )
+            })?,
+        )?;
+        if self
+            .license_check_time
+            .is_some_and(|timestamp| timestamp < 0)
+        {
+            return Err(WechatError::Config(
+                "open-work license check time cannot be negative".to_string(),
+            ));
+        }
+        if let Some(trial_info) = &self.trail_info {
+            trial_info.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2188,6 +2883,258 @@ impl OpenWorkLicenseAutoActiveStatusResponse {
         self.auto_active_status_kind()
             .is_some_and(OpenWorkLicenseAutoActiveStatusKind::is_enabled)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get license auto-active status",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_license_binary_state(
+            "auto-active status",
+            self.auto_active_status.ok_or_else(|| {
+                WechatError::Config(
+                    "open-work license auto-active response requires auto_active_status"
+                        .to_string(),
+                )
+            })?,
+        )
+    }
+}
+
+fn ensure_open_work_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_identifier(kind: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "open-work license {kind} must contain 1 to 512 printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_timestamp(kind: &str, value: &str) -> Result<i64> {
+    let timestamp = value.parse::<i64>().map_err(|_| {
+        WechatError::Config(format!(
+            "open-work license {kind} must be a positive Unix timestamp"
+        ))
+    })?;
+    if timestamp <= 0 {
+        return Err(WechatError::Config(format!(
+            "open-work license {kind} must be a positive Unix timestamp"
+        )));
+    }
+    Ok(timestamp)
+}
+
+fn validate_open_work_license_page(cursor: Option<&str>, limit: Option<i64>) -> Result<()> {
+    if cursor.is_some_and(|cursor| cursor.trim().is_empty()) {
+        return Err(WechatError::Config(
+            "open-work license pagination cursor cannot be blank".to_string(),
+        ));
+    }
+    if limit.is_some_and(|limit| !(1..=1_000).contains(&limit)) {
+        return Err(WechatError::Config(
+            "open-work license pagination limit must be between 1 and 1000".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_response_page(
+    has_more: Option<i64>,
+    next_cursor: Option<&str>,
+    item_count: usize,
+) -> Result<()> {
+    let has_more = has_more.ok_or_else(|| {
+        WechatError::Config("open-work license page response requires has_more".to_string())
+    })?;
+    validate_open_work_license_binary_state("page has_more", has_more)?;
+    if item_count > 1_000 {
+        return Err(WechatError::Config(
+            "open-work license page response cannot exceed 1000 items".to_string(),
+        ));
+    }
+    if has_more == 1 {
+        validate_open_work_license_identifier("page next cursor", next_cursor.unwrap_or_default())?;
+        if item_count == 0 {
+            return Err(WechatError::Config(
+                "open-work license page with has_more cannot be empty".to_string(),
+            ));
+        }
+    } else if let Some(next_cursor) = next_cursor {
+        validate_open_work_license_identifier("page next cursor", next_cursor)?;
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_identifier_batch(
+    kind: &str,
+    identifiers: &[String],
+    maximum: usize,
+) -> Result<()> {
+    if identifiers.is_empty() || identifiers.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "open-work license {kind} list must contain between 1 and {maximum} values"
+        )));
+    }
+    let mut unique = HashSet::with_capacity(identifiers.len());
+    for identifier in identifiers {
+        validate_open_work_license_identifier(kind, identifier)?;
+        if !unique.insert(identifier.trim()) {
+            return Err(WechatError::Config(format!(
+                "open-work license {kind} list contains duplicates"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_active_batch(
+    active_list: &[OpenWorkLicenseActiveInfo],
+) -> Result<()> {
+    if active_list.is_empty() || active_list.len() > 1_000 {
+        return Err(WechatError::Config(
+            "open-work license activation batch must contain between 1 and 1000 accounts"
+                .to_string(),
+        ));
+    }
+    let mut active_codes = HashSet::with_capacity(active_list.len());
+    let mut userids = HashSet::with_capacity(active_list.len());
+    for active in active_list {
+        active.validate_activation()?;
+        let active_code = active
+            .active_code
+            .as_deref()
+            .expect("activation validation requires active_code");
+        let userid = active
+            .userid
+            .as_deref()
+            .expect("activation validation requires userid");
+        if !active_codes.insert(active_code.trim()) || !userids.insert(userid.trim()) {
+            return Err(WechatError::Config(
+                "open-work license activation batch contains duplicate codes or users".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_active_response_list(
+    active_list: &[OpenWorkLicenseActiveInfo],
+) -> Result<()> {
+    if active_list.len() > 1_000 {
+        return Err(WechatError::Config(
+            "open-work license activation response cannot exceed 1000 accounts".to_string(),
+        ));
+    }
+    let mut active_codes = HashSet::with_capacity(active_list.len());
+    for active in active_list {
+        active.validate_response()?;
+        let active_code = active
+            .active_code
+            .as_deref()
+            .expect("activation response validation requires active_code");
+        if !active_codes.insert(active_code) {
+            return Err(WechatError::Config(
+                "open-work license activation response contains duplicate activation codes"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_transfer_batch(
+    transfer_list: &[OpenWorkLicenseTransferInfo],
+) -> Result<()> {
+    if transfer_list.is_empty() || transfer_list.len() > 1_000 {
+        return Err(WechatError::Config(
+            "open-work license transfer batch must contain between 1 and 1000 transfers"
+                .to_string(),
+        ));
+    }
+    let mut handover_users = HashSet::with_capacity(transfer_list.len());
+    for transfer in transfer_list {
+        transfer.validate_request()?;
+        let handover = transfer
+            .handover_userid
+            .as_deref()
+            .expect("transfer validation requires handover userid");
+        if !handover_users.insert(handover.trim()) {
+            return Err(WechatError::Config(
+                "open-work license transfer batch contains duplicate handover users".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_binary_state(kind: &str, value: i64) -> Result<()> {
+    if !matches!(value, 0 | 1) {
+        return Err(WechatError::Config(format!(
+            "open-work license {kind} must be 0 or 1"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_timestamps(
+    create_time: Option<i64>,
+    active_time: Option<i64>,
+    expire_time: Option<i64>,
+) -> Result<()> {
+    if [create_time, active_time, expire_time]
+        .into_iter()
+        .flatten()
+        .any(|timestamp| timestamp < 0)
+    {
+        return Err(WechatError::Config(
+            "open-work license activation timestamps cannot be negative".to_string(),
+        ));
+    }
+    if create_time
+        .zip(active_time)
+        .is_some_and(|(created, activated)| activated < created)
+        || active_time
+            .zip(expire_time)
+            .is_some_and(|(activated, expires)| expires < activated)
+    {
+        return Err(WechatError::Config(
+            "open-work license activation timestamps are inconsistent".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_open_work_license_order_timestamps(
+    create_time: Option<i64>,
+    pay_time: Option<i64>,
+) -> Result<()> {
+    if create_time.is_some_and(|timestamp| timestamp < 0)
+        || pay_time.is_some_and(|timestamp| timestamp < 0)
+        || create_time
+            .zip(pay_time)
+            .is_some_and(|(created, paid)| paid < created)
+    {
+        return Err(WechatError::Config(
+            "open-work license order timestamps are inconsistent".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -3044,8 +3991,8 @@ mod tests {
 
         let list = serde_json::to_value(OpenWorkLicenseListOrderRequest {
             corpid: Some("corp".to_string()),
-            start_time: Some("2026-07-01".to_string()),
-            end_time: Some("2026-07-09".to_string()),
+            start_time: Some("1782835200".to_string()),
+            end_time: Some("1783526400".to_string()),
             cursor: None,
             limit: Some(100),
         })
@@ -3389,5 +4336,277 @@ mod tests {
             OpenWorkLicenseAutoActiveStatusKind::Disabled
         );
         assert_eq!(auto_active.extra["effective_time"], 1_800_000_000);
+    }
+
+    #[test]
+    fn validates_open_work_license_request_matrix() {
+        let new_order = OpenWorkLicenseCreateNewOrderRequest {
+            corpid: Some("corp".to_string()),
+            buyer_userid: Some("buyer".to_string()),
+            account_count: Some(OpenWorkLicenseAccountCount {
+                base_count: Some(10),
+                external_contact_count: Some(2),
+            }),
+            account_duration: Some(OpenWorkLicenseAccountDuration {
+                month: Some(1),
+                days: None,
+                new_expire_time: None,
+            }),
+        };
+        assert!(new_order.validate().is_ok());
+        let mut empty_count = new_order.clone();
+        empty_count.account_count = Some(OpenWorkLicenseAccountCount {
+            base_count: Some(0),
+            external_contact_count: Some(0),
+        });
+        assert!(empty_count.validate().is_err());
+        let mut short_duration = new_order;
+        short_duration.account_duration = Some(OpenWorkLicenseAccountDuration {
+            month: None,
+            days: Some(30),
+            new_expire_time: None,
+        });
+        assert!(short_duration.validate().is_err());
+
+        let renewal_account = OpenWorkLicenseActiveInfo {
+            active_code: Some("active-1".to_string()),
+            userid: Some("user-1".to_string()),
+            corpid: None,
+            account_type: None,
+            status: None,
+            create_time: None,
+            active_time: None,
+            expire_time: None,
+            merge_info: None,
+            share_info: None,
+            extra: Value::Null,
+        };
+        let renewal = OpenWorkLicenseCreateRenewOrderJobRequest {
+            corpid: Some("corp".to_string()),
+            account_list: vec![renewal_account.clone()],
+            jobid: None,
+        };
+        assert!(renewal.validate().is_ok());
+        let mut duplicate_renewal = renewal;
+        duplicate_renewal.account_list.push(renewal_account);
+        assert!(duplicate_renewal.validate().is_err());
+
+        let submit = OpenWorkLicenseSubmitOrderJobRequest {
+            jobid: Some("job".to_string()),
+            buyer_userid: Some("buyer".to_string()),
+            account_duration: Some(OpenWorkLicenseAccountDuration {
+                month: None,
+                days: None,
+                new_expire_time: Some(1_830_000_000),
+            }),
+        };
+        assert!(submit.validate().is_ok());
+        let mut conflicting_duration = submit;
+        conflicting_duration.account_duration = Some(OpenWorkLicenseAccountDuration {
+            month: Some(1),
+            days: None,
+            new_expire_time: Some(1_830_000_000),
+        });
+        assert!(conflicting_duration.validate().is_err());
+
+        let page = OpenWorkLicenseListOrderRequest {
+            corpid: None,
+            start_time: Some("1800000000".to_string()),
+            end_time: Some("1802678400".to_string()),
+            cursor: None,
+            limit: Some(1_000),
+        };
+        assert!(page.validate().is_ok());
+        let mut partial_range = page.clone();
+        partial_range.end_time = None;
+        assert!(partial_range.validate().is_err());
+        let mut oversized_range = page;
+        oversized_range.end_time = Some("1802678401".to_string());
+        assert!(oversized_range.validate().is_err());
+
+        let activation = OpenWorkLicenseActiveInfo {
+            active_code: Some("active".to_string()),
+            userid: Some("user".to_string()),
+            corpid: Some("corp".to_string()),
+            account_type: None,
+            status: None,
+            create_time: None,
+            active_time: None,
+            expire_time: None,
+            merge_info: None,
+            share_info: None,
+            extra: Value::Null,
+        };
+        assert!(activation.validate_activation().is_ok());
+        assert!(
+            validate_open_work_license_active_batch(&[activation.clone(), activation]).is_err()
+        );
+
+        let transfer = OpenWorkLicenseTransferInfo {
+            handover_userid: Some("old-user".to_string()),
+            takeover_userid: Some("new-user".to_string()),
+            errcode: None,
+            extra: Value::Null,
+        };
+        assert!(validate_open_work_license_transfer_batch(&[transfer]).is_ok());
+        let self_transfer = OpenWorkLicenseTransferInfo {
+            handover_userid: Some("same-user".to_string()),
+            takeover_userid: Some("same-user".to_string()),
+            errcode: None,
+            extra: Value::Null,
+        };
+        assert!(validate_open_work_license_transfer_batch(&[self_transfer]).is_err());
+    }
+
+    #[test]
+    fn validates_open_work_license_response_matrix() {
+        let order_id: OpenWorkLicenseOrderIdResponse =
+            serde_json::from_value(json!({ "errcode": 0, "order_id": "order-1" })).unwrap();
+        assert!(order_id.validate_for("create order").is_ok());
+
+        let orders: OpenWorkLicenseListOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "has_more": 1,
+            "next_cursor": "cursor-2",
+            "order_list": [{
+                "order_id": "order-1",
+                "order_type": 1,
+                "order_status": 1,
+                "corpid": "corp",
+                "account_count": { "base_count": 2 },
+                "account_duration": { "month": 1 },
+                "price": 100,
+                "create_time": 1800000000,
+                "pay_time": 1800000010
+            }]
+        }))
+        .unwrap();
+        assert!(orders.validate().is_ok());
+
+        let active_info = json!({
+            "active_code": "active-1",
+            "userid": "user-1",
+            "corpid": "corp",
+            "type": 1,
+            "status": 2,
+            "create_time": 1800000000,
+            "active_time": 1800000010,
+            "expire_time": 1831536010
+        });
+        let active: OpenWorkLicenseActiveInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "active_info": active_info.clone()
+        }))
+        .unwrap();
+        assert!(active.validate().is_ok());
+
+        let account_page: OpenWorkLicenseListAccountResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "has_more": 0,
+            "account_list": [active_info.clone()]
+        }))
+        .unwrap();
+        assert!(account_page.validate().is_ok());
+
+        let user_active: OpenWorkLicenseUserActiveInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "active_status": 1,
+            "active_info_list": [active_info]
+        }))
+        .unwrap();
+        assert!(user_active.validate().is_ok());
+
+        let transfer: OpenWorkLicenseTransferResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "transfer_result": [{
+                "handover_userid": "old-user",
+                "takeover_userid": "new-user",
+                "errcode": 0
+            }]
+        }))
+        .unwrap();
+        assert!(transfer.validate().is_ok());
+
+        let license: OpenWorkLicenseInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "license_status": 1,
+            "license_check_time": 1800000000,
+            "trail_info": {
+                "start_time": 1800000000,
+                "end_time": 1807776000
+            }
+        }))
+        .unwrap();
+        assert!(license.validate().is_ok());
+
+        let auto_active: OpenWorkLicenseAutoActiveStatusResponse =
+            serde_json::from_value(json!({ "errcode": 0, "auto_active_status": 1 })).unwrap();
+        assert!(auto_active.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_inconsistent_open_work_license_responses() {
+        let api_error: OpenWorkLicenseOrderIdResponse = serde_json::from_value(json!({
+            "errcode": 40001,
+            "errmsg": "invalid credential"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate_for("create order"),
+            Err(WechatError::Api { .. })
+        ));
+
+        let missing_order_id: OpenWorkLicenseOrderIdResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_order_id.validate_for("create order").is_err());
+
+        let stalled_page: OpenWorkLicenseListOrderResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "has_more": 1,
+            "next_cursor": "cursor",
+            "order_list": []
+        }))
+        .unwrap();
+        assert!(stalled_page.validate().is_err());
+
+        let duplicate_accounts: OpenWorkLicenseActiveInfoListResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "active_info_list": [{
+                    "active_code": "active",
+                    "userid": "user",
+                    "corpid": "corp",
+                    "type": 1,
+                    "status": 2
+                }, {
+                    "active_code": "active",
+                    "userid": "other",
+                    "corpid": "corp",
+                    "type": 1,
+                    "status": 2
+                }]
+            }))
+            .unwrap();
+        assert!(duplicate_accounts.validate().is_err());
+
+        let invalid_trial: OpenWorkLicenseInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "license_status": 1,
+            "trail_info": {
+                "start_time": 1800000010,
+                "end_time": 1800000000
+            }
+        }))
+        .unwrap();
+        assert!(invalid_trial.validate().is_err());
+
+        let missing_active_list: OpenWorkLicenseUserActiveInfoResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "active_status": 1,
+                "active_info_list": []
+            }))
+            .unwrap();
+        assert!(missing_active_list.validate().is_err());
     }
 }

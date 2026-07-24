@@ -263,8 +263,32 @@ Implemented on 2026-07-24 in Official Account publish/material response depth:
 
 6. Open Work depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for `license`, `suitAuth`, `server`, and
-   component/base authorization helpers.
+   Continue DTO normalization for `suitAuth`, `server`, and component/base
+   authorization helpers. The complete `license` surface now has production
+   request/response guards.
+
+Implemented on 2026-07-24 in Open Work license depth:
+
+- all 17 license order, renewal-job, activation, transfer, account-list, and
+  application-license network exits now validate requests and WeCom API
+  responses before returning application data;
+- new orders require corporation/buyer identities, nonzero bounded account
+  counts, and a 31-to-1860-day purchase duration; renewals enforce bounded
+  unique activation-code batches, valid job identities, and exclusive relative
+  duration or absolute expiry semantics;
+- order and account queries validate paired Unix time ranges no longer than 31
+  days, cursor/limit boundaries, binary pagination state, nonempty continuation
+  pages, unique identities, and the 1000-item API limit;
+- activation and transfer mutations validate corporation/member/code
+  identities, batch uniqueness, distinct handover/takeover users, and
+  auto-active state before network I/O;
+- successful responses require usable order/job/account identities, valid
+  account type/status, ordered activation/order/trial timestamps, nonnegative
+  prices and counts, merge/share metadata consistency, and nonduplicated
+  reconciliation results;
+- dedicated success/failure matrices cover API errors, missing nominal-success
+  fields, zero-account orders, invalid durations/ranges, duplicate codes,
+  stalled pages, inconsistent trials, and active members without account data.
 
 Implemented on 2026-07-21 in Work external-payment contract depth:
 
