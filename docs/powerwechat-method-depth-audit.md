@@ -1503,6 +1503,33 @@ need review. Some are formatting false positives, but the real update areas are:
 
 - remaining payment notify/order/refund variants;
 
+Implemented on 2026-07-24 in Payment bounded stream/statement/media depth:
+
+- the latest PowerWeChat commit `229f744` confirms that Roze's complaint
+  list/detail/history models already form a typed superset of the current
+  merchant-service response DTOs; the remaining boundary gaps were media
+  upload validation and bounded in-memory download rather than missing
+  complaint fields;
+- generic bill bytes downloads now use the same native response stream as
+  atomic file downloads, enforce a 512 MiB compatibility default or an
+  explicit caller maximum before and during reads, reject empty or
+  length-mismatched responses, decode bounded JSON API errors, and calculate
+  SHA-1/SHA-256 incrementally instead of buffering an unchecked response
+  before verification;
+- explicit maximum-byte variants now cover generic bytes/bill/statement,
+  trade-bill bytes/statement/file, and fund-flow bytes/statement/file
+  workflows; direct trade/fund statement helpers remove the former manual
+  bill-response-to-download-to-parse chain;
+- merchant and complaint image uploads now validate path-free JPG/JPEG/PNG
+  filenames, the 2 MiB size boundary, nonempty bytes, hexadecimal SHA-256 and
+  digest/content equality before signing; byte constructors calculate the
+  digest once and successful responses require a usable media id;
+- a local HTTP integration test executes the real signed Client/Payment path
+  through streamed chunks, content length, incremental SHA-256, UTF-8/CSV
+  parsing, and typed statement accessors; request/response failure tests cover
+  path traversal, unsupported extensions, empty/oversized data, digest
+  mismatch, and missing media identities.
+
 Implemented on 2026-07-18 in Roze WeChat payment download depth:
 
 - fund-flow bill compatibility requests now send PowerWeChat's required

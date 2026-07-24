@@ -1112,15 +1112,19 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: MerchantMediaUploadRequest,
     ) -> Result<MerchantMediaUploadResponse> {
+        request.validate()?;
         let path = "/v3/merchant/media/upload";
         let (content_type, body) = build_merchant_media_upload_body(&request);
         let headers = vec![(
             "authorization".to_string(),
             credentials.authorization_bytes("POST", path, &body)?,
         )];
-        self.inner
+        let response: MerchantMediaUploadResponse = self
+            .inner
             .post_raw_json(path, Vec::new(), content_type, body, headers)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn upload_merchant_media_from_bytes(
@@ -1129,14 +1133,9 @@ impl Payment {
         file_name: impl Into<String>,
         data: impl Into<Vec<u8>>,
     ) -> Result<MerchantMediaUploadResponse> {
-        let data = data.into();
         self.upload_merchant_media(
             credentials,
-            MerchantMediaUploadRequest {
-                file_name: file_name.into(),
-                sha256: crypto::sha256_hex(&data),
-                data,
-            },
+            MerchantMediaUploadRequest::from_bytes(file_name, data),
         )
         .await
     }
@@ -1302,15 +1301,19 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: MerchantMediaUploadRequest,
     ) -> Result<MerchantMediaUploadResponse> {
+        request.validate()?;
         let path = "/v3/merchant-service/images/upload";
         let (content_type, body) = build_merchant_media_upload_body(&request);
         let headers = vec![(
             "authorization".to_string(),
             credentials.authorization_bytes("POST", path, &body)?,
         )];
-        self.inner
+        let response: MerchantMediaUploadResponse = self
+            .inner
             .post_raw_json(path, Vec::new(), content_type, body, headers)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn upload_complaint_image_from_bytes(
@@ -1319,14 +1322,9 @@ impl Payment {
         file_name: impl Into<String>,
         data: impl Into<Vec<u8>>,
     ) -> Result<MerchantMediaUploadResponse> {
-        let data = data.into();
         self.upload_complaint_image(
             credentials,
-            MerchantMediaUploadRequest {
-                file_name: file_name.into(),
-                sha256: crypto::sha256_hex(&data),
-                data,
-            },
+            MerchantMediaUploadRequest::from_bytes(file_name, data),
         )
         .await
     }
@@ -1532,6 +1530,35 @@ impl Payment {
         credentials: &PaymentCredentials,
         request: PaymentBillDownloadRequest,
     ) -> Result<Bytes> {
+        self.download_bill_bytes_inner(
+            credentials,
+            request,
+            Some(PAYMENT_DOWNLOAD_DEFAULT_MAX_BYTES),
+        )
+        .await
+    }
+
+    pub async fn download_bill_bytes_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        max_bytes: u64,
+    ) -> Result<Bytes> {
+        if max_bytes == 0 {
+            return Err(WechatError::Config(
+                "payment bill download maximum bytes must be positive".to_string(),
+            ));
+        }
+        self.download_bill_bytes_inner(credentials, request, Some(max_bytes))
+            .await
+    }
+
+    async fn download_bill_bytes_inner(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        max_bytes: Option<u64>,
+    ) -> Result<Bytes> {
         request.validate(false)?;
         let (path, query) = split_payment_download_url(&request.download_url)?;
         let path_query = path_with_query(&path, &query);
@@ -1539,16 +1566,58 @@ impl Payment {
             "authorization".to_string(),
             credentials.authorization("GET", &path_query, "")?,
         )];
-        let bytes = self
-            .inner
-            .get_bytes_with_headers(path, query, headers)
-            .await?;
-        verify_payment_download_hash(
-            &bytes,
-            request.hash_type.as_deref(),
-            request.hash_value.as_deref(),
-        )?;
-        Ok(bytes)
+        let mut response = self.inner.get_stream_response(path, query, headers).await?;
+        let expected_content_length =
+            payment_download_stream_content_length(&response.headers, max_bytes)?;
+        if payment_download_stream_is_json(&response.headers) {
+            let mut body = Vec::new();
+            let mut body_length = 0_u64;
+            while let Some(chunk) = response.next_chunk().await? {
+                body_length = checked_payment_download_size(
+                    body_length,
+                    chunk.len(),
+                    Some(PAYMENT_DOWNLOAD_ERROR_MAX_BYTES),
+                )?;
+                body.extend_from_slice(&chunk);
+            }
+            return Err(payment_download_json_error(&body));
+        }
+
+        let mut hasher = request
+            .hash_value
+            .as_ref()
+            .map(|_| PaymentDownloadHasher::new(request.hash_type.as_deref()))
+            .transpose()?;
+        let mut body = Vec::new();
+        let mut bytes_read = 0_u64;
+        while let Some(chunk) = response.next_chunk().await? {
+            bytes_read = checked_payment_download_size(bytes_read, chunk.len(), max_bytes)?;
+            if let Some(hasher) = hasher.as_mut() {
+                hasher.update(&chunk);
+            }
+            body.extend_from_slice(&chunk);
+        }
+        if bytes_read == 0 {
+            return Err(WechatError::Config(
+                "payment bill download is empty".to_string(),
+            ));
+        }
+        if let Some(expected) = expected_content_length {
+            if expected != bytes_read {
+                return Err(WechatError::Config(format!(
+                    "payment bill download length mismatch: expected {expected} bytes, got {bytes_read}"
+                )));
+            }
+        }
+        if let (Some(hasher), Some(expected_hash)) = (hasher, request.hash_value.as_deref()) {
+            let actual_hash = hasher.finalize();
+            if !actual_hash.eq_ignore_ascii_case(expected_hash) {
+                return Err(WechatError::Crypto(
+                    "payment download hash mismatch".to_string(),
+                ));
+            }
+        }
+        Ok(Bytes::from(body))
     }
 
     pub async fn download_bill(
@@ -1560,6 +1629,39 @@ impl Payment {
         let hash_value = request.hash_value.clone();
         let bytes = self.download_bill_bytes(credentials, request).await?;
         PaymentDownloadedBill::from_verified_bytes(bytes, hash_type, hash_value)
+    }
+
+    pub async fn download_bill_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        max_bytes: u64,
+    ) -> Result<PaymentDownloadedBill> {
+        let hash_type = request.hash_type.clone();
+        let hash_value = request.hash_value.clone();
+        let bytes = self
+            .download_bill_bytes_with_max_bytes(credentials, request, max_bytes)
+            .await?;
+        PaymentDownloadedBill::from_verified_bytes(bytes, hash_type, hash_value)
+    }
+
+    pub async fn download_bill_statement(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+    ) -> Result<PaymentBillStatement> {
+        self.download_bill(credentials, request).await?.statement()
+    }
+
+    pub async fn download_bill_statement_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: PaymentBillDownloadRequest,
+        max_bytes: u64,
+    ) -> Result<PaymentBillStatement> {
+        self.download_bill_with_max_bytes(credentials, request, max_bytes)
+            .await?
+            .statement()
     }
 
     pub async fn download_bill_to_file(
@@ -1723,6 +1825,17 @@ impl Payment {
         .await
     }
 
+    pub async fn download_trade_bill_bytes_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        max_bytes: u64,
+    ) -> Result<Bytes> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill_bytes_with_max_bytes(credentials, bill.into(), max_bytes)
+            .await
+    }
+
     pub async fn download_trade_bill(
         &self,
         credentials: &PaymentCredentials,
@@ -1738,6 +1851,26 @@ impl Payment {
             },
         )
         .await
+    }
+
+    pub async fn download_trade_bill_statement(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+    ) -> Result<PaymentBillStatement> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill_statement(credentials, bill.into()).await
+    }
+
+    pub async fn download_trade_bill_statement_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        max_bytes: u64,
+    ) -> Result<PaymentBillStatement> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill_statement_with_max_bytes(credentials, bill.into(), max_bytes)
+            .await
     }
 
     pub async fn download_trade_bill_to_file(
@@ -1759,6 +1892,18 @@ impl Payment {
         .await
     }
 
+    pub async fn download_trade_bill_to_file_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        destination: impl AsRef<Path>,
+        max_bytes: u64,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let bill: BillResponse = self.trade_bill(credentials, request).await?;
+        self.download_bill_to_file_with_max_bytes(credentials, bill.into(), destination, max_bytes)
+            .await
+    }
+
     pub async fn download_fund_flow_bill_bytes(
         &self,
         credentials: &PaymentCredentials,
@@ -1774,6 +1919,17 @@ impl Payment {
             },
         )
         .await
+    }
+
+    pub async fn download_fund_flow_bill_bytes_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        max_bytes: u64,
+    ) -> Result<Bytes> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill_bytes_with_max_bytes(credentials, bill.into(), max_bytes)
+            .await
     }
 
     pub async fn download_fund_flow_bill(
@@ -1793,6 +1949,26 @@ impl Payment {
         .await
     }
 
+    pub async fn download_fund_flow_bill_statement(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+    ) -> Result<PaymentBillStatement> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill_statement(credentials, bill.into()).await
+    }
+
+    pub async fn download_fund_flow_bill_statement_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        max_bytes: u64,
+    ) -> Result<PaymentBillStatement> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill_statement_with_max_bytes(credentials, bill.into(), max_bytes)
+            .await
+    }
+
     pub async fn download_fund_flow_bill_to_file(
         &self,
         credentials: &PaymentCredentials,
@@ -1810,6 +1986,18 @@ impl Payment {
             destination,
         )
         .await
+    }
+
+    pub async fn download_fund_flow_bill_to_file_with_max_bytes(
+        &self,
+        credentials: &PaymentCredentials,
+        request: BillRequest,
+        destination: impl AsRef<Path>,
+        max_bytes: u64,
+    ) -> Result<PaymentDownloadedBillFile> {
+        let bill: BillResponse = self.fund_flow_bill(credentials, request).await?;
+        self.download_bill_to_file_with_max_bytes(credentials, bill.into(), destination, max_bytes)
+            .await
     }
 
     pub async fn download_transfer_bill_receipt_to_file(
@@ -2174,6 +2362,7 @@ fn checked_payment_download_size(
 }
 
 const PAYMENT_DOWNLOAD_ERROR_MAX_BYTES: u64 = 64 * 1024;
+const PAYMENT_DOWNLOAD_DEFAULT_MAX_BYTES: u64 = 512 * 1024 * 1024;
 
 fn payment_download_stream_header<'a>(
     headers: &'a [(String, String)],
@@ -2335,6 +2524,7 @@ fn build_sandbox_sign_key_xml(
 }
 
 const MERCHANT_MEDIA_UPLOAD_BOUNDARY: &str = "----roze-wechat-pay-v3-media-upload";
+const PAYMENT_MERCHANT_MEDIA_MAX_BYTES: usize = 2 * 1024 * 1024;
 
 fn build_merchant_media_upload_body(request: &MerchantMediaUploadRequest) -> (String, Vec<u8>) {
     let meta = serde_json::json!({
@@ -6224,11 +6414,75 @@ pub struct MerchantMediaUploadRequest {
     pub data: Vec<u8>,
 }
 
+impl MerchantMediaUploadRequest {
+    pub fn from_bytes(file_name: impl Into<String>, data: impl Into<Vec<u8>>) -> Self {
+        let data = data.into();
+        Self {
+            file_name: file_name.into(),
+            sha256: crypto::sha256_hex(&data),
+            data,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let file_name = self.file_name.trim();
+        if file_name.is_empty()
+            || file_name != self.file_name
+            || file_name.len() > 128
+            || file_name.chars().any(char::is_control)
+            || file_name.contains('/')
+            || file_name.contains('\\')
+            || matches!(file_name, "." | "..")
+        {
+            return Err(WechatError::Config(
+                "payment merchant media filename must contain 1 to 128 printable bytes without path components"
+                    .to_string(),
+            ));
+        }
+        let extension = Path::new(file_name)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or_default();
+        if !matches!(
+            extension.to_ascii_lowercase().as_str(),
+            "jpg" | "jpeg" | "png"
+        ) {
+            return Err(WechatError::Config(
+                "payment merchant media file must use a JPG, JPEG, or PNG extension".to_string(),
+            ));
+        }
+        if self.data.is_empty() || self.data.len() > PAYMENT_MERCHANT_MEDIA_MAX_BYTES {
+            return Err(WechatError::Config(format!(
+                "payment merchant media must contain between 1 and {} bytes",
+                PAYMENT_MERCHANT_MEDIA_MAX_BYTES
+            )));
+        }
+        if self.sha256.len() != 64 || !self.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(WechatError::Config(
+                "payment merchant media SHA-256 must contain 64 hexadecimal characters".to_string(),
+            ));
+        }
+        let actual = crypto::sha256_hex(&self.data);
+        if !actual.eq_ignore_ascii_case(&self.sha256) {
+            return Err(WechatError::Crypto(
+                "payment merchant media SHA-256 does not match the file bytes".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerchantMediaUploadResponse {
     pub media_id: String,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl MerchantMediaUploadResponse {
+    pub fn validate(&self) -> Result<()> {
+        validate_payment_identifier(&self.media_id, "merchant media response id", 512)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10200,11 +10454,9 @@ mod tests {
 
     #[test]
     fn builds_merchant_media_upload_body() {
-        let request = MerchantMediaUploadRequest {
-            file_name: "pay\"logo.png".to_string(),
-            sha256: crypto::sha256_hex(b"image-bytes"),
-            data: b"image-bytes".to_vec(),
-        };
+        let request =
+            MerchantMediaUploadRequest::from_bytes("pay\"logo.png", b"image-bytes".to_vec());
+        request.validate().unwrap();
         let (content_type, body) = build_merchant_media_upload_body(&request);
         let text = String::from_utf8(body).unwrap();
 
@@ -10233,8 +10485,39 @@ mod tests {
         }))
         .unwrap();
 
+        response.validate().unwrap();
         assert_eq!(response.media_id, "media-1");
         assert_eq!(response.extra["upload_scene"], "merchant-service");
+
+        let missing_id: MerchantMediaUploadResponse =
+            serde_json::from_value(json!({ "media_id": "   " })).unwrap();
+        assert!(missing_id.validate().is_err());
+    }
+
+    #[test]
+    fn validates_merchant_media_upload_contracts() {
+        let request = MerchantMediaUploadRequest::from_bytes("evidence.JPG", b"image".to_vec());
+        request.validate().unwrap();
+        assert_eq!(request.sha256, crypto::sha256_hex(b"image"));
+
+        for file_name in ["../evidence.png", "folder/evidence.png", "evidence.gif", ""] {
+            let invalid = MerchantMediaUploadRequest::from_bytes(file_name, b"image".to_vec());
+            assert!(invalid.validate().is_err(), "{file_name:?}");
+        }
+
+        let empty = MerchantMediaUploadRequest::from_bytes("evidence.png", Vec::new());
+        assert!(empty.validate().is_err());
+
+        let oversized = MerchantMediaUploadRequest::from_bytes(
+            "evidence.png",
+            vec![0; super::PAYMENT_MERCHANT_MEDIA_MAX_BYTES + 1],
+        );
+        assert!(oversized.validate().is_err());
+
+        let mut mismatched =
+            MerchantMediaUploadRequest::from_bytes("evidence.png", b"image".to_vec());
+        mismatched.sha256 = "0".repeat(64);
+        assert!(matches!(mismatched.validate(), Err(WechatError::Crypto(_))));
     }
 
     #[test]
@@ -11115,6 +11398,82 @@ mod tests {
         assert!(super::payment_download_json_error(b"not-json")
             .to_string()
             .contains("invalid JSON"));
+    }
+
+    #[tokio::test]
+    async fn streams_bounded_payment_bill_into_a_statement() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+            thread,
+        };
+
+        use rsa::{
+            pkcs8::{EncodePrivateKey, LineEnding},
+            RsaPrivateKey,
+        };
+
+        fn spawn_server(body: Vec<u8>) -> (String, thread::JoinHandle<()>) {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let handle = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let _ = stream.read(&mut request).unwrap();
+                let split = body.len() / 2;
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/csv; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                stream.write_all(header.as_bytes()).unwrap();
+                stream.write_all(&body[..split]).unwrap();
+                stream.write_all(&body[split..]).unwrap();
+            });
+            (format!("http://{address}"), handle)
+        }
+
+        let bill = b"`order_id,`amount\r\n`order-1,`10\r\n`1,`10\r\n".to_vec();
+        let hash = crypto::sha256_hex(&bill);
+        let (base_url, server) = spawn_server(bill.clone());
+        let client = crate::Client::new(crate::WechatConfig {
+            base_url,
+            timeout_ms: 5_000,
+            retry_attempts: 0,
+            token_refresh_skew_seconds: 0,
+            client_identity_pem: None,
+            apps: Vec::new(),
+        })
+        .unwrap();
+        let payment = super::Payment::new(client, crate::Platform::Payment);
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 1024).unwrap();
+        let credentials = PaymentCredentials {
+            mch_id: "1900000109".to_string(),
+            serial_no: "serial-1".to_string(),
+            private_key_pem: private_key
+                .to_pkcs8_pem(LineEnding::LF)
+                .unwrap()
+                .to_string(),
+        };
+        let request = PaymentBillDownloadRequest {
+            download_url: "https://api.mch.weixin.qq.com/file?token=test".to_string(),
+            hash_type: Some("SHA256".to_string()),
+            hash_value: Some(hash),
+        };
+
+        let statement = payment
+            .download_bill_statement_with_max_bytes(
+                &credentials,
+                request,
+                u64::try_from(bill.len()).unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(statement.records.len(), 1);
+        assert_eq!(statement.records[0].require("order_id").unwrap(), "order-1");
+        assert_eq!(statement.records[0].require_i64("amount").unwrap(), 10);
+        assert_eq!(statement.summary.require_i64(0).unwrap(), 1);
+        server.join().unwrap();
     }
 
     #[test]
