@@ -263,9 +263,29 @@ Implemented on 2026-07-24 in Official Account publish/material response depth:
 
 6. Open Work depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for `suitAuth`, `server`, and component/base
-   authorization helpers. The complete `license` surface now has production
-   request/response guards.
+   Continue DTO normalization for component/base authorization helpers. The
+   complete `license` and `suitAuth` surfaces now have production
+   request/response guards, and known `server` callbacks are validated.
+
+Implemented on 2026-07-24 in Open Work suite authorization/server depth:
+
+- suite-token, pre-authorization, permanent-code v1/v2, authorization-info
+  v1/v2, corporation-token, session configuration, and user-id conversion
+  network exits now validate credentials, requests, API errors, and successful
+  response invariants;
+- compatibility `typed` aliases delegate to the validated canonical methods,
+  eliminating duplicate unchecked request paths;
+- session configuration accepts the documented empty application list while
+  rejecting duplicate/zero application IDs and unsupported authorization
+  types; user conversion enforces nonempty unique batches up to 1000 users;
+- permanent-code and authorization responses require corporation identity,
+  validate optional application lists, and reject duplicate/invalid agent IDs
+  without incorrectly requiring `auth_info` for contact-only applications;
+- known suite lifecycle, contact, sharing, organization, special-authorization,
+  and application-admin callbacks now reject missing identities, timestamps, or
+  event payload IDs, while unknown future event types remain forward compatible;
+- dedicated request, response, API-error, malformed-callback, and future-event
+  tests cover the new production boundaries.
 
 Implemented on 2026-07-24 in Open Work license depth:
 

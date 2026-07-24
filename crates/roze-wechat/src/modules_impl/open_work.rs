@@ -192,35 +192,38 @@ impl OpenWork {
     }
 
     pub async fn suite_token(&self, request: SuiteTokenRequest) -> Result<SuiteTokenResponse> {
-        self.inner
+        request.validate()?;
+        let response: SuiteTokenResponse = self
+            .inner
             .post("cgi-bin/service/get_suite_token", None, request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn pre_auth_code(
         &self,
         suite_access_token: impl Into<String>,
     ) -> Result<OpenWorkPreAuthCodeResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        validate_open_work_auth_identifier("suite access token", &suite_access_token)?;
+        let response: OpenWorkPreAuthCodeResponse = self
+            .inner
             .get_with_query(
                 "cgi-bin/service/get_pre_auth_code",
-                Some(suite_access_token.into()),
+                Some(suite_access_token),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn pre_auth_code_typed(
         &self,
         suite_access_token: impl Into<String>,
     ) -> Result<OpenWorkPreAuthCodeResponse> {
-        self.inner
-            .get_with_query(
-                "cgi-bin/service/get_pre_auth_code",
-                Some(suite_access_token.into()),
-                Vec::new(),
-            )
-            .await
+        self.pre_auth_code(suite_access_token).await
     }
 
     pub async fn permanent_code(
@@ -228,13 +231,20 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         auth_code: impl Into<String>,
     ) -> Result<OpenWorkPermanentCodeResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        let auth_code = auth_code.into();
+        validate_open_work_auth_identifier("suite access token", &suite_access_token)?;
+        validate_open_work_auth_identifier("authorization code", &auth_code)?;
+        let response: OpenWorkPermanentCodeResponse = self
+            .inner
             .post(
                 "cgi-bin/service/get_permanent_code",
-                Some(suite_access_token.into()),
-                json!({ "auth_code": auth_code.into() }),
+                Some(suite_access_token),
+                json!({ "auth_code": auth_code }),
             )
-            .await
+            .await?;
+        response.validate_permanent_code("open-work get permanent code")?;
+        Ok(response)
     }
 
     pub async fn permanent_code_typed(
@@ -242,13 +252,7 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         auth_code: impl Into<String>,
     ) -> Result<OpenWorkPermanentCodeResponse> {
-        self.inner
-            .post(
-                "cgi-bin/service/get_permanent_code",
-                Some(suite_access_token.into()),
-                json!({ "auth_code": auth_code.into() }),
-            )
-            .await
+        self.permanent_code(suite_access_token, auth_code).await
     }
 
     pub async fn set_session_info(
@@ -256,13 +260,19 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         request: OpenWorkSetSessionInfoRequest,
     ) -> Result<OpenWorkStatusResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        validate_open_work_auth_identifier("suite access token", &suite_access_token)?;
+        request.validate()?;
+        let response: OpenWorkStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/service/set_session_info",
-                Some(suite_access_token.into()),
+                Some(suite_access_token),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("open-work set session info")?;
+        Ok(response)
     }
 
     pub async fn permanent_code_v2(
@@ -270,13 +280,20 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         auth_code: impl Into<String>,
     ) -> Result<OpenWorkPermanentCodeResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        let auth_code = auth_code.into();
+        validate_open_work_auth_identifier("suite access token", &suite_access_token)?;
+        validate_open_work_auth_identifier("authorization code", &auth_code)?;
+        let response: OpenWorkPermanentCodeResponse = self
+            .inner
             .post(
                 "cgi-bin/service/v2/get_permanent_code",
-                Some(suite_access_token.into()),
-                json!({ "auth_code": auth_code.into() }),
+                Some(suite_access_token),
+                json!({ "auth_code": auth_code }),
             )
-            .await
+            .await?;
+        response.validate_permanent_code("open-work get permanent code v2")?;
+        Ok(response)
     }
 
     pub fn corp(&self) -> DomainModule {
@@ -289,16 +306,23 @@ impl OpenWork {
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
     ) -> Result<OpenWorkPermanentCodeResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        let auth_corpid = auth_corpid.into();
+        let permanent_code = permanent_code.into();
+        validate_open_work_auth_credentials(&suite_access_token, &auth_corpid, &permanent_code)?;
+        let response: OpenWorkPermanentCodeResponse = self
+            .inner
             .post(
                 "cgi-bin/service/get_auth_info",
-                Some(suite_access_token.into()),
+                Some(suite_access_token),
                 json!({
-                    "auth_corpid": auth_corpid.into(),
-                    "permanent_code": permanent_code.into(),
+                    "auth_corpid": auth_corpid,
+                    "permanent_code": permanent_code,
                 }),
             )
-            .await
+            .await?;
+        response.validate_auth_info("open-work get authorization info")?;
+        Ok(response)
     }
 
     pub async fn auth_info_typed(
@@ -307,15 +331,7 @@ impl OpenWork {
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
     ) -> Result<OpenWorkPermanentCodeResponse> {
-        self.inner
-            .post(
-                "cgi-bin/service/get_auth_info",
-                Some(suite_access_token.into()),
-                json!({
-                    "auth_corpid": auth_corpid.into(),
-                    "permanent_code": permanent_code.into(),
-                }),
-            )
+        self.auth_info(suite_access_token, auth_corpid, permanent_code)
             .await
     }
 
@@ -325,16 +341,23 @@ impl OpenWork {
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
     ) -> Result<OpenWorkPermanentCodeResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        let auth_corpid = auth_corpid.into();
+        let permanent_code = permanent_code.into();
+        validate_open_work_auth_credentials(&suite_access_token, &auth_corpid, &permanent_code)?;
+        let response: OpenWorkPermanentCodeResponse = self
+            .inner
             .post(
                 "cgi-bin/service/v2/get_auth_info",
-                Some(suite_access_token.into()),
+                Some(suite_access_token),
                 json!({
-                    "auth_corpid": auth_corpid.into(),
-                    "permanent_code": permanent_code.into(),
+                    "auth_corpid": auth_corpid,
+                    "permanent_code": permanent_code,
                 }),
             )
-            .await
+            .await?;
+        response.validate_auth_info("open-work get authorization info v2")?;
+        Ok(response)
     }
 
     pub async fn corp_token(
@@ -343,16 +366,23 @@ impl OpenWork {
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
     ) -> Result<OpenWorkCorpTokenResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        let auth_corpid = auth_corpid.into();
+        let permanent_code = permanent_code.into();
+        validate_open_work_auth_credentials(&suite_access_token, &auth_corpid, &permanent_code)?;
+        let response: OpenWorkCorpTokenResponse = self
+            .inner
             .post(
                 "cgi-bin/service/get_corp_token",
-                Some(suite_access_token.into()),
+                Some(suite_access_token),
                 json!({
-                    "auth_corpid": auth_corpid.into(),
-                    "permanent_code": permanent_code.into(),
+                    "auth_corpid": auth_corpid,
+                    "permanent_code": permanent_code,
                 }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn corp_token_typed(
@@ -361,15 +391,7 @@ impl OpenWork {
         auth_corpid: impl Into<String>,
         permanent_code: impl Into<String>,
     ) -> Result<OpenWorkCorpTokenResponse> {
-        self.inner
-            .post(
-                "cgi-bin/service/get_corp_token",
-                Some(suite_access_token.into()),
-                json!({
-                    "auth_corpid": auth_corpid.into(),
-                    "permanent_code": permanent_code.into(),
-                }),
-            )
+        self.corp_token(suite_access_token, auth_corpid, permanent_code)
             .await
     }
 
@@ -378,13 +400,19 @@ impl OpenWork {
         suite_access_token: impl Into<String>,
         user_id_list: Vec<String>,
     ) -> Result<OpenWorkUserIdToOpenUserIdResponse> {
-        self.inner
+        let suite_access_token = suite_access_token.into();
+        validate_open_work_auth_identifier("suite access token", &suite_access_token)?;
+        validate_open_work_auth_identifier_batch("user id", &user_id_list, 1_000)?;
+        let response: OpenWorkUserIdToOpenUserIdResponse = self
+            .inner
             .post(
                 "cgi-bin/batch/userid_to_openuserid",
-                Some(suite_access_token.into()),
+                Some(suite_access_token),
                 json!({ "userid_list": user_id_list }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn user(&self) -> DomainModule {
@@ -791,9 +819,9 @@ impl OpenWork {
     }
 
     pub fn parse_server_event_xml(xml: &str) -> Result<OpenWorkServerEvent> {
-        Ok(OpenWorkServerEvent::from_callback_message(
-            CallbackMessage::parse_xml(xml)?,
-        ))
+        let event = OpenWorkServerEvent::from_callback_message(CallbackMessage::parse_xml(xml)?);
+        event.validate()?;
+        Ok(event)
     }
 
     async fn post_component_json<R>(
@@ -1157,6 +1185,110 @@ impl OpenWorkServerEvent {
     pub fn is_share_change(&self) -> bool {
         self.kind().is_share_change()
     }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::SuiteTicket {
+                suite_id,
+                suite_ticket,
+                create_time,
+            } => {
+                validate_open_work_server_identifier("suite id", suite_id.as_deref())?;
+                validate_open_work_server_identifier("suite ticket", suite_ticket.as_deref())?;
+                validate_open_work_server_timestamp(*create_time)
+            }
+            Self::CreateAuth {
+                suite_id,
+                auth_code,
+                create_time,
+                ..
+            } => {
+                validate_open_work_server_identifier("suite id", suite_id.as_deref())?;
+                validate_open_work_server_identifier("authorization code", auth_code.as_deref())?;
+                validate_open_work_server_timestamp(*create_time)
+            }
+            Self::ChangeAuth {
+                suite_id,
+                auth_corp_id,
+                create_time,
+                ..
+            }
+            | Self::CancelAuth {
+                suite_id,
+                auth_corp_id,
+                create_time,
+            } => {
+                validate_open_work_server_identifier("suite id", suite_id.as_deref())?;
+                validate_open_work_server_identifier(
+                    "authorized corporation id",
+                    auth_corp_id.as_deref(),
+                )?;
+                validate_open_work_server_timestamp(*create_time)
+            }
+            Self::ResetPermanentCode {
+                suite_id,
+                auth_corp_id,
+                auth_code,
+                create_time,
+            } => {
+                validate_open_work_server_identifier("suite id", suite_id.as_deref())?;
+                validate_open_work_server_identifier(
+                    "authorized corporation id",
+                    auth_corp_id.as_deref(),
+                )?;
+                validate_open_work_server_identifier("authorization code", auth_code.as_deref())?;
+                validate_open_work_server_timestamp(*create_time)
+            }
+            Self::ChangeContactUser { message } => {
+                validate_open_work_server_message(message, true)?;
+                validate_open_work_server_identifier("user id", message.user_id.as_deref())
+            }
+            Self::ChangeContactParty { message } => {
+                validate_open_work_server_message(message, true)?;
+                validate_open_work_server_positive_number("party id", message.id)
+            }
+            Self::ChangeContactTag { message } => {
+                validate_open_work_server_message(message, true)?;
+                validate_open_work_server_positive_number("tag id", message.tag_id)
+            }
+            Self::ShareAgentChange { message } => {
+                validate_open_work_server_message(message, false)?;
+                validate_open_work_server_identifier("application id", message.app_id.as_deref())?;
+                validate_open_work_server_identifier("corporation id", message.corp_id.as_deref())?;
+                validate_open_work_server_positive_number("agent id", message.agent_id)
+            }
+            Self::ShareChainChange { message } => {
+                validate_open_work_server_message(message, false)?;
+                validate_open_work_server_identifier("corporation id", message.corp_id.as_deref())
+            }
+            Self::CorpArchAuth { message } => {
+                validate_open_work_server_message(message, false)?;
+                validate_open_work_server_identifier(
+                    "authorized corporation id",
+                    message.auth_corp_id.as_deref(),
+                )
+            }
+            Self::ApproveSpecialAuth { message } | Self::CancelSpecialAuth { message } => {
+                validate_open_work_server_message(message, false)?;
+                validate_open_work_server_identifier(
+                    "authorized corporation id",
+                    message.auth_corp_id.as_deref(),
+                )?;
+                validate_open_work_server_identifier(
+                    "authorization type",
+                    message.auth_type.as_deref(),
+                )
+            }
+            Self::ChangeAppAdmin { message } => {
+                validate_open_work_server_identifier(
+                    "authorized corporation id",
+                    message.auth_corp_id.as_deref(),
+                )?;
+                validate_open_work_server_positive_number("agent id", message.agent_id)
+            }
+            Self::Unknown { .. } => Ok(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1210,6 +1342,14 @@ pub struct SuiteTokenRequest {
     pub suite_ticket: String,
 }
 
+impl SuiteTokenRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_auth_identifier("suite id", &self.suite_id)?;
+        validate_open_work_auth_identifier("suite secret", &self.suite_secret)?;
+        validate_open_work_auth_identifier("suite ticket", &self.suite_ticket)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiteTokenResponse {
     #[serde(default)]
@@ -1220,6 +1360,21 @@ pub struct SuiteTokenResponse {
     pub suite_access_token: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+}
+
+impl SuiteTokenResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get suite access token",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_auth_token_response(
+            "suite access token",
+            self.suite_access_token.as_deref(),
+            self.expires_in,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1236,10 +1391,32 @@ pub struct OpenWorkPreAuthCodeResponse {
     pub extra: Value,
 }
 
+impl OpenWorkPreAuthCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get pre-authorization code",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_auth_identifier(
+            "pre-authorization code",
+            self.pre_auth_code.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_auth_expiry("pre-authorization code", self.expires_in)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkSetSessionInfoRequest {
     pub pre_auth_code: String,
     pub session_info: OpenWorkSessionInfo,
+}
+
+impl OpenWorkSetSessionInfoRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_work_auth_identifier("pre-authorization code", &self.pre_auth_code)?;
+        self.session_info.validate()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1279,6 +1456,33 @@ impl OpenWorkSessionInfo {
     pub fn is_test_auth(&self) -> bool {
         self.auth_type_kind()
             .is_some_and(OpenWorkSessionAuthTypeKind::is_test)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.appid.len() > 1_000 {
+            return Err(WechatError::Config(
+                "open-work session appid list cannot exceed 1000 values".to_string(),
+            ));
+        }
+        let mut appids = HashSet::with_capacity(self.appid.len());
+        if self
+            .appid
+            .iter()
+            .any(|appid| *appid == 0 || !appids.insert(*appid))
+        {
+            return Err(WechatError::Config(
+                "open-work session appid values must be positive and unique".to_string(),
+            ));
+        }
+        if self
+            .auth_type
+            .is_some_and(|auth_type| !matches!(auth_type, 0 | 1))
+        {
+            return Err(WechatError::Config(
+                "open-work session auth_type must be 0 or 1".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -1581,6 +1785,24 @@ pub struct OpenWorkPermanentCodeResponse {
     pub extra: Value,
 }
 
+impl OpenWorkPermanentCodeResponse {
+    pub fn validate_permanent_code(&self, operation: &str) -> Result<()> {
+        ensure_open_work_response_success(operation, self.errcode, self.errmsg.as_deref())?;
+        validate_open_work_auth_identifier(
+            "permanent code",
+            self.permanent_code.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_auth_corp_info(self.auth_corp_info.as_ref())?;
+        validate_open_work_auth_info(self.auth_info.as_ref())
+    }
+
+    pub fn validate_auth_info(&self, operation: &str) -> Result<()> {
+        ensure_open_work_response_success(operation, self.errcode, self.errmsg.as_deref())?;
+        validate_open_work_auth_corp_info(self.auth_corp_info.as_ref())?;
+        validate_open_work_auth_info(self.auth_info.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkCorpTokenResponse {
     #[serde(default)]
@@ -1593,6 +1815,21 @@ pub struct OpenWorkCorpTokenResponse {
     pub expires_in: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenWorkCorpTokenResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get corporation access token",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_auth_token_response(
+            "corporation access token",
+            self.access_token.as_deref(),
+            self.expires_in,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1611,6 +1848,35 @@ pub struct OpenWorkUserIdToOpenUserIdResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub open_userid_list: Vec<OpenWorkUserIdToOpenUserIdItem>,
+}
+
+impl OpenWorkUserIdToOpenUserIdResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work convert user ids to open user ids",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.open_userid_list.len() > 1_000 {
+            return Err(WechatError::Config(
+                "open-work converted user id response cannot exceed 1000 values".to_string(),
+            ));
+        }
+        let mut userids = HashSet::with_capacity(self.open_userid_list.len());
+        let mut open_userids = HashSet::with_capacity(self.open_userid_list.len());
+        for item in &self.open_userid_list {
+            let userid = item.userid.as_deref().unwrap_or_default();
+            let open_userid = item.open_userid.as_deref().unwrap_or_default();
+            validate_open_work_auth_identifier("converted user id", userid)?;
+            validate_open_work_auth_identifier("open user id", open_userid)?;
+            if !userids.insert(userid) || !open_userids.insert(open_userid) {
+                return Err(WechatError::Config(
+                    "open-work converted user id response contains duplicates".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2916,6 +3182,132 @@ fn ensure_open_work_response_success(
     Ok(())
 }
 
+fn validate_open_work_auth_identifier(kind: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "open-work {kind} must contain 1 to 512 printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_auth_identifier_batch(
+    kind: &str,
+    identifiers: &[String],
+    maximum: usize,
+) -> Result<()> {
+    if identifiers.is_empty() || identifiers.len() > maximum {
+        return Err(WechatError::Config(format!(
+            "open-work {kind} list must contain between 1 and {maximum} values"
+        )));
+    }
+    let mut unique = HashSet::with_capacity(identifiers.len());
+    for identifier in identifiers {
+        validate_open_work_auth_identifier(kind, identifier)?;
+        if !unique.insert(identifier.trim()) {
+            return Err(WechatError::Config(format!(
+                "open-work {kind} list contains duplicates"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_work_auth_credentials(
+    suite_access_token: &str,
+    auth_corpid: &str,
+    permanent_code: &str,
+) -> Result<()> {
+    validate_open_work_auth_identifier("suite access token", suite_access_token)?;
+    validate_open_work_auth_identifier("authorized corporation id", auth_corpid)?;
+    validate_open_work_auth_identifier("permanent code", permanent_code)
+}
+
+fn validate_open_work_auth_expiry(kind: &str, expires_in: Option<i64>) -> Result<()> {
+    if expires_in.is_none_or(|expires_in| expires_in <= 0) {
+        return Err(WechatError::Config(format!(
+            "open-work {kind} response requires a positive expires_in"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_auth_token_response(
+    kind: &str,
+    token: Option<&str>,
+    expires_in: Option<i64>,
+) -> Result<()> {
+    validate_open_work_auth_identifier(kind, token.unwrap_or_default())?;
+    validate_open_work_auth_expiry(kind, expires_in)
+}
+
+fn validate_open_work_auth_corp_info(corp: Option<&OpenWorkAuthCorpInfo>) -> Result<()> {
+    let corp = corp.ok_or_else(|| {
+        WechatError::Config("open-work authorization response requires auth_corp_info".to_string())
+    })?;
+    validate_open_work_auth_identifier(
+        "authorized corporation id",
+        corp.corpid.as_deref().unwrap_or_default(),
+    )
+}
+
+fn validate_open_work_auth_info(auth_info: Option<&OpenWorkAuthInfo>) -> Result<()> {
+    let Some(auth_info) = auth_info else {
+        return Ok(());
+    };
+    let mut agent_ids = HashSet::with_capacity(auth_info.agent.len());
+    for agent in &auth_info.agent {
+        if agent.agentid.is_some_and(|agentid| agentid <= 0) {
+            return Err(WechatError::Config(
+                "open-work authorization agent id must be positive".to_string(),
+            ));
+        }
+        if let Some(agentid) = agent.agentid {
+            if !agent_ids.insert(agentid) {
+                return Err(WechatError::Config(
+                    "open-work authorization response contains duplicate agent ids".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_open_work_server_identifier(kind: &str, value: Option<&str>) -> Result<()> {
+    validate_open_work_auth_identifier(&format!("server event {kind}"), value.unwrap_or_default())
+}
+
+fn validate_open_work_server_timestamp(create_time: Option<i64>) -> Result<()> {
+    if create_time.is_none_or(|create_time| create_time <= 0) {
+        return Err(WechatError::Config(
+            "open-work server event requires a positive timestamp".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_open_work_server_positive_number(kind: &str, value: Option<i64>) -> Result<()> {
+    if value.is_none_or(|value| value <= 0) {
+        return Err(WechatError::Config(format!(
+            "open-work server event {kind} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_server_message(message: &CallbackMessage, require_corp: bool) -> Result<()> {
+    validate_open_work_server_identifier("suite id", message.suite_id.as_deref())?;
+    validate_open_work_server_timestamp(message.create_time)?;
+    if require_corp {
+        validate_open_work_server_identifier(
+            "authorized corporation id",
+            message.auth_corp_id.as_deref(),
+        )?;
+    }
+    Ok(())
+}
+
 fn validate_open_work_license_identifier(kind: &str, value: &str) -> Result<()> {
     let value = value.trim();
     if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
@@ -3265,6 +3657,7 @@ mod tests {
             r#"<xml>
                 <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[change_contact]]></InfoType>
+                <TimeStamp>1800000101</TimeStamp>
                 <ChangeType><![CDATA[create_party]]></ChangeType>
                 <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
                 <Id>10</Id>
@@ -3288,7 +3681,9 @@ mod tests {
             r#"<xml>
                 <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[change_contact]]></InfoType>
+                <TimeStamp>1800000102</TimeStamp>
                 <ChangeType><![CDATA[update_tag]]></ChangeType>
+                <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
                 <TagId>30</TagId>
                 <AddUserItems><![CDATA[user-a,user-b]]></AddUserItems>
                 <DelPartyItems><![CDATA[4,5]]></DelPartyItems>
@@ -3309,6 +3704,7 @@ mod tests {
             r#"<xml>
                 <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[share_agent_change]]></InfoType>
+                <TimeStamp>1800000103</TimeStamp>
                 <AppId><![CDATA[100001]]></AppId>
                 <CorpId><![CDATA[downstream-corp]]></CorpId>
                 <AgentID>200001</AgentID>
@@ -3331,7 +3727,9 @@ mod tests {
 
         let share_chain = OpenWork::parse_server_event_xml(
             r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[share_chain_change]]></InfoType>
+                <TimeStamp>1800000104</TimeStamp>
                 <CorpId><![CDATA[downstream-corp]]></CorpId>
             </xml>"#,
         )
@@ -3349,6 +3747,7 @@ mod tests {
             r#"<xml>
                 <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[corp_arch_auth]]></InfoType>
+                <TimeStamp>1800000200</TimeStamp>
                 <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
             </xml>"#,
         )
@@ -3357,7 +3756,9 @@ mod tests {
 
         let approved = OpenWork::parse_server_event_xml(
             r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[approve_special_auth]]></InfoType>
+                <TimeStamp>1800000201</TimeStamp>
                 <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
                 <AuthType><![CDATA[customer_contact]]></AuthType>
             </xml>"#,
@@ -3374,7 +3775,9 @@ mod tests {
 
         let canceled = OpenWork::parse_server_event_xml(
             r#"<xml>
+                <SuiteId><![CDATA[suite-id]]></SuiteId>
                 <InfoType><![CDATA[cancel_special_auth]]></InfoType>
+                <TimeStamp>1800000202</TimeStamp>
                 <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
                 <AuthType><![CDATA[customer_contact]]></AuthType>
             </xml>"#,
@@ -3449,6 +3852,130 @@ mod tests {
         .unwrap();
         assert_eq!(suite.suite_access_token.as_deref(), Some("suite-token"));
         assert_eq!(suite.expires_in, Some(7200));
+    }
+
+    #[test]
+    fn validates_open_work_suite_auth_request_matrix() {
+        assert!(SuiteTokenRequest {
+            suite_id: "suite".to_string(),
+            suite_secret: "secret".to_string(),
+            suite_ticket: "ticket".to_string(),
+        }
+        .validate()
+        .is_ok());
+        assert!(SuiteTokenRequest {
+            suite_id: " ".to_string(),
+            suite_secret: "secret".to_string(),
+            suite_ticket: "ticket".to_string(),
+        }
+        .validate()
+        .is_err());
+
+        assert!(OpenWorkSetSessionInfoRequest {
+            pre_auth_code: "pre-auth".to_string(),
+            session_info: OpenWorkSessionInfo {
+                appid: vec![1, 2],
+                auth_type: Some(1),
+            },
+        }
+        .validate()
+        .is_ok());
+        assert!(OpenWorkSetSessionInfoRequest {
+            pre_auth_code: "pre-auth".to_string(),
+            session_info: OpenWorkSessionInfo {
+                appid: vec![1, 1],
+                auth_type: Some(2),
+            },
+        }
+        .validate()
+        .is_err());
+        assert!(validate_open_work_auth_identifier_batch(
+            "user id",
+            &["user-a".to_string(), "user-a".to_string()],
+            1_000,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn validates_open_work_suite_auth_response_matrix() {
+        let suite: SuiteTokenResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "suite_access_token": "suite-token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert!(suite.validate().is_ok());
+
+        let api_error: SuiteTokenResponse = serde_json::from_value(json!({
+            "errcode": 40001,
+            "errmsg": "invalid credential"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let missing_token: SuiteTokenResponse =
+            serde_json::from_value(json!({ "errcode": 0, "expires_in": 7200 })).unwrap();
+        assert!(missing_token.validate().is_err());
+
+        let permanent: OpenWorkPermanentCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "permanent_code": "permanent",
+            "auth_corp_info": { "corpid": "corp" },
+            "auth_info": { "agent": [{ "agentid": 100001 }] }
+        }))
+        .unwrap();
+        assert!(permanent
+            .validate_permanent_code("get permanent code")
+            .is_ok());
+
+        let duplicate_agents: OpenWorkPermanentCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "auth_corp_info": { "corpid": "corp" },
+            "auth_info": { "agent": [{ "agentid": 1 }, { "agentid": 1 }] }
+        }))
+        .unwrap();
+        assert!(duplicate_agents
+            .validate_auth_info("get authorization info")
+            .is_err());
+
+        let converted: OpenWorkUserIdToOpenUserIdResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "open_userid_list": [
+                { "userid": "user-a", "open_userid": "open-a" },
+                { "userid": "user-b", "open_userid": "open-b" }
+            ]
+        }))
+        .unwrap();
+        assert!(converted.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_malformed_known_open_work_server_events() {
+        assert!(OpenWork::parse_server_event_xml(
+            r#"<xml>
+                    <SuiteId><![CDATA[suite-id]]></SuiteId>
+                    <InfoType><![CDATA[suite_ticket]]></InfoType>
+                    <TimeStamp>1800000000</TimeStamp>
+                </xml>"#,
+        )
+        .is_err());
+        assert!(OpenWork::parse_server_event_xml(
+            r#"<xml>
+                    <SuiteId><![CDATA[suite-id]]></SuiteId>
+                    <InfoType><![CDATA[change_contact]]></InfoType>
+                    <TimeStamp>1800000000</TimeStamp>
+                    <ChangeType><![CDATA[delete_user]]></ChangeType>
+                    <AuthCorpId><![CDATA[corp-id]]></AuthCorpId>
+                </xml>"#,
+        )
+        .is_err());
+
+        let future_event = OpenWork::parse_server_event_xml(
+            r#"<xml><InfoType><![CDATA[future_event]]></InfoType></xml>"#,
+        )
+        .unwrap();
+        assert_eq!(future_event.kind(), OpenWorkServerEventKind::Unknown);
     }
 
     #[test]
