@@ -209,8 +209,33 @@ Implemented on 2026-07-24 in Open Platform authorizer account depth:
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for `broadcasting`, `material`, `menu`,
-   `templateMessage`, and `publish`.
+   Continue DTO normalization for the remaining user/tag/customer-service/card
+   surfaces. `broadcasting`, `material`, `menu`, `templateMessage`, and
+   `publish` now have production request/response guards.
+
+Implemented on 2026-07-24 in Official Account menu/broadcasting/template-message depth:
+
+- the latest PowerWeChat method scan remains endpoint-green while every menu,
+  mass-send, mass-preview/status, template-send, industry, template-list, and
+  template-mutation network exit now validates API errors and typed success
+  contracts before returning data;
+- menu responses validate one-to-three top-level buttons, one-to-five
+  sub-buttons, supported action payloads, conditional match-rule presence,
+  current-menu switch consistency, and required conditional-menu identities;
+- group sends validate all/tag recipient semantics, two-to-10000 unique OpenID
+  recipients, supported text/media/card payload pairs, preview recipient
+  exclusivity, binary reprint policy, delete indices, message ids, and status
+  fields;
+- template and legacy subscribe-template sends validate recipients, template
+  ids, safe HTTP URLs, mini-program targets, scenes/titles, nonempty typed data
+  values, and optional `#RRGGBB` colors;
+- `add_template_with_keywords` preserves the existing no-keyword API while
+  exposing PowerWeChat's keyword list, bounded to five unique printable names;
+  industry, add, send, and private-list responses reject missing required
+  fields and duplicate template ids;
+- dedicated success/failure matrices cover API errors, missing nominal-success
+  fields, invalid menu trees, recipient ambiguity/duplication, message-type
+  mismatches, malformed template data, unsafe URLs, and invalid colors.
 
 Implemented on 2026-07-24 in Official Account publish/material response depth:
 

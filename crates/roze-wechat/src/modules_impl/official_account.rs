@@ -160,13 +160,17 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: MassSendAllRequest,
     ) -> Result<MassSendResponse> {
-        self.inner
+        request.validate()?;
+        let response: MassSendResponse = self
+            .inner
             .post(
                 "cgi-bin/message/mass/sendall",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn mass_send_openids(
@@ -174,13 +178,17 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: MassSendOpenIdsRequest,
     ) -> Result<MassSendResponse> {
-        self.inner
+        request.validate()?;
+        let response: MassSendResponse = self
+            .inner
             .post(
                 "cgi-bin/message/mass/send",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn mass_delete(
@@ -189,17 +197,27 @@ impl OfficialAccount {
         msg_id: impl Into<String>,
         article_idx: Option<i64>,
     ) -> Result<WechatStatusResponse> {
-        let mut body = json!({ "msg_id": msg_id.into() });
+        let msg_id = msg_id.into();
+        validate_official_identifier("mass message id", &msg_id)?;
+        if article_idx.is_some_and(|index| !(0..=8).contains(&index)) {
+            return Err(WechatError::Config(
+                "official account mass delete article index must be between 0 and 8".to_string(),
+            ));
+        }
+        let mut body = json!({ "msg_id": msg_id });
         if let Some(article_idx) = article_idx {
             body["article_idx"] = json!(article_idx);
         }
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/message/mass/delete",
                 Some(access_token.into()),
                 body,
             )
-            .await
+            .await?;
+        response.validate_for("official account mass delete")?;
+        Ok(response)
     }
 
     pub async fn mass_preview(
@@ -207,13 +225,17 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: MassPreviewRequest,
     ) -> Result<MassPreviewResponse> {
-        self.inner
+        request.validate()?;
+        let response: MassPreviewResponse = self
+            .inner
             .post(
                 "cgi-bin/message/mass/preview",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn mass_status(
@@ -221,13 +243,18 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         msg_id: impl Into<String>,
     ) -> Result<MassStatusResponse> {
-        self.inner
+        let msg_id = msg_id.into();
+        validate_official_identifier("mass message id", &msg_id)?;
+        let response: MassStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/message/mass/get",
                 Some(access_token.into()),
-                json!({ "msg_id": msg_id.into() }),
+                json!({ "msg_id": msg_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn comment(&self) -> DomainModule {
@@ -1436,21 +1463,27 @@ impl OfficialAccount {
     }
 
     pub async fn get_menu(&self, access_token: impl Into<String>) -> Result<MenuGetResponse> {
-        self.inner
+        let response: MenuGetResponse = self
+            .inner
             .get("cgi-bin/menu/get", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn current_self_menu(
         &self,
         access_token: impl Into<String>,
     ) -> Result<CurrentSelfMenuResponse> {
-        self.inner
+        let response: CurrentSelfMenuResponse = self
+            .inner
             .get(
                 "cgi-bin/get_current_selfmenu_info",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_menu(
@@ -1459,13 +1492,16 @@ impl OfficialAccount {
         request: CreateMenuRequest,
     ) -> Result<WechatStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/menu/create",
                 Some(access_token.into()),
                 json!({ "button": request.button }),
             )
-            .await
+            .await?;
+        response.validate_for("official account menu create")?;
+        Ok(response)
     }
 
     pub async fn create_conditional_menu(
@@ -1474,7 +1510,8 @@ impl OfficialAccount {
         request: CreateConditionalMenuRequest,
     ) -> Result<CreateConditionalMenuResponse> {
         request.validate()?;
-        self.inner
+        let response: CreateConditionalMenuResponse = self
+            .inner
             .post(
                 "cgi-bin/menu/addconditional",
                 Some(access_token.into()),
@@ -1483,16 +1520,21 @@ impl OfficialAccount {
                     "matchrule": request.matchrule,
                 }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_menu(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .get("cgi-bin/menu/delete", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate_for("official account menu delete")?;
+        Ok(response)
     }
 
     pub async fn delete_conditional_menu(
@@ -1502,13 +1544,16 @@ impl OfficialAccount {
     ) -> Result<WechatStatusResponse> {
         let menu_id = menu_id.into();
         validate_menu_required("conditional menu id", &menu_id)?;
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/menu/delconditional",
                 Some(access_token.into()),
                 json!({ "menuid": menu_id }),
             )
-            .await
+            .await?;
+        response.validate_for("official account conditional menu delete")?;
+        Ok(response)
     }
 
     pub async fn try_match_menu(
@@ -1518,13 +1563,16 @@ impl OfficialAccount {
     ) -> Result<MenuTryMatchResponse> {
         let user_id = user_id.into();
         validate_menu_required("match user id", &user_id)?;
-        self.inner
+        let response: MenuTryMatchResponse = self
+            .inner
             .post(
                 "cgi-bin/menu/trymatch",
                 Some(access_token.into()),
                 json!({ "user_id": user_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn auto_reply(&self) -> DomainModule {
@@ -3402,13 +3450,17 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: TemplateMessageRequest,
     ) -> Result<TemplateMessageSendResponse> {
-        self.inner
+        request.validate()?;
+        let response: TemplateMessageSendResponse = self
+            .inner
             .post(
                 "cgi-bin/message/template/send",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn send_subscribe_template_message(
@@ -3416,13 +3468,17 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: TemplateSubscribeMessageRequest,
     ) -> Result<WechatStatusResponse> {
-        self.inner
+        request.validate()?;
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/message/template/subscribe",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for("official account subscribe template send")?;
+        Ok(response)
     }
 
     pub async fn set_template_industry(
@@ -3431,25 +3487,40 @@ impl OfficialAccount {
         industry_id1: impl Into<String>,
         industry_id2: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
-        self.inner
+        let industry_id1 = industry_id1.into();
+        let industry_id2 = industry_id2.into();
+        validate_official_positive_identifier("primary template industry id", &industry_id1)?;
+        validate_official_positive_identifier("secondary template industry id", &industry_id2)?;
+        if industry_id1 == industry_id2 {
+            return Err(WechatError::Config(
+                "official account template industry ids must be different".to_string(),
+            ));
+        }
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/template/api_set_industry",
                 Some(access_token.into()),
                 json!({
-                    "industry_id1": industry_id1.into(),
-                    "industry_id2": industry_id2.into(),
+                    "industry_id1": industry_id1,
+                    "industry_id2": industry_id2,
                 }),
             )
-            .await
+            .await?;
+        response.validate_for("official account template industry set")?;
+        Ok(response)
     }
 
     pub async fn get_template_industry(
         &self,
         access_token: impl Into<String>,
     ) -> Result<TemplateIndustryResponse> {
-        self.inner
+        let response: TemplateIndustryResponse = self
+            .inner
             .get("cgi-bin/template/get_industry", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn add_template(
@@ -3457,25 +3528,48 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         template_id_short: impl Into<String>,
     ) -> Result<TemplateAddResponse> {
-        self.inner
+        self.add_template_with_keywords(access_token, template_id_short, Vec::new())
+            .await
+    }
+
+    pub async fn add_template_with_keywords(
+        &self,
+        access_token: impl Into<String>,
+        template_id_short: impl Into<String>,
+        keyword_name_list: Vec<String>,
+    ) -> Result<TemplateAddResponse> {
+        let template_id_short = template_id_short.into();
+        validate_official_identifier("short template id", &template_id_short)?;
+        validate_template_keywords(&keyword_name_list)?;
+        let mut body = json!({ "template_id_short": template_id_short });
+        if !keyword_name_list.is_empty() {
+            body["keyword_name_list"] = json!(keyword_name_list);
+        }
+        let response: TemplateAddResponse = self
+            .inner
             .post(
                 "cgi-bin/template/api_add_template",
                 Some(access_token.into()),
-                json!({ "template_id_short": template_id_short.into() }),
+                body,
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn list_private_templates(
         &self,
         access_token: impl Into<String>,
     ) -> Result<PrivateTemplateListResponse> {
-        self.inner
+        let response: PrivateTemplateListResponse = self
+            .inner
             .get(
                 "cgi-bin/template/get_all_private_template",
                 Some(access_token.into()),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn delete_private_template(
@@ -3483,13 +3577,18 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         template_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
-        self.inner
+        let template_id = template_id.into();
+        validate_official_identifier("template id", &template_id)?;
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/template/del_private_template",
                 Some(access_token.into()),
-                json!({ "template_id": template_id.into() }),
+                json!({ "template_id": template_id }),
             )
-            .await
+            .await?;
+        response.validate_for("official account private template delete")?;
+        Ok(response)
     }
 
     pub fn user(&self) -> DomainModule {
@@ -4249,6 +4348,20 @@ fn validate_menu_required(kind: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+fn ensure_official_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateConditionalMenuResponse {
     #[serde(default)]
@@ -4259,6 +4372,20 @@ pub struct CreateConditionalMenuResponse {
     pub menuid: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CreateConditionalMenuResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account conditional menu create",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_official_identifier(
+            "conditional menu response id",
+            self.menuid.as_deref().unwrap_or_default(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4273,6 +4400,29 @@ pub struct MenuGetResponse {
     pub conditionalmenu: Vec<OfficialConditionalMenuInfo>,
     #[serde(flatten)]
     pub extra: Value,
+}
+
+impl MenuGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account menu get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let menu = self.menu.as_ref().ok_or_else(|| {
+            WechatError::Config("official account menu response requires menu".to_string())
+        })?;
+        validate_menu_response_buttons("menu response", &menu.button)?;
+        for conditional in &self.conditionalmenu {
+            validate_menu_response_buttons("conditional menu response", &conditional.button)?;
+            if conditional.matchrule.is_none() {
+                return Err(WechatError::Config(
+                    "official account conditional menu response requires matchrule".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4307,6 +4457,47 @@ pub struct MenuResponseButton {
     pub sub_button: Vec<MenuResponseButton>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+fn validate_menu_response_buttons(kind: &str, buttons: &[MenuResponseButton]) -> Result<()> {
+    if buttons.is_empty() || buttons.len() > 3 {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must contain between 1 and 3 top-level buttons"
+        )));
+    }
+    for button in buttons {
+        menu_response_button_as_request(button)?.validate()?;
+    }
+    Ok(())
+}
+
+fn menu_response_button_as_request(button: &MenuResponseButton) -> Result<MenuButton> {
+    let name = button.name.clone().ok_or_else(|| {
+        WechatError::Config("official account menu response button requires name".to_string())
+    })?;
+    let sub_button = button
+        .sub_button
+        .iter()
+        .map(menu_response_button_as_request)
+        .collect::<Result<Vec<_>>>()?;
+    Ok(MenuButton {
+        name,
+        kind: non_blank_menu_response_value(&button.kind),
+        key: non_blank_menu_response_value(&button.key),
+        url: non_blank_menu_response_value(&button.url),
+        media_id: non_blank_menu_response_value(&button.media_id),
+        appid: non_blank_menu_response_value(&button.appid),
+        pagepath: non_blank_menu_response_value(&button.pagepath),
+        article_id: non_blank_menu_response_value(&button.article_id),
+        sub_button,
+    })
+}
+
+fn non_blank_menu_response_value(value: &Option<String>) -> Option<String> {
+    value
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4360,6 +4551,29 @@ pub struct CurrentSelfMenuResponse {
 impl CurrentSelfMenuResponse {
     pub fn is_open(&self) -> bool {
         self.is_menu_open == Some(1)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account current self menu get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if !matches!(self.is_menu_open, Some(0 | 1)) {
+            return Err(WechatError::Config(
+                "official account current self menu response requires is_menu_open 0 or 1"
+                    .to_string(),
+            ));
+        }
+        if self.is_open() {
+            let menu = self.selfmenu_info.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "official account open current self menu requires selfmenu_info".to_string(),
+                )
+            })?;
+            validate_current_self_menu_buttons(&menu.button)?;
+        }
+        Ok(())
     }
 }
 
@@ -4435,6 +4649,47 @@ pub struct CurrentSelfMenuNewsItem {
     pub extra: Value,
 }
 
+fn validate_current_self_menu_buttons(buttons: &[CurrentSelfMenuButton]) -> Result<()> {
+    if buttons.is_empty() || buttons.len() > 3 {
+        return Err(WechatError::Config(
+            "official account current self menu must contain between 1 and 3 top-level buttons"
+                .to_string(),
+        ));
+    }
+    for button in buttons {
+        validate_menu_required(
+            "current self menu button name",
+            button.name.as_deref().unwrap_or_default(),
+        )?;
+        if let Some(sub_buttons) = &button.sub_button {
+            if sub_buttons.list.is_empty() || sub_buttons.list.len() > 5 {
+                return Err(WechatError::Config(
+                    "official account current self menu parent must contain between 1 and 5 sub-buttons"
+                        .to_string(),
+                ));
+            }
+            for child in &sub_buttons.list {
+                validate_menu_required(
+                    "current self menu sub-button name",
+                    child.name.as_deref().unwrap_or_default(),
+                )?;
+                if child.sub_button.is_some() {
+                    return Err(WechatError::Config(
+                        "official account current self menu supports one sub-button level"
+                            .to_string(),
+                    ));
+                }
+            }
+        } else {
+            validate_menu_required(
+                "current self menu button type",
+                button.kind.as_deref().unwrap_or_default(),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuTryMatchResponse {
     #[serde(default)]
@@ -4445,6 +4700,17 @@ pub struct MenuTryMatchResponse {
     pub button: Vec<MenuResponseButton>,
     #[serde(flatten)]
     pub extra: Value,
+}
+
+impl MenuTryMatchResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account menu try-match",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_menu_response_buttons("try-match response", &self.button)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4464,6 +4730,30 @@ pub struct MassSendFilter {
     pub tag_id: Option<i64>,
 }
 
+impl MassSendFilter {
+    pub fn validate(&self) -> Result<()> {
+        if self.is_to_all && self.tag_id.is_some() {
+            return Err(WechatError::Config(
+                "official account mass-send all filter must not include tag_id".to_string(),
+            ));
+        }
+        if !self.is_to_all && self.tag_id.is_none_or(|tag_id| tag_id <= 0) {
+            return Err(WechatError::Config(
+                "official account tag-filtered mass send requires a positive tag_id".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl MassSendAllRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.filter.validate()?;
+        validate_mass_message(&self.msgtype, &self.message)?;
+        validate_binary_option("mass send_ignore_reprint", self.send_ignore_reprint)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MassSendOpenIdsRequest {
     pub touser: Vec<String>,
@@ -4472,6 +4762,28 @@ pub struct MassSendOpenIdsRequest {
     pub message: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_ignore_reprint: Option<i64>,
+}
+
+impl MassSendOpenIdsRequest {
+    pub fn validate(&self) -> Result<()> {
+        if !(2..=10_000).contains(&self.touser.len()) {
+            return Err(WechatError::Config(
+                "official account openid mass send requires between 2 and 10000 recipients"
+                    .to_string(),
+            ));
+        }
+        let mut unique = HashSet::with_capacity(self.touser.len());
+        for openid in &self.touser {
+            validate_official_identifier("mass-send recipient openid", openid)?;
+            if !unique.insert(openid.trim()) {
+                return Err(WechatError::Config(
+                    "official account openid mass send contains duplicate recipients".to_string(),
+                ));
+            }
+        }
+        validate_mass_message(&self.msgtype, &self.message)?;
+        validate_binary_option("mass send_ignore_reprint", self.send_ignore_reprint)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4483,6 +4795,64 @@ pub struct MassPreviewRequest {
     pub msgtype: String,
     #[serde(flatten)]
     pub message: Value,
+}
+
+impl MassPreviewRequest {
+    pub fn validate(&self) -> Result<()> {
+        match (self.touser.as_deref(), self.towxname.as_deref()) {
+            (Some(openid), None) => {
+                validate_official_identifier("mass-preview recipient openid", openid)?
+            }
+            (None, Some(wxname)) => {
+                validate_official_identifier("mass-preview recipient WeChat name", wxname)?
+            }
+            _ => {
+                return Err(WechatError::Config(
+                    "official account mass preview requires exactly one of touser or towxname"
+                        .to_string(),
+                ));
+            }
+        }
+        validate_mass_message(&self.msgtype, &self.message)
+    }
+}
+
+fn validate_binary_option(kind: &str, value: Option<i64>) -> Result<()> {
+    if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must be 0 or 1"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mass_message(msgtype: &str, message: &Value) -> Result<()> {
+    let payload_kind = match msgtype {
+        "text" => "content",
+        "mpnews" | "voice" | "image" | "mpvideo" => "media_id",
+        "wxcard" => "card_id",
+        _ => {
+            return Err(WechatError::Config(format!(
+                "official account mass message type {msgtype:?} is unsupported"
+            )));
+        }
+    };
+    let message = message.as_object().ok_or_else(|| {
+        WechatError::Config("official account mass message payload must be an object".to_string())
+    })?;
+    let typed_payload = message
+        .get(msgtype)
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            WechatError::Config(format!(
+                "official account mass message requires an object payload named {msgtype}"
+            ))
+        })?;
+    let payload = typed_payload
+        .get(payload_kind)
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    validate_official_identifier(&format!("mass message {payload_kind}"), payload)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4499,6 +4869,27 @@ pub struct MassSendResponse {
     pub extra: Value,
 }
 
+impl MassSendResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account mass send",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.msg_id.is_none_or(|msg_id| msg_id <= 0) {
+            return Err(WechatError::Config(
+                "official account mass-send response requires a positive msg_id".to_string(),
+            ));
+        }
+        if self.msg_data_id.is_some_and(|msg_data_id| msg_data_id <= 0) {
+            return Err(WechatError::Config(
+                "official account mass-send response msg_data_id must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MassPreviewResponse {
     #[serde(default)]
@@ -4509,6 +4900,22 @@ pub struct MassPreviewResponse {
     pub msg_id: Option<i64>,
     #[serde(flatten)]
     pub extra: Value,
+}
+
+impl MassPreviewResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account mass preview",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.msg_id.is_some_and(|msg_id| msg_id <= 0) {
+            return Err(WechatError::Config(
+                "official account mass-preview response msg_id must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4561,6 +4968,23 @@ impl MassStatusResponse {
 
     pub fn is_success(&self) -> bool {
         self.status_kind() == Some(MassStatusKind::Success)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account mass status",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.msg_id.is_none_or(|msg_id| msg_id <= 0) {
+            return Err(WechatError::Config(
+                "official account mass-status response requires a positive msg_id".to_string(),
+            ));
+        }
+        validate_official_required(
+            "mass-status response status",
+            self.msg_status.as_deref().unwrap_or_default(),
+        )
     }
 }
 
@@ -5311,6 +5735,26 @@ pub struct TemplateSubscribeMessageRequest {
     pub scene: String,
     pub title: String,
     pub data: Value,
+}
+
+impl TemplateSubscribeMessageRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_official_identifier("subscribe template recipient openid", &self.touser)?;
+        validate_official_identifier("subscribe template id", &self.template_id)?;
+        validate_material_http_url("subscribe template URL", &self.url)?;
+        validate_official_identifier("subscribe template scene", &self.scene)?;
+        validate_official_required("subscribe template title", &self.title)?;
+        if let Some(miniprogram) = &self.miniprogram {
+            let miniprogram: TemplateMiniProgram = serde_json::from_value(miniprogram.clone())
+                .map_err(|error| {
+                    WechatError::Config(format!(
+                        "official account subscribe template miniprogram is invalid: {error}"
+                    ))
+                })?;
+            miniprogram.validate()?;
+        }
+        validate_template_data(&self.data)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7922,11 +8366,81 @@ pub struct TemplateMessageRequest {
     pub client_msg_id: Option<String>,
 }
 
+impl TemplateMessageRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_official_identifier("template recipient openid", &self.touser)?;
+        validate_official_identifier("template id", &self.template_id)?;
+        if let Some(url) = &self.url {
+            validate_material_http_url("template message URL", url)?;
+        }
+        if let Some(miniprogram) = &self.miniprogram {
+            miniprogram.validate()?;
+        }
+        if let Some(client_msg_id) = &self.client_msg_id {
+            validate_official_identifier("template client message id", client_msg_id)?;
+        }
+        validate_template_data(&self.data)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateMiniProgram {
     pub appid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pagepath: Option<String>,
+}
+
+impl TemplateMiniProgram {
+    pub fn validate(&self) -> Result<()> {
+        validate_official_identifier("template mini-program appid", &self.appid)?;
+        if let Some(pagepath) = &self.pagepath {
+            validate_official_identifier("template mini-program page path", pagepath)?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_template_data(data: &Value) -> Result<()> {
+    let fields = data
+        .as_object()
+        .filter(|fields| !fields.is_empty())
+        .ok_or_else(|| {
+            WechatError::Config(
+                "official account template message data must be a non-empty object".to_string(),
+            )
+        })?;
+    for (name, field) in fields {
+        validate_official_identifier("template data field name", name)?;
+        let field = field.as_object().ok_or_else(|| {
+            WechatError::Config(format!(
+                "official account template data field {name:?} must be an object"
+            ))
+        })?;
+        let value = field
+            .get("value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        validate_official_required(&format!("template data field {name:?} value"), value)?;
+        if let Some(color) = field.get("color") {
+            let color = color.as_str().ok_or_else(|| {
+                WechatError::Config(format!(
+                    "official account template data field {name:?} color must be a string"
+                ))
+            })?;
+            if !(color.is_empty()
+                || color.len() == 7
+                    && color.starts_with('#')
+                    && color[1..]
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit()))
+            {
+                return Err(WechatError::Config(format!(
+                    "official account template data field {name:?} color must use #RRGGBB"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7937,6 +8451,22 @@ pub struct TemplateMessageSendResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub msgid: Option<i64>,
+}
+
+impl TemplateMessageSendResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account template message send",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.msgid.is_none_or(|msgid| msgid <= 0) {
+            return Err(WechatError::Config(
+                "official account template send response requires a positive msgid".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7959,6 +8489,35 @@ pub struct TemplateIndustryResponse {
     pub secondary_industry: Option<TemplateIndustryInfo>,
 }
 
+impl TemplateIndustryResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account template industry get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        for (kind, industry) in [
+            ("primary", self.primary_industry.as_ref()),
+            ("secondary", self.secondary_industry.as_ref()),
+        ] {
+            let industry = industry.ok_or_else(|| {
+                WechatError::Config(format!(
+                    "official account template industry response requires {kind}_industry"
+                ))
+            })?;
+            validate_official_required(
+                &format!("{kind} template industry first class"),
+                industry.first_class.as_deref().unwrap_or_default(),
+            )?;
+            validate_official_required(
+                &format!("{kind} template industry second class"),
+                industry.second_class.as_deref().unwrap_or_default(),
+            )?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateAddResponse {
     #[serde(default)]
@@ -7967,6 +8526,20 @@ pub struct TemplateAddResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub template_id: Option<String>,
+}
+
+impl TemplateAddResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account template add",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_official_identifier(
+            "template add response id",
+            self.template_id.as_deref().unwrap_or_default(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7993,6 +8566,46 @@ pub struct PrivateTemplateListResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub template_list: Vec<PrivateTemplateInfo>,
+}
+
+impl PrivateTemplateListResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account private template list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let mut template_ids = HashSet::with_capacity(self.template_list.len());
+        for template in &self.template_list {
+            let template_id = template.template_id.as_deref().unwrap_or_default();
+            validate_official_identifier("private template response id", template_id)?;
+            if !template_ids.insert(template_id) {
+                return Err(WechatError::Config(
+                    "official account private template response contains duplicate template ids"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn validate_template_keywords(keywords: &[String]) -> Result<()> {
+    if keywords.len() > 5 {
+        return Err(WechatError::Config(
+            "official account template keyword list supports at most 5 names".to_string(),
+        ));
+    }
+    let mut unique = HashSet::with_capacity(keywords.len());
+    for keyword in keywords {
+        validate_official_identifier("template keyword name", keyword)?;
+        if !unique.insert(keyword.trim()) {
+            return Err(WechatError::Config(
+                "official account template keyword list contains duplicate names".to_string(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8037,6 +8650,16 @@ fn validate_official_required(kind: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
         return Err(WechatError::Config(format!(
             "official account {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_official_identifier(kind: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must contain 1 to 512 printable UTF-8 bytes"
         )));
     }
     Ok(())
@@ -10031,6 +10654,232 @@ mod tests {
         assert_eq!(value["filter"]["tag_id"], 2);
         assert_eq!(value["msgtype"], "mpnews");
         assert_eq!(value["mpnews"]["media_id"], "mid");
+    }
+
+    #[test]
+    fn validates_mass_message_request_and_response_matrix() {
+        let send_all = MassSendAllRequest {
+            filter: MassSendFilter {
+                is_to_all: true,
+                tag_id: None,
+            },
+            msgtype: "text".to_string(),
+            message: json!({ "text": { "content": "hello" } }),
+            send_ignore_reprint: Some(1),
+        };
+        assert!(send_all.validate().is_ok());
+
+        let mut invalid_filter = send_all.clone();
+        invalid_filter.filter.tag_id = Some(2);
+        assert!(invalid_filter.validate().is_err());
+        let mut invalid_payload = send_all.clone();
+        invalid_payload.message = json!({ "image": { "media_id": "media" } });
+        assert!(invalid_payload.validate().is_err());
+        let mut invalid_type = send_all;
+        invalid_type.msgtype = "video".to_string();
+        assert!(invalid_type.validate().is_err());
+
+        let recipients = MassSendOpenIdsRequest {
+            touser: vec!["openid-1".to_string(), "openid-2".to_string()],
+            msgtype: "image".to_string(),
+            message: json!({ "image": { "media_id": "media" } }),
+            send_ignore_reprint: None,
+        };
+        assert!(recipients.validate().is_ok());
+        let mut duplicate = recipients.clone();
+        duplicate.touser[1] = "openid-1".to_string();
+        assert!(duplicate.validate().is_err());
+        let mut too_few = recipients;
+        too_few.touser.pop();
+        assert!(too_few.validate().is_err());
+
+        let preview = MassPreviewRequest {
+            touser: Some("openid".to_string()),
+            towxname: None,
+            msgtype: "wxcard".to_string(),
+            message: json!({ "wxcard": { "card_id": "card" } }),
+        };
+        assert!(preview.validate().is_ok());
+        let mut ambiguous = preview;
+        ambiguous.towxname = Some("account".to_string());
+        assert!(ambiguous.validate().is_err());
+
+        let success: MassSendResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "msg_id": 1001
+        }))
+        .unwrap();
+        assert!(success.validate().is_ok());
+        let missing_id: MassSendResponse = serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.validate().is_err());
+        let api_error: MassSendResponse = serde_json::from_value(json!({
+            "errcode": 45065,
+            "errmsg": "clientmsgid exist"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let status: MassStatusResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "msg_id": 1001,
+            "msg_status": "SEND_SUCCESS"
+        }))
+        .unwrap();
+        assert!(status.validate().is_ok());
+        let missing_status: MassStatusResponse =
+            serde_json::from_value(json!({ "errcode": 0, "msg_id": 1001 })).unwrap();
+        assert!(missing_status.validate().is_err());
+    }
+
+    #[test]
+    fn validates_menu_response_matrix() {
+        let menu: MenuGetResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "menu": {
+                "button": [{
+                    "type": "view",
+                    "name": "Docs",
+                    "url": "https://example.com",
+                    "key": ""
+                }]
+            },
+            "conditionalmenu": []
+        }))
+        .unwrap();
+        assert!(menu.validate().is_ok());
+
+        let missing_menu: MenuGetResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_menu.validate().is_err());
+        let api_error: MenuGetResponse = serde_json::from_value(json!({
+            "errcode": 46003,
+            "errmsg": "menu no exist"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let conditional: CreateConditionalMenuResponse =
+            serde_json::from_value(json!({ "errcode": 0, "menuid": "208396938" })).unwrap();
+        assert!(conditional.validate().is_ok());
+        let missing_id: CreateConditionalMenuResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.validate().is_err());
+
+        let current: CurrentSelfMenuResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "is_menu_open": 1,
+            "selfmenu_info": {
+                "button": [{
+                    "type": "click",
+                    "name": "Help",
+                    "key": "help"
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(current.validate().is_ok());
+        let inconsistent: CurrentSelfMenuResponse =
+            serde_json::from_value(json!({ "errcode": 0, "is_menu_open": 1 })).unwrap();
+        assert!(inconsistent.validate().is_err());
+
+        let matched: MenuTryMatchResponse = serde_json::from_value(json!({
+            "button": [{
+                "type": "click",
+                "name": "Member",
+                "key": "member"
+            }]
+        }))
+        .unwrap();
+        assert!(matched.validate().is_ok());
+    }
+
+    #[test]
+    fn validates_template_message_request_and_response_matrix() {
+        let request = TemplateMessageRequest {
+            touser: "openid".to_string(),
+            template_id: "template".to_string(),
+            url: Some("https://example.com/order/1".to_string()),
+            miniprogram: Some(TemplateMiniProgram {
+                appid: "wxmini".to_string(),
+                pagepath: Some("pages/order?id=1".to_string()),
+            }),
+            data: json!({
+                "first": { "value": "Order ready", "color": "#00AA11" }
+            }),
+            client_msg_id: Some("order-1".to_string()),
+        };
+        assert!(request.validate().is_ok());
+
+        let mut invalid_url = request.clone();
+        invalid_url.url = Some("javascript:alert(1)".to_string());
+        assert!(invalid_url.validate().is_err());
+        let mut invalid_data = request.clone();
+        invalid_data.data = json!({ "first": "Order ready" });
+        assert!(invalid_data.validate().is_err());
+        let mut invalid_color = request;
+        invalid_color.data = json!({ "first": { "value": "ready", "color": "green" } });
+        assert!(invalid_color.validate().is_err());
+
+        let subscribe = TemplateSubscribeMessageRequest {
+            touser: "openid".to_string(),
+            template_id: "template".to_string(),
+            url: "https://example.com".to_string(),
+            miniprogram: Some(json!({
+                "appid": "wxmini",
+                "pagepath": "pages/index"
+            })),
+            scene: "1000".to_string(),
+            title: "Status".to_string(),
+            data: json!({ "status": { "value": "ready" } }),
+        };
+        assert!(subscribe.validate().is_ok());
+
+        assert!(
+            validate_template_keywords(&["keyword1".to_string(), "keyword2".to_string()]).is_ok()
+        );
+        assert!(
+            validate_template_keywords(&["keyword1".to_string(), "keyword1".to_string()]).is_err()
+        );
+
+        let send: TemplateMessageSendResponse =
+            serde_json::from_value(json!({ "errcode": 0, "msgid": 10001 })).unwrap();
+        assert!(send.validate().is_ok());
+        let missing_msgid: TemplateMessageSendResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_msgid.validate().is_err());
+
+        let industry: TemplateIndustryResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "primary_industry": {
+                "first_class": "IT",
+                "second_class": "Internet"
+            },
+            "secondary_industry": {
+                "first_class": "Commerce",
+                "second_class": "Retail"
+            }
+        }))
+        .unwrap();
+        assert!(industry.validate().is_ok());
+
+        let templates: PrivateTemplateListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "template_list": [
+                { "template_id": "template-1" },
+                { "template_id": "template-2" }
+            ]
+        }))
+        .unwrap();
+        assert!(templates.validate().is_ok());
+        let duplicate: PrivateTemplateListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "template_list": [
+                { "template_id": "template-1" },
+                { "template_id": "template-1" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate.validate().is_err());
     }
 
     #[test]
