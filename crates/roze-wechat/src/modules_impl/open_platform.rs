@@ -6,9 +6,10 @@ use crate::{
     error::{Result, WechatError},
     modules::{
         official_account::{
-            validate_material_articles, validate_material_required, validate_material_upload,
-            Article, MaterialGetResponse, MaterialListRequest, MaterialListResponse,
-            MaterialMediaResponse, MaterialStatsResponse, MaterialUploadKind, OfficialAccount,
+            validate_material_articles, validate_material_identifier, validate_material_required,
+            validate_material_upload, Article, MaterialGetResponse, MaterialListRequest,
+            MaterialListResponse, MaterialMediaResponse, MaterialStatsResponse, MaterialUploadKind,
+            OfficialAccount,
         },
         DomainModule, PlatformClient,
     },
@@ -765,7 +766,7 @@ impl OpenPlatform {
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         self.inner
             .post_json_bytes(
                 "cgi-bin/material/get_material",
@@ -936,7 +937,7 @@ impl OpenPlatform {
         article: Article,
     ) -> Result<OpenPlatformStatusResponse> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         if !(0..=7).contains(&index) {
             return Err(WechatError::Config(
                 "open platform material article index must be between 0 and 7".to_string(),
@@ -965,7 +966,7 @@ impl OpenPlatform {
         media_id: impl Into<String>,
     ) -> Result<MaterialGetResponse> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         let response: MaterialGetResponse = self
             .inner
             .post(
@@ -984,7 +985,7 @@ impl OpenPlatform {
         media_id: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         let response: OpenPlatformStatusResponse = self
             .inner
             .post(

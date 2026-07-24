@@ -212,6 +212,30 @@ Implemented on 2026-07-24 in Open Platform authorizer account depth:
    Continue DTO normalization for `broadcasting`, `material`, `menu`,
    `templateMessage`, and `publish`.
 
+Implemented on 2026-07-24 in Official Account publish/material response depth:
+
+- the latest PowerWeChat `publish` and `material` method scan remains
+  endpoint-green; all draft and free-publish network exits now validate API
+  errors and typed response contracts before returning application data;
+- draft add/get/count/list/switch responses require usable identities,
+  bounded article sets, ordered non-negative timestamps, consistent page
+  counts, unique item identities, and a valid binary switch state;
+- publish submission and status polling bind positive publish ids to the
+  request, validate forward-compatible non-negative lifecycle states,
+  string/string-array article ids, successful article details, unique
+  one-based article/failure indices, safe article URLs, and status-specific
+  failure invariants;
+- draft and published lists distinguish their required media/article identity,
+  honor `no_content`, expose checked next-page offsets, and reject duplicate,
+  stalled, oversized, or count-mismatched pages;
+- the published-delete index now correctly accepts `0` for all articles and
+  `1..=8` for a selected article, independently from the draft-update
+  zero-based `0..=7` index;
+- shared Official Account/Open Platform material ids require bounded printable
+  values, upload filenames reject paths/control characters/oversized values,
+  URLs reject credentials and fragments, and typed news content validates
+  article count, fields, flags, URLs, and timestamp ordering.
+
 6. Open Work depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
    Continue DTO normalization for `license`, `suitAuth`, `server`, and

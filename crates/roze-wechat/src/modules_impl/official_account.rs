@@ -1093,7 +1093,7 @@ impl OfficialAccount {
         article: Article,
     ) -> Result<WechatStatusResponse> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         if !(0..=7).contains(&index) {
             return Err(WechatError::Config(
                 "official account material article index must be between 0 and 7".to_string(),
@@ -1122,7 +1122,7 @@ impl OfficialAccount {
         media_id: impl Into<String>,
     ) -> Result<MaterialGetResponse> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         let response: MaterialGetResponse = self
             .inner
             .post(
@@ -1141,7 +1141,7 @@ impl OfficialAccount {
         media_id: impl Into<String>,
     ) -> Result<bytes::Bytes> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         self.inner
             .post_json_bytes(
                 "cgi-bin/material/get_material",
@@ -1157,7 +1157,7 @@ impl OfficialAccount {
         media_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
         let media_id = media_id.into();
-        validate_material_required("media id", &media_id)?;
+        validate_material_identifier("media id", &media_id)?;
         let response: WechatStatusResponse = self
             .inner
             .post(
@@ -1214,9 +1214,12 @@ impl OfficialAccount {
         request: PublishDraftAddRequest,
     ) -> Result<PublishDraftAddResponse> {
         request.validate()?;
-        self.inner
+        let response: PublishDraftAddResponse = self
+            .inner
             .post("cgi-bin/draft/add", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.require_media_id()?;
+        Ok(response)
     }
 
     pub async fn draft_get(
@@ -1225,14 +1228,17 @@ impl OfficialAccount {
         media_id: impl Into<String>,
     ) -> Result<PublishDraftGetResponse> {
         let media_id = media_id.into();
-        validate_publish_required("draft media id", &media_id)?;
-        self.inner
+        validate_publish_identifier("draft media id", &media_id)?;
+        let response: PublishDraftGetResponse = self
+            .inner
             .post(
                 "cgi-bin/draft/get",
                 Some(access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn draft_delete(
@@ -1241,14 +1247,17 @@ impl OfficialAccount {
         media_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
         let media_id = media_id.into();
-        validate_publish_required("draft media id", &media_id)?;
-        self.inner
+        validate_publish_identifier("draft media id", &media_id)?;
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/draft/delete",
                 Some(access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.validate_for("official account delete draft")?;
+        Ok(response)
     }
 
     pub async fn draft_update(
@@ -1257,18 +1266,24 @@ impl OfficialAccount {
         request: PublishDraftUpdateRequest,
     ) -> Result<WechatStatusResponse> {
         request.validate()?;
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post("cgi-bin/draft/update", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for("official account update draft")?;
+        Ok(response)
     }
 
     pub async fn draft_count(
         &self,
         access_token: impl Into<String>,
     ) -> Result<PublishDraftCountResponse> {
-        self.inner
+        let response: PublishDraftCountResponse = self
+            .inner
             .get("cgi-bin/draft/count", Some(access_token.into()))
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn draft_batch_get(
@@ -1277,25 +1292,33 @@ impl OfficialAccount {
         request: PublishBatchGetRequest,
     ) -> Result<PublishBatchGetResponse> {
         request.validate()?;
-        self.inner
+        let no_content = request.no_content == 1;
+        let response: PublishBatchGetResponse = self
+            .inner
             .post("cgi-bin/draft/batchget", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate_for(PublishBatchKind::Draft, no_content)?;
+        Ok(response)
     }
 
     pub async fn draft_switch(
         &self,
         access_token: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
-        self.inner
+        let response: WechatStatusResponse = self
+            .inner
             .post("cgi-bin/draft/switch", Some(access_token.into()), json!({}))
-            .await
+            .await?;
+        response.validate_for("official account switch draft mode")?;
+        Ok(response)
     }
 
     pub async fn draft_check_switch(
         &self,
         access_token: impl Into<String>,
     ) -> Result<PublishDraftSwitchStatusResponse> {
-        self.inner
+        let response: PublishDraftSwitchStatusResponse = self
+            .inner
             .post_json_with_access_token_query(
                 "cgi-bin/draft/switch",
                 Some(access_token.into()),
@@ -1303,7 +1326,9 @@ impl OfficialAccount {
                 json!({}),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn publish_submit(
@@ -1312,14 +1337,17 @@ impl OfficialAccount {
         media_id: impl Into<String>,
     ) -> Result<PublishSubmitResponse> {
         let media_id = media_id.into();
-        validate_publish_required("publish media id", &media_id)?;
-        self.inner
+        validate_publish_identifier("publish media id", &media_id)?;
+        let response: PublishSubmitResponse = self
+            .inner
             .post(
                 "cgi-bin/freepublish/submit",
                 Some(access_token.into()),
                 json!({ "media_id": media_id }),
             )
-            .await
+            .await?;
+        response.require_publish_id()?;
+        Ok(response)
     }
 
     pub async fn publish_get(
@@ -1332,13 +1360,16 @@ impl OfficialAccount {
                 "official account publish id must be positive".to_string(),
             ));
         }
-        self.inner
+        let response: PublishStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/freepublish/get",
                 Some(access_token.into()),
                 json!({ "publish_id": publish_id }),
             )
-            .await
+            .await?;
+        response.validate_for(publish_id)?;
+        Ok(response)
     }
 
     pub async fn publish_delete(
@@ -1348,15 +1379,18 @@ impl OfficialAccount {
         index: i64,
     ) -> Result<WechatStatusResponse> {
         let article_id = article_id.into();
-        validate_publish_required("published article id", &article_id)?;
-        validate_publish_index(index)?;
-        self.inner
+        validate_publish_identifier("published article id", &article_id)?;
+        validate_publish_delete_index(index)?;
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "cgi-bin/freepublish/delete",
                 Some(access_token.into()),
                 json!({ "article_id": article_id, "index": index }),
             )
-            .await
+            .await?;
+        response.validate_for("official account delete published article")?;
+        Ok(response)
     }
 
     pub async fn publish_get_article(
@@ -1365,14 +1399,17 @@ impl OfficialAccount {
         article_id: impl Into<String>,
     ) -> Result<PublishArticleResponse> {
         let article_id = article_id.into();
-        validate_publish_required("published article id", &article_id)?;
-        self.inner
+        validate_publish_identifier("published article id", &article_id)?;
+        let response: PublishArticleResponse = self
+            .inner
             .post(
                 "cgi-bin/freepublish/getarticle",
                 Some(access_token.into()),
                 json!({ "article_id": article_id }),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn publish_batch_get(
@@ -1381,13 +1418,17 @@ impl OfficialAccount {
         request: PublishBatchGetRequest,
     ) -> Result<PublishBatchGetResponse> {
         request.validate()?;
-        self.inner
+        let no_content = request.no_content == 1;
+        let response: PublishBatchGetResponse = self
+            .inner
             .post(
                 "cgi-bin/freepublish/batchget",
                 Some(access_token.into()),
                 request,
             )
-            .await
+            .await?;
+        response.validate_for(PublishBatchKind::Published, no_content)?;
+        Ok(response)
     }
 
     pub fn menu(&self) -> DomainModule {
@@ -6365,7 +6406,7 @@ pub struct Article {
 impl Article {
     pub fn validate(&self) -> Result<()> {
         validate_material_required("article title", &self.title)?;
-        validate_material_required("article thumbnail media id", &self.thumb_media_id)?;
+        validate_material_identifier("article thumbnail media id", &self.thumb_media_id)?;
         validate_material_required("article content", &self.content)?;
         if !matches!(self.show_cover_pic, 0 | 1) {
             return Err(WechatError::Config(
@@ -6412,7 +6453,7 @@ pub struct PublishArticle {
 impl PublishArticle {
     pub fn validate(&self) -> Result<()> {
         validate_publish_required("article title", &self.title)?;
-        validate_publish_required("article thumbnail media id", &self.thumb_media_id)?;
+        validate_publish_identifier("article thumbnail media id", &self.thumb_media_id)?;
         validate_publish_required("article content", &self.content)?;
         for (kind, value) in [
             ("open-comment flag", self.need_open_comment),
@@ -6461,7 +6502,7 @@ pub struct PublishDraftUpdateRequest {
 
 impl PublishDraftUpdateRequest {
     pub fn validate(&self) -> Result<()> {
-        validate_publish_required("draft media id", &self.media_id)?;
+        validate_publish_identifier("draft media id", &self.media_id)?;
         validate_publish_index(self.index)?;
         self.articles.validate()
     }
@@ -6524,10 +6565,66 @@ fn validate_publish_index(index: i64) -> Result<()> {
     Ok(())
 }
 
+fn validate_publish_delete_index(index: i64) -> Result<()> {
+    if !(0..=8).contains(&index) {
+        return Err(WechatError::Config(
+            "official account published article delete index must be between 0 and 8".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 fn validate_publish_required(kind: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
         return Err(WechatError::Config(format!(
             "official account {kind} must not be blank"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_publish_identifier(kind: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "official account {kind} must contain 1 to 512 printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_publish_response_success(
+    operation: &str,
+    errcode: Option<i64>,
+    errmsg: Option<&str>,
+) -> Result<()> {
+    if let Some(code) = errcode.filter(|code| *code != 0) {
+        return Err(WechatError::Api {
+            code,
+            message: errmsg.unwrap_or(operation).to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_publish_timestamps(
+    kind: &str,
+    create_time: Option<i64>,
+    update_time: Option<i64>,
+) -> Result<()> {
+    if create_time.is_some_and(|timestamp| timestamp < 0)
+        || update_time.is_some_and(|timestamp| timestamp < 0)
+    {
+        return Err(WechatError::Config(format!(
+            "official account {kind} timestamps cannot be negative"
+        )));
+    }
+    if create_time
+        .zip(update_time)
+        .is_some_and(|(created, updated)| updated < created)
+    {
+        return Err(WechatError::Config(format!(
+            "official account {kind} update time cannot precede create time"
         )));
     }
     Ok(())
@@ -6543,6 +6640,25 @@ pub struct PublishDraftAddResponse {
     pub media_id: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl PublishDraftAddResponse {
+    pub fn require_media_id(&self) -> Result<&str> {
+        ensure_publish_response_success(
+            "official account add draft",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let media_id = self.media_id.as_deref().ok_or_else(|| {
+            WechatError::Config("official account draft add response requires media_id".to_string())
+        })?;
+        validate_publish_identifier("draft media id", media_id)?;
+        Ok(media_id)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_media_id().map(|_| ())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6575,6 +6691,74 @@ pub struct PublishNewsItem {
     pub extra: Value,
 }
 
+impl PublishNewsItem {
+    fn validate_with_content(&self, require_content: bool) -> Result<()> {
+        let deleted = self.is_deleted == Some(true);
+        if !deleted {
+            validate_publish_required(
+                "publish response article title",
+                self.title.as_deref().ok_or_else(|| {
+                    WechatError::Config(
+                        "official account publish response article requires title".to_string(),
+                    )
+                })?,
+            )?;
+            if require_content {
+                validate_publish_required(
+                    "publish response article content",
+                    self.content.as_deref().ok_or_else(|| {
+                        WechatError::Config(
+                            "official account publish response article requires content"
+                                .to_string(),
+                        )
+                    })?,
+                )?;
+            }
+        }
+        for (kind, value) in [
+            ("show-cover flag", self.show_cover_pic),
+            ("open-comment flag", self.need_open_comment),
+            ("fans-only-comment flag", self.only_fans_can_comment),
+        ] {
+            if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                return Err(WechatError::Config(format!(
+                    "official account publish response {kind} must be 0 or 1"
+                )));
+            }
+        }
+        if self.only_fans_can_comment == Some(1) && self.need_open_comment != Some(1) {
+            return Err(WechatError::Config(
+                "official account publish response fans-only comments require comments to be enabled"
+                    .to_string(),
+            ));
+        }
+        if let Some(thumb_media_id) = self
+            .thumb_media_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            validate_publish_identifier(
+                "publish response article thumbnail media id",
+                thumb_media_id,
+            )?;
+        }
+        for (kind, value) in [
+            ("article source URL", self.content_source_url.as_deref()),
+            ("article thumbnail URL", self.thumb_url.as_deref()),
+            ("article URL", self.url.as_deref()),
+        ] {
+            if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
+                validate_material_http_url(kind, value)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.validate_with_content(true)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishDraftGetResponse {
     #[serde(default)]
@@ -6591,6 +6775,25 @@ pub struct PublishDraftGetResponse {
     pub extra: Value,
 }
 
+impl PublishDraftGetResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_publish_response_success(
+            "official account get draft",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.news_item.is_empty() || self.news_item.len() > 8 {
+            return Err(WechatError::Config(
+                "official account draft response must contain 1 to 8 articles".to_string(),
+            ));
+        }
+        for item in &self.news_item {
+            item.validate()?;
+        }
+        validate_publish_timestamps("draft response", self.create_time, self.update_time)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishDraftCountResponse {
     #[serde(default)]
@@ -6603,6 +6806,23 @@ pub struct PublishDraftCountResponse {
     pub extra: Value,
 }
 
+impl PublishDraftCountResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_publish_response_success(
+            "official account count drafts",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.total_count.is_none_or(|count| count < 0) {
+            return Err(WechatError::Config(
+                "official account draft count response requires a non-negative total_count"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishContent {
     #[serde(default)]
@@ -6613,6 +6833,25 @@ pub struct PublishContent {
     pub update_time: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl PublishContent {
+    fn validate(&self, no_content: bool) -> Result<()> {
+        if !no_content && (self.news_item.is_empty() || self.news_item.len() > 8) {
+            return Err(WechatError::Config(
+                "official account publish content must contain 1 to 8 articles".to_string(),
+            ));
+        }
+        if self.news_item.len() > 8 {
+            return Err(WechatError::Config(
+                "official account publish content cannot exceed 8 articles".to_string(),
+            ));
+        }
+        for item in &self.news_item {
+            item.validate_with_content(!no_content)?;
+        }
+        validate_publish_timestamps("publish content", self.create_time, self.update_time)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6629,6 +6868,53 @@ pub struct PublishBatchItem {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PublishBatchKind {
+    Draft,
+    Published,
+}
+
+impl PublishBatchItem {
+    fn validate(&self, kind: PublishBatchKind, no_content: bool) -> Result<()> {
+        match kind {
+            PublishBatchKind::Draft => validate_publish_identifier(
+                "draft list media id",
+                self.media_id.as_deref().ok_or_else(|| {
+                    WechatError::Config(
+                        "official account draft list item requires media_id".to_string(),
+                    )
+                })?,
+            )?,
+            PublishBatchKind::Published => validate_publish_identifier(
+                "published list article id",
+                self.article_id.as_deref().ok_or_else(|| {
+                    WechatError::Config(
+                        "official account published list item requires article_id".to_string(),
+                    )
+                })?,
+            )?,
+        }
+        if let Some(media_id) = self.media_id.as_deref() {
+            validate_publish_identifier("publish list media id", media_id)?;
+        }
+        if let Some(article_id) = self.article_id.as_deref() {
+            validate_publish_identifier("publish list article id", article_id)?;
+        }
+        if self.update_time.is_some_and(|timestamp| timestamp < 0) {
+            return Err(WechatError::Config(
+                "official account publish list update_time cannot be negative".to_string(),
+            ));
+        }
+        match self.content.as_ref() {
+            Some(content) => content.validate(no_content),
+            None if no_content => Ok(()),
+            None => Err(WechatError::Config(
+                "official account publish list item requires content".to_string(),
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishBatchGetResponse {
     #[serde(default)]
@@ -6643,6 +6929,90 @@ pub struct PublishBatchGetResponse {
     pub item: Vec<PublishBatchItem>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl PublishBatchGetResponse {
+    pub fn validate_for(&self, kind: PublishBatchKind, no_content: bool) -> Result<()> {
+        ensure_publish_response_success(
+            "official account list publish records",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let total_count = self.total_count.ok_or_else(|| {
+            WechatError::Config(
+                "official account publish list response requires total_count".to_string(),
+            )
+        })?;
+        let item_count = self.item_count.ok_or_else(|| {
+            WechatError::Config(
+                "official account publish list response requires item_count".to_string(),
+            )
+        })?;
+        if total_count < 0 || item_count < 0 {
+            return Err(WechatError::Config(
+                "official account publish list counts cannot be negative".to_string(),
+            ));
+        }
+        if item_count > total_count || item_count > 20 {
+            return Err(WechatError::Config(
+                "official account publish list item_count cannot exceed total_count or 20"
+                    .to_string(),
+            ));
+        }
+        let actual_count = i64::try_from(self.item.len()).map_err(|_| {
+            WechatError::Config("official account publish list is too large".to_string())
+        })?;
+        if item_count != actual_count {
+            return Err(WechatError::Config(format!(
+                "official account publish list item_count {item_count} does not match {} decoded items",
+                self.item.len()
+            )));
+        }
+        let mut identities = HashSet::with_capacity(self.item.len());
+        for item in &self.item {
+            item.validate(kind, no_content)?;
+            let identity = match kind {
+                PublishBatchKind::Draft => item.media_id.as_deref(),
+                PublishBatchKind::Published => item.article_id.as_deref(),
+            }
+            .expect("validated publish list identity")
+            .trim();
+            if !identities.insert(identity) {
+                return Err(WechatError::Config(
+                    "official account publish list contains duplicate item identities".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn next_offset(
+        &self,
+        current_offset: i64,
+        kind: PublishBatchKind,
+        no_content: bool,
+    ) -> Result<Option<i64>> {
+        self.validate_for(kind, no_content)?;
+        if current_offset < 0 {
+            return Err(WechatError::Config(
+                "official account publish list current offset cannot be negative".to_string(),
+            ));
+        }
+        let page_count = self.item_count.expect("validated publish list item_count");
+        let total_count = self
+            .total_count
+            .expect("validated publish list total_count");
+        let next_offset = current_offset.checked_add(page_count).ok_or_else(|| {
+            WechatError::Config("official account publish list next offset overflowed".to_string())
+        })?;
+        if next_offset < total_count && page_count == 0 {
+            return Err(WechatError::Config(
+                "official account publish list cannot advance an empty non-terminal page"
+                    .to_string(),
+            ));
+        }
+        Ok((next_offset < total_count).then_some(next_offset))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6662,6 +7032,32 @@ pub struct PublishDraftSwitchStatusResponse {
 }
 
 impl PublishDraftSwitchStatusResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_publish_response_success(
+            "official account check draft switch",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.is_open.is_none_or(|value| !matches!(value, 0 | 1)) {
+            return Err(WechatError::Config(
+                "official account draft switch response requires is_open 0 or 1".to_string(),
+            ));
+        }
+        if self.total_count.is_some_and(|count| count < 0)
+            || self.item_count.is_some_and(|count| count < 0)
+            || self
+                .total_count
+                .zip(self.item_count)
+                .is_some_and(|(total, page)| page > total)
+        {
+            return Err(WechatError::Config(
+                "official account draft switch counts must be non-negative and consistent"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn is_open(&self) -> bool {
         self.is_open == Some(1)
     }
@@ -6679,6 +7075,28 @@ pub struct PublishSubmitResponse {
     pub extra: Value,
 }
 
+impl PublishSubmitResponse {
+    pub fn require_publish_id(&self) -> Result<u64> {
+        ensure_publish_response_success(
+            "official account submit publish",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.publish_id
+            .filter(|publish_id| *publish_id != 0)
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "official account publish submit response requires a positive publish_id"
+                        .to_string(),
+                )
+            })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.require_publish_id().map(|_| ())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishArticleItem {
     #[serde(default)]
@@ -6689,6 +7107,22 @@ pub struct PublishArticleItem {
     pub extra: Value,
 }
 
+impl PublishArticleItem {
+    fn validate(&self) -> Result<()> {
+        if self.idx.is_none_or(|index| !(1..=8).contains(&index)) {
+            return Err(WechatError::Config(
+                "official account publish article detail index must be between 1 and 8".to_string(),
+            ));
+        }
+        let article_url = self.article_url.as_deref().ok_or_else(|| {
+            WechatError::Config(
+                "official account publish article detail requires article_url".to_string(),
+            )
+        })?;
+        validate_material_http_url("publish article detail URL", article_url)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublishArticleDetail {
     #[serde(default)]
@@ -6697,6 +7131,34 @@ pub struct PublishArticleDetail {
     pub item: Vec<PublishArticleItem>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl PublishArticleDetail {
+    fn validate(&self) -> Result<()> {
+        let count = self.count.ok_or_else(|| {
+            WechatError::Config(
+                "official account publish article detail requires count".to_string(),
+            )
+        })?;
+        let actual_count = i64::try_from(self.item.len()).map_err(|_| {
+            WechatError::Config("official account publish article detail is too large".to_string())
+        })?;
+        if !(0..=8).contains(&count) || count != actual_count {
+            return Err(WechatError::Config(
+                "official account publish article detail count must match 0 to 8 items".to_string(),
+            ));
+        }
+        let mut indices = HashSet::with_capacity(self.item.len());
+        for item in &self.item {
+            item.validate()?;
+            if !indices.insert(item.idx.expect("validated publish article index")) {
+                return Err(WechatError::Config(
+                    "official account publish article detail indices must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6732,6 +7194,125 @@ pub enum PublishStatusKind {
 }
 
 impl PublishStatusResponse {
+    pub fn require_publish_id(&self) -> Result<u64> {
+        ensure_publish_response_success(
+            "official account get publish status",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.publish_id
+            .filter(|publish_id| *publish_id != 0)
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "official account publish status response requires a positive publish_id"
+                        .to_string(),
+                )
+            })
+    }
+
+    pub fn checked_article_ids(&self) -> Result<Vec<&str>> {
+        let values = match &self.article_id {
+            None | Some(Value::Null) => Vec::new(),
+            Some(Value::String(article_id)) => vec![article_id.as_str()],
+            Some(Value::Array(article_ids)) => article_ids
+                .iter()
+                .map(|article_id| {
+                    article_id.as_str().ok_or_else(|| {
+                        WechatError::Config(
+                            "official account publish article_id array must contain strings"
+                                .to_string(),
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+            Some(_) => {
+                return Err(WechatError::Config(
+                    "official account publish article_id must be a string or string array"
+                        .to_string(),
+                ));
+            }
+        };
+        if values.len() > 8 {
+            return Err(WechatError::Config(
+                "official account publish status cannot contain more than 8 article ids"
+                    .to_string(),
+            ));
+        }
+        let mut unique = HashSet::with_capacity(values.len());
+        for article_id in &values {
+            validate_publish_identifier("published article id", article_id)?;
+            if !unique.insert(article_id.trim()) {
+                return Err(WechatError::Config(
+                    "official account publish article ids must be unique".to_string(),
+                ));
+            }
+        }
+        Ok(values)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.validate_inner(None)
+    }
+
+    pub fn validate_for(&self, expected_publish_id: u64) -> Result<()> {
+        if expected_publish_id == 0 {
+            return Err(WechatError::Config(
+                "official account expected publish id must be positive".to_string(),
+            ));
+        }
+        self.validate_inner(Some(expected_publish_id))
+    }
+
+    fn validate_inner(&self, expected_publish_id: Option<u64>) -> Result<()> {
+        let publish_id = self.require_publish_id()?;
+        if expected_publish_id.is_some_and(|expected| publish_id != expected) {
+            return Err(WechatError::Config(format!(
+                "official account publish status id {publish_id} does not match requested id {}",
+                expected_publish_id.expect("checked expected publish id")
+            )));
+        }
+        let status = self.publish_status.ok_or_else(|| {
+            WechatError::Config(
+                "official account publish status response requires publish_status".to_string(),
+            )
+        })?;
+        if status < 0 {
+            return Err(WechatError::Config(
+                "official account publish status cannot be negative".to_string(),
+            ));
+        }
+        let article_ids = self.checked_article_ids()?;
+        if self.status_kind() == Some(PublishStatusKind::Success) && article_ids.is_empty() {
+            return Err(WechatError::Config(
+                "successful official account publishing requires at least one article id"
+                    .to_string(),
+            ));
+        }
+        if let Some(detail) = &self.article_detail {
+            detail.validate()?;
+        }
+        let mut failed_indices = HashSet::with_capacity(self.fail_idx.len());
+        for index in &self.fail_idx {
+            if !(1..=8).contains(index) || !failed_indices.insert(*index) {
+                return Err(WechatError::Config(
+                    "official account publish failed indices must be unique values from 1 to 8"
+                        .to_string(),
+                ));
+            }
+        }
+        if matches!(
+            self.status_kind(),
+            Some(PublishStatusKind::Success | PublishStatusKind::Publishing)
+        ) && !self.fail_idx.is_empty()
+        {
+            return Err(WechatError::Config(
+                "successful or pending official account publishing cannot contain failed indices"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn status_kind(&self) -> Option<PublishStatusKind> {
         self.publish_status.map(|status| match status {
             0 => PublishStatusKind::Success,
@@ -6772,13 +7353,7 @@ impl PublishStatusResponse {
     }
 
     pub fn article_ids(&self) -> Vec<&str> {
-        match &self.article_id {
-            Some(Value::String(article_id)) => vec![article_id],
-            Some(Value::Array(article_ids)) => {
-                article_ids.iter().filter_map(Value::as_str).collect()
-            }
-            _ => Vec::new(),
-        }
+        self.checked_article_ids().unwrap_or_default()
     }
 }
 
@@ -6798,6 +7373,26 @@ pub struct PublishArticleResponse {
     pub news_item: Vec<PublishNewsItem>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl PublishArticleResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_publish_response_success(
+            "official account get published article",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.news_item.is_empty() || self.news_item.len() > 8 {
+            return Err(WechatError::Config(
+                "official account published article response must contain 1 to 8 articles"
+                    .to_string(),
+            ));
+        }
+        for item in &self.news_item {
+            item.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6820,14 +7415,14 @@ impl MaterialMediaResponse {
         let media_id = self.media_id.as_deref().ok_or_else(|| {
             WechatError::Config("material upload response is missing media id".to_string())
         })?;
-        validate_material_required("response media id", media_id)?;
+        validate_material_identifier("response media id", media_id)?;
         Ok(media_id)
     }
 
     pub fn validate(&self) -> Result<()> {
         ensure_material_response_success(self.errcode, self.errmsg.as_deref())?;
         if let Some(media_id) = self.media_id.as_deref() {
-            validate_material_required("response media id", media_id)?;
+            validate_material_identifier("response media id", media_id)?;
         }
         if let Some(url) = self.url.as_deref() {
             validate_material_http_url("response URL", url)?;
@@ -6940,30 +7535,13 @@ impl MaterialGetResponse {
         if let Some(url) = self.url.as_deref() {
             validate_material_http_url("media URL", url)?;
         }
+        if self.news_item.len() > 8 {
+            return Err(WechatError::Config(
+                "material response cannot contain more than 8 news items".to_string(),
+            ));
+        }
         for item in &self.news_item {
-            validate_material_required(
-                "news item title",
-                item.title.as_deref().ok_or_else(|| {
-                    WechatError::Config("material news item is missing title".to_string())
-                })?,
-            )?;
-            validate_material_required(
-                "news item content",
-                item.content.as_deref().ok_or_else(|| {
-                    WechatError::Config("material news item is missing content".to_string())
-                })?,
-            )?;
-            if let Some(url) = item.content_source_url.as_deref() {
-                if !url.trim().is_empty() {
-                    validate_material_http_url("news item source URL", url)?;
-                }
-            }
-            if let Some(url) = item.thumb_url.as_deref() {
-                validate_material_http_url("news item thumbnail URL", url)?;
-            }
-            if let Some(url) = item.url.as_deref() {
-                validate_material_http_url("news item URL", url)?;
-            }
+            item.validate()?;
         }
         Ok(())
     }
@@ -7035,6 +7613,15 @@ pub(crate) fn validate_material_articles(articles: &[Article]) -> Result<()> {
 
 pub(crate) fn validate_material_upload(file_name: &str, data: &[u8]) -> Result<()> {
     validate_material_required("file name", file_name)?;
+    if file_name.len() > 255
+        || file_name.chars().any(char::is_control)
+        || file_name.contains(['/', '\\'])
+    {
+        return Err(WechatError::Config(
+            "official account material file name must contain at most 255 printable UTF-8 bytes without path separators"
+                .to_string(),
+        ));
+    }
     if data.is_empty() {
         return Err(WechatError::Config(
             "official account material upload data must not be empty".to_string(),
@@ -7052,15 +7639,30 @@ pub(crate) fn validate_material_required(kind: &str, value: &str) -> Result<()> 
     Ok(())
 }
 
+pub(crate) fn validate_material_identifier(kind: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "official account material {kind} must contain 1 to 512 printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
 fn validate_material_http_url(kind: &str, value: &str) -> Result<()> {
     let url = url::Url::parse(value).map_err(|error| {
         WechatError::Config(format!(
             "official account material {kind} is invalid: {error}"
         ))
     })?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.fragment().is_some()
+    {
         return Err(WechatError::Config(format!(
-            "official account material {kind} must be an absolute HTTP(S) URL"
+            "official account material {kind} must be an absolute HTTP(S) URL without credentials or fragments"
         )));
     }
     Ok(())
@@ -7095,7 +7697,7 @@ impl MaterialListItem {
         let media_id = self.media_id.as_deref().ok_or_else(|| {
             WechatError::Config("material list item is missing media id".to_string())
         })?;
-        validate_material_required("list item media id", media_id)?;
+        validate_material_identifier("list item media id", media_id)?;
         Ok(media_id)
     }
 
@@ -7130,12 +7732,29 @@ pub struct MaterialNewsContent {
 
 impl MaterialNewsContent {
     pub fn validate(&self) -> Result<()> {
+        if self.news_item.is_empty() || self.news_item.len() > 8 {
+            return Err(WechatError::Config(
+                "material news content must contain 1 to 8 articles".to_string(),
+            ));
+        }
         if self.create_time.is_some_and(|create_time| create_time < 0)
             || self.update_time.is_some_and(|update_time| update_time < 0)
         {
             return Err(WechatError::Config(
                 "material news timestamps cannot be negative".to_string(),
             ));
+        }
+        if self
+            .create_time
+            .zip(self.update_time)
+            .is_some_and(|(created, updated)| updated < created)
+        {
+            return Err(WechatError::Config(
+                "material news update time cannot precede create time".to_string(),
+            ));
+        }
+        for item in &self.news_item {
+            item.validate_with_content(false)?;
         }
         Ok(())
     }
@@ -7865,6 +8484,19 @@ mod tests {
             "https://example.com/article.png"
         );
         assert!(article_image.require_media_id().is_err());
+        let credential_url: MaterialMediaResponse = serde_json::from_value(json!({
+            "url": "https://user:secret@example.com/article.png"
+        }))
+        .unwrap();
+        assert!(credential_url.require_url().is_err());
+        let fragment_url: MaterialMediaResponse = serde_json::from_value(json!({
+            "url": "https://example.com/article.png#local"
+        }))
+        .unwrap();
+        assert!(fragment_url.require_url().is_err());
+        let malformed_media: MaterialMediaResponse =
+            serde_json::from_value(json!({ "media_id": "media\nid" })).unwrap();
+        assert!(malformed_media.require_media_id().is_err());
 
         let api_error: MaterialMediaResponse = serde_json::from_value(json!({
             "errcode": 40007,
@@ -7898,6 +8530,9 @@ mod tests {
         let invalid_stats: MaterialStatsResponse =
             serde_json::from_value(json!({ "voice_count": -1 })).unwrap();
         assert!(invalid_stats.validate().is_err());
+        assert!(validate_material_upload("folder/image.png", b"image").is_err());
+        assert!(validate_material_upload("image\n.png", b"image").is_err());
+        assert!(validate_material_upload(&format!("{}.png", "x".repeat(252)), b"image").is_err());
     }
 
     #[test]
@@ -8800,6 +9435,7 @@ mod tests {
                 "news_item": [{
                     "title": "Release notes",
                     "thumb_media_id": "thumb-media",
+                    "content": "<p>Ready</p>",
                     "article_revision": 2
                 }],
                 "create_time": 1,
@@ -8880,6 +9516,11 @@ mod tests {
         }
         .validate()
         .is_err());
+        assert!(validate_publish_index(7).is_ok());
+        assert!(validate_publish_index(8).is_err());
+        assert!(validate_publish_delete_index(0).is_ok());
+        assert!(validate_publish_delete_index(8).is_ok());
+        assert!(validate_publish_delete_index(9).is_err());
     }
 
     #[test]
@@ -8892,6 +9533,7 @@ mod tests {
         .unwrap();
         assert_eq!(add.media_id.as_deref(), Some("media"));
         assert_eq!(add.extra["request_id"], "draft-add");
+        assert!(add.validate().is_ok());
 
         let draft: PublishDraftGetResponse = serde_json::from_value(json!({
             "errcode": 0,
@@ -8899,6 +9541,7 @@ mod tests {
                 "title": "Title",
                 "author": "Roze",
                 "thumb_media_id": "thumb",
+                "content": "<p>Hello</p>",
                 "url": "https://example.com/article",
                 "article_extra": "kept"
             }],
@@ -8911,6 +9554,7 @@ mod tests {
         assert_eq!(draft.update_time, Some(2));
         assert_eq!(draft.extra["request_id"], "draft-get");
         assert_eq!(draft.news_item[0].extra["article_extra"], "kept");
+        assert!(draft.validate().is_ok());
 
         let list: PublishBatchGetResponse = serde_json::from_value(json!({
             "total_count": 1,
@@ -8920,7 +9564,14 @@ mod tests {
                 "media_id": "media",
                 "article_id": "article",
                 "content": {
-                    "news_item": [{ "title": "Title", "article_extra": "kept" }],
+                    "news_item": [{
+                        "title": "Title",
+                        "thumb_media_id": "thumb",
+                        "content": "<p>Hello</p>",
+                        "article_extra": "kept"
+                    }],
+                    "create_time": 1,
+                    "update_time": 2,
                     "content_extra": "kept"
                 },
                 "update_time": 2,
@@ -8945,6 +9596,14 @@ mod tests {
             list.item[0].content.as_ref().expect("content").news_item[0].extra["article_extra"],
             "kept"
         );
+        assert!(list
+            .validate_for(PublishBatchKind::Published, false)
+            .is_ok());
+        assert_eq!(
+            list.next_offset(0, PublishBatchKind::Published, false)
+                .unwrap(),
+            None
+        );
 
         let switch_status: PublishDraftSwitchStatusResponse = serde_json::from_value(json!({
             "is_open": 1,
@@ -8956,6 +9615,7 @@ mod tests {
         assert_eq!(switch_status.is_open, Some(1));
         assert!(switch_status.is_open());
         assert_eq!(switch_status.extra["request_id"], "switch");
+        assert!(switch_status.validate().is_ok());
 
         let submit: PublishSubmitResponse = serde_json::from_value(json!({
             "publish_id": 10001,
@@ -8964,6 +9624,7 @@ mod tests {
         .unwrap();
         assert_eq!(submit.publish_id, Some(10001));
         assert_eq!(submit.extra["request_id"], "submit");
+        assert_eq!(submit.require_publish_id().unwrap(), 10001);
 
         let status: PublishStatusResponse = serde_json::from_value(json!({
             "publish_id": 10001,
@@ -8989,6 +9650,7 @@ mod tests {
         assert_eq!(status.article_ids(), vec!["article"]);
         assert!(!status.is_pending());
         assert!(!status.is_failed());
+        assert!(status.validate_for(10001).is_ok());
         assert_eq!(status.extra["request_id"], "status");
         assert_eq!(
             status
@@ -9055,6 +9717,8 @@ mod tests {
         let article: PublishArticleResponse = serde_json::from_value(json!({
             "news_item": [{
                 "title": "Published",
+                "thumb_media_id": "thumb",
+                "content": "<p>Published</p>",
                 "url": "https://example.com/published",
                 "article_extra": "kept"
             }],
@@ -9064,6 +9728,219 @@ mod tests {
         assert_eq!(article.news_item[0].title.as_deref(), Some("Published"));
         assert_eq!(article.news_item[0].extra["article_extra"], "kept");
         assert_eq!(article.extra["request_id"], "article");
+        assert!(article.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_inconsistent_publish_responses() {
+        let api_error: PublishDraftAddResponse = serde_json::from_value(json!({
+            "errcode": 40007,
+            "errmsg": "invalid media"
+        }))
+        .unwrap();
+        assert!(matches!(
+            api_error.validate(),
+            Err(WechatError::Api { code: 40007, .. })
+        ));
+        let missing_media: PublishDraftAddResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_media.validate().is_err());
+        let malformed_media: PublishDraftAddResponse =
+            serde_json::from_value(json!({ "media_id": "media\nid" })).unwrap();
+        assert!(malformed_media.validate().is_err());
+
+        let empty_draft: PublishDraftGetResponse =
+            serde_json::from_value(json!({ "create_time": 1, "update_time": 2 })).unwrap();
+        assert!(empty_draft.validate().is_err());
+        let reversed_draft: PublishDraftGetResponse = serde_json::from_value(json!({
+            "news_item": [{
+                "title": "Title",
+                "thumb_media_id": "thumb",
+                "content": "<p>Hello</p>"
+            }],
+            "create_time": 3,
+            "update_time": 2
+        }))
+        .unwrap();
+        assert!(reversed_draft.validate().is_err());
+        let malformed_article: PublishDraftGetResponse = serde_json::from_value(json!({
+            "news_item": [{
+                "title": "Title",
+                "thumb_media_id": "thumb",
+                "content": "<p>Hello</p>",
+                "only_fans_can_comment": 1,
+                "need_open_comment": 0
+            }]
+        }))
+        .unwrap();
+        assert!(malformed_article.validate().is_err());
+
+        let missing_count: PublishDraftCountResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_count.validate().is_err());
+        let negative_count: PublishDraftCountResponse =
+            serde_json::from_value(json!({ "total_count": -1 })).unwrap();
+        assert!(negative_count.validate().is_err());
+
+        let draft_page: PublishBatchGetResponse = serde_json::from_value(json!({
+            "total_count": 2,
+            "item_count": 1,
+            "item": [{ "media_id": "draft-1" }]
+        }))
+        .unwrap();
+        assert!(draft_page
+            .validate_for(PublishBatchKind::Draft, true)
+            .is_ok());
+        assert_eq!(
+            draft_page
+                .next_offset(0, PublishBatchKind::Draft, true)
+                .unwrap(),
+            Some(1)
+        );
+        assert!(draft_page
+            .validate_for(PublishBatchKind::Published, true)
+            .is_err());
+
+        let mismatched_page: PublishBatchGetResponse = serde_json::from_value(json!({
+            "total_count": 2,
+            "item_count": 2,
+            "item": [{ "media_id": "draft-1" }]
+        }))
+        .unwrap();
+        assert!(mismatched_page
+            .validate_for(PublishBatchKind::Draft, true)
+            .is_err());
+        let duplicate_page: PublishBatchGetResponse = serde_json::from_value(json!({
+            "total_count": 2,
+            "item_count": 2,
+            "item": [
+                { "media_id": "draft-1" },
+                { "media_id": "draft-1" }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_page
+            .validate_for(PublishBatchKind::Draft, true)
+            .is_err());
+        let missing_content_page: PublishBatchGetResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "item_count": 1,
+            "item": [{ "article_id": "article-1" }]
+        }))
+        .unwrap();
+        assert!(missing_content_page
+            .validate_for(PublishBatchKind::Published, false)
+            .is_err());
+        let stalled_page: PublishBatchGetResponse = serde_json::from_value(json!({
+            "total_count": 1,
+            "item_count": 0,
+            "item": []
+        }))
+        .unwrap();
+        assert!(stalled_page
+            .next_offset(0, PublishBatchKind::Draft, true)
+            .is_err());
+
+        let invalid_switch: PublishDraftSwitchStatusResponse =
+            serde_json::from_value(json!({ "is_open": 2 })).unwrap();
+        assert!(invalid_switch.validate().is_err());
+        let inconsistent_switch: PublishDraftSwitchStatusResponse = serde_json::from_value(json!({
+            "is_open": 1,
+            "total_count": 1,
+            "item_count": 2
+        }))
+        .unwrap();
+        assert!(inconsistent_switch.validate().is_err());
+
+        let missing_publish_id: PublishSubmitResponse =
+            serde_json::from_value(json!({ "publish_id": 0 })).unwrap();
+        assert!(missing_publish_id.validate().is_err());
+        let publish_api_error: PublishSubmitResponse = serde_json::from_value(json!({
+            "errcode": 53503,
+            "errmsg": "publish rejected"
+        }))
+        .unwrap();
+        assert!(matches!(
+            publish_api_error.validate(),
+            Err(WechatError::Api { code: 53503, .. })
+        ));
+
+        let wrong_publish_id: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 2,
+            "publish_status": 1
+        }))
+        .unwrap();
+        assert!(wrong_publish_id.validate_for(1).is_err());
+        let success_without_article: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 0
+        }))
+        .unwrap();
+        assert!(success_without_article.validate().is_err());
+        let malformed_article_ids: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 3,
+            "article_id": ["article", 2]
+        }))
+        .unwrap();
+        assert!(malformed_article_ids.validate().is_err());
+        let duplicate_article_ids: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 3,
+            "article_id": ["article", "article"]
+        }))
+        .unwrap();
+        assert!(duplicate_article_ids.validate().is_err());
+        let inconsistent_detail: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 3,
+            "article_detail": {
+                "count": 2,
+                "item": [{
+                    "idx": 1,
+                    "article_url": "https://example.com/article"
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(inconsistent_detail.validate().is_err());
+        let unsafe_detail: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 3,
+            "article_detail": {
+                "count": 1,
+                "item": [{
+                    "idx": 1,
+                    "article_url": "https://user:secret@example.com/article"
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(unsafe_detail.validate().is_err());
+        let pending_with_failures: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 1,
+            "fail_idx": [1]
+        }))
+        .unwrap();
+        assert!(pending_with_failures.validate().is_err());
+        let duplicate_failures: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 3,
+            "fail_idx": [1, 1]
+        }))
+        .unwrap();
+        assert!(duplicate_failures.validate().is_err());
+        let future_status: PublishStatusResponse = serde_json::from_value(json!({
+            "publish_id": 1,
+            "publish_status": 99
+        }))
+        .unwrap();
+        assert!(future_status.validate().is_ok());
+
+        let empty_published_article: PublishArticleResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(empty_published_article.validate().is_err());
     }
 
     #[test]
