@@ -13512,6 +13512,9 @@ impl WorkDepartmentSimpleUser {
             self.userid.as_deref(),
             self.open_userid.as_deref(),
         )?;
+        if let Some(name) = self.name.as_deref() {
+            validate_work_user_bounded_text("response name", name, 64, true)?;
+        }
         validate_work_user_response_departments(&self.department)
     }
 
@@ -13648,20 +13651,9 @@ impl WorkUserRequest {
     }
 
     fn validate_common(&self) -> Result<()> {
-        validate_work_user_identifier("user id", &self.userid)?;
-        if self.userid.chars().count() > 64 {
-            return Err(WechatError::Config(
-                "work user id cannot exceed 64 characters".to_string(),
-            ));
-        }
-        if self
-            .name
-            .as_ref()
-            .is_some_and(|name| name.chars().count() > 64)
-        {
-            return Err(WechatError::Config(
-                "work user name cannot exceed 64 characters".to_string(),
-            ));
+        validate_work_user_id(&self.userid)?;
+        if let Some(name) = self.name.as_deref() {
+            validate_work_user_bounded_text("name", name, 64, false)?;
         }
         if self.department.len() > 20
             || self.department.iter().any(|department| *department <= 0)
@@ -13681,6 +13673,11 @@ impl WorkUserRequest {
                 )));
             }
         }
+        if self.order.iter().any(|order| *order < 0) {
+            return Err(WechatError::Config(
+                "work user department order values cannot be negative".to_string(),
+            ));
+        }
         if self
             .is_leader_in_dept
             .iter()
@@ -13690,13 +13687,53 @@ impl WorkUserRequest {
                 "work user department leader flags must be 0 or 1".to_string(),
             ));
         }
-        if self
-            .main_department
-            .is_some_and(|main| !self.department.is_empty() && !self.department.contains(&main))
+        if self.main_department.is_some_and(|main| {
+            main <= 0 || (!self.department.is_empty() && !self.department.contains(&main))
+        }) {
+            return Err(WechatError::Config(
+                "work user main department must be positive and appear in the department list"
+                    .to_string(),
+            ));
+        }
+        if self.direct_leader.len() > 5
+            || has_duplicate_strings(&self.direct_leader)
+            || self
+                .direct_leader
+                .iter()
+                .any(|leader| validate_work_user_id(leader).is_err())
         {
             return Err(WechatError::Config(
-                "work user main department must appear in the department list".to_string(),
+                "work user direct leaders must contain at most 5 unique valid user ids".to_string(),
             ));
+        }
+        for (label, value, maximum) in [
+            ("position", self.position.as_deref(), 128),
+            ("telephone", self.telephone.as_deref(), 32),
+            ("alias", self.alias.as_deref(), 64),
+            ("address", self.address.as_deref(), 128),
+            ("avatar media id", self.avatar_mediaid.as_deref(), 512),
+            ("external position", self.external_position.as_deref(), 64),
+        ] {
+            if let Some(value) = value {
+                validate_work_user_bounded_text(label, value, maximum, true)?;
+            }
+        }
+        if let Some(mobile) = self
+            .mobile
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            validate_work_mobile(mobile)?;
+        }
+        for (label, email) in [
+            ("email", self.email.as_deref()),
+            ("business email", self.biz_mail.as_deref()),
+        ] {
+            if let Some(email) = email.filter(|value| !value.trim().is_empty()) {
+                validate_work_email(email).map_err(|_| {
+                    WechatError::Config(format!("work user {label} must be a valid email address"))
+                })?;
+            }
         }
         if self
             .gender
@@ -13714,6 +13751,9 @@ impl WorkUserRequest {
         }
         if let Some(profile) = &self.external_profile {
             profile.validate_for_request()?;
+        }
+        if let Some(attributes) = &self.extattr {
+            attributes.validate()?;
         }
         Ok(())
     }
@@ -13747,9 +13787,9 @@ fn validate_work_user_identifier(label: &str, value: &str) -> Result<()> {
 
 fn validate_work_user_id(user_id: &str) -> Result<()> {
     validate_work_user_identifier("id", user_id)?;
-    if user_id.chars().count() > 64 {
+    if user_id.chars().count() > 64 || user_id.chars().any(char::is_control) {
         return Err(WechatError::Config(
-            "work user id cannot exceed 64 characters".to_string(),
+            "work user id cannot exceed 64 characters or contain control characters".to_string(),
         ));
     }
     Ok(())
@@ -13926,6 +13966,12 @@ fn validate_work_user_response_identity(
             "work user {label} response requires userid or open_userid"
         )));
     }
+    if let Some(userid) = userid {
+        validate_work_user_id(userid)?;
+    }
+    if let Some(open_userid) = open_userid {
+        validate_work_user_bounded_text("response open user id", open_userid, 128, false)?;
+    }
     Ok(())
 }
 
@@ -13971,22 +14017,40 @@ fn validate_work_user_http_url(label: &str, value: &str) -> Result<()> {
     let parsed = url::Url::parse(value).map_err(|error| {
         WechatError::Config(format!("work user {label} URL is invalid: {error}"))
     })?;
-    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
         return Err(WechatError::Config(format!(
-            "work user {label} must be an absolute HTTP(S) URL"
+            "work user {label} must be an absolute HTTP(S) URL without credentials or fragments"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_work_user_bounded_text(
+    label: &str,
+    value: &str,
+    maximum: usize,
+    allow_empty: bool,
+) -> Result<()> {
+    let length = value.chars().count();
+    if (!allow_empty && value.trim().is_empty())
+        || length > maximum
+        || value.chars().any(char::is_control)
+    {
+        let lower = usize::from(!allow_empty);
+        return Err(WechatError::Config(format!(
+            "work user {label} must contain between {lower} and {maximum} characters without control characters"
         )));
     }
     Ok(())
 }
 
 fn validate_work_user_profile_text(label: &str, value: &str, maximum: usize) -> Result<()> {
-    let length = value.chars().count();
-    if value.trim().is_empty() || length > maximum || value.chars().any(char::is_control) {
-        return Err(WechatError::Config(format!(
-            "work user {label} must contain between 1 and {maximum} characters without control characters"
-        )));
-    }
-    Ok(())
+    validate_work_user_bounded_text(label, value, maximum, false)
 }
 
 fn has_duplicate_i64(values: &[i64]) -> bool {
@@ -14104,6 +14168,11 @@ impl WorkUserDetail {
                 "work user response department leader flags must be 0 or 1".to_string(),
             ));
         }
+        if self.order.iter().any(|order| *order < 0) {
+            return Err(WechatError::Config(
+                "work user response department order values cannot be negative".to_string(),
+            ));
+        }
         if self.main_department.is_some_and(|main| {
             main <= 0 || (!self.department.is_empty() && !self.department.contains(&main))
         }) {
@@ -14117,18 +14186,76 @@ impl WorkUserDetail {
                 "work user response status must be positive".to_string(),
             ));
         }
-        if self
-            .direct_leader
-            .iter()
-            .any(|leader| leader.trim().is_empty())
+        if self.direct_leader.len() > 5
             || has_duplicate_strings(&self.direct_leader)
+            || self
+                .direct_leader
+                .iter()
+                .any(|leader| validate_work_user_id(leader).is_err())
         {
             return Err(WechatError::Config(
-                "work user response direct leaders must be unique non-empty ids".to_string(),
+                "work user response direct leaders must contain at most 5 unique valid user ids"
+                    .to_string(),
             ));
+        }
+        for (label, value, maximum, allow_empty) in [
+            ("response name", self.name.as_deref(), 64, false),
+            ("response position", self.position.as_deref(), 128, true),
+            ("response telephone", self.telephone.as_deref(), 32, true),
+            ("response alias", self.alias.as_deref(), 64, true),
+            ("response address", self.address.as_deref(), 128, true),
+            (
+                "response external position",
+                self.external_position.as_deref(),
+                64,
+                true,
+            ),
+        ] {
+            if let Some(value) = value {
+                validate_work_user_bounded_text(label, value, maximum, allow_empty)?;
+            }
+        }
+        if let Some(mobile) = self
+            .mobile
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            validate_work_mobile(mobile)?;
+        }
+        for (label, email) in [
+            ("response email", self.email.as_deref()),
+            ("response business email", self.biz_mail.as_deref()),
+        ] {
+            if let Some(email) = email.filter(|value| !value.trim().is_empty()) {
+                validate_work_email(email).map_err(|_| {
+                    WechatError::Config(format!("work user {label} must be a valid email address"))
+                })?;
+            }
+        }
+        if self
+            .gender
+            .as_deref()
+            .filter(|gender| !gender.trim().is_empty())
+            .is_some_and(|gender| !matches!(gender, "1" | "2"))
+        {
+            return Err(WechatError::Config(
+                "work user response gender must be 1 or 2 when present".to_string(),
+            ));
+        }
+        for (label, url) in [
+            ("avatar response", self.avatar.as_deref()),
+            ("thumbnail avatar response", self.thumb_avatar.as_deref()),
+            ("QR-code response", self.qr_code.as_deref()),
+        ] {
+            if let Some(url) = url.filter(|value| !value.trim().is_empty()) {
+                validate_work_user_http_url(label, url)?;
+            }
         }
         if let Some(profile) = &self.external_profile {
             profile.validate_for_response()?;
+        }
+        if let Some(attributes) = &self.extattr {
+            attributes.validate()?;
         }
         Ok(())
     }
@@ -14159,6 +14286,28 @@ impl WorkUserExtAttr {
         Self {
             attrs: vec![WorkUserExtAttrItem::web(name, title, url)],
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.attrs.len() > 10 {
+            return Err(WechatError::Config(
+                "work user extended attributes cannot contain more than 10 entries".to_string(),
+            ));
+        }
+        let mut names = HashSet::with_capacity(self.attrs.len());
+        for attribute in &self.attrs {
+            attribute.validate()?;
+            if !names.insert(attribute.name.trim()) {
+                return Err(WechatError::Config(
+                    "work user extended attributes cannot contain duplicate names".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn find(&self, name: &str) -> Option<&WorkUserExtAttrItem> {
+        self.attrs.iter().find(|attribute| attribute.name == name)
     }
 }
 
@@ -14196,6 +14345,66 @@ impl WorkUserExtAttrItem {
             }),
         }
     }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_bounded_text("extended attribute name", &self.name, 32, false)?;
+        let payload_count = usize::from(self.text.is_some()) + usize::from(self.web.is_some());
+        match self.attr_type {
+            0 if payload_count == 1 => self
+                .text
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work user text extended attribute requires text payload".to_string(),
+                    )
+                })?
+                .validate(),
+            1 if payload_count == 1 => self
+                .web
+                .as_ref()
+                .ok_or_else(|| {
+                    WechatError::Config(
+                        "work user web extended attribute requires web payload".to_string(),
+                    )
+                })?
+                .validate(),
+            0 | 1 => Err(WechatError::Config(
+                "work user extended attribute type must match exactly one text or web payload"
+                    .to_string(),
+            )),
+            _ if payload_count == 0 => Ok(()),
+            _ if payload_count == 1 => match (&self.text, &self.web) {
+                (Some(text), None) => text.validate(),
+                (None, Some(web)) => web.validate(),
+                _ => unreachable!("payload count is exactly one"),
+            },
+            _ => Err(WechatError::Config(
+                "work user unknown extended attribute cannot contain multiple known payloads"
+                    .to_string(),
+            )),
+        }
+    }
+
+    pub fn kind(&self) -> WorkUserExtAttrKind {
+        WorkUserExtAttrKind::from(self.attr_type)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkUserExtAttrKind {
+    Text,
+    Web,
+    Other(i64),
+}
+
+impl From<i64> for WorkUserExtAttrKind {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Text,
+            1 => Self::Web,
+            other => Self::Other(other),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14203,10 +14412,23 @@ pub struct WorkUserExtAttrText {
     pub value: String,
 }
 
+impl WorkUserExtAttrText {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_bounded_text("extended attribute text", &self.value, 255, false)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkUserExtAttrWeb {
     pub title: String,
     pub url: String,
+}
+
+impl WorkUserExtAttrWeb {
+    pub fn validate(&self) -> Result<()> {
+        validate_work_user_bounded_text("extended attribute web title", &self.title, 64, false)?;
+        validate_work_user_http_url("extended attribute web", &self.url)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57339,6 +57561,159 @@ mod tests {
         .is_err());
         assert!(validate_work_user_job_id("job").is_ok());
         assert!(validate_work_user_job_id(&"x".repeat(65)).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_work_user_fields_and_extended_attributes() {
+        let valid: WorkUserRequest = serde_json::from_value(json!({
+            "userid": "user",
+            "name": "User",
+            "department": [1],
+            "position": "Engineer",
+            "mobile": "+8613800000000",
+            "email": "user@example.com",
+            "biz_mail": "user@corp.example",
+            "direct_leader": ["leader"],
+            "avatar_mediaid": "avatar-media",
+            "extattr": {
+                "attrs": [
+                    { "type": 0, "name": "level", "text": { "value": "gold" } },
+                    {
+                        "type": 1,
+                        "name": "portal",
+                        "web": {
+                            "title": "Portal",
+                            "url": "https://example.com/profile"
+                        }
+                    }
+                ]
+            }
+        }))
+        .unwrap();
+        valid.validate_for_create().unwrap();
+        let attributes = valid.extattr.as_ref().unwrap();
+        assert_eq!(
+            attributes.find("portal").map(WorkUserExtAttrItem::kind),
+            Some(WorkUserExtAttrKind::Web)
+        );
+        let future_attribute: WorkUserExtAttrItem = serde_json::from_value(json!({
+            "type": 99,
+            "name": "future"
+        }))
+        .unwrap();
+        assert_eq!(future_attribute.kind(), WorkUserExtAttrKind::Other(99));
+        future_attribute.validate().unwrap();
+
+        let invalid_requests = [
+            json!({ "userid": "user", "name": "Bad\nName", "department": [1] }),
+            json!({ "userid": "user", "name": "User", "department": [1], "order": [-1] }),
+            json!({ "userid": "user", "name": "User", "department": [1], "main_department": 0 }),
+            json!({
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "direct_leader": ["a", "b", "c", "d", "e", "f"]
+            }),
+            json!({ "userid": "user", "name": "User", "department": [1], "mobile": "13-8000" }),
+            json!({
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "email": "invalid"
+            }),
+            json!({
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "extattr": {
+                    "attrs": [
+                        { "type": 0, "name": "level", "text": { "value": "gold" } },
+                        { "type": 0, "name": "level", "text": { "value": "silver" } }
+                    ]
+                }
+            }),
+            json!({
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "extattr": {
+                    "attrs": [{
+                        "type": 0,
+                        "name": "site",
+                        "web": { "title": "Portal", "url": "https://example.com" }
+                    }]
+                }
+            }),
+            json!({
+                "userid": "user",
+                "name": "User",
+                "department": [1],
+                "extattr": {
+                    "attrs": [{
+                        "type": 1,
+                        "name": "site",
+                        "web": {
+                            "title": "Portal",
+                            "url": "https://user:secret@example.com/profile"
+                        }
+                    }]
+                }
+            }),
+        ];
+        for value in invalid_requests {
+            let request: WorkUserRequest = serde_json::from_value(value).unwrap();
+            assert!(request.validate_for_create().is_err());
+        }
+
+        let clear_optional_fields: WorkUserRequest = serde_json::from_value(json!({
+            "userid": "user",
+            "position": "",
+            "mobile": "",
+            "email": "",
+            "telephone": "",
+            "alias": "",
+            "address": "",
+            "avatar_mediaid": "",
+            "external_position": ""
+        }))
+        .unwrap();
+        clear_optional_fields.validate_for_update().unwrap();
+
+        let invalid_responses = [
+            json!({ "userid": "user", "name": "", "department": [1] }),
+            json!({ "userid": "user", "department": [1], "order": [-1] }),
+            json!({ "userid": "user", "department": [1], "email": "invalid" }),
+            json!({
+                "userid": "user",
+                "department": [1],
+                "avatar": "/relative/avatar.png"
+            }),
+            json!({
+                "userid": "user",
+                "department": [1],
+                "qr_code": "https://example.com/qr#secret"
+            }),
+            json!({
+                "userid": "user",
+                "department": [1],
+                "direct_leader": ["a", "b", "c", "d", "e", "f"]
+            }),
+            json!({
+                "userid": "user",
+                "department": [1],
+                "extattr": {
+                    "attrs": [{
+                        "type": 1,
+                        "name": "site",
+                        "text": { "value": "wrong payload" }
+                    }]
+                }
+            }),
+        ];
+        for value in invalid_responses {
+            let response: WorkUserDetailResponse = serde_json::from_value(value).unwrap();
+            assert!(response.validate().is_err());
+        }
     }
 
     #[test]

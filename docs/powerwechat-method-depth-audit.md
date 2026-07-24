@@ -58,6 +58,33 @@ Implemented on 2026-07-24 in Work AI Bot long-connection depth:
   while a failure matrix covers insecure endpoints, malformed commands,
   secret exposure, API errors, and mismatched response ids.
 
+Implemented on 2026-07-24 in Work user member-field contract depth:
+
+- the current PowerWeChat Work user, tag, linked-corporation, batch-job, and
+  export endpoint scan remains green; member create/update boundaries now also
+  validate all meaningful scalar and collection fields instead of only user,
+  department, gender, and enable identities;
+- member names, positions, telephones, aliases, addresses, avatar media ids,
+  external positions, mobiles, email addresses, nonnegative department order,
+  positive main departments, and at most five unique valid direct leaders are
+  checked before network I/O while update-time empty strings remain available
+  for clearing optional fields;
+- internal extended attributes now enforce the ten-entry boundary, unique
+  bounded names, exact text/web payload matching, bounded values and titles,
+  safe absolute HTTP(S) URLs, typed semantic kinds, and direct name lookup;
+  unknown future attribute types remain forward-compatible;
+- member detail and department-list responses apply the same identity, text,
+  contact, department, leader, extended-attribute, avatar, thumbnail, and
+  QR-code contracts before returning application data;
+- user-facing URLs reject embedded credentials and fragments, and the failure
+  matrix covers control characters, negative order, zero main departments,
+  excessive leaders, malformed contact fields, unsafe URLs, duplicate or
+  mismatched attributes, and malformed response fields;
+- the latest PowerWeChat Work media scan still contains five real API
+  endpoints, all of which remain covered by Roze together with stricter
+  range-download, integrity, path/byte upload, and native asynchronous
+  URL-upload workflows.
+
 2. Payment method-depth parity:
    stream-download bill helpers and merchant-service complaint DTOs have been
    deepened, including response-boundary contract validation. Continue expanding
