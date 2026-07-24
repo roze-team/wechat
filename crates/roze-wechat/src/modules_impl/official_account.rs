@@ -562,9 +562,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: CardCreateRequest,
     ) -> Result<CardCreateResponse> {
-        self.inner
+        request.validate()?;
+        let response: CardCreateResponse = self
+            .inner
             .post("card/create", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_card(
@@ -572,15 +576,20 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         card_id: impl Into<String>,
     ) -> Result<CardGetResponse> {
-        self.inner
+        let card_id = card_id.into();
+        validate_card_identifier("card id", &card_id)?;
+        let response: CardGetResponse = self
+            .inner
             .post(
                 "card/get",
                 Some(access_token.into()),
                 CardIdRequest {
-                    card_id: card_id.into(),
+                    card_id: card_id.clone(),
                 },
             )
-            .await
+            .await?;
+        response.validate_for(&card_id)?;
+        Ok(response)
     }
 
     pub async fn delete_card(
@@ -588,15 +597,18 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         card_id: impl Into<String>,
     ) -> Result<WechatStatusResponse> {
-        self.inner
+        let card_id = card_id.into();
+        validate_card_identifier("card id", &card_id)?;
+        let response: WechatStatusResponse = self
+            .inner
             .post(
                 "card/delete",
                 Some(access_token.into()),
-                CardIdRequest {
-                    card_id: card_id.into(),
-                },
+                CardIdRequest { card_id },
             )
-            .await
+            .await?;
+        response.validate_for("official account card delete")?;
+        Ok(response)
     }
 
     pub async fn list_cards(
@@ -606,17 +618,18 @@ impl OfficialAccount {
         count: i64,
         status_list: Vec<String>,
     ) -> Result<CardListResponse> {
-        self.inner
-            .post(
-                "card/batchget",
-                Some(access_token.into()),
-                json!({
-                    "offset": offset,
-                    "count": count,
-                    "status_list": status_list,
-                }),
-            )
-            .await
+        let request = CardListRequest {
+            offset,
+            count,
+            status_list,
+        };
+        request.validate()?;
+        let response: CardListResponse = self
+            .inner
+            .post("card/batchget", Some(access_token.into()), request)
+            .await?;
+        response.validate_for(count)?;
+        Ok(response)
     }
 
     pub async fn update_card(
@@ -626,15 +639,39 @@ impl OfficialAccount {
         card_type: impl AsRef<str>,
         card: Value,
     ) -> Result<CardUpdateResponse> {
+        let card_id = card_id.into();
+        validate_card_identifier("card id", &card_id)?;
+        let kind = CardKind::from_code(card_type.as_ref()).ok_or_else(|| {
+            WechatError::Config(format!(
+                "official account card update type {} is unsupported",
+                card_type.as_ref()
+            ))
+        })?;
+        validate_card_update_detail(kind, &card)?;
         let mut body = serde_json::Map::new();
-        body.insert("card_id".to_string(), json!(card_id.into()));
-        body.insert(card_type.as_ref().to_ascii_lowercase(), card);
-        self.inner
+        body.insert("card_id".to_string(), json!(card_id));
+        body.insert(kind.payload_key().to_string(), card);
+        let response: CardUpdateResponse = self
+            .inner
             .post(
                 "card/update",
                 Some(access_token.into()),
                 Value::Object(body),
             )
+            .await?;
+        response.validate()?;
+        Ok(response)
+    }
+
+    pub async fn update_card_typed(
+        &self,
+        access_token: impl Into<String>,
+        card_id: impl Into<String>,
+        kind: CardKind,
+        detail: CardTypeDetail,
+    ) -> Result<CardUpdateResponse> {
+        let detail = serde_json::to_value(detail).map_err(WechatError::from)?;
+        self.update_card(access_token, card_id, kind.code(), detail)
             .await
     }
 
@@ -643,9 +680,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: CardCodeRequest,
     ) -> Result<CardCodeResponse> {
-        self.inner
-            .post("card/code/get", Some(access_token.into()), request)
-            .await
+        request.validate()?;
+        let response: CardCodeResponse = self
+            .inner
+            .post("card/code/get", Some(access_token.into()), request.clone())
+            .await?;
+        response.validate_for(&request)?;
+        Ok(response)
     }
 
     pub async fn decrypt_card_code(
@@ -653,15 +694,16 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         encrypt_code: impl Into<String>,
     ) -> Result<CardCodeDecryptResponse> {
-        self.inner
-            .post(
-                "card/code/decrypt",
-                Some(access_token.into()),
-                CardCodeDecryptRequest {
-                    encrypt_code: encrypt_code.into(),
-                },
-            )
-            .await
+        let request = CardCodeDecryptRequest {
+            encrypt_code: encrypt_code.into(),
+        };
+        request.validate()?;
+        let response: CardCodeDecryptResponse = self
+            .inner
+            .post("card/code/decrypt", Some(access_token.into()), request)
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_card_qr_code(
@@ -669,9 +711,13 @@ impl OfficialAccount {
         access_token: impl Into<String>,
         request: CardQrCodeRequest,
     ) -> Result<CardQrCodeResponse> {
-        self.inner
+        request.validate()?;
+        let response: CardQrCodeResponse = self
+            .inner
             .post("card/qrcode/create", Some(access_token.into()), request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub fn customer_service(&self) -> DomainModule {
@@ -5649,6 +5695,43 @@ pub struct OfficialCallbackCheckResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardListRequest {
+    pub offset: i64,
+    pub count: i64,
+    pub status_list: Vec<String>,
+}
+
+impl CardListRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.offset < 0 {
+            return Err(WechatError::Config(
+                "official account card list offset must not be negative".to_string(),
+            ));
+        }
+        if !(1..=50).contains(&self.count) {
+            return Err(WechatError::Config(
+                "official account card list count must be between 1 and 50".to_string(),
+            ));
+        }
+        if self.status_list.len() > 8 {
+            return Err(WechatError::Config(
+                "official account card list status filter must not exceed 8 values".to_string(),
+            ));
+        }
+        let mut unique = HashSet::with_capacity(self.status_list.len());
+        for status in &self.status_list {
+            validate_card_status("list status", status)?;
+            if !unique.insert(status.as_str()) {
+                return Err(WechatError::Config(
+                    "official account card list status filter contains duplicates".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardListResponse {
     #[serde(default)]
     pub errcode: Option<i64>,
@@ -5660,6 +5743,39 @@ pub struct CardListResponse {
     pub total_num: Option<i64>,
 }
 
+impl CardListResponse {
+    pub fn validate_for(&self, requested_count: i64) -> Result<()> {
+        ensure_official_response_success(
+            "official account card list",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let total = self.total_num.ok_or_else(|| {
+            WechatError::Config(
+                "official account card list response requires total_num".to_string(),
+            )
+        })?;
+        if total < 0
+            || self.card_id_list.len() > requested_count.max(0) as usize
+            || total < self.card_id_list.len() as i64
+        {
+            return Err(WechatError::Config(
+                "official account card list response count is inconsistent".to_string(),
+            ));
+        }
+        let mut unique = HashSet::with_capacity(self.card_id_list.len());
+        for card_id in &self.card_id_list {
+            validate_card_identifier("list response card id", card_id)?;
+            if !unique.insert(card_id.as_str()) {
+                return Err(WechatError::Config(
+                    "official account card list response contains duplicate card ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardUpdateResponse {
     #[serde(default)]
@@ -5668,6 +5784,22 @@ pub struct CardUpdateResponse {
     pub errmsg: Option<String>,
     #[serde(default)]
     pub send_check: Option<bool>,
+}
+
+impl CardUpdateResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account card update",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        if self.send_check.is_none() {
+            return Err(WechatError::Config(
+                "official account card update response requires send_check".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6899,9 +7031,94 @@ pub struct DataCubeListResponse {
     pub list: Vec<Value>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardKind {
+    Groupon,
+    Cash,
+    Discount,
+    Gift,
+    GeneralCoupon,
+    MemberCard,
+    ScenicTicket,
+    MovieTicket,
+    BoardingPass,
+    MeetingTicket,
+    BusTicket,
+}
+
+impl CardKind {
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code.trim().to_ascii_uppercase().as_str() {
+            "GROUPON" => Some(Self::Groupon),
+            "CASH" => Some(Self::Cash),
+            "DISCOUNT" => Some(Self::Discount),
+            "GIFT" => Some(Self::Gift),
+            "GENERAL_COUPON" => Some(Self::GeneralCoupon),
+            "MEMBER_CARD" => Some(Self::MemberCard),
+            "SCENIC_TICKET" => Some(Self::ScenicTicket),
+            "MOVIE_TICKET" => Some(Self::MovieTicket),
+            "BOARDING_PASS" => Some(Self::BoardingPass),
+            "MEETING_TICKET" => Some(Self::MeetingTicket),
+            "BUS_TICKET" => Some(Self::BusTicket),
+            _ => None,
+        }
+    }
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Groupon => "GROUPON",
+            Self::Cash => "CASH",
+            Self::Discount => "DISCOUNT",
+            Self::Gift => "GIFT",
+            Self::GeneralCoupon => "GENERAL_COUPON",
+            Self::MemberCard => "MEMBER_CARD",
+            Self::ScenicTicket => "SCENIC_TICKET",
+            Self::MovieTicket => "MOVIE_TICKET",
+            Self::BoardingPass => "BOARDING_PASS",
+            Self::MeetingTicket => "MEETING_TICKET",
+            Self::BusTicket => "BUS_TICKET",
+        }
+    }
+
+    pub const fn payload_key(self) -> &'static str {
+        match self {
+            Self::Groupon => "groupon",
+            Self::Cash => "cash",
+            Self::Discount => "discount",
+            Self::Gift => "gift",
+            Self::GeneralCoupon => "general_coupon",
+            Self::MemberCard => "member_card",
+            Self::ScenicTicket => "scenic_ticket",
+            Self::MovieTicket => "movie_ticket",
+            Self::BoardingPass => "boarding_pass",
+            Self::MeetingTicket => "meeting_ticket",
+            Self::BusTicket => "bus_ticket",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardCreateRequest {
     pub card: Value,
+}
+
+impl CardCreateRequest {
+    pub fn typed(kind: CardKind, detail: CardTypeDetail) -> Result<Self> {
+        let card = CardInfo::from_typed(kind, detail);
+        card.validate_create()?;
+        Ok(Self {
+            card: serde_json::to_value(card)?,
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let card: CardInfo = serde_json::from_value(self.card.clone()).map_err(|error| {
+            WechatError::Config(format!(
+                "official account card create payload is invalid: {error}"
+            ))
+        })?;
+        card.validate_create()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6914,75 +7131,353 @@ pub struct CardCreateResponse {
     pub card_id: Option<String>,
 }
 
+impl CardCreateResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account card create",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_card_identifier(
+            "create response card id",
+            self.card_id.as_deref().unwrap_or_default(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardIdRequest {
     pub card_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardDateInfo {
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "type",
+        alias = "date_type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub date_type: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub begin_timestamp: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_timestamp: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed_term: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed_begin_term: Option<i64>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl CardDateInfo {
+    fn validate(&self, required: bool) -> Result<()> {
+        let Some(date_type) = self.date_type.as_deref() else {
+            if required {
+                return Err(WechatError::Config(
+                    "official account card date info requires type".to_string(),
+                ));
+            }
+            return Ok(());
+        };
+        match date_type {
+            "DATE_TYPE_FIX_TIME_RANGE" => {
+                let begin = self.begin_timestamp.unwrap_or_default();
+                let end = self.end_timestamp.unwrap_or_default();
+                if begin <= 0 || end <= begin {
+                    return Err(WechatError::Config(
+                        "official account card fixed date range requires positive ordered timestamps"
+                            .to_string(),
+                    ));
+                }
+            }
+            "DATE_TYPE_FIX_TERM" => {
+                if self.fixed_term.is_none_or(|term| term <= 0)
+                    || self.fixed_begin_term.is_some_and(|term| term < 0)
+                {
+                    return Err(WechatError::Config(
+                        "official account card fixed term requires a positive fixed_term and a non-negative fixed_begin_term"
+                            .to_string(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(WechatError::Config(format!(
+                    "official account card date type {date_type} is unsupported"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardSku {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quantity: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub total_quantity: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub use_custom_code: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind_openid: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub can_share: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub can_give_friend: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl CardSku {
+    fn validate(&self, required: bool) -> Result<()> {
+        if required && self.quantity.is_none() && self.total_quantity.is_none() {
+            return Err(WechatError::Config(
+                "official account card SKU requires quantity".to_string(),
+            ));
+        }
+        if self.quantity.is_some_and(|quantity| quantity < 0)
+            || self
+                .total_quantity
+                .is_some_and(|total_quantity| total_quantity < 0)
+        {
+            return Err(WechatError::Config(
+                "official account card SKU quantities must not be negative".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardSubMerchantInfo {
+    pub merchant_id: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardSwipeCard {
+    pub is_swipe_card: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardPayInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swipe_card: Option<CardSwipeCard>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardUseCondition {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_category: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reject_category: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub can_use_with_other_discount: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardAbstract {
+    #[serde(default, rename = "abstract", skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub icon_url_list: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardTextImage {
+    pub image_url: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardTimeLimit {
+    #[serde(rename = "type")]
+    pub limit_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub begin_hour: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_hour: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub begin_minute: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_minute: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CardAdvancedInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_condition: Option<CardUseCondition>,
+    #[serde(default, rename = "abstract", skip_serializing_if = "Option::is_none")]
+    pub abstract_info: Option<CardAbstract>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub text_image_list: Vec<CardTextImage>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub time_limit: Vec<CardTimeLimit>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub business_service: Vec<String>,
+    #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+impl CardAdvancedInfo {
+    fn validate(&self) -> Result<()> {
+        if let Some(condition) = self.use_condition.as_ref() {
+            for (kind, value) in [
+                ("accepted category", condition.accept_category.as_deref()),
+                ("rejected category", condition.reject_category.as_deref()),
+            ] {
+                if let Some(value) = value {
+                    validate_card_text(kind, value, 128)?;
+                }
+            }
+        }
+        if let Some(abstract_info) = self.abstract_info.as_ref() {
+            validate_card_required_text("abstract", abstract_info.summary.as_deref(), 512)?;
+            if abstract_info.icon_url_list.is_empty() || abstract_info.icon_url_list.len() > 4 {
+                return Err(WechatError::Config(
+                    "official account card abstract must contain between 1 and 4 icon URLs"
+                        .to_string(),
+                ));
+            }
+            for url in &abstract_info.icon_url_list {
+                validate_card_http_url("abstract icon URL", url)?;
+            }
+        }
+        if self.text_image_list.len() > 8 || self.time_limit.len() > 14 {
+            return Err(WechatError::Config(
+                "official account card advanced info contains too many text images or time limits"
+                    .to_string(),
+            ));
+        }
+        for item in &self.text_image_list {
+            validate_card_http_url("text image URL", &item.image_url)?;
+            validate_card_text("text image description", &item.text, 1_024)?;
+        }
+        let mut limit_types = HashSet::with_capacity(self.time_limit.len());
+        for limit in &self.time_limit {
+            if !matches!(
+                limit.limit_type.as_str(),
+                "MONDAY"
+                    | "TUESDAY"
+                    | "WEDNESDAY"
+                    | "THURSDAY"
+                    | "FRIDAY"
+                    | "SATURDAY"
+                    | "SUNDAY"
+                    | "HOLIDAY"
+            ) || !limit_types.insert(limit.limit_type.as_str())
+            {
+                return Err(WechatError::Config(
+                    "official account card time limits require unique supported day types"
+                        .to_string(),
+                ));
+            }
+            let begin_hour = limit.begin_hour.unwrap_or(0);
+            let end_hour = limit.end_hour.unwrap_or(23);
+            let begin_minute = limit.begin_minute.unwrap_or(0);
+            let end_minute = limit.end_minute.unwrap_or(59);
+            if !(0..=23).contains(&begin_hour)
+                || !(0..=23).contains(&end_hour)
+                || !(0..=59).contains(&begin_minute)
+                || !(0..=59).contains(&end_minute)
+                || (end_hour, end_minute) <= (begin_hour, begin_minute)
+            {
+                return Err(WechatError::Config(
+                    "official account card time limit requires an ordered valid clock range"
+                        .to_string(),
+                ));
+            }
+        }
+        if self.business_service.len() > 4 {
+            return Err(WechatError::Config(
+                "official account card business services must not exceed 4 values".to_string(),
+            ));
+        }
+        let mut services = HashSet::with_capacity(self.business_service.len());
+        for service in &self.business_service {
+            if !matches!(
+                service.as_str(),
+                "BIZ_SERVICE_DELIVER"
+                    | "BIZ_SERVICE_FREE_PARK"
+                    | "BIZ_SERVICE_WITH_PET"
+                    | "BIZ_SERVICE_FREE_WIFI"
+            ) || !services.insert(service.as_str())
+            {
+                return Err(WechatError::Config(
+                    "official account card business services must be supported and unique"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardBaseInfo {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_merchant_info: Option<CardSubMerchantInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub logo_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code_type: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub brand_name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sub_title: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notice: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date_info: Option<CardDateInfo>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sku: Option<CardSku>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub get_limit: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub use_limit: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_custom_code: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bind_openid: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub can_share: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub can_give_friend: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub location_id_list: Vec<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_sub_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_url_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_url_sub_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promotion_url_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promotion_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pay_info: Option<CardPayInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
@@ -7018,60 +7513,412 @@ impl CardBaseInfo {
     pub fn needs_review(&self) -> bool {
         self.status_kind() == Some(CardStatusKind::PendingReview)
     }
+
+    fn validate(&self, mode: CardValidationMode) -> Result<()> {
+        if mode == CardValidationMode::Create {
+            validate_card_required_text("base info logo URL", self.logo_url.as_deref(), 2_048)?;
+            validate_card_required_text("base info brand name", self.brand_name.as_deref(), 36)?;
+            validate_card_required_text("base info title", self.title.as_deref(), 36)?;
+            validate_card_required_text("base info color", self.color.as_deref(), 32)?;
+            validate_card_required_text("base info notice", self.notice.as_deref(), 48)?;
+            validate_card_required_text(
+                "base info description",
+                self.description.as_deref(),
+                3_072,
+            )?;
+            self.date_info.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "official account card create base info requires date_info".to_string(),
+                )
+            })?;
+            self.sku.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "official account card create base info requires sku".to_string(),
+                )
+            })?;
+        }
+        if let Some(logo_url) = self.logo_url.as_deref() {
+            validate_card_http_url("base info logo URL", logo_url)?;
+        }
+        if let Some(sub_merchant) = self.sub_merchant_info.as_ref() {
+            validate_card_identifier("sub-merchant id", &sub_merchant.merchant_id)?;
+        }
+        if let Some(code_type) = self.code_type.as_deref() {
+            if !matches!(
+                code_type,
+                "CODE_TYPE_TEXT"
+                    | "CODE_TYPE_BARCODE"
+                    | "CODE_TYPE_QRCODE"
+                    | "CODE_TYPE_ONLY_QRCODE"
+                    | "CODE_TYPE_ONLY_BARCODE"
+                    | "CODE_TYPE_NONE"
+            ) {
+                return Err(WechatError::Config(format!(
+                    "official account card code type {code_type} is unsupported"
+                )));
+            }
+        }
+        if let Some(color) = self.color.as_deref() {
+            validate_card_color(color)?;
+        }
+        for (kind, value, maximum) in [
+            ("base info brand name", self.brand_name.as_deref(), 36),
+            ("base info title", self.title.as_deref(), 36),
+            ("base info subtitle", self.sub_title.as_deref(), 54),
+            ("base info color", self.color.as_deref(), 32),
+            ("base info notice", self.notice.as_deref(), 48),
+            ("base info description", self.description.as_deref(), 3_072),
+            ("base info service phone", self.service_phone.as_deref(), 32),
+            ("base info center title", self.center_title.as_deref(), 18),
+            (
+                "base info center subtitle",
+                self.center_sub_title.as_deref(),
+                24,
+            ),
+            (
+                "base info custom URL name",
+                self.custom_url_name.as_deref(),
+                15,
+            ),
+            (
+                "base info custom URL subtitle",
+                self.custom_url_sub_title.as_deref(),
+                18,
+            ),
+            (
+                "base info promotion URL name",
+                self.promotion_url_name.as_deref(),
+                15,
+            ),
+            ("base info source", self.source.as_deref(), 36),
+        ] {
+            if let Some(value) = value {
+                validate_card_text(kind, value, maximum)?;
+            }
+        }
+        if let Some(date_info) = self.date_info.as_ref() {
+            date_info.validate(mode != CardValidationMode::Update)?;
+        }
+        if let Some(sku) = self.sku.as_ref() {
+            sku.validate(mode == CardValidationMode::Create)?;
+        }
+        if self.get_limit.is_some_and(|limit| limit < 0)
+            || self.use_limit.is_some_and(|limit| limit < 0)
+        {
+            return Err(WechatError::Config(
+                "official account card use/get limits must not be negative".to_string(),
+            ));
+        }
+        let mut locations = HashSet::with_capacity(self.location_id_list.len());
+        if self.location_id_list.len() > 100
+            || self
+                .location_id_list
+                .iter()
+                .any(|location| *location <= 0 || !locations.insert(*location))
+        {
+            return Err(WechatError::Config(
+                "official account card location ids must contain at most 100 positive unique values"
+                    .to_string(),
+            ));
+        }
+        for (kind, url, required_label) in [
+            (
+                "center URL",
+                self.center_url.as_deref(),
+                self.center_title.as_deref(),
+            ),
+            (
+                "custom URL",
+                self.custom_url.as_deref(),
+                self.custom_url_name.as_deref(),
+            ),
+            (
+                "promotion URL",
+                self.promotion_url.as_deref(),
+                self.promotion_url_name.as_deref(),
+            ),
+        ] {
+            if let Some(url) = url {
+                validate_card_http_url(kind, url)?;
+                if required_label.is_none_or(|label| label.trim().is_empty()) {
+                    return Err(WechatError::Config(format!(
+                        "official account card {kind} requires its display label"
+                    )));
+                }
+            }
+        }
+        if mode == CardValidationMode::Create && (self.id.is_some() || self.status.is_some()) {
+            return Err(WechatError::Config(
+                "official account card create base info cannot set response-only id or status"
+                    .to_string(),
+            ));
+        }
+        if mode == CardValidationMode::Response {
+            validate_card_identifier(
+                "response base info id",
+                self.id.as_deref().unwrap_or_default(),
+            )?;
+            validate_card_status(
+                "response base info status",
+                self.status.as_deref().unwrap_or_default(),
+            )?;
+        } else if let Some(id) = self.id.as_deref() {
+            validate_card_identifier("base info id", id)?;
+        }
+        Ok(())
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CardValidationMode {
+    Create,
+    Update,
+    Response,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardTypeDetail {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_info: Option<CardBaseInfo>,
-    #[serde(default)]
-    pub advanced_info: Option<Value>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub advanced_info: Option<CardAdvancedInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deal_detail: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub least_cost: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reduce_cost: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discount: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gift: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_detail: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supply_bonus: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supply_balance: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prerogative: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_pic_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bonus_cleared: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bonus_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub balance_rules: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub balance_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bonus_rules: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bonus_rule: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub activate_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wx_activate: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_activate: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl CardTypeDetail {
+    fn validate(&self, kind: CardKind, mode: CardValidationMode) -> Result<()> {
+        if mode != CardValidationMode::Update && self.base_info.is_none() {
+            return Err(WechatError::Config(format!(
+                "official account {} card requires base_info",
+                kind.payload_key()
+            )));
+        }
+        if let Some(base_info) = self.base_info.as_ref() {
+            base_info.validate(mode)?;
+        }
+        if let Some(advanced_info) = self.advanced_info.as_ref() {
+            advanced_info.validate()?;
+        }
+        match kind {
+            CardKind::Groupon => {
+                validate_card_detail_text(mode, "groupon deal detail", self.deal_detail.as_deref())?
+            }
+            CardKind::Cash => {
+                validate_card_positive_amount(mode, "cash reduce cost", self.reduce_cost)?;
+                if self.least_cost.is_some_and(|value| value < 0) {
+                    return Err(WechatError::Config(
+                        "official account cash card least cost must not be negative".to_string(),
+                    ));
+                }
+            }
+            CardKind::Discount => {
+                if mode == CardValidationMode::Create && self.discount.is_none() {
+                    return Err(WechatError::Config(
+                        "official account discount card requires discount".to_string(),
+                    ));
+                }
+                if self
+                    .discount
+                    .is_some_and(|discount| !(1..=99).contains(&discount))
+                {
+                    return Err(WechatError::Config(
+                        "official account card discount must be between 1 and 99".to_string(),
+                    ));
+                }
+            }
+            CardKind::Gift => {
+                validate_card_detail_text(mode, "gift description", self.gift.as_deref())?
+            }
+            CardKind::GeneralCoupon => validate_card_detail_text(
+                mode,
+                "general coupon detail",
+                self.default_detail.as_deref(),
+            )?,
+            CardKind::MemberCard => {
+                validate_card_detail_text(
+                    mode,
+                    "member card prerogative",
+                    self.prerogative.as_deref(),
+                )?;
+                for (kind, value) in [
+                    (
+                        "member card background image",
+                        self.background_pic_url.as_deref(),
+                    ),
+                    ("member card bonus URL", self.bonus_url.as_deref()),
+                    ("member card balance URL", self.balance_url.as_deref()),
+                    ("member card activation URL", self.activate_url.as_deref()),
+                ] {
+                    if let Some(value) = value {
+                        validate_card_http_url(kind, value)?;
+                    }
+                }
+            }
+            CardKind::ScenicTicket
+            | CardKind::MovieTicket
+            | CardKind::BoardingPass
+            | CardKind::MeetingTicket
+            | CardKind::BusTicket => {}
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardInfo {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub card_type: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub groupon: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cash: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discount: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gift: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub general_coupon: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_card: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scenic_ticket: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub movie_ticket: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub boarding_pass: Option<CardTypeDetail>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meeting_ticket: Option<CardTypeDetail>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bus_ticket: Option<CardTypeDetail>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl CardInfo {
+    pub fn from_typed(kind: CardKind, detail: CardTypeDetail) -> Self {
+        let mut card = Self {
+            card_type: Some(kind.code().to_string()),
+            ..Self::default()
+        };
+        match kind {
+            CardKind::Groupon => card.groupon = Some(detail),
+            CardKind::Cash => card.cash = Some(detail),
+            CardKind::Discount => card.discount = Some(detail),
+            CardKind::Gift => card.gift = Some(detail),
+            CardKind::GeneralCoupon => card.general_coupon = Some(detail),
+            CardKind::MemberCard => card.member_card = Some(detail),
+            CardKind::ScenicTicket => card.scenic_ticket = Some(detail),
+            CardKind::MovieTicket => card.movie_ticket = Some(detail),
+            CardKind::BoardingPass => card.boarding_pass = Some(detail),
+            CardKind::MeetingTicket => card.meeting_ticket = Some(detail),
+            CardKind::BusTicket => card.bus_ticket = Some(detail),
+        }
+        card
+    }
+
+    pub fn kind(&self) -> Option<CardKind> {
+        self.card_type.as_deref().and_then(CardKind::from_code)
+    }
+
+    pub fn validate_create(&self) -> Result<()> {
+        self.validate(CardValidationMode::Create, None)
+    }
+
+    fn validate_response_for(&self, expected_card_id: &str) -> Result<()> {
+        self.validate(CardValidationMode::Response, Some(expected_card_id))
+    }
+
+    fn validate(&self, mode: CardValidationMode, expected_card_id: Option<&str>) -> Result<()> {
+        let raw_kind = self.card_type.as_deref().unwrap_or_default();
+        let kind = CardKind::from_code(raw_kind).ok_or_else(|| {
+            WechatError::Config(format!(
+                "official account card type {raw_kind:?} is unsupported"
+            ))
+        })?;
+        if raw_kind != kind.code() {
+            return Err(WechatError::Config(
+                "official account card_type must use the documented uppercase wire value"
+                    .to_string(),
+            ));
+        }
+        let details = [
+            (CardKind::Groupon, self.groupon.as_ref()),
+            (CardKind::Cash, self.cash.as_ref()),
+            (CardKind::Discount, self.discount.as_ref()),
+            (CardKind::Gift, self.gift.as_ref()),
+            (CardKind::GeneralCoupon, self.general_coupon.as_ref()),
+            (CardKind::MemberCard, self.member_card.as_ref()),
+            (CardKind::ScenicTicket, self.scenic_ticket.as_ref()),
+            (CardKind::MovieTicket, self.movie_ticket.as_ref()),
+            (CardKind::BoardingPass, self.boarding_pass.as_ref()),
+            (CardKind::MeetingTicket, self.meeting_ticket.as_ref()),
+            (CardKind::BusTicket, self.bus_ticket.as_ref()),
+        ];
+        let populated: Vec<_> = details
+            .into_iter()
+            .filter_map(|(detail_kind, detail)| detail.map(|detail| (detail_kind, detail)))
+            .collect();
+        if populated.len() != 1 || populated[0].0 != kind {
+            return Err(WechatError::Config(
+                "official account card payload must contain exactly the detail matching card_type"
+                    .to_string(),
+            ));
+        }
+        populated[0].1.validate(kind, mode)?;
+        if let Some(expected_card_id) = expected_card_id {
+            let actual_card_id = populated[0]
+                .1
+                .base_info
+                .as_ref()
+                .and_then(|base_info| base_info.id.as_deref())
+                .unwrap_or_default();
+            if actual_card_id != expected_card_id {
+                return Err(WechatError::Config(
+                    "official account card get response id does not match the request".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7098,12 +7945,36 @@ pub struct CardGetResponse {
     pub card: Option<CardInfo>,
 }
 
+impl CardGetResponse {
+    pub fn validate_for(&self, expected_card_id: &str) -> Result<()> {
+        ensure_official_response_success(
+            "official account card get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_card_identifier("requested card id", expected_card_id)?;
+        self.card
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config("official account card get response requires card".to_string())
+            })?
+            .validate_response_for(expected_card_id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardCodeRequest {
     pub card_id: String,
     pub code: String,
     #[serde(default)]
     pub check_consume: bool,
+}
+
+impl CardCodeRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_card_identifier("code lookup card id", &self.card_id)?;
+        validate_card_identifier("code lookup code", &self.code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7122,9 +7993,71 @@ pub struct CardCodeResponse {
     pub user_card_status: Option<String>,
 }
 
+impl CardCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account card code get",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        let card = self.card.as_ref().ok_or_else(|| {
+            WechatError::Config(
+                "official account card code response requires card details".to_string(),
+            )
+        })?;
+        validate_card_identifier(
+            "code response card id",
+            card.card_id.as_deref().unwrap_or_default(),
+        )?;
+        if let Some(code) = card.code.as_deref() {
+            validate_card_identifier("code response code", code)?;
+        }
+        if card.begin_time.is_some_and(|time| time <= 0)
+            || card.end_time.is_some_and(|time| time <= 0)
+            || matches!((card.begin_time, card.end_time), (Some(begin), Some(end)) if end <= begin)
+        {
+            return Err(WechatError::Config(
+                "official account card code response has an invalid validity period".to_string(),
+            ));
+        }
+        if let Some(openid) = self.openid.as_deref() {
+            validate_official_identifier("card holder openid", openid)?;
+        }
+        if self.can_consume.is_none() {
+            return Err(WechatError::Config(
+                "official account card code response requires can_consume".to_string(),
+            ));
+        }
+        validate_card_user_status(self.user_card_status.as_deref().unwrap_or_default())
+    }
+
+    pub fn validate_for(&self, request: &CardCodeRequest) -> Result<()> {
+        request.validate()?;
+        self.validate()?;
+        let card = self.card.as_ref().expect("validated card details");
+        if card.card_id.as_deref() != Some(request.card_id.as_str())
+            || card
+                .code
+                .as_deref()
+                .is_some_and(|code| code != request.code)
+        {
+            return Err(WechatError::Config(
+                "official account card code response does not match the request".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardCodeDecryptRequest {
     pub encrypt_code: String,
+}
+
+impl CardCodeDecryptRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_card_identifier("encrypted code", &self.encrypt_code)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7137,12 +8070,164 @@ pub struct CardCodeDecryptResponse {
     pub code: Option<String>,
 }
 
+impl CardCodeDecryptResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account card code decrypt",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_card_identifier("decrypted code", self.code.as_deref().unwrap_or_default())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardQrCodeItem {
+    pub card_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outer_str: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_unique_code: Option<bool>,
+}
+
+impl CardQrCodeItem {
+    fn validate(&self) -> Result<()> {
+        validate_card_identifier("QR code card id", &self.card_id)?;
+        if let Some(code) = self.code.as_deref() {
+            validate_card_identifier("QR code custom code", code)?;
+        }
+        if let Some(openid) = self.openid.as_deref() {
+            validate_official_identifier("QR code bound openid", openid)?;
+        }
+        if let Some(outer_str) = self.outer_str.as_deref() {
+            validate_card_text("QR code outer string", outer_str, 128)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardQrCodeMultiple {
+    pub card_list: Vec<CardQrCodeItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardQrCodeActionInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card: Option<CardQrCodeItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub multiple_card: Option<CardQrCodeMultiple>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardQrCodeRequest {
     pub action_name: String,
     pub action_info: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expire_seconds: Option<i64>,
+}
+
+impl CardQrCodeRequest {
+    pub fn single(card: CardQrCodeItem, expire_seconds: Option<i64>) -> Result<Self> {
+        let request = Self {
+            action_name: "QR_CARD".to_string(),
+            action_info: serde_json::to_value(CardQrCodeActionInfo {
+                card: Some(card),
+                multiple_card: None,
+            })?,
+            expire_seconds,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn multiple(cards: Vec<CardQrCodeItem>, expire_seconds: Option<i64>) -> Result<Self> {
+        let request = Self {
+            action_name: "QR_MULTIPLE_CARD".to_string(),
+            action_info: serde_json::to_value(CardQrCodeActionInfo {
+                card: None,
+                multiple_card: Some(CardQrCodeMultiple { card_list: cards }),
+            })?,
+            expire_seconds,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .expire_seconds
+            .is_some_and(|seconds| !(60..=2_591_999).contains(&seconds))
+        {
+            return Err(WechatError::Config(
+                "official account card QR expiration must be between 60 and 2591999 seconds"
+                    .to_string(),
+            ));
+        }
+        let info: CardQrCodeActionInfo =
+            serde_json::from_value(self.action_info.clone()).map_err(|error| {
+                WechatError::Config(format!(
+                    "official account card QR action_info is invalid: {error}"
+                ))
+            })?;
+        let cards: &[CardQrCodeItem] = match self.action_name.as_str() {
+            "QR_CARD" => {
+                if info.multiple_card.is_some() {
+                    return Err(WechatError::Config(
+                        "official account single-card QR request cannot contain multiple_card"
+                            .to_string(),
+                    ));
+                }
+                std::slice::from_ref(info.card.as_ref().ok_or_else(|| {
+                    WechatError::Config(
+                        "official account single-card QR request requires card".to_string(),
+                    )
+                })?)
+            }
+            "QR_MULTIPLE_CARD" => {
+                if info.card.is_some() {
+                    return Err(WechatError::Config(
+                        "official account multi-card QR request cannot contain card".to_string(),
+                    ));
+                }
+                &info
+                    .multiple_card
+                    .as_ref()
+                    .ok_or_else(|| {
+                        WechatError::Config(
+                            "official account multi-card QR request requires multiple_card"
+                                .to_string(),
+                        )
+                    })?
+                    .card_list
+            }
+            _ => {
+                return Err(WechatError::Config(format!(
+                    "official account card QR action {} is unsupported",
+                    self.action_name
+                )));
+            }
+        };
+        if cards.is_empty() || cards.len() > 5 {
+            return Err(WechatError::Config(
+                "official account card QR request must contain between 1 and 5 cards".to_string(),
+            ));
+        }
+        let mut unique = HashSet::with_capacity(cards.len());
+        for card in cards {
+            card.validate()?;
+            if !unique.insert(card.card_id.as_str()) {
+                return Err(WechatError::Config(
+                    "official account card QR request contains duplicate card ids".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7159,6 +8244,30 @@ pub struct CardQrCodeResponse {
     pub url: Option<String>,
     #[serde(default)]
     pub show_qrcode_url: Option<String>,
+}
+
+impl CardQrCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_official_response_success(
+            "official account card QR create",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_card_identifier(
+            "QR response ticket",
+            self.ticket.as_deref().unwrap_or_default(),
+        )?;
+        if self.expire_seconds.is_none_or(|seconds| seconds <= 0) {
+            return Err(WechatError::Config(
+                "official account card QR response requires positive expire_seconds".to_string(),
+            ));
+        }
+        validate_card_http_url("QR response URL", self.url.as_deref().unwrap_or_default())?;
+        validate_card_http_url(
+            "QR response display URL",
+            self.show_qrcode_url.as_deref().unwrap_or_default(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9391,6 +10500,150 @@ fn validate_official_tag_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_card_identifier(kind: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "official account card {kind} must contain 1 to 512 printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_card_text(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "official account card {kind} must contain 1 to {maximum} printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_card_required_text(kind: &str, value: Option<&str>, maximum: usize) -> Result<()> {
+    validate_card_text(kind, value.unwrap_or_default(), maximum)
+}
+
+fn validate_card_http_url(kind: &str, value: &str) -> Result<()> {
+    let url = url::Url::parse(value).map_err(|error| {
+        WechatError::Config(format!("official account card {kind} is invalid: {error}"))
+    })?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(WechatError::Config(format!(
+            "official account card {kind} must be an absolute HTTP(S) URL without credentials or fragments"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_card_status(kind: &str, status: &str) -> Result<()> {
+    if !matches!(
+        status,
+        "CARD_STATUS_NOT_VERIFY"
+            | "CARD_STATUS_VERIFY_FAIL"
+            | "CARD_STATUS_VERIFY_FALL"
+            | "CARD_STATUS_VERIFY_OK"
+            | "CARD_STATUS_DELETE"
+            | "CARD_STATUS_USER_DELETE"
+            | "CARD_STATUS_DISPATCH"
+            | "CARD_STATUS_USER_DISPATCH"
+    ) {
+        return Err(WechatError::Config(format!(
+            "official account card {kind} is unsupported: {status:?}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_card_color(color: &str) -> Result<()> {
+    let number = color
+        .strip_prefix("Color")
+        .filter(|digits| digits.len() == 3 && digits.chars().all(|digit| digit.is_ascii_digit()))
+        .and_then(|digits| digits.parse::<u16>().ok());
+    if !number.is_some_and(|number| (1..=100).contains(&number)) {
+        return Err(WechatError::Config(
+            "official account card color must use Color001 through Color100".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_card_user_status(status: &str) -> Result<()> {
+    if !matches!(
+        status,
+        "NORMAL"
+            | "CONSUMED"
+            | "EXPIRE"
+            | "GIFTING"
+            | "GIFT_SUCC"
+            | "GIFT_TIMEOUT"
+            | "DELETE"
+            | "UNAVAILABLE"
+            | "CODE_INVALID"
+    ) {
+        return Err(WechatError::Config(format!(
+            "official account card user status is unsupported: {status:?}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_card_detail_text(
+    mode: CardValidationMode,
+    kind: &str,
+    value: Option<&str>,
+) -> Result<()> {
+    if mode == CardValidationMode::Create || value.is_some() {
+        validate_card_required_text(kind, value, 3_072)?;
+    }
+    Ok(())
+}
+
+fn validate_card_positive_amount(
+    mode: CardValidationMode,
+    kind: &str,
+    value: Option<i64>,
+) -> Result<()> {
+    if mode == CardValidationMode::Create && value.is_none() {
+        return Err(WechatError::Config(format!(
+            "official account card {kind} is required"
+        )));
+    }
+    if value.is_some_and(|value| value <= 0) {
+        return Err(WechatError::Config(format!(
+            "official account card {kind} must be positive"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_card_update_detail(kind: CardKind, value: &Value) -> Result<()> {
+    let object = value.as_object().ok_or_else(|| {
+        WechatError::Config("official account card update detail must be a JSON object".to_string())
+    })?;
+    if object.is_empty() {
+        return Err(WechatError::Config(
+            "official account card update detail must not be empty".to_string(),
+        ));
+    }
+    if object.contains_key("card_id") || object.contains_key("card_type") {
+        return Err(WechatError::Config(
+            "official account card update detail cannot redefine card_id or card_type".to_string(),
+        ));
+    }
+    let detail: CardTypeDetail = serde_json::from_value(value.clone()).map_err(|error| {
+        WechatError::Config(format!(
+            "official account card update detail is invalid: {error}"
+        ))
+    })?;
+    detail.validate(kind, CardValidationMode::Update)
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -9947,6 +11200,32 @@ mod tests {
         assert_eq!(records.msgid, Some(11));
     }
 
+    fn valid_card_base_info() -> CardBaseInfo {
+        CardBaseInfo {
+            id: None,
+            logo_url: Some("https://example.com/logo.png".to_string()),
+            code_type: Some("CODE_TYPE_QRCODE".to_string()),
+            brand_name: Some("Roze".to_string()),
+            title: Some("Launch offer".to_string()),
+            color: Some("Color010".to_string()),
+            notice: Some("Present this card".to_string()),
+            description: Some("Valid at participating stores".to_string()),
+            date_info: Some(CardDateInfo {
+                date_type: Some("DATE_TYPE_FIX_TIME_RANGE".to_string()),
+                begin_timestamp: Some(1_800_000_000),
+                end_timestamp: Some(1_800_086_400),
+                ..CardDateInfo::default()
+            }),
+            sku: Some(CardSku {
+                quantity: Some(100),
+                ..CardSku::default()
+            }),
+            get_limit: Some(1),
+            use_limit: Some(1),
+            ..CardBaseInfo::default()
+        }
+    }
+
     #[test]
     fn serializes_card_create_request() {
         let value = serde_json::to_value(CardCreateRequest {
@@ -9962,6 +11241,286 @@ mod tests {
 
         assert_eq!(value["card"]["card_type"], "GROUPON");
         assert_eq!(value["card"]["groupon"]["base_info"]["brand_name"], "brand");
+    }
+
+    #[test]
+    fn validates_typed_card_create_and_update_contracts() {
+        let request = CardCreateRequest::typed(
+            CardKind::Groupon,
+            CardTypeDetail {
+                base_info: Some(valid_card_base_info()),
+                advanced_info: Some(CardAdvancedInfo {
+                    use_condition: Some(CardUseCondition {
+                        accept_category: Some("All products".to_string()),
+                        reject_category: None,
+                        can_use_with_other_discount: Some(false),
+                    }),
+                    abstract_info: Some(CardAbstract {
+                        summary: Some("Launch offer".to_string()),
+                        icon_url_list: vec!["https://example.com/icon.png".to_string()],
+                    }),
+                    text_image_list: vec![CardTextImage {
+                        image_url: "https://example.com/detail.png".to_string(),
+                        text: "Offer details".to_string(),
+                    }],
+                    time_limit: vec![CardTimeLimit {
+                        limit_type: "MONDAY".to_string(),
+                        begin_hour: Some(9),
+                        end_hour: Some(18),
+                        begin_minute: Some(0),
+                        end_minute: Some(0),
+                    }],
+                    business_service: vec!["BIZ_SERVICE_FREE_WIFI".to_string()],
+                    extra: Value::Null,
+                }),
+                deal_detail: Some("Save 20 percent".to_string()),
+                ..CardTypeDetail::default()
+            },
+        )
+        .unwrap();
+        request.validate().unwrap();
+        assert_eq!(request.card["card_type"], "GROUPON");
+        assert_eq!(
+            request.card["groupon"]["base_info"]["date_info"]["type"],
+            "DATE_TYPE_FIX_TIME_RANGE"
+        );
+        assert_eq!(
+            request.card["groupon"]["advanced_info"]["abstract"]["abstract"],
+            "Launch offer"
+        );
+        assert!(request.card["groupon"].get("cash").is_none());
+        assert!(request.card["groupon"]["base_info"].get("id").is_none());
+
+        let mismatched = CardCreateRequest {
+            card: json!({
+                "card_type": "GROUPON",
+                "cash": {
+                    "base_info": serde_json::to_value(valid_card_base_info()).unwrap(),
+                    "reduce_cost": 100
+                }
+            }),
+        };
+        assert!(mismatched.validate().is_err());
+
+        let mut unsafe_base = valid_card_base_info();
+        unsafe_base.logo_url = Some("https://user:secret@example.com/logo.png".to_string());
+        assert!(CardCreateRequest::typed(
+            CardKind::Gift,
+            CardTypeDetail {
+                base_info: Some(unsafe_base),
+                gift: Some("Gift".to_string()),
+                ..CardTypeDetail::default()
+            }
+        )
+        .is_err());
+
+        let update = serde_json::to_value(CardTypeDetail {
+            base_info: Some(CardBaseInfo {
+                title: Some("Updated offer".to_string()),
+                ..CardBaseInfo::default()
+            }),
+            deal_detail: Some("Updated details".to_string()),
+            ..CardTypeDetail::default()
+        })
+        .unwrap();
+        validate_card_update_detail(CardKind::Groupon, &update).unwrap();
+        assert!(validate_card_update_detail(CardKind::Groupon, &json!({})).is_err());
+        assert!(validate_card_update_detail(
+            CardKind::Groupon,
+            &json!({ "card_id": "must-not-be-nested" })
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn validates_card_lifecycle_response_contracts() {
+        let created: CardCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "card_id": "card-1" })).unwrap();
+        created.validate().unwrap();
+        let missing_id: CardCreateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(missing_id.validate().is_err());
+        let api_error: CardCreateResponse = serde_json::from_value(json!({
+            "errcode": 40099,
+            "errmsg": "invalid card"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
+
+        let list: CardListResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "card_id_list": ["card-1", "card-2"],
+            "total_num": 3
+        }))
+        .unwrap();
+        list.validate_for(2).unwrap();
+        let duplicate: CardListResponse = serde_json::from_value(json!({
+            "card_id_list": ["card-1", "card-1"],
+            "total_num": 2
+        }))
+        .unwrap();
+        assert!(duplicate.validate_for(2).is_err());
+        let impossible_total: CardListResponse = serde_json::from_value(json!({
+            "card_id_list": ["card-1", "card-2"],
+            "total_num": 1
+        }))
+        .unwrap();
+        assert!(impossible_total.validate_for(2).is_err());
+
+        CardListRequest {
+            offset: 0,
+            count: 50,
+            status_list: vec!["CARD_STATUS_VERIFY_OK".to_string()],
+        }
+        .validate()
+        .unwrap();
+        assert!(CardListRequest {
+            offset: -1,
+            count: 51,
+            status_list: Vec::new(),
+        }
+        .validate()
+        .is_err());
+        assert!(CardListRequest {
+            offset: 0,
+            count: 10,
+            status_list: vec![
+                "CARD_STATUS_VERIFY_OK".to_string(),
+                "CARD_STATUS_VERIFY_OK".to_string(),
+            ],
+        }
+        .validate()
+        .is_err());
+
+        let update: CardUpdateResponse =
+            serde_json::from_value(json!({ "errcode": 0, "send_check": false })).unwrap();
+        update.validate().unwrap();
+        let incomplete_update: CardUpdateResponse =
+            serde_json::from_value(json!({ "errcode": 0 })).unwrap();
+        assert!(incomplete_update.validate().is_err());
+    }
+
+    #[test]
+    fn validates_card_code_and_qr_contracts() {
+        let lookup = CardCodeRequest {
+            card_id: "card-1".to_string(),
+            code: "code-1".to_string(),
+            check_consume: true,
+        };
+        lookup.validate().unwrap();
+        let code: CardCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "card": {
+                "card_id": "card-1",
+                "begin_time": 1800000000,
+                "end_time": 1800086400
+            },
+            "openid": "openid-1",
+            "can_consume": true,
+            "user_card_status": "NORMAL"
+        }))
+        .unwrap();
+        code.validate_for(&lookup).unwrap();
+
+        let mismatched: CardCodeResponse = serde_json::from_value(json!({
+            "card": { "card_id": "card-2" },
+            "can_consume": false,
+            "user_card_status": "CONSUMED"
+        }))
+        .unwrap();
+        assert!(mismatched.validate_for(&lookup).is_err());
+        let invalid_period: CardCodeResponse = serde_json::from_value(json!({
+            "card": {
+                "card_id": "card-1",
+                "begin_time": 1800086400,
+                "end_time": 1800000000
+            },
+            "can_consume": true,
+            "user_card_status": "NORMAL"
+        }))
+        .unwrap();
+        assert!(invalid_period.validate().is_err());
+
+        let single = CardQrCodeRequest::single(
+            CardQrCodeItem {
+                card_id: "card-1".to_string(),
+                code: Some("custom-code".to_string()),
+                openid: Some("openid-1".to_string()),
+                outer_str: Some("campaign-1".to_string()),
+                is_unique_code: Some(true),
+            },
+            Some(3_600),
+        )
+        .unwrap();
+        single.validate().unwrap();
+        assert_eq!(single.action_info["card"]["card_id"], "card-1");
+
+        let multiple = CardQrCodeRequest::multiple(
+            vec![
+                CardQrCodeItem {
+                    card_id: "card-1".to_string(),
+                    code: None,
+                    openid: None,
+                    outer_str: None,
+                    is_unique_code: None,
+                },
+                CardQrCodeItem {
+                    card_id: "card-2".to_string(),
+                    code: None,
+                    openid: None,
+                    outer_str: None,
+                    is_unique_code: None,
+                },
+            ],
+            None,
+        )
+        .unwrap();
+        multiple.validate().unwrap();
+        assert_eq!(
+            multiple.action_info["multiple_card"]["card_list"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(CardQrCodeRequest::multiple(
+            vec![
+                CardQrCodeItem {
+                    card_id: "card-1".to_string(),
+                    code: None,
+                    openid: None,
+                    outer_str: None,
+                    is_unique_code: None,
+                },
+                CardQrCodeItem {
+                    card_id: "card-1".to_string(),
+                    code: None,
+                    openid: None,
+                    outer_str: None,
+                    is_unique_code: None,
+                },
+            ],
+            None,
+        )
+        .is_err());
+
+        let qr_response: CardQrCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "ticket": "ticket-1",
+            "expire_seconds": 3600,
+            "url": "https://weixin.qq.com/q/example",
+            "show_qrcode_url": "https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=ticket-1"
+        }))
+        .unwrap();
+        qr_response.validate().unwrap();
+        let unsafe_qr: CardQrCodeResponse = serde_json::from_value(json!({
+            "ticket": "ticket-1",
+            "expire_seconds": 3600,
+            "url": "https://user:secret@example.com/q",
+            "show_qrcode_url": "https://example.com/q"
+        }))
+        .unwrap();
+        assert!(unsafe_qr.validate().is_err());
     }
 
     #[test]
@@ -10263,6 +11822,7 @@ mod tests {
         }))
         .unwrap();
 
+        response.validate_for("card").unwrap();
         let card = response.card.expect("card");
         assert_eq!(card.card_type.as_deref(), Some("GROUPON"));
         let groupon = card.groupon.expect("groupon");
@@ -10282,21 +11842,8 @@ mod tests {
         );
         assert_eq!(base.sku.as_ref().and_then(|sku| sku.quantity), Some(100));
         let pending_base = CardBaseInfo {
-            id: None,
-            logo_url: None,
-            code_type: None,
-            brand_name: None,
-            title: None,
-            sub_title: None,
-            color: None,
-            notice: None,
-            description: None,
-            date_info: None,
-            sku: None,
-            get_limit: None,
-            use_limit: None,
             status: Some("CARD_STATUS_NOT_VERIFY".to_string()),
-            extra: Value::Null,
+            ..CardBaseInfo::default()
         };
         assert_eq!(
             pending_base.status_kind(),

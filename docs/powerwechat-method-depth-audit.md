@@ -211,9 +211,9 @@ Implemented on 2026-07-24 in Open Platform authorizer account depth:
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for the remaining dynamic card surface.
-   `user/tag`, `customerService`, `broadcasting`, `material`, `menu`,
-   `templateMessage`, and `publish` now have production request/response guards.
+   `card`, `user/tag`, `customerService`, `broadcasting`, `material`, `menu`,
+   `templateMessage`, and `publish` now have production request/response guards
+   and typed core DTOs.
 
 Implemented on 2026-07-24 in Official Account user/tag/customer-service depth:
 
@@ -239,6 +239,36 @@ Implemented on 2026-07-24 in Official Account user/tag/customer-service depth:
 - focused production and failure matrices cover numeric IDs, sparse
   unsubscribed users, duplicate accounts/tags, stalled pagination, mixed
   migration outcomes, malformed records, and API errors.
+
+Implemented on 2026-07-24 in Official Account card production depth:
+
+- the current PowerWeChat commit `229f744` exposes create/get/list/update/delete
+  and QR-code creation from its card client; Roze retains one-to-one wrappers
+  plus code lookup/decryption, while PowerWeChat's code/member/general/gift/
+  invoice/coin/sub-merchant/JSSDK/ticket sub-clients contain no callable
+  methods and are not counted as missing endpoints;
+- all eight Roze card network exits now validate requests before HTTP I/O and
+  WeChat API status plus successful response contracts before returning data;
+  get and code responses reconcile card/code identity with the request;
+- `CardKind`, typed create/update constructors, all eleven upstream card
+  variants, complete base info, date/SKU, payment, use-condition, abstract,
+  text-image, time-limit, business-service, member-card, and QR single/multiple
+  DTOs replace the remaining core dynamic payload surface while preserving
+  extension fields and the existing raw-value compatibility methods;
+- typed request serialization now emits the documented `date_info.type` wire
+  name and omits absent fields instead of sending nulls; card type/detail
+  pairing, required create fields, validity modes, inventory, money, discount,
+  color, status, location, URL/label pairs, member URLs, advanced-info
+  cardinality, weekday windows, services, QR expiry, and unique card lists are
+  validated semantically;
+- create/list/update/get/code/decrypt/QR responses enforce required identities,
+  exact or bounded counts, unique IDs, ordered validity periods, holder/status
+  semantics, positive expiration, safe URLs, and required `send_check` /
+  `can_consume` fields;
+- focused success and failure matrices cover typed wire shape, mismatched card
+  variants, unsafe URLs, duplicate filters/cards, impossible totals, API
+  errors, missing success fields, invalid validity periods, request/response
+  mismatches, and single/multiple QR actions.
 
 Implemented on 2026-07-24 in Official Account menu/broadcasting/template-message depth:
 
