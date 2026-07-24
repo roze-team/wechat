@@ -12191,7 +12191,10 @@ impl WorkMessageAudience {
         validate_work_message_boolean("safe", self.safe)?;
         validate_work_message_boolean("ID translation", self.enable_id_trans)?;
         validate_work_message_boolean("duplicate check", self.enable_duplicate_check)?;
-        validate_work_message_duplicate_interval(self.duplicate_check_interval)
+        validate_work_message_duplicate_check(
+            self.enable_duplicate_check,
+            self.duplicate_check_interval,
+        )
     }
 }
 
@@ -12221,11 +12224,30 @@ fn validate_work_message_boolean(label: &str, value: Option<i64>) -> Result<()> 
     Ok(())
 }
 
-fn validate_work_message_duplicate_interval(interval: Option<i64>) -> Result<()> {
+fn validate_work_message_duplicate_check(
+    enabled: Option<i64>,
+    interval: Option<i64>,
+) -> Result<()> {
     if interval.is_some_and(|interval| !(1..=14_400).contains(&interval)) {
         return Err(WechatError::Config(
             "work message duplicate-check interval must be between 1 and 14400 seconds".to_string(),
         ));
+    }
+    if interval.is_some() && enabled != Some(1) {
+        return Err(WechatError::Config(
+            "work message duplicate-check interval requires duplicate checking to be enabled"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_work_message_identifier_value(label: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "work message {label} must contain 1 to 512 printable UTF-8 bytes"
+        )));
     }
     Ok(())
 }
@@ -12249,6 +12271,9 @@ fn validate_work_message_recipient_string(label: &str, value: &str, maximum: usi
             "work message {label} cannot contain duplicates"
         )));
     }
+    for identifier in identifiers {
+        validate_work_message_identifier_value(label, identifier)?;
+    }
     Ok(())
 }
 
@@ -12257,15 +12282,13 @@ fn validate_work_message_id_list(
     identifiers: &[String],
     maximum: usize,
 ) -> Result<()> {
-    if identifiers.len() > maximum
-        || identifiers
-            .iter()
-            .any(|identifier| identifier.trim().is_empty())
-        || has_duplicate_strings(identifiers)
-    {
+    if identifiers.len() > maximum || has_duplicate_strings(identifiers) {
         return Err(WechatError::Config(format!(
             "work message {label} must contain at most {maximum} unique non-empty identifiers"
         )));
+    }
+    for identifier in identifiers {
+        validate_work_message_identifier_value(label, identifier)?;
     }
     Ok(())
 }
@@ -12314,12 +12337,7 @@ fn validate_work_message_payload_set<const N: usize>(
 }
 
 fn validate_work_message_identifier(label: &str, value: &str) -> Result<()> {
-    if value.trim().is_empty() {
-        return Err(WechatError::Config(format!(
-            "work message {label} cannot be empty"
-        )));
-    }
-    Ok(())
+    validate_work_message_identifier_value(label, value)
 }
 
 fn work_message_payload_string<'a>(payload: &'a Value, field: &str) -> Option<&'a str> {
@@ -12397,6 +12415,11 @@ fn validate_work_message_http_url(payload: &Value, field: &str, required: bool) 
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
         return Err(WechatError::Config(format!(
             "work message payload field {field} requires an absolute HTTP(S) URL"
+        )));
+    }
+    if !url.username().is_empty() || url.password().is_some() || url.fragment().is_some() {
+        return Err(WechatError::Config(format!(
+            "work message payload field {field} cannot contain credentials or a fragment"
         )));
     }
     Ok(())
@@ -12540,9 +12563,37 @@ fn validate_work_message_payload(msg_type: &str, payload: &Value) -> Result<()> 
                     "work task-card requires at least one button".to_string(),
                 ));
             }
+            let mut button_keys = std::collections::HashSet::new();
             for button in buttons {
                 validate_work_message_payload_string(button, "key", 128)?;
                 validate_work_message_payload_string(button, "name", 128)?;
+                validate_work_message_optional_payload_string(button, "replace_name", 128)?;
+                let key = work_message_payload_string(button, "key").expect("validated button key");
+                if !key
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"_-@.".contains(&byte))
+                {
+                    return Err(WechatError::Config(
+                        "work task-card button keys may contain only letters, digits, _, -, @, and ."
+                            .to_string(),
+                    ));
+                }
+                if !button_keys.insert(key) {
+                    return Err(WechatError::Config(
+                        "work task-card button keys must be unique".to_string(),
+                    ));
+                }
+                if let Some(color) = button
+                    .as_object()
+                    .and_then(|object| object.get("color"))
+                    .and_then(Value::as_str)
+                {
+                    if !matches!(color, "red" | "blue") {
+                        return Err(WechatError::Config(
+                            "work task-card button color must be red or blue".to_string(),
+                        ));
+                    }
+                }
             }
             Ok(())
         }
@@ -13277,7 +13328,10 @@ impl WorkExternalContactSchoolMessage {
         validate_work_message_boolean("school toall", self.toall)?;
         validate_work_message_boolean("school ID translation", self.enable_id_trans)?;
         validate_work_message_boolean("school duplicate check", self.enable_duplicate_check)?;
-        validate_work_message_duplicate_interval(self.duplicate_check_interval)?;
+        validate_work_message_duplicate_check(
+            self.enable_duplicate_check,
+            self.duplicate_check_interval,
+        )?;
         if self.to_external_userid.is_empty()
             && self.to_parent_userid.is_empty()
             && self.to_student_userid.is_empty()
@@ -15967,6 +16021,19 @@ pub struct WorkLinkedCorpMessageSendResponse {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkLinkedCorpMessageFailureKind {
+    InvalidUser,
+    InvalidDepartment,
+    InvalidTag,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorkLinkedCorpMessageFailure<'a> {
+    pub kind: WorkLinkedCorpMessageFailureKind,
+    pub identifier: &'a str,
+}
+
 impl WorkLinkedCorpMessageSendResponse {
     pub fn validate(&self) -> Result<()> {
         validate_work_response_success(
@@ -15994,6 +16061,38 @@ impl WorkLinkedCorpMessageSendResponse {
     pub fn has_delivery_failures(&self) -> bool {
         self.invalid_recipient_count() != 0
     }
+
+    pub fn delivery_failures(&self) -> impl Iterator<Item = WorkLinkedCorpMessageFailure<'_>> + '_ {
+        [
+            (
+                WorkLinkedCorpMessageFailureKind::InvalidUser,
+                self.invaliduser.as_slice(),
+            ),
+            (
+                WorkLinkedCorpMessageFailureKind::InvalidDepartment,
+                self.invalidparty.as_slice(),
+            ),
+            (
+                WorkLinkedCorpMessageFailureKind::InvalidTag,
+                self.invalidtag.as_slice(),
+            ),
+        ]
+        .into_iter()
+        .flat_map(|(kind, identifiers)| {
+            identifiers
+                .iter()
+                .map(move |identifier| WorkLinkedCorpMessageFailure { kind, identifier })
+        })
+    }
+
+    pub fn failures_of_kind(
+        &self,
+        kind: WorkLinkedCorpMessageFailureKind,
+    ) -> impl Iterator<Item = &str> + '_ {
+        self.delivery_failures()
+            .filter(move |failure| failure.kind == kind)
+            .map(|failure| failure.identifier)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16012,6 +16111,20 @@ pub struct WorkExternalContactSchoolMessageSendResponse {
     pub invalid_party: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkSchoolMessageFailureKind {
+    InvalidExternalUser,
+    InvalidParent,
+    InvalidStudent,
+    InvalidDepartment,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorkSchoolMessageFailure<'a> {
+    pub kind: WorkSchoolMessageFailureKind,
+    pub identifier: &'a str,
 }
 
 impl WorkExternalContactSchoolMessageSendResponse {
@@ -16053,6 +16166,42 @@ impl WorkExternalContactSchoolMessageSendResponse {
     pub fn has_delivery_failures(&self) -> bool {
         self.invalid_recipient_count() != 0
     }
+
+    pub fn delivery_failures(&self) -> impl Iterator<Item = WorkSchoolMessageFailure<'_>> + '_ {
+        [
+            (
+                WorkSchoolMessageFailureKind::InvalidExternalUser,
+                self.invalid_external_user.as_slice(),
+            ),
+            (
+                WorkSchoolMessageFailureKind::InvalidParent,
+                self.invalid_parent_userid.as_slice(),
+            ),
+            (
+                WorkSchoolMessageFailureKind::InvalidStudent,
+                self.invalid_student_userid.as_slice(),
+            ),
+            (
+                WorkSchoolMessageFailureKind::InvalidDepartment,
+                self.invalid_party.as_slice(),
+            ),
+        ]
+        .into_iter()
+        .flat_map(|(kind, identifiers)| {
+            identifiers
+                .iter()
+                .map(move |identifier| WorkSchoolMessageFailure { kind, identifier })
+        })
+    }
+
+    pub fn failures_of_kind(
+        &self,
+        kind: WorkSchoolMessageFailureKind,
+    ) -> impl Iterator<Item = &str> + '_ {
+        self.delivery_failures()
+            .filter(move |failure| failure.kind == kind)
+            .map(|failure| failure.identifier)
+    }
 }
 
 fn validate_work_message_response_recipient_string(
@@ -16074,6 +16223,7 @@ fn validate_work_message_response_recipient_string(
                 "work message response {label} must contain unique non-empty pipe-delimited ids"
             )));
         }
+        validate_work_message_response_token(label, recipient, 512)?;
     }
     if seen.len() > maximum {
         return Err(WechatError::Config(format!(
@@ -16102,13 +16252,13 @@ fn validate_work_message_response_id_list(
     values: &[String],
     maximum: usize,
 ) -> Result<()> {
-    if values.len() > maximum
-        || values.iter().any(|value| value.trim().is_empty())
-        || has_duplicate_strings(values)
-    {
+    if values.len() > maximum || has_duplicate_strings(values) {
         return Err(WechatError::Config(format!(
             "work message response {label} must contain at most {maximum} unique non-empty ids"
         )));
+    }
+    for value in values {
+        validate_work_message_response_token(label, value, 512)?;
     }
     Ok(())
 }
@@ -50126,6 +50276,8 @@ mod tests {
         audience.duplicate_check_interval = Some(14_401);
         assert!(audience.validate().is_err());
         audience.duplicate_check_interval = Some(14_400);
+        assert!(audience.validate().is_err());
+        audience.enable_duplicate_check = Some(1);
         audience.touser = Some(
             (0..1_000)
                 .map(|index| format!("user-{index}"))
@@ -50141,6 +50293,10 @@ mod tests {
         );
         assert!(audience.validate().is_err());
         audience.touser = Some("user-a|user-a".to_string());
+        assert!(audience.validate().is_err());
+        audience.touser = Some(format!("user-{}", "x".repeat(508)));
+        assert!(audience.validate().is_err());
+        audience.touser = Some("user\nid".to_string());
         assert!(audience.validate().is_err());
 
         let mut message = WorkMessage {
@@ -50250,6 +50406,74 @@ mod tests {
                 "title": "title",
                 "description": "description",
                 "url": "javascript:alert(1)"
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "textcard",
+            &json!({
+                "title": "title",
+                "description": "description",
+                "url": "https://user:secret@example.test/card"
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "textcard",
+            &json!({
+                "title": "title",
+                "description": "description",
+                "url": "https://example.test/card#browser-state"
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "taskcard",
+            &json!({
+                "title": "Approval",
+                "description": "Please review",
+                "task_id": "task-1",
+                "btn": [
+                    { "key": "approve", "name": "Approve", "color": "red" },
+                    { "key": "reject", "name": "Reject", "color": "blue" }
+                ]
+            })
+        )
+        .is_ok());
+        assert!(validate_work_message_payload(
+            "taskcard",
+            &json!({
+                "title": "Approval",
+                "description": "Please review",
+                "task_id": "task-1",
+                "btn": [
+                    { "key": "approve!", "name": "Approve" }
+                ]
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "taskcard",
+            &json!({
+                "title": "Approval",
+                "description": "Please review",
+                "task_id": "task-1",
+                "btn": [
+                    { "key": "approve", "name": "Approve" },
+                    { "key": "approve", "name": "Approve again" }
+                ]
+            })
+        )
+        .is_err());
+        assert!(validate_work_message_payload(
+            "taskcard",
+            &json!({
+                "title": "Approval",
+                "description": "Please review",
+                "task_id": "task-1",
+                "btn": [
+                    { "key": "approve", "name": "Approve", "color": "green" }
+                ]
             })
         )
         .is_err());
@@ -50536,6 +50760,18 @@ mod tests {
         }))
         .unwrap();
         assert!(duplicate_recipients.validate_send().is_err());
+        let malformed_recipient: MessageSendResponse = serde_json::from_value(json!({
+            "msgid": "message-id",
+            "invaliduser": "bad\nuser"
+        }))
+        .unwrap();
+        assert!(malformed_recipient.validate_send().is_err());
+        let oversized_recipient: MessageSendResponse = serde_json::from_value(json!({
+            "msgid": "message-id",
+            "invaliduser": "x".repeat(513)
+        }))
+        .unwrap();
+        assert!(oversized_recipient.validate_send().is_err());
         let missing_interactive_code: MessageSendResponse =
             serde_json::from_value(json!({ "msgid": "message-id" })).unwrap();
         assert!(missing_interactive_code
@@ -50617,11 +50853,29 @@ mod tests {
         }))
         .unwrap();
         assert!(linked.validate().is_ok());
+        assert_eq!(
+            linked
+                .failures_of_kind(WorkLinkedCorpMessageFailureKind::InvalidDepartment)
+                .collect::<Vec<_>>(),
+            vec!["Corp/bad-party"]
+        );
+        assert_eq!(
+            linked.delivery_failures().next(),
+            Some(WorkLinkedCorpMessageFailure {
+                kind: WorkLinkedCorpMessageFailureKind::InvalidUser,
+                identifier: "Corp/bad-user",
+            })
+        );
         let duplicate_linked: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
             "invalidtag": ["Corp/tag", "Corp/tag"]
         }))
         .unwrap();
         assert!(duplicate_linked.validate().is_err());
+        let malformed_linked: WorkLinkedCorpMessageSendResponse = serde_json::from_value(json!({
+            "invaliduser": ["Corp/bad\nuser"]
+        }))
+        .unwrap();
+        assert!(malformed_linked.validate().is_err());
 
         let school: WorkExternalContactSchoolMessageSendResponse = serde_json::from_value(json!({
             "invalid_external_user": ["external-user"],
@@ -50629,9 +50883,25 @@ mod tests {
         }))
         .unwrap();
         assert!(school.validate().is_ok());
+        assert_eq!(
+            school
+                .failures_of_kind(WorkSchoolMessageFailureKind::InvalidExternalUser)
+                .collect::<Vec<_>>(),
+            vec!["external-user"]
+        );
+        assert_eq!(
+            school.delivery_failures().last(),
+            Some(WorkSchoolMessageFailure {
+                kind: WorkSchoolMessageFailureKind::InvalidDepartment,
+                identifier: "party",
+            })
+        );
         let blank_school: WorkExternalContactSchoolMessageSendResponse =
             serde_json::from_value(json!({ "invalid_parent_userid": [""] })).unwrap();
         assert!(blank_school.validate().is_err());
+        let oversized_school: WorkExternalContactSchoolMessageSendResponse =
+            serde_json::from_value(json!({ "invalid_student_userid": ["x".repeat(513)] })).unwrap();
+        assert!(oversized_school.validate().is_err());
 
         let create_chat = AppChatCreateRequest {
             name: "Project".to_string(),

@@ -34,6 +34,24 @@ methods into one typed wrapper, and PowerWeChat includes non-endpoint helpers.
    semantic helper polish across `externalContact`, `oa`, `user`, `message`,
    `media`, and webhook/token flows.
 
+Implemented on 2026-07-24 in Work application-message contract depth:
+
+- the latest PowerWeChat message scan remains endpoint-green across generic
+  and typed application sends, recall, task/template-card updates, AppChat,
+  linked-corporation sends, and external-contact school notifications;
+- duplicate-check intervals now require the duplicate-check switch to be
+  enabled, preventing contradictory payloads while preserving WeCom's default
+  interval when the switch is enabled without an explicit value;
+- request and partial-delivery recipient identifiers, recall/update ids, and
+  AppChat identifiers reject blank, control-character, or oversized values;
+  message URLs reject embedded credentials and browser-only fragments;
+- task-card buttons now enforce the documented key character set, unique keys,
+  bounded replacement labels, and the `red`/`blue` color vocabulary before
+  network I/O;
+- linked-corporation and school-notification responses expose typed failure
+  kinds and kind-specific iterators, while malformed or oversized upstream
+  recipient ids are rejected by the response boundary.
+
 Implemented on 2026-07-24 in Work AI Bot long-connection depth:
 
 - Work AI Bot now exposes a production asynchronous WebSocket client instead
