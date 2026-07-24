@@ -211,9 +211,34 @@ Implemented on 2026-07-24 in Open Platform authorizer account depth:
 
 5. Official Account depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for the remaining user/tag/customer-service/card
-   surfaces. `broadcasting`, `material`, `menu`, `templateMessage`, and
-   `publish` now have production request/response guards.
+   Continue DTO normalization for the remaining dynamic card surface.
+   `user/tag`, `customerService`, `broadcasting`, `material`, `menu`,
+   `templateMessage`, and `publish` now have production request/response guards.
+
+Implemented on 2026-07-24 in Official Account user/tag/customer-service depth:
+
+- all user detail/batch/list/remark/migration/blacklist, tag lifecycle/member,
+  customer-service account/session/record/message/typing network exits now
+  validate API status and successful response contracts before returning data;
+- subscribed-user responses require matching OpenID, binary subscription state,
+  valid language/sex/time/group/scene/tag metadata, safe avatar URLs, and
+  bounded remarks, while unsubscribed users retain the documented sparse shape;
+- user, blacklist, and tag-member pages enforce nonnegative exact counts,
+  unique OpenIDs, bounded page sizes, consistent totals, and continuation
+  OpenIDs matching the final returned item;
+- tag creation/list/id/member responses validate positive unique tag IDs,
+  bounded unique names, nonnegative counts, and optional mutation echoes
+  against the original request; OpenID migration reconciles every requested
+  original ID and requires unique new IDs for successful items;
+- customer-service account responses accept both numeric and string upstream
+  `kf_id` wire values while exposing the existing string API, then validate
+  unique accounts/IDs, nicknames, safe avatars, online states, and counters;
+- session/wait/record responses require unique OpenIDs, positive timestamps,
+  exact counts, nonnegative cursors, supported operation codes, and worker
+  identity for service-side records; every mutation checks WeChat `errcode`;
+- focused production and failure matrices cover numeric IDs, sparse
+  unsubscribed users, duplicate accounts/tags, stalled pagination, mixed
+  migration outcomes, malformed records, and API errors.
 
 Implemented on 2026-07-24 in Official Account menu/broadcasting/template-message depth:
 
