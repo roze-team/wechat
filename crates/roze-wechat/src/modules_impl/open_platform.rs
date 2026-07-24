@@ -40,9 +40,13 @@ impl OpenPlatform {
         &self,
         request: ComponentAccessTokenRequest,
     ) -> Result<ComponentAccessTokenResponse> {
-        self.inner
+        request.validate()?;
+        let response: ComponentAccessTokenResponse = self
+            .inner
             .post("cgi-bin/component/api_component_token", None, request)
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn create_preauth_code(
@@ -50,17 +54,20 @@ impl OpenPlatform {
         component_access_token: impl Into<String>,
         component_appid: impl Into<String>,
     ) -> Result<PreauthCodeResponse> {
-        self.inner
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        validate_open_platform_component_credentials(&component_access_token, &component_appid)?;
+        let response: PreauthCodeResponse = self
+            .inner
             .post_json_with_query(
                 "cgi-bin/component/api_create_preauthcode",
-                vec![(
-                    "component_access_token".to_string(),
-                    component_access_token.into(),
-                )],
-                json!({ "component_appid": component_appid.into() }),
+                vec![("component_access_token".to_string(), component_access_token)],
+                json!({ "component_appid": component_appid }),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn query_auth(
@@ -69,20 +76,29 @@ impl OpenPlatform {
         component_appid: impl Into<String>,
         authorization_code: impl Into<String>,
     ) -> Result<QueryAuthResponse> {
-        self.inner
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorization_code = authorization_code.into();
+        validate_open_platform_component_credentials(&component_access_token, &component_appid)?;
+        validate_open_platform_identifier(
+            "component authorization code",
+            &authorization_code,
+            512,
+        )?;
+        let response: QueryAuthResponse = self
+            .inner
             .post_json_with_query(
                 "cgi-bin/component/api_query_auth",
-                vec![(
-                    "component_access_token".to_string(),
-                    component_access_token.into(),
-                )],
+                vec![("component_access_token".to_string(), component_access_token)],
                 json!({
-                    "component_appid": component_appid.into(),
-                    "authorization_code": authorization_code.into(),
+                    "component_appid": component_appid,
+                    "authorization_code": authorization_code,
                 }),
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn authorizer_access_token(
@@ -90,17 +106,20 @@ impl OpenPlatform {
         component_access_token: impl Into<String>,
         request: AuthorizerAccessTokenRequest,
     ) -> Result<AuthorizerAccessTokenResponse> {
-        self.inner
+        let component_access_token = component_access_token.into();
+        validate_open_platform_identifier("component access token", &component_access_token, 512)?;
+        request.validate()?;
+        let response: AuthorizerAccessTokenResponse = self
+            .inner
             .post_json_with_query(
                 "cgi-bin/component/api_authorizer_token",
-                vec![(
-                    "component_access_token".to_string(),
-                    component_access_token.into(),
-                )],
+                vec![("component_access_token".to_string(), component_access_token)],
                 serde_json::to_value(request)?,
                 Vec::new(),
             )
-            .await
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn handle_authorize(
@@ -109,15 +128,15 @@ impl OpenPlatform {
         component_appid: impl Into<String>,
         authorization_code: impl Into<String>,
     ) -> Result<OpenPlatformHandleAuthorizeResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_query_auth",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorization_code": authorization_code.into(),
-            }),
-        )
-        .await
+        let response = self
+            .query_auth(component_access_token, component_appid, authorization_code)
+            .await?;
+        Ok(OpenPlatformHandleAuthorizeResponse {
+            errcode: response.errcode,
+            errmsg: response.errmsg,
+            authorization_info: response.authorization_info,
+            extra: response.extra,
+        })
     }
 
     pub async fn get_base_authorizer(
@@ -126,15 +145,23 @@ impl OpenPlatform {
         component_appid: impl Into<String>,
         authorizer_appid: impl Into<String>,
     ) -> Result<OpenPlatformAuthorizerInfoResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_info",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorizer_appid = authorizer_appid.into();
+        validate_open_platform_component_credentials(&component_access_token, &component_appid)?;
+        validate_open_platform_appid("authorizer appid", &authorizer_appid)?;
+        let response: OpenPlatformAuthorizerInfoResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_get_authorizer_info",
+                json!({
+                    "component_appid": component_appid,
+                    "authorizer_appid": authorizer_appid,
+                }),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_base_authorizer_option(
@@ -144,16 +171,29 @@ impl OpenPlatform {
         authorizer_appid: impl Into<String>,
         option_name: impl Into<String>,
     ) -> Result<OpenPlatformAuthorizerOptionResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_option",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-                "option_name": option_name.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorizer_appid = authorizer_appid.into();
+        let option_name = option_name.into();
+        validate_open_platform_component_option_request(
+            &component_access_token,
+            &component_appid,
+            &authorizer_appid,
+            &option_name,
+        )?;
+        let response: OpenPlatformAuthorizerOptionResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_get_authorizer_option",
+                json!({
+                    "component_appid": component_appid,
+                    "authorizer_appid": authorizer_appid,
+                    "option_name": option_name,
+                }),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_base_authorizer_option(
@@ -164,17 +204,32 @@ impl OpenPlatform {
         option_name: impl Into<String>,
         option_value: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_set_authorizer_option",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-                "option_name": option_name.into(),
-                "option_value": option_value.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorizer_appid = authorizer_appid.into();
+        let option_name = option_name.into();
+        let option_value = option_value.into();
+        validate_open_platform_component_option_request(
+            &component_access_token,
+            &component_appid,
+            &authorizer_appid,
+            &option_name,
+        )?;
+        validate_open_platform_identifier("authorizer option value", &option_value, 1024)?;
+        let response: OpenPlatformStatusResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_set_authorizer_option",
+                json!({
+                    "component_appid": component_appid,
+                    "authorizer_appid": authorizer_appid,
+                    "option_name": option_name,
+                    "option_value": option_value,
+                }),
+            )
+            .await?;
+        response.validate_for("set base authorizer option")?;
+        Ok(response)
     }
 
     pub async fn get_base_authorizers(
@@ -184,16 +239,23 @@ impl OpenPlatform {
         offset: i64,
         count: i64,
     ) -> Result<OpenPlatformAuthorizersResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_list",
-            json!({
-                "component_appid": component_appid.into(),
-                "offset": offset,
-                "count": count,
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        validate_open_platform_component_credentials(&component_access_token, &component_appid)?;
+        validate_open_platform_component_page(offset, count)?;
+        let response: OpenPlatformAuthorizersResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_get_authorizer_list",
+                json!({
+                    "component_appid": component_appid,
+                    "offset": offset,
+                    "count": count,
+                }),
+            )
+            .await?;
+        response.validate_page(offset, count)?;
+        Ok(response)
     }
 
     pub async fn create_pre_authorization_code(
@@ -210,12 +272,18 @@ impl OpenPlatform {
         component_access_token: impl Into<String>,
         component_appid: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/clear_quota",
-            json!({ "component_appid": component_appid.into() }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        validate_open_platform_component_credentials(&component_access_token, &component_appid)?;
+        let response: OpenPlatformStatusResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/clear_quota",
+                json!({ "component_appid": component_appid }),
+            )
+            .await?;
+        response.validate_for("clear component quota")?;
+        Ok(response)
     }
 
     pub fn authorizer(&self) -> DomainModule {
@@ -1154,15 +1222,8 @@ impl OpenPlatform {
         component_appid: impl Into<String>,
         authorizer_appid: impl Into<String>,
     ) -> Result<OpenPlatformAuthorizerInfoResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_info",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-            }),
-        )
-        .await
+        self.get_base_authorizer(component_access_token, component_appid, authorizer_appid)
+            .await
     }
 
     pub async fn get_authorizer_option(
@@ -1172,14 +1233,11 @@ impl OpenPlatform {
         authorizer_appid: impl Into<String>,
         option_name: impl Into<String>,
     ) -> Result<OpenPlatformAuthorizerOptionResponse> {
-        self.post_component_json(
+        self.get_base_authorizer_option(
             component_access_token,
-            "cgi-bin/component/api_get_authorizer_option",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-                "option_name": option_name.into(),
-            }),
+            component_appid,
+            authorizer_appid,
+            option_name,
         )
         .await
     }
@@ -1192,15 +1250,12 @@ impl OpenPlatform {
         option_name: impl Into<String>,
         option_value: impl Into<String>,
     ) -> Result<OpenPlatformStatusResponse> {
-        self.post_component_json(
+        self.set_base_authorizer_option(
             component_access_token,
-            "cgi-bin/component/api_set_authorizer_option",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-                "option_name": option_name.into(),
-                "option_value": option_value.into(),
-            }),
+            component_appid,
+            authorizer_appid,
+            option_name,
+            option_value,
         )
         .await
     }
@@ -1212,16 +1267,8 @@ impl OpenPlatform {
         offset: i64,
         count: i64,
     ) -> Result<OpenPlatformAuthorizersResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_list",
-            json!({
-                "component_appid": component_appid.into(),
-                "offset": offset,
-                "count": count,
-            }),
-        )
-        .await
+        self.get_base_authorizers(component_access_token, component_appid, offset, count)
+            .await
     }
 
     pub fn code_template(&self) -> DomainModule {
@@ -1393,6 +1440,18 @@ pub struct ComponentAccessTokenRequest {
     pub component_verify_ticket: String,
 }
 
+impl ComponentAccessTokenRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_appid("component appid", &self.component_appid)?;
+        validate_open_platform_identifier("component app secret", &self.component_appsecret, 512)?;
+        validate_open_platform_identifier(
+            "component verify ticket",
+            &self.component_verify_ticket,
+            512,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComponentAccessTokenResponse {
     #[serde(default)]
@@ -1403,6 +1462,21 @@ pub struct ComponentAccessTokenResponse {
     pub component_access_token: Option<String>,
     #[serde(default)]
     pub expires_in: Option<i64>,
+}
+
+impl ComponentAccessTokenResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "get component access token",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_token_response(
+            "component access token",
+            self.component_access_token.as_deref(),
+            self.expires_in,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1417,6 +1491,22 @@ pub struct PreauthCodeResponse {
     pub expires_in: Option<i64>,
 }
 
+impl PreauthCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "create component pre-authorization code",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_identifier(
+            "component pre-authorization code",
+            self.pre_auth_code.as_deref().unwrap_or_default(),
+            512,
+        )?;
+        validate_open_platform_expiry("component pre-authorization code", self.expires_in)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryAuthResponse {
     #[serde(default)]
@@ -1429,11 +1519,42 @@ pub struct QueryAuthResponse {
     pub extra: Value,
 }
 
+impl QueryAuthResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "query component authorization",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.authorization_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open platform query authorization response requires authorization_info"
+                        .to_string(),
+                )
+            })?
+            .validate_query()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorizerAccessTokenRequest {
     pub component_appid: String,
     pub authorizer_appid: String,
     pub authorizer_refresh_token: String,
+}
+
+impl AuthorizerAccessTokenRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_appid("component appid", &self.component_appid)?;
+        validate_open_platform_appid("authorizer appid", &self.authorizer_appid)?;
+        validate_open_platform_identifier(
+            "authorizer refresh token",
+            &self.authorizer_refresh_token,
+            512,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1448,6 +1569,26 @@ pub struct AuthorizerAccessTokenResponse {
     pub expires_in: Option<i64>,
     #[serde(default)]
     pub authorizer_refresh_token: Option<String>,
+}
+
+impl AuthorizerAccessTokenResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "get authorizer access token",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_token_response(
+            "authorizer access token",
+            self.authorizer_access_token.as_deref(),
+            self.expires_in,
+        )?;
+        validate_open_platform_identifier(
+            "authorizer refresh token",
+            self.authorizer_refresh_token.as_deref().unwrap_or_default(),
+            512,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1496,6 +1637,66 @@ pub struct OpenPlatformAuthorizationInfo {
     pub extra: Value,
 }
 
+impl OpenPlatformAuthorizationInfo {
+    pub fn validate_query(&self) -> Result<()> {
+        self.validate_common()?;
+        validate_open_platform_token_response(
+            "authorizer access token",
+            self.authorizer_access_token.as_deref(),
+            self.expires_in,
+        )?;
+        validate_open_platform_identifier(
+            "authorizer refresh token",
+            self.authorizer_refresh_token.as_deref().unwrap_or_default(),
+            512,
+        )
+    }
+
+    pub fn validate_summary(&self) -> Result<()> {
+        self.validate_common()
+    }
+
+    fn validate_common(&self) -> Result<()> {
+        validate_open_platform_appid(
+            "authorizer appid",
+            self.authorizer_appid.as_deref().unwrap_or_default(),
+        )?;
+        let mut scope_ids = std::collections::HashSet::with_capacity(self.func_info.len());
+        for function in &self.func_info {
+            let category = function.funcscope_category.as_ref().ok_or_else(|| {
+                WechatError::Config(
+                    "open platform authorization scope requires funcscope_category".to_string(),
+                )
+            })?;
+            let id = category.id.ok_or_else(|| {
+                WechatError::Config(
+                    "open platform authorization scope requires a category id".to_string(),
+                )
+            })?;
+            if id < 0 || !scope_ids.insert(id) {
+                return Err(WechatError::Config(
+                    "open platform authorization scope ids must be nonnegative and unique"
+                        .to_string(),
+                ));
+            }
+            if let Some(confirm) = &function.confirm_info {
+                for (kind, value) in [
+                    ("need_confirm", confirm.need_confirm),
+                    ("already_confirm", confirm.already_confirm),
+                    ("can_confirm", confirm.can_confirm),
+                ] {
+                    if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                        return Err(WechatError::Config(format!(
+                            "open platform authorization {kind} must be 0 or 1"
+                        )));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformHandleAuthorizeResponse {
     #[serde(default)]
@@ -1506,6 +1707,24 @@ pub struct OpenPlatformHandleAuthorizeResponse {
     pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformHandleAuthorizeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "handle component authorization",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.authorization_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open platform authorization response requires authorization_info".to_string(),
+                )
+            })?
+            .validate_query()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1646,6 +1865,78 @@ pub struct OpenPlatformAuthorizerInfo {
     pub extra: Value,
 }
 
+impl OpenPlatformAuthorizerInfo {
+    pub fn validate(&self) -> Result<()> {
+        validate_open_platform_text(
+            "authorizer nickname",
+            self.nick_name.as_deref().unwrap_or_default(),
+            128,
+        )?;
+        for (kind, url) in [
+            ("authorizer head image URL", self.head_img.as_deref()),
+            ("authorizer QR-code URL", self.qrcode_url.as_deref()),
+        ] {
+            if let Some(url) = url {
+                validate_open_platform_http_url(kind, url)?;
+            }
+        }
+        for (kind, value) in [
+            (
+                "authorizer service type",
+                self.service_type_info.as_ref().and_then(|info| info.id),
+            ),
+            (
+                "authorizer verification type",
+                self.verify_type_info.as_ref().and_then(|info| info.id),
+            ),
+            ("authorizer account status", self.account_status),
+            ("authorizer idc", self.idc),
+            ("authorizer register type", self.register_type),
+        ] {
+            if value.is_some_and(|value| value < 0) {
+                return Err(WechatError::Config(format!(
+                    "open platform {kind} cannot be negative"
+                )));
+            }
+        }
+        if let Some(business) = &self.business_info {
+            for (kind, value) in [
+                ("open_store", business.open_store),
+                ("open_scan", business.open_scan),
+                ("open_pay", business.open_pay),
+                ("open_card", business.open_card),
+                ("open_shake", business.open_shake),
+            ] {
+                if value.is_some_and(|value| !matches!(value, 0 | 1)) {
+                    return Err(WechatError::Config(format!(
+                        "open platform authorizer business {kind} must be 0 or 1"
+                    )));
+                }
+            }
+        }
+        if let Some(mini_program) = &self.mini_program_info {
+            if mini_program.visit_status.is_some_and(|status| status < 0) {
+                return Err(WechatError::Config(
+                    "open platform authorizer visit status cannot be negative".to_string(),
+                ));
+            }
+            for category in &mini_program.categories {
+                validate_open_platform_optional_text(
+                    "authorizer category first level",
+                    category.first.as_deref(),
+                    64,
+                )?;
+                validate_open_platform_optional_text(
+                    "authorizer category second level",
+                    category.second.as_deref(),
+                    64,
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformAuthorizerInfoResponse {
     #[serde(default)]
@@ -1658,6 +1949,32 @@ pub struct OpenPlatformAuthorizerInfoResponse {
     pub authorization_info: Option<OpenPlatformAuthorizationInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformAuthorizerInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "get base authorizer information",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.authorizer_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open platform authorizer response requires authorizer_info".to_string(),
+                )
+            })?
+            .validate()?;
+        self.authorization_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open platform authorizer response requires authorization_info".to_string(),
+                )
+            })?
+            .validate_summary()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1686,6 +2003,48 @@ pub struct OpenPlatformAuthorizersResponse {
     pub extra: Value,
 }
 
+impl OpenPlatformAuthorizersResponse {
+    pub fn validate_page(&self, offset: i64, count: i64) -> Result<()> {
+        ensure_open_platform_response_success(
+            "list base authorizers",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_component_page(offset, count)?;
+        let total_count = self.total_count.ok_or_else(|| {
+            WechatError::Config(
+                "open platform authorizer list response requires total_count".to_string(),
+            )
+        })?;
+        if total_count < 0
+            || self.list.len() > count as usize
+            || total_count < self.list.len() as i64
+        {
+            return Err(WechatError::Config(
+                "open platform authorizer list count is inconsistent".to_string(),
+            ));
+        }
+        let mut appids = std::collections::HashSet::with_capacity(self.list.len());
+        for authorizer in &self.list {
+            let appid = authorizer.authorizer_appid.as_deref().unwrap_or_default();
+            validate_open_platform_appid("authorizer appid", appid)?;
+            validate_open_platform_identifier(
+                "authorizer refresh token",
+                authorizer.refresh_token.as_deref().unwrap_or_default(),
+                512,
+            )?;
+            if authorizer.auth_time.is_none_or(|auth_time| auth_time <= 0) || !appids.insert(appid)
+            {
+                return Err(WechatError::Config(
+                    "open platform authorizer list requires unique appids and positive auth times"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenPlatformAuthorizerOptionResponse {
     #[serde(default)]
@@ -1700,6 +2059,30 @@ pub struct OpenPlatformAuthorizerOptionResponse {
     pub option_value: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenPlatformAuthorizerOptionResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_platform_response_success(
+            "get base authorizer option",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_platform_appid(
+            "authorizer appid",
+            self.authorizer_appid.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_platform_identifier(
+            "authorizer option name",
+            self.option_name.as_deref().unwrap_or_default(),
+            64,
+        )?;
+        validate_open_platform_identifier(
+            "authorizer option value",
+            self.option_value.as_deref().unwrap_or_default(),
+            1024,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2736,6 +3119,53 @@ fn validate_open_platform_appid(kind: &str, value: &str) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+fn validate_open_platform_component_credentials(
+    component_access_token: &str,
+    component_appid: &str,
+) -> Result<()> {
+    validate_open_platform_identifier("component access token", component_access_token, 512)?;
+    validate_open_platform_appid("component appid", component_appid)
+}
+
+fn validate_open_platform_component_option_request(
+    component_access_token: &str,
+    component_appid: &str,
+    authorizer_appid: &str,
+    option_name: &str,
+) -> Result<()> {
+    validate_open_platform_component_credentials(component_access_token, component_appid)?;
+    validate_open_platform_appid("authorizer appid", authorizer_appid)?;
+    validate_open_platform_identifier("authorizer option name", option_name, 64)
+}
+
+fn validate_open_platform_component_page(offset: i64, count: i64) -> Result<()> {
+    if offset < 0 || !(1..=500).contains(&count) {
+        return Err(WechatError::Config(
+            "open platform authorizer page requires a nonnegative offset and count from 1 to 500"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_expiry(kind: &str, expires_in: Option<i64>) -> Result<()> {
+    if expires_in.is_none_or(|expires_in| expires_in <= 0) {
+        return Err(WechatError::Config(format!(
+            "open platform {kind} response requires a positive expires_in"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_platform_token_response(
+    kind: &str,
+    token: Option<&str>,
+    expires_in: Option<i64>,
+) -> Result<()> {
+    validate_open_platform_identifier(kind, token.unwrap_or_default(), 512)?;
+    validate_open_platform_expiry(kind, expires_in)
 }
 
 fn validate_open_platform_callback_url(kind: &str, value: &str) -> Result<()> {
@@ -4333,6 +4763,7 @@ mod tests {
     };
 
     use super::{
+        validate_open_platform_component_option_request, validate_open_platform_component_page,
         AddTemplateFromDraftRequest, AuthorizerAccessTokenRequest, AuthorizerAccessTokenResponse,
         ComponentAccessTokenRequest, ComponentAccessTokenResponse, DeleteTemplateRequest,
         OpenPlatform, OpenPlatformAuthorizerAccountBasicInfoResponse,
@@ -4442,6 +4873,114 @@ mod tests {
         assert_eq!(query_authorization.func_info[0].extra["scope_revision"], 2);
         assert_eq!(query_authorization.extra["authorization_revision"], 3);
         assert_eq!(query_auth.extra["request_id"], "query-auth-1");
+    }
+
+    #[test]
+    fn validates_open_platform_component_base_request_matrix() {
+        assert!(ComponentAccessTokenRequest {
+            component_appid: "wx-component".to_string(),
+            component_appsecret: "secret".to_string(),
+            component_verify_ticket: "ticket".to_string(),
+        }
+        .validate()
+        .is_ok());
+        assert!(ComponentAccessTokenRequest {
+            component_appid: " ".to_string(),
+            component_appsecret: "secret".to_string(),
+            component_verify_ticket: "ticket".to_string(),
+        }
+        .validate()
+        .is_err());
+        assert!(AuthorizerAccessTokenRequest {
+            component_appid: "wx-component".to_string(),
+            authorizer_appid: "wx-authorizer".to_string(),
+            authorizer_refresh_token: "refresh".to_string(),
+        }
+        .validate()
+        .is_ok());
+        assert!(validate_open_platform_component_page(-1, 100).is_err());
+        assert!(validate_open_platform_component_page(0, 501).is_err());
+        assert!(validate_open_platform_component_option_request(
+            "component-token",
+            "wx-component",
+            "wx-authorizer",
+            "voice_recognize",
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn validates_open_platform_component_base_response_matrix() {
+        let token: ComponentAccessTokenResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "component_access_token": "component-token",
+            "expires_in": 7200
+        }))
+        .unwrap();
+        assert!(token.validate().is_ok());
+
+        let query: QueryAuthResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "authorizer_access_token": "authorizer-token",
+                "expires_in": 7200,
+                "authorizer_refresh_token": "refresh",
+                "func_info": [{
+                    "funcscope_category": { "id": 18 },
+                    "confirm_info": {
+                        "need_confirm": 1,
+                        "already_confirm": 0,
+                        "can_confirm": 1
+                    }
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(query.validate().is_ok());
+
+        let duplicate_scope: QueryAuthResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "authorizer_access_token": "authorizer-token",
+                "expires_in": 7200,
+                "authorizer_refresh_token": "refresh",
+                "func_info": [
+                    { "funcscope_category": { "id": 18 } },
+                    { "funcscope_category": { "id": 18 } }
+                ]
+            }
+        }))
+        .unwrap();
+        assert!(duplicate_scope.validate().is_err());
+
+        let list: OpenPlatformAuthorizersResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total_count": 2,
+            "list": [
+                {
+                    "authorizer_appid": "wx-authorizer-a",
+                    "refresh_token": "refresh-a",
+                    "auth_time": 1800000000
+                },
+                {
+                    "authorizer_appid": "wx-authorizer-b",
+                    "refresh_token": "refresh-b",
+                    "auth_time": 1800000001
+                }
+            ]
+        }))
+        .unwrap();
+        assert!(list.validate_page(0, 100).is_ok());
+        assert!(list.validate_page(0, 1).is_err());
+
+        let api_error: PreauthCodeResponse = serde_json::from_value(json!({
+            "errcode": 40001,
+            "errmsg": "invalid credential"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
     }
 
     #[test]

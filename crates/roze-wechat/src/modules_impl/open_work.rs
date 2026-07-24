@@ -36,12 +36,18 @@ impl OpenWork {
         component_access_token: impl Into<String>,
         component_appid: impl Into<String>,
     ) -> Result<OpenWorkComponentPreauthCodeResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_create_preauthcode",
-            json!({ "component_appid": component_appid.into() }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        validate_open_work_component_credentials(&component_access_token, &component_appid)?;
+        let response: OpenWorkComponentPreauthCodeResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_create_preauthcode",
+                json!({ "component_appid": component_appid }),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn query_component_auth(
@@ -50,15 +56,23 @@ impl OpenWork {
         component_appid: impl Into<String>,
         authorization_code: impl Into<String>,
     ) -> Result<OpenWorkComponentQueryAuthResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_query_auth",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorization_code": authorization_code.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorization_code = authorization_code.into();
+        validate_open_work_component_credentials(&component_access_token, &component_appid)?;
+        validate_open_work_auth_identifier("component authorization code", &authorization_code)?;
+        let response: OpenWorkComponentQueryAuthResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_query_auth",
+                json!({
+                    "component_appid": component_appid,
+                    "authorization_code": authorization_code,
+                }),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_component_authorizer_info(
@@ -67,15 +81,23 @@ impl OpenWork {
         component_appid: impl Into<String>,
         authorizer_appid: impl Into<String>,
     ) -> Result<OpenWorkComponentAuthorizerInfoResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_info",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorizer_appid = authorizer_appid.into();
+        validate_open_work_component_credentials(&component_access_token, &component_appid)?;
+        validate_open_work_component_appid("authorizer appid", &authorizer_appid)?;
+        let response: OpenWorkComponentAuthorizerInfoResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_get_authorizer_info",
+                json!({
+                    "component_appid": component_appid,
+                    "authorizer_appid": authorizer_appid,
+                }),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn get_component_authorizers(
@@ -85,16 +107,23 @@ impl OpenWork {
         offset: i64,
         count: i64,
     ) -> Result<OpenWorkComponentAuthorizersResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_list",
-            json!({
-                "component_appid": component_appid.into(),
-                "offset": offset,
-                "count": count,
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        validate_open_work_component_credentials(&component_access_token, &component_appid)?;
+        validate_open_work_component_page(offset, count)?;
+        let response: OpenWorkComponentAuthorizersResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_get_authorizer_list",
+                json!({
+                    "component_appid": component_appid,
+                    "offset": offset,
+                    "count": count,
+                }),
+            )
+            .await?;
+        response.validate_page(offset, count)?;
+        Ok(response)
     }
 
     pub async fn get_component_authorizer_option(
@@ -104,16 +133,29 @@ impl OpenWork {
         authorizer_appid: impl Into<String>,
         option_name: impl Into<String>,
     ) -> Result<OpenWorkComponentAuthorizerOptionResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_get_authorizer_option",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-                "option_name": option_name.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorizer_appid = authorizer_appid.into();
+        let option_name = option_name.into();
+        validate_open_work_component_option_request(
+            &component_access_token,
+            &component_appid,
+            &authorizer_appid,
+            &option_name,
+        )?;
+        let response: OpenWorkComponentAuthorizerOptionResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_get_authorizer_option",
+                json!({
+                    "component_appid": component_appid,
+                    "authorizer_appid": authorizer_appid,
+                    "option_name": option_name,
+                }),
+            )
+            .await?;
+        response.validate()?;
+        Ok(response)
     }
 
     pub async fn set_component_authorizer_option(
@@ -124,17 +166,32 @@ impl OpenWork {
         option_name: impl Into<String>,
         option_value: impl Into<String>,
     ) -> Result<OpenWorkStatusResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/api_set_authorizer_option",
-            json!({
-                "component_appid": component_appid.into(),
-                "authorizer_appid": authorizer_appid.into(),
-                "option_name": option_name.into(),
-                "option_value": option_value.into(),
-            }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        let authorizer_appid = authorizer_appid.into();
+        let option_name = option_name.into();
+        let option_value = option_value.into();
+        validate_open_work_component_option_request(
+            &component_access_token,
+            &component_appid,
+            &authorizer_appid,
+            &option_name,
+        )?;
+        validate_open_work_component_identifier("authorizer option value", &option_value, 1024)?;
+        let response: OpenWorkStatusResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/api_set_authorizer_option",
+                json!({
+                    "component_appid": component_appid,
+                    "authorizer_appid": authorizer_appid,
+                    "option_name": option_name,
+                    "option_value": option_value,
+                }),
+            )
+            .await?;
+        response.validate_for("open-work set component authorizer option")?;
+        Ok(response)
     }
 
     pub async fn clear_component_quota(
@@ -142,12 +199,18 @@ impl OpenWork {
         component_access_token: impl Into<String>,
         component_appid: impl Into<String>,
     ) -> Result<OpenWorkStatusResponse> {
-        self.post_component_json(
-            component_access_token,
-            "cgi-bin/component/clear_quota",
-            json!({ "component_appid": component_appid.into() }),
-        )
-        .await
+        let component_access_token = component_access_token.into();
+        let component_appid = component_appid.into();
+        validate_open_work_component_credentials(&component_access_token, &component_appid)?;
+        let response: OpenWorkStatusResponse = self
+            .post_component_json(
+                component_access_token,
+                "cgi-bin/component/clear_quota",
+                json!({ "component_appid": component_appid }),
+            )
+            .await?;
+        response.validate_for("open-work clear component quota")?;
+        Ok(response)
     }
 
     pub async fn provider_token(
@@ -861,6 +924,22 @@ pub struct OpenWorkComponentPreauthCodeResponse {
     pub extra: Value,
 }
 
+impl OpenWorkComponentPreauthCodeResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work create component pre-authorization code",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_component_identifier(
+            "pre-authorization code",
+            self.pre_auth_code.as_deref().unwrap_or_default(),
+            512,
+        )?;
+        validate_open_work_component_expiry("pre-authorization code", self.expires_in)
+    }
+}
+
 pub type OpenWorkComponentAuthorizationInfo =
     crate::modules::open_platform::OpenPlatformAuthorizationInfo;
 pub type OpenWorkComponentAuthorizerInfo =
@@ -878,6 +957,25 @@ pub struct OpenWorkComponentQueryAuthResponse {
     pub extra: Value,
 }
 
+impl OpenWorkComponentQueryAuthResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work query component authorization",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.authorization_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work component authorization response requires authorization_info"
+                        .to_string(),
+                )
+            })?
+            .validate_query()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkComponentAuthorizerInfoResponse {
     #[serde(default)]
@@ -890,6 +988,33 @@ pub struct OpenWorkComponentAuthorizerInfoResponse {
     pub authorization_info: Option<OpenWorkComponentAuthorizationInfo>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenWorkComponentAuthorizerInfoResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get component authorizer information",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        self.authorizer_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work component authorizer response requires authorizer_info".to_string(),
+                )
+            })?
+            .validate()?;
+        self.authorization_info
+            .as_ref()
+            .ok_or_else(|| {
+                WechatError::Config(
+                    "open-work component authorizer response requires authorization_info"
+                        .to_string(),
+                )
+            })?
+            .validate_summary()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -918,6 +1043,48 @@ pub struct OpenWorkComponentAuthorizersResponse {
     pub extra: Value,
 }
 
+impl OpenWorkComponentAuthorizersResponse {
+    pub fn validate_page(&self, offset: i64, count: i64) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work list component authorizers",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_component_page(offset, count)?;
+        let total_count = self.total_count.ok_or_else(|| {
+            WechatError::Config(
+                "open-work component authorizer list requires total_count".to_string(),
+            )
+        })?;
+        if total_count < 0
+            || self.list.len() > count as usize
+            || total_count < self.list.len() as i64
+        {
+            return Err(WechatError::Config(
+                "open-work component authorizer list count is inconsistent".to_string(),
+            ));
+        }
+        let mut appids = HashSet::with_capacity(self.list.len());
+        for authorizer in &self.list {
+            let appid = authorizer.authorizer_appid.as_deref().unwrap_or_default();
+            validate_open_work_component_appid("authorizer appid", appid)?;
+            validate_open_work_component_identifier(
+                "authorizer refresh token",
+                authorizer.refresh_token.as_deref().unwrap_or_default(),
+                512,
+            )?;
+            if authorizer.auth_time.is_none_or(|auth_time| auth_time <= 0) || !appids.insert(appid)
+            {
+                return Err(WechatError::Config(
+                    "open-work component authorizers require unique appids and positive auth times"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenWorkComponentAuthorizerOptionResponse {
     #[serde(default)]
@@ -932,6 +1099,30 @@ pub struct OpenWorkComponentAuthorizerOptionResponse {
     pub option_value: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "Value::is_null")]
     pub extra: Value,
+}
+
+impl OpenWorkComponentAuthorizerOptionResponse {
+    pub fn validate(&self) -> Result<()> {
+        ensure_open_work_response_success(
+            "open-work get component authorizer option",
+            self.errcode,
+            self.errmsg.as_deref(),
+        )?;
+        validate_open_work_component_appid(
+            "authorizer appid",
+            self.authorizer_appid.as_deref().unwrap_or_default(),
+        )?;
+        validate_open_work_component_identifier(
+            "authorizer option name",
+            self.option_name.as_deref().unwrap_or_default(),
+            64,
+        )?;
+        validate_open_work_component_identifier(
+            "authorizer option value",
+            self.option_value.as_deref().unwrap_or_default(),
+            1024,
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -3182,6 +3373,67 @@ fn ensure_open_work_response_success(
     Ok(())
 }
 
+fn validate_open_work_component_identifier(kind: &str, value: &str, maximum: usize) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
+        return Err(WechatError::Config(format!(
+            "open-work component {kind} must contain 1 to {maximum} printable UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_component_appid(kind: &str, value: &str) -> Result<()> {
+    if !(3..=64).contains(&value.len())
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(WechatError::Config(format!(
+            "open-work component {kind} must contain 3 to 64 ASCII letters, digits, underscores, or hyphens"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_open_work_component_credentials(
+    component_access_token: &str,
+    component_appid: &str,
+) -> Result<()> {
+    validate_open_work_component_identifier("access token", component_access_token, 512)?;
+    validate_open_work_component_appid("appid", component_appid)
+}
+
+fn validate_open_work_component_option_request(
+    component_access_token: &str,
+    component_appid: &str,
+    authorizer_appid: &str,
+    option_name: &str,
+) -> Result<()> {
+    validate_open_work_component_credentials(component_access_token, component_appid)?;
+    validate_open_work_component_appid("authorizer appid", authorizer_appid)?;
+    validate_open_work_component_identifier("authorizer option name", option_name, 64)
+}
+
+fn validate_open_work_component_page(offset: i64, count: i64) -> Result<()> {
+    if offset < 0 || !(1..=500).contains(&count) {
+        return Err(WechatError::Config(
+            "open-work component authorizer page requires a nonnegative offset and count from 1 to 500"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_open_work_component_expiry(kind: &str, expires_in: Option<i64>) -> Result<()> {
+    if expires_in.is_none_or(|expires_in| expires_in <= 0) {
+        return Err(WechatError::Config(format!(
+            "open-work component {kind} response requires a positive expires_in"
+        )));
+    }
+    Ok(())
+}
+
 fn validate_open_work_auth_identifier(kind: &str, value: &str) -> Result<()> {
     let value = value.trim();
     if value.is_empty() || value.len() > 512 || value.chars().any(char::is_control) {
@@ -4117,6 +4369,87 @@ mod tests {
         assert_eq!(option.option_name.as_deref(), Some("voice_recognize"));
         assert_eq!(option.option_value.as_deref(), Some("1"));
         assert_eq!(option.extra["request_id"], "component-option");
+    }
+
+    #[test]
+    fn validates_open_work_component_base_contract_matrix() {
+        assert!(
+            validate_open_work_component_credentials("component-token", "wx-component",).is_ok()
+        );
+        assert!(validate_open_work_component_credentials("", "wx-component").is_err());
+        assert!(validate_open_work_component_page(0, 500).is_ok());
+        assert!(validate_open_work_component_page(-1, 100).is_err());
+
+        let preauth: OpenWorkComponentPreauthCodeResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "pre_auth_code": "pre-auth",
+            "expires_in": 1200
+        }))
+        .unwrap();
+        assert!(preauth.validate().is_ok());
+
+        let query: OpenWorkComponentQueryAuthResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "authorizer_access_token": "authorizer-token",
+                "expires_in": 7200,
+                "authorizer_refresh_token": "refresh",
+                "func_info": [{ "funcscope_category": { "id": 18 } }]
+            }
+        }))
+        .unwrap();
+        assert!(query.validate().is_ok());
+
+        let info: OpenWorkComponentAuthorizerInfoResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "authorizer_info": {
+                "nick_name": "Corp App",
+                "service_type_info": { "id": 2 },
+                "business_info": { "open_store": 1 }
+            },
+            "authorization_info": {
+                "authorizer_appid": "wx-authorizer",
+                "func_info": []
+            }
+        }))
+        .unwrap();
+        assert!(info.validate().is_ok());
+
+        let duplicate_list: OpenWorkComponentAuthorizersResponse = serde_json::from_value(json!({
+            "errcode": 0,
+            "total_count": 2,
+            "list": [
+                {
+                    "authorizer_appid": "wx-authorizer",
+                    "refresh_token": "refresh-a",
+                    "auth_time": 1800000000
+                },
+                {
+                    "authorizer_appid": "wx-authorizer",
+                    "refresh_token": "refresh-b",
+                    "auth_time": 1800000001
+                }
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_list.validate_page(0, 100).is_err());
+
+        let malformed_option: OpenWorkComponentAuthorizerOptionResponse =
+            serde_json::from_value(json!({
+                "errcode": 0,
+                "authorizer_appid": "wx-authorizer",
+                "option_name": "voice_recognize"
+            }))
+            .unwrap();
+        assert!(malformed_option.validate().is_err());
+
+        let api_error: OpenWorkComponentPreauthCodeResponse = serde_json::from_value(json!({
+            "errcode": 40001,
+            "errmsg": "invalid credential"
+        }))
+        .unwrap();
+        assert!(matches!(api_error.validate(), Err(WechatError::Api { .. })));
     }
 
     #[test]

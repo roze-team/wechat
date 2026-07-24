@@ -165,8 +165,10 @@ Implemented on 2026-07-21 in Payment refund-contract depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
    Release/audit, privacy, domain, tester, and permanent-material workflows
    now have production response guards. Aggregate-account and authorizer
-   Official Account workflow depth is also covered; continue reviewing newly
-   added upstream methods and semantic DTO helpers.
+   Official Account workflow depth is also covered. Component/base token,
+   pre-authorization, authorization exchange, authorizer detail/list, option,
+   and quota workflows now have production boundary guards; continue reviewing
+   newly added upstream methods and semantic DTO helpers.
 
 Implemented on 2026-07-24 in Open Platform authorizer account depth:
 
@@ -263,9 +265,34 @@ Implemented on 2026-07-24 in Official Account publish/material response depth:
 
 6. Open Work depth:
    exact endpoint coverage is now green against the current PowerWeChat scan.
-   Continue DTO normalization for component/base authorization helpers. The
-   complete `license` and `suitAuth` surfaces now have production
-   request/response guards, and known `server` callbacks are validated.
+   The complete `license`, `suitAuth`, and component/base authorization
+   surfaces now have production request/response guards, and known `server`
+   callbacks are validated. Continue monitoring new upstream methods and
+   callback variants.
+
+Implemented on 2026-07-24 in shared component/base authorization depth:
+
+- Open Platform component-token, pre-authorization, authorization exchange,
+  authorizer-token, detail/list, option mutation/query, and quota-reset exits
+  now reject invalid credentials and requests before network I/O and validate
+  every API success response;
+- compatibility base/authorizer method pairs delegate to one validated
+  implementation, removing duplicate unchecked transport paths;
+- Open Work's seven component/base exits apply the same production boundaries
+  to component credentials, authorization codes, authorizer appids, pagination,
+  option names/values, status responses, and aggregate result payloads;
+- shared authorization aggregates require authorizer identity, usable access
+  and refresh tokens for exchanges, positive expiry, unique nonnegative scope
+  IDs, and binary confirmation flags;
+- authorizer detail responses validate account identity metadata, safe image
+  URLs, nonnegative account classifications, binary business capabilities,
+  categories, and visit status while preserving unknown extension fields;
+- authorizer pages enforce the documented 1-to-500 count, nonnegative offsets,
+  count consistency, unique appids, refresh tokens, and positive authorization
+  times; option responses require complete identity/name/value triples;
+- request/response matrices cover blank credentials, malformed appids, invalid
+  pages, duplicate scopes and authorizers, missing option values, API errors,
+  and valid production aggregates on both platform facades.
 
 Implemented on 2026-07-24 in Open Work suite authorization/server depth:
 
